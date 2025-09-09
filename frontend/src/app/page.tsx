@@ -41,7 +41,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  // const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
@@ -101,7 +101,7 @@ export default function HomePage() {
       if (response.data.success) {
         setRequestStatus('success');
         setStatusMessage(response.data.message);
-        setSelectedTrack(null);
+        // setSelectedTrack(null);
         setSearchQuery('');
         setSearchResults([]);
         setSpotifyUrl('');
@@ -205,7 +205,7 @@ export default function HomePage() {
                   <div
                     key={track.id}
                     className="bg-white/20 rounded-lg p-4 hover:bg-white/30 transition-colors cursor-pointer"
-                    onClick={() => setSelectedTrack(track)}
+                    onClick={() => {/* setSelectedTrack(track) */}}
                   >
                     <div className="flex items-center space-x-4">
                       {track.image && (

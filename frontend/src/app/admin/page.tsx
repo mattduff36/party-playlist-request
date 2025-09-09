@@ -96,8 +96,9 @@ export default function AdminPage() {
       fetchRequests();
       fetchStats();
       fetchPlaybackState();
-    } catch (error: any) {
-      setLoginError(error.response?.data?.error || 'Login failed');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setLoginError(errorMessage);
     } finally {
       setIsLoggingIn(false);
     }
