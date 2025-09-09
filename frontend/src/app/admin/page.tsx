@@ -293,19 +293,47 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow-sm border-b">
+        <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">🎛️ DJ Control Panel</h1>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Logout
-          </button>
+          <div className="flex space-x-3">
+            <a
+              href="/admin/spotify-setup"
+              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+            >
+              🎵 Spotify Setup
+            </a>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Spotify Connection Status */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-3 ${stats?.spotify_connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className="font-semibold">
+                Spotify: {stats?.spotify_connected ? 'Connected' : 'Not Connected'}
+              </span>
+            </div>
+            {!stats?.spotify_connected && (
+              <a
+                href="/admin/spotify-setup"
+                className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded text-sm"
+              >
+                Connect Now
+              </a>
+            )}
+          </div>
+        </div>
+
         {/* Stats Dashboard */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
