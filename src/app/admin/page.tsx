@@ -197,12 +197,17 @@ export default function AdminPanel() {
         fetch('/api/admin/stats', { headers })
       ]);
 
-      // Check for authentication errors
-      if (requestsRes.status === 401 || queueRes.status === 401 || 
-          settingsRes.status === 401 || statsRes.status === 401) {
+      // Check for authentication errors (but not Spotify-related 401s)
+      if (requestsRes.status === 401 || settingsRes.status === 401 || statsRes.status === 401) {
         localStorage.removeItem('admin_token');
         setIsAuthenticated(false);
         return;
+      }
+      
+      // Handle Spotify queue 401 separately (don't log out user)
+      if (queueRes.status === 401) {
+        setSpotifyConnected(false);
+        setPlaybackState(null);
       }
 
       if (requestsRes.ok) {
@@ -213,6 +218,10 @@ export default function AdminPanel() {
       if (queueRes.ok) {
         const queueData = await queueRes.json();
         setPlaybackState(queueData);
+        setSpotifyConnected(true);
+      } else if (queueRes.status !== 401) {
+        // Only set disconnected if it's not a 401 (already handled above)
+        setSpotifyConnected(false);
       }
 
       if (settingsRes.ok) {
