@@ -44,6 +44,16 @@ class SpotifyService {
     }
   }
 
+  async clearTokens(): Promise<void> {
+    try {
+      const { getPool } = await import('./db');
+      const client = getPool();
+      await client.query('DELETE FROM spotify_auth WHERE id = 1');
+    } catch (error) {
+      console.error('Error clearing Spotify tokens:', error);
+    }
+  }
+
   generatePKCE() {
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
     const codeChallenge = crypto
@@ -167,6 +177,13 @@ class SpotifyService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Spotify token refresh failed:', response.status, errorText);
+      
+      // If refresh token is invalid/revoked, clear stored auth
+      if (response.status === 400 && errorText.includes('invalid_grant')) {
+        console.log('Clearing invalid Spotify tokens');
+        await this.clearTokens();
+      }
+      
       throw new Error(`Failed to refresh access token: ${response.status} ${errorText}`);
     }
 

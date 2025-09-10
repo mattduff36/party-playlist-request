@@ -1,0 +1,85 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - heading "DJ Admin" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Party Control Center
+      - navigation [ref=e7]:
+        - button "Overview" [ref=e8]:
+          - img [ref=e9]
+          - text: Overview
+        - button "Song Requests" [ref=e13]:
+          - img [ref=e14]
+          - text: Song Requests
+        - button "Spotify Queue" [ref=e19]:
+          - img [ref=e20]
+          - text: Spotify Queue
+        - button "Event Settings" [ref=e23]:
+          - img [ref=e24]
+          - text: Event Settings
+      - link "Display Screen" [ref=e28] [cursor=pointer]:
+        - /url: /display
+        - img [ref=e29] [cursor=pointer]
+        - text: Display Screen
+        - img [ref=e31] [cursor=pointer]
+    - generic [ref=e35]:
+      - banner [ref=e36]:
+        - generic [ref=e37]:
+          - heading "Party DJ Admin" [level=1] [ref=e40]
+          - generic [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e44]: Spotify Disconnected
+              - button "Connect" [ref=e45]
+            - button "Refresh" [ref=e46]:
+              - img [ref=e47]
+            - button "Logout" [ref=e52]:
+              - img [ref=e53]
+      - main [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e60]:
+            - generic [ref=e62]:
+              - heading "Spotify Not Connected" [level=3] [ref=e63]
+              - paragraph [ref=e64]: Connect your Spotify account to control playback and manage the queue.
+            - button "Connect Spotify" [ref=e65]
+          - generic [ref=e66]:
+            - generic [ref=e68]:
+              - generic [ref=e69]:
+                - paragraph [ref=e70]: Total Requests
+                - paragraph [ref=e71]: "0"
+              - img [ref=e72]
+            - generic [ref=e78]:
+              - generic [ref=e79]:
+                - paragraph [ref=e80]: Pending
+                - paragraph [ref=e81]: "0"
+              - img [ref=e82]
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - paragraph [ref=e88]: Approved
+                - paragraph [ref=e89]: "0"
+              - img [ref=e90]
+            - generic [ref=e94]:
+              - generic [ref=e95]:
+                - paragraph [ref=e96]: Today
+                - paragraph [ref=e97]: "0"
+              - img [ref=e98]
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - heading "Now Playing" [level=2] [ref=e104]
+              - generic [ref=e105]:
+                - button [ref=e106]:
+                  - img [ref=e107]
+                - button [ref=e109]:
+                  - img [ref=e110]
+            - generic [ref=e112]:
+              - img [ref=e113]
+              - paragraph [ref=e117]: No music currently playing
+          - generic [ref=e119]:
+            - heading "Recent Requests" [level=2] [ref=e120]
+            - button "View All →" [ref=e121]
+  - button "Open Next.js Dev Tools" [ref=e127] [cursor=pointer]:
+    - img [ref=e128] [cursor=pointer]
+  - alert [ref=e131]
+```

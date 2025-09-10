@@ -30,7 +30,14 @@ export async function GET(req: NextRequest) {
       try {
         const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
         currentTrack = {
-          ...playbackState.item,
+          id: playbackState.item.id,
+          uri: playbackState.item.uri,
+          name: playbackState.item.name,
+          artists: playbackState.item.artists.map((artist: any) => artist.name),
+          album: playbackState.item.album.name,
+          duration_ms: playbackState.item.duration_ms,
+          explicit: playbackState.item.explicit,
+          external_urls: playbackState.item.external_urls,
           image_url: albumArt,
           progress_ms: playbackState.progress_ms,
           is_playing: playbackState.is_playing
@@ -38,7 +45,14 @@ export async function GET(req: NextRequest) {
       } catch (artError) {
         // Fallback without album art
         currentTrack = {
-          ...playbackState.item,
+          id: playbackState.item.id,
+          uri: playbackState.item.uri,
+          name: playbackState.item.name,
+          artists: playbackState.item.artists.map((artist: any) => artist.name),
+          album: playbackState.item.album.name,
+          duration_ms: playbackState.item.duration_ms,
+          explicit: playbackState.item.explicit,
+          external_urls: playbackState.item.external_urls,
           image_url: null,
           progress_ms: playbackState.progress_ms,
           is_playing: playbackState.is_playing
@@ -54,13 +68,27 @@ export async function GET(req: NextRequest) {
           try {
             const albumArt = await spotifyService.getAlbumArt(item.uri);
             return {
-              ...item,
+              id: item.id,
+              uri: item.uri,
+              name: item.name,
+              artists: item.artists.map((artist: any) => artist.name),
+              album: item.album.name,
+              duration_ms: item.duration_ms,
+              explicit: item.explicit,
+              external_urls: item.external_urls,
               image_url: albumArt
             };
           } catch (artError) {
             // Fallback without album art
             return {
-              ...item,
+              id: item.id,
+              uri: item.uri,
+              name: item.name,
+              artists: item.artists.map((artist: any) => artist.name),
+              album: item.album.name,
+              duration_ms: item.duration_ms,
+              explicit: item.explicit,
+              external_urls: item.external_urls,
               image_url: null
             };
           }
