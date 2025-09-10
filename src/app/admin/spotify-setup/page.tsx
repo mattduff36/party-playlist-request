@@ -135,8 +135,22 @@ export default function SpotifySetupPage() {
 
     console.log('Callback data:', { code, state, storedState, codeVerifier: !!codeVerifier });
 
+    // If no stored state, this might be a fresh page load after redirect
+    if (!storedState) {
+      console.log('No stored state found - this might be a page refresh after redirect');
+      setError('Connection session expired. Please try connecting again.');
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, '/admin/spotify-setup');
+      return;
+    }
+
     if (state !== storedState) {
-      setError(`Invalid state parameter. Expected: ${storedState}, Got: ${state}`);
+      console.log('State mismatch:', { expected: storedState, received: state });
+      setError(`Invalid state parameter. Please try connecting again.`);
+      // Clean up localStorage and URL
+      localStorage.removeItem('spotify_code_verifier');
+      localStorage.removeItem('spotify_state');
+      window.history.replaceState({}, document.title, '/admin/spotify-setup');
       return;
     }
 
@@ -156,7 +170,7 @@ export default function SpotifySetupPage() {
       });
 
       console.log('Spotify callback response:', response.data);
-      setSuccess('Spotify authentication successful!');
+      setSuccess('Spotify authentication successful! Redirecting back to admin panel...');
       
       // Clean up localStorage
       localStorage.removeItem('spotify_code_verifier');
@@ -166,7 +180,12 @@ export default function SpotifySetupPage() {
       window.history.replaceState({}, document.title, '/admin/spotify-setup');
       
       // Refresh status
-      fetchSpotifyStatus(token);
+      await fetchSpotifyStatus(token);
+      
+      // Redirect back to admin after a short delay to show success message
+      setTimeout(() => {
+        router.push('/admin');
+      }, 2000);
     } catch (error: any) {
       console.error('Spotify callback error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to complete Spotify authentication';
@@ -220,13 +239,15 @@ export default function SpotifySetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gray-900">
+      <div className="bg-gray-800 shadow-sm border-b border-gray-700">
         <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-black">🎵 Spotify Setup</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center">
+            🎵 Spotify Setup
+          </h1>
           <button
             onClick={() => router.push('/admin')}
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded text-sm"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
           >
             Back to Admin
           </button>
@@ -236,40 +257,40 @@ export default function SpotifySetupPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Status Messages */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <div className="bg-red-900/20 border border-red-600 text-red-300 px-4 py-3 rounded-lg mb-6">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+          <div className="bg-green-900/20 border border-green-600 text-green-300 px-4 py-3 rounded-lg mb-6">
             {success}
           </div>
         )}
 
         {/* Spotify Connection Status */}
-        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-          <h2 className="text-lg sm:text-xl font-bold mb-4 text-black">Spotify Connection Status</h2>
+        <div className="bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 border border-gray-700">
+          <h2 className="text-lg sm:text-xl font-bold mb-4 text-white">Spotify Connection Status</h2>
           
           {spotifyStatus?.authenticated ? (
             <div className="space-y-4">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                <span className="text-green-700 font-semibold">Connected to Spotify</span>
+                <span className="text-green-400 font-semibold">Connected to Spotify</span>
               </div>
 
               {spotifyStatus.user && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2 text-black">Account Information</h3>
-                  <p className="text-black"><strong>Name:</strong> {spotifyStatus.user.display_name}</p>
-                  <p className="text-black"><strong>Email:</strong> {spotifyStatus.user.email}</p>
-                  <p className="text-black"><strong>Plan:</strong> {spotifyStatus.user.product}</p>
+                <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                  <h3 className="font-semibold mb-2 text-white">Account Information</h3>
+                  <p className="text-gray-300"><strong>Name:</strong> {spotifyStatus.user.display_name}</p>
+                  <p className="text-gray-300"><strong>Email:</strong> {spotifyStatus.user.email}</p>
+                  <p className="text-gray-300"><strong>Plan:</strong> {spotifyStatus.user.product}</p>
                 </div>
               )}
 
               <button
                 onClick={disconnectSpotify}
-                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
               >
                 Disconnect Spotify
               </button>
@@ -278,24 +299,24 @@ export default function SpotifySetupPage() {
             <div className="space-y-4">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
-                <span className="text-red-700 font-semibold">Not connected to Spotify</span>
+                <span className="text-red-400 font-semibold">Not connected to Spotify</span>
               </div>
 
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2 text-black">⚠️ Before Connecting:</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm text-black">
+              <div className="bg-yellow-900/20 border border-yellow-600 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2 text-yellow-300">⚠️ Before Connecting:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-300">
                   <li>Make sure you have created a Spotify Developer App</li>
                   <li>Verify your Client ID and Client Secret are set in Vercel</li>
-                  <li className="break-all">Ensure the redirect URI matches: <code className="bg-gray-200 px-1 rounded text-xs">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
+                  <li className="break-all">Ensure the redirect URI matches: <code className="bg-gray-700 px-1 rounded text-xs text-gray-200">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
                   <li>You need Spotify Premium for full playback control features</li>
-                  <li className="text-blue-600">📱 <strong>Mobile users:</strong> The connection will redirect you to Spotify and back</li>
+                  <li className="text-blue-400">📱 <strong>Mobile users:</strong> The connection will redirect you to Spotify and back</li>
                 </ul>
               </div>
 
               <button
                 onClick={startSpotifyAuth}
                 disabled={isLoading}
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded"
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
               >
                 {isLoading ? 'Connecting...' : 'Connect Spotify Account'}
               </button>
@@ -305,28 +326,28 @@ export default function SpotifySetupPage() {
 
         {/* Available Devices */}
         {spotifyStatus?.devices && spotifyStatus.devices.length > 0 && (
-          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-            <h2 className="text-lg sm:text-xl font-bold mb-4 text-black">Available Devices</h2>
+          <div className="bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 border border-gray-700">
+            <h2 className="text-lg sm:text-xl font-bold mb-4 text-white">Available Devices</h2>
             <div className="grid gap-4">
               {spotifyStatus.devices.map((device) => (
                 <div
                   key={device.id}
                   className={`p-4 rounded-lg border ${
-                    device.is_active ? 'border-green-500 bg-green-50' : 'border-gray-300'
+                    device.is_active ? 'border-green-500 bg-green-900/20' : 'border-gray-600 bg-gray-700'
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                      <h3 className="font-semibold text-black">{device.name}</h3>
-                      <p className="text-gray-800 text-sm">{device.type}</p>
+                      <h3 className="font-semibold text-white">{device.name}</h3>
+                      <p className="text-gray-300 text-sm">{device.type}</p>
                     </div>
                     <div className="text-left sm:text-right">
                       <div className={`px-2 py-1 rounded text-xs ${
-                        device.is_active ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'
+                        device.is_active ? 'bg-green-600 text-green-100' : 'bg-gray-600 text-gray-200'
                       }`}>
                         {device.is_active ? 'Active' : 'Inactive'}
                       </div>
-                      <p className="text-sm text-gray-700 mt-1">Volume: {device.volume_percent}%</p>
+                      <p className="text-sm text-gray-400 mt-1">Volume: {device.volume_percent}%</p>
                     </div>
                   </div>
                 </div>
@@ -337,13 +358,13 @@ export default function SpotifySetupPage() {
 
         {/* Playlist Management */}
         {spotifyStatus?.authenticated && (
-          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 border border-gray-700">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <h2 className="text-lg sm:text-xl font-bold text-black">Party Playlists</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-white">Party Playlists</h2>
               <button
                 onClick={createPartyPlaylist}
                 disabled={isLoading}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded text-sm"
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
               >
                 Create New Playlist
               </button>
@@ -352,17 +373,17 @@ export default function SpotifySetupPage() {
             {playlists.length > 0 ? (
               <div className="grid gap-4">
                 {playlists.map((playlist) => (
-                  <div key={playlist.id} className="p-4 border rounded-lg">
+                  <div key={playlist.id} className="p-4 border border-gray-600 rounded-lg bg-gray-700">
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-black">{playlist.name}</h3>
-                        <p className="text-gray-800 text-sm">{playlist.description}</p>
-                        <p className="text-gray-700 text-xs mt-1">
+                        <h3 className="font-semibold text-white">{playlist.name}</h3>
+                        <p className="text-gray-300 text-sm">{playlist.description}</p>
+                        <p className="text-gray-400 text-xs mt-1">
                           {playlist.tracks_total} tracks • {playlist.public ? 'Public' : 'Private'}
                         </p>
                       </div>
                       <div className="text-left sm:text-right">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all text-black">
+                        <code className="text-xs bg-gray-600 px-2 py-1 rounded break-all text-gray-200">
                           {playlist.id}
                         </code>
                       </div>
@@ -371,7 +392,7 @@ export default function SpotifySetupPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-black text-center py-8">
+              <p className="text-gray-400 text-center py-8">
                 No playlists found. Create one to get started!
               </p>
             )}
@@ -379,12 +400,12 @@ export default function SpotifySetupPage() {
         )}
 
         {/* Setup Instructions */}
-        <div className="bg-blue-50 rounded-lg p-4 sm:p-6 mt-6">
-          <h2 className="text-lg sm:text-xl font-bold mb-4 text-black">📋 Setup Instructions</h2>
-          <ol className="list-decimal list-inside space-y-2 text-sm text-black">
-            <li>Create a Spotify Developer App at <a href="https://developer.spotify.com/dashboard" target="_blank" className="text-blue-600 underline break-all">developer.spotify.com</a></li>
+        <div className="bg-blue-900/20 border border-blue-600 rounded-lg p-4 sm:p-6 mt-6">
+          <h2 className="text-lg sm:text-xl font-bold mb-4 text-blue-300">📋 Setup Instructions</h2>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+            <li>Create a Spotify Developer App at <a href="https://developer.spotify.com/dashboard" target="_blank" className="text-blue-400 underline break-all hover:text-blue-300">developer.spotify.com</a></li>
             <li>Copy your Client ID and Client Secret to Vercel environment variables</li>
-            <li className="break-all">Set the redirect URI to: <code className="bg-gray-200 px-1 rounded text-xs">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
+            <li className="break-all">Set the redirect URI to: <code className="bg-gray-700 px-1 rounded text-xs text-gray-200">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
             <li>Click &quot;Connect Spotify Account&quot; above to authenticate</li>
             <li>Create or select a playlist for approved songs</li>
             <li>Start playing music on any device to enable queue control</li>

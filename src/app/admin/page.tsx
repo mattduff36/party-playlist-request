@@ -249,12 +249,13 @@ export default function AdminPanel() {
 
     fetchData();
     
-    // Auto-refresh every 5 seconds, but not on settings tab
+    // Auto-refresh every 10 seconds for better UX, but not on settings tab
     const interval = setInterval(() => {
       if (activeTab !== 'settings') {
+        // Silent refresh - don't show loading states
         fetchData();
       }
-    }, 5000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [isAuthenticated, activeTab]);
 
@@ -634,42 +635,56 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {playbackState?.current_track ? (
-          <div className="flex items-center space-x-4">
-            {playbackState.current_track.image_url && (
-              <img
-                src={playbackState.current_track.image_url}
-                alt="Album Art"
-                className="w-16 h-16 rounded-lg"
-              />
-            )}
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white">
-                {playbackState.current_track.name}
-              </h3>
-              <p className="text-gray-400">
-                {playbackState.current_track.artists.join(', ')}
-              </p>
-              <p className="text-gray-500 text-sm">
-                {playbackState.current_track.album}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-gray-400 text-sm">
-                {formatDuration(playbackState.current_track.progress_ms)} / {formatDuration(playbackState.current_track.duration_ms)}
-              </p>
-              {playbackState.device && (
-                <p className="text-gray-500 text-xs flex items-center">
-                  <Volume2 className="w-3 h-3 mr-1" />
-                  {playbackState.device.name}
-                </p>
+        {spotifyConnected ? (
+          playbackState?.current_track ? (
+            <div className="flex items-center space-x-4">
+              {playbackState.current_track.image_url && (
+                <img
+                  src={playbackState.current_track.image_url}
+                  alt="Album Art"
+                  className="w-16 h-16 rounded-lg"
+                />
               )}
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white">
+                  {playbackState.current_track.name}
+                </h3>
+                <p className="text-gray-400">
+                  {playbackState.current_track.artists.join(', ')}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  {playbackState.current_track.album}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-400 text-sm">
+                  {formatDuration(playbackState.current_track.progress_ms)} / {formatDuration(playbackState.current_track.duration_ms)}
+                </p>
+                {playbackState.device && (
+                  <p className="text-gray-500 text-xs flex items-center">
+                    <Volume2 className="w-3 h-3 mr-1" />
+                    {playbackState.device.name}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No music currently playing</p>
+              <p className="text-sm">Start playing music on Spotify to see it here</p>
+            </div>
+          )
         ) : (
           <div className="text-center py-8 text-gray-400">
             <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No music currently playing</p>
+            <p>Connect to Spotify to see what's playing</p>
+            <button
+              onClick={handleSpotifyConnect}
+              className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
+            >
+              Connect Spotify
+            </button>
           </div>
         )}
       </div>
@@ -687,57 +702,70 @@ export default function AdminPanel() {
         </div>
         
         <div className="space-y-3">
-          {playbackState?.queue && playbackState.queue.length > 0 ? (
-            playbackState.queue.slice(0, 10).map((track: any, index: number) => {
-              // Check if this track was requested and approved
-              const matchingRequest = requests.find(req => 
-                req.status === 'approved' && 
-                (req.track_uri === track.uri || 
-                 (req.track_name.toLowerCase() === track.name.toLowerCase() && 
-                  req.artist_name.toLowerCase() === track.artists.join(', ').toLowerCase()))
-              );
-              
-              return (
-                <div 
-                  key={`${track.uri}-${index}`} 
-                  className={`flex items-center p-3 rounded-lg ${
-                    matchingRequest ? 'bg-green-600/20 border border-green-600' : 'bg-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3 flex-1">
-                    <span className="text-gray-400 text-sm font-mono w-6">
-                      {index + 1}
-                    </span>
-                    {track.image_url && (
-                      <img
-                        src={track.image_url}
-                        alt="Album Art"
-                        className="w-10 h-10 rounded"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <h4 className={`font-medium ${matchingRequest ? 'text-green-300' : 'text-white'}`}>
-                        {track.name}
-                      </h4>
-                      <p className="text-gray-400 text-sm">{track.artists.join(', ')}</p>
-                      {matchingRequest && (
-                        <p className="text-green-400 text-xs">
-                          ✓ Requested by {matchingRequest.requester_nickname || 'Anonymous'}
-                        </p>
+          {spotifyConnected ? (
+            playbackState?.queue && playbackState.queue.length > 0 ? (
+              playbackState.queue.slice(0, 10).map((track: any, index: number) => {
+                // Check if this track was requested and approved
+                const matchingRequest = requests.find(req => 
+                  req.status === 'approved' && 
+                  (req.track_uri === track.uri || 
+                   (req.track_name.toLowerCase() === track.name.toLowerCase() && 
+                    req.artist_name.toLowerCase() === track.artists.join(', ').toLowerCase()))
+                );
+                
+                return (
+                  <div 
+                    key={`${track.uri}-${index}`} 
+                    className={`flex items-center p-3 rounded-lg ${
+                      matchingRequest ? 'bg-green-600/20 border border-green-600' : 'bg-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3 flex-1">
+                      <span className="text-gray-400 text-sm font-mono w-6">
+                        {index + 1}
+                      </span>
+                      {track.image_url && (
+                        <img
+                          src={track.image_url}
+                          alt="Album Art"
+                          className="w-10 h-10 rounded"
+                        />
                       )}
+                      <div className="flex-1">
+                        <h4 className={`font-medium ${matchingRequest ? 'text-green-300' : 'text-white'}`}>
+                          {track.name}
+                        </h4>
+                        <p className="text-gray-400 text-sm">{track.artists.join(', ')}</p>
+                        {matchingRequest && (
+                          <p className="text-green-400 text-xs">
+                            ✓ Requested by {matchingRequest.requester_nickname || 'Anonymous'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-gray-400 text-sm">
+                      {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                     </div>
                   </div>
-                  <div className="text-gray-400 text-sm">
-                    {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
-                  </div>
-                </div>
-              );
-            })
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No upcoming songs in queue</p>
+                <p className="text-sm">Add songs to your Spotify queue to see them here</p>
+              </div>
+            )
           ) : (
             <div className="text-center py-8 text-gray-400">
               <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>No upcoming songs in queue</p>
-              <p className="text-sm">Connect to Spotify to see the queue</p>
+              <p>Connect to Spotify to see upcoming songs</p>
+              <button
+                onClick={handleSpotifyConnect}
+                className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Connect Spotify
+              </button>
             </div>
           )}
         </div>
