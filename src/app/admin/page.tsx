@@ -126,6 +126,20 @@ export default function AdminPanel() {
       setIsAuthenticated(true);
     }
     setLoading(false);
+    
+    // Check if we're returning from Spotify setup and force refresh
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('spotify_connected')) {
+      console.log('Detected return from Spotify setup, forcing data refresh...');
+      // Clear the URL parameter
+      window.history.replaceState({}, document.title, '/admin');
+      // Force immediate data refresh when authenticated
+      if (token) {
+        setTimeout(() => {
+          fetchData();
+        }, 1000);
+      }
+    }
   }, []);
 
   // Login function

@@ -211,7 +211,7 @@ export default function SpotifySetupPage() {
       // Redirect back to admin after a short delay to show success message
       setTimeout(() => {
         setSuccess(''); // Clear success message before redirect
-        router.push('/admin');
+        router.push('/admin?spotify_connected=true');
       }, 2000);
     } catch (error: any) {
       console.error('Spotify callback error:', error);

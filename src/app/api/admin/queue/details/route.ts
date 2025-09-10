@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     await authService.requireAdminAuth(req);
     
     // Check if Spotify is connected first to avoid repeated failed attempts
-    const spotifyConnected = await spotifyService.isConnected();
+    let spotifyConnected = await spotifyService.isConnected();
     let playbackState = null;
     let queueData = null;
     
@@ -19,81 +19,66 @@ export async function GET(req: NextRequest) {
           spotifyService.getQueue()
         ]);
       } catch (spotifyError) {
-        // Spotify API call failed - log but don't spam console
-        console.log('Spotify API error (will retry next poll):', (spotifyError as Error).message);
+        // If we get auth errors, mark as disconnected
+        const errorMessage = (spotifyError as Error).message;
+        if (errorMessage.includes('No Spotify authentication found') || 
+            errorMessage.includes('Failed to refresh access token')) {
+          console.log('Spotify authentication invalid, marking as disconnected');
+          spotifyConnected = false;
+          playbackState = null;
+          queueData = null;
+        } else {
+          console.log('Spotify API error (will retry next poll):', errorMessage);
+        }
       }
     }
     
-    // Process current track with album art
+    // Process current track (skip album art if auth issues detected)
     let currentTrack = null;
     if (playbackState?.item && spotifyConnected) {
+      // Create basic track info first
+      currentTrack = {
+        id: playbackState.item.id,
+        uri: playbackState.item.uri,
+        name: playbackState.item.name,
+        artists: playbackState.item.artists.map((artist: any) => artist.name),
+        album: playbackState.item.album.name,
+        duration_ms: playbackState.item.duration_ms,
+        explicit: playbackState.item.explicit,
+        external_urls: playbackState.item.external_urls,
+        image_url: null, // Default to null
+        progress_ms: playbackState.progress_ms,
+        is_playing: playbackState.is_playing
+      };
+
+      // Try to get album art, but don't fail if auth issues
       try {
         const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
-        currentTrack = {
-          id: playbackState.item.id,
-          uri: playbackState.item.uri,
-          name: playbackState.item.name,
-          artists: playbackState.item.artists.map((artist: any) => artist.name),
-          album: playbackState.item.album.name,
-          duration_ms: playbackState.item.duration_ms,
-          explicit: playbackState.item.explicit,
-          external_urls: playbackState.item.external_urls,
-          image_url: albumArt,
-          progress_ms: playbackState.progress_ms,
-          is_playing: playbackState.is_playing
-        };
+        currentTrack.image_url = albumArt;
       } catch (artError) {
-        // Fallback without album art
-        currentTrack = {
-          id: playbackState.item.id,
-          uri: playbackState.item.uri,
-          name: playbackState.item.name,
-          artists: playbackState.item.artists.map((artist: any) => artist.name),
-          album: playbackState.item.album.name,
-          duration_ms: playbackState.item.duration_ms,
-          explicit: playbackState.item.explicit,
-          external_urls: playbackState.item.external_urls,
-          image_url: null,
-          progress_ms: playbackState.progress_ms,
-          is_playing: playbackState.is_playing
-        };
+        // Log but don't fail - album art is optional
+        console.log('Could not fetch album art (auth may be invalid):', (artError as Error).message);
       }
     }
     
-    // Process queue items with album art
+    // Process queue items (album art is optional)
     let queueItems = [];
     if (queueData?.queue && spotifyConnected) {
-      queueItems = await Promise.all(
-        queueData.queue.slice(0, 10).map(async (item: any) => {
-          try {
-            const albumArt = await spotifyService.getAlbumArt(item.uri);
-            return {
-              id: item.id,
-              uri: item.uri,
-              name: item.name,
-              artists: item.artists.map((artist: any) => artist.name),
-              album: item.album.name,
-              duration_ms: item.duration_ms,
-              explicit: item.explicit,
-              external_urls: item.external_urls,
-              image_url: albumArt
-            };
-          } catch (artError) {
-            // Fallback without album art
-            return {
-              id: item.id,
-              uri: item.uri,
-              name: item.name,
-              artists: item.artists.map((artist: any) => artist.name),
-              album: item.album.name,
-              duration_ms: item.duration_ms,
-              explicit: item.explicit,
-              external_urls: item.external_urls,
-              image_url: null
-            };
-          }
-        })
-      );
+      queueItems = queueData.queue.slice(0, 10).map((item: any) => {
+        // Create basic item info first
+        const queueItem = {
+          id: item.id,
+          uri: item.uri,
+          name: item.name,
+          artists: item.artists.map((artist: any) => artist.name),
+          album: item.album.name,
+          duration_ms: item.duration_ms,
+          explicit: item.explicit,
+          external_urls: item.external_urls,
+          image_url: null // Default to null, album art will be loaded separately if needed
+        };
+        return queueItem;
+      });
     }
     
     return NextResponse.json({

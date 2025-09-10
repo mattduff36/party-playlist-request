@@ -46,7 +46,19 @@ class SpotifyService {
   async isConnected(): Promise<boolean> {
     try {
       const auth = await getSpotifyAuth();
-      return !!(auth && auth.access_token && auth.refresh_token);
+      if (!auth || !auth.access_token || !auth.refresh_token) {
+        return false;
+      }
+      
+      // Quick validation - try to get access token (this will refresh if needed)
+      try {
+        await this.getAccessToken();
+        return true;
+      } catch (error) {
+        // If token refresh fails, we're not connected
+        console.log('Token validation failed in isConnected():', (error as Error).message);
+        return false;
+      }
     } catch (error) {
       return false;
     }
