@@ -7,14 +7,17 @@ export async function POST(req: NextRequest) {
     // Verify admin authentication
     await authService.requireAdminAuth(req);
     
-    // Clear all Spotify authentication data
-    await clearSpotifyAuth();
+    console.log('🔄 Admin initiated Spotify connection reset');
     
-    console.log('Admin reset Spotify connection - all auth data cleared');
+    // Properly revoke tokens with Spotify before clearing from database
+    const { spotifyService } = await import('@/lib/spotify');
+    await spotifyService.revokeTokens();
+    
+    console.log('✅ Spotify connection reset completed - tokens revoked and cleared');
     
     return NextResponse.json({
       success: true,
-      message: 'Spotify connection reset successfully. You can now reconnect to Spotify.'
+      message: 'Spotify connection reset successfully. All tokens have been revoked. You will need to re-authenticate with Spotify.'
     });
     
   } catch (error) {
@@ -25,7 +28,8 @@ export async function POST(req: NextRequest) {
     }
     
     return NextResponse.json({ 
-      error: 'Failed to reset Spotify connection' 
+      error: 'Failed to reset Spotify connection',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

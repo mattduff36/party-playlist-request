@@ -86,21 +86,32 @@ export default function SpotifySetupPage() {
     const storedState = localStorage.getItem('spotify_state');
     const codeVerifier = localStorage.getItem('spotify_code_verifier');
 
+    console.log('Processing Spotify callback:', {
+      hasCode: !!code,
+      hasState: !!state,
+      hasStoredState: !!storedState,
+      hasCodeVerifier: !!codeVerifier,
+      stateMatches: state === storedState
+    });
+
     // Clear errors at the start of processing
     setError('');
 
     if (!storedState) {
-      setError('Authentication failed: No stored state found. Please try connecting again.');
-      return;
-    }
-
-    if (state !== storedState) {
-      setError('Authentication failed: Invalid state parameter. This may be a security issue.');
+      console.error('OAuth callback failed: No stored state found in localStorage');
+      setError('Authentication failed: No stored state found. This may be due to browser security settings or cookies being disabled. Please try connecting again.');
       return;
     }
 
     if (!codeVerifier) {
-      setError('Authentication failed: No code verifier found. Please try connecting again.');
+      console.error('OAuth callback failed: No code verifier found in localStorage');
+      setError('Authentication failed: No code verifier found. This may be due to browser security settings or cookies being disabled. Please try connecting again.');
+      return;
+    }
+
+    if (state !== storedState) {
+      console.error('OAuth callback failed: State parameter mismatch', { received: state, stored: storedState });
+      setError('Authentication failed: Invalid state parameter. This may be a security issue.');
       return;
     }
 
@@ -178,8 +189,27 @@ export default function SpotifySetupPage() {
             authUrlLength: data.auth_url.length
           });
           
-          // Redirect to Spotify for authorization
-          window.location.href = data.auth_url;
+          // Verify localStorage was set correctly before redirect
+          const verifyState = localStorage.getItem('spotify_state');
+          const verifyCodeVerifier = localStorage.getItem('spotify_code_verifier');
+          
+          console.log('Verifying localStorage before redirect:', {
+            storedState: !!verifyState,
+            storedCodeVerifier: !!verifyCodeVerifier,
+            stateMatches: verifyState === data.state,
+            codeVerifierMatches: verifyCodeVerifier === data.code_verifier
+          });
+          
+          if (!verifyState || !verifyCodeVerifier) {
+            setError('Failed to store OAuth data in browser. Please try again.');
+            return;
+          }
+          
+          // Small delay to ensure localStorage is fully written
+          setTimeout(() => {
+            console.log('Redirecting to Spotify...');
+            window.location.href = data.auth_url;
+          }, 100);
         } else {
           setError('Failed to get complete Spotify authorization data');
         }

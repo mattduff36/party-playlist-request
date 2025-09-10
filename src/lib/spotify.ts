@@ -83,6 +83,40 @@ class SpotifyService {
     }
   }
 
+  async revokeTokens(): Promise<void> {
+    try {
+      const { getSpotifyAuth, clearSpotifyAuth } = await import('./db');
+      const auth = await getSpotifyAuth();
+      
+      if (!auth?.access_token) {
+        console.log('No Spotify tokens to revoke');
+        return;
+      }
+
+      console.log('🔄 Clearing Spotify authentication (Spotify API does not support programmatic token revocation)');
+      
+      // Note: Spotify's Web API does not provide a direct token revocation endpoint for third-party apps
+      // The tokens will remain valid until they expire, but we clear them from our system
+      // This forces the user to re-authenticate when they try to connect again
+      
+      // Clear tokens from our database immediately
+      await clearSpotifyAuth();
+      console.log('✅ Spotify tokens cleared from database - user will need to re-authenticate');
+      
+    } catch (error) {
+      console.error('Error clearing Spotify tokens:', error);
+      // Still try to clear from database
+      try {
+        const { clearSpotifyAuth } = await import('./db');
+        await clearSpotifyAuth();
+        console.log('⚠️ Error occurred, but cleared tokens from database');
+      } catch (clearError) {
+        console.error('Failed to clear tokens from database:', clearError);
+        throw clearError;
+      }
+    }
+  }
+
   generatePKCE() {
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
     const codeChallenge = crypto
@@ -260,9 +294,9 @@ class SpotifyService {
 
     const fetchStart = Date.now();
     
-    // Add aggressive timeout to prevent hanging requests (Vercel serverless limit)
+    // Add ultra-aggressive timeout to prevent hanging requests (Vercel serverless limit)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5 second timeout
     
     config.signal = controller.signal;
     
@@ -274,7 +308,7 @@ class SpotifyService {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        throw new Error(`Spotify API request timeout after 3 seconds: ${method} ${endpoint}`);
+        throw new Error(`Spotify API request timeout after 1.5 seconds: ${method} ${endpoint}`);
       }
       throw error;
     }

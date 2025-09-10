@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
     let spotifyConnected = false;
     
     try {
-      // Use a very short timeout for connection check
+      // Use an ultra-short timeout for connection check
       const connectionTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection check timeout')), 2000);
+        setTimeout(() => reject(new Error('Connection check timeout')), 500);
       });
       
       const connectionCheck = spotifyService.isConnected();
@@ -38,9 +38,9 @@ export async function GET(req: NextRequest) {
         const spotifyCallStart = Date.now();
         console.log('🎵 Fetching Spotify playback and queue data...');
         
-        // Add very aggressive timeout to prevent hanging (Vercel has 10s limit)
+        // Add ultra-aggressive timeout to prevent hanging (Vercel has 10s limit, we need buffer)
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Spotify API timeout after 5 seconds')), 5000);
+          setTimeout(() => reject(new Error('Spotify API timeout after 2 seconds')), 2000);
         });
         
         const spotifyPromise = Promise.all([
