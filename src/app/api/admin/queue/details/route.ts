@@ -4,36 +4,65 @@ import { spotifyService } from '@/lib/spotify';
 
 export async function GET(req: NextRequest) {
   try {
+    // Verify admin authentication first
     await authService.requireAdminAuth(req);
     
-    // Get both current playback and queue
-    const [playbackState, queueData] = await Promise.all([
-      spotifyService.getCurrentPlayback(),
-      spotifyService.getQueue()
-    ]);
+    // Try to get Spotify data, but handle connection issues gracefully
+    let playbackState = null;
+    let queueData = null;
+    let spotifyConnected = true;
+    
+    try {
+      [playbackState, queueData] = await Promise.all([
+        spotifyService.getCurrentPlayback(),
+        spotifyService.getQueue()
+      ]);
+    } catch (spotifyError) {
+      // Spotify connection issues - return empty data but don't fail
+      spotifyConnected = false;
+      console.log('Spotify not connected or error:', spotifyError);
+    }
     
     // Process current track with album art
     let currentTrack = null;
-    if (playbackState?.item) {
-      const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
-      currentTrack = {
-        ...playbackState.item,
-        image_url: albumArt,
-        progress_ms: playbackState.progress_ms,
-        is_playing: playbackState.is_playing
-      };
+    if (playbackState?.item && spotifyConnected) {
+      try {
+        const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
+        currentTrack = {
+          ...playbackState.item,
+          image_url: albumArt,
+          progress_ms: playbackState.progress_ms,
+          is_playing: playbackState.is_playing
+        };
+      } catch (artError) {
+        // Fallback without album art
+        currentTrack = {
+          ...playbackState.item,
+          image_url: null,
+          progress_ms: playbackState.progress_ms,
+          is_playing: playbackState.is_playing
+        };
+      }
     }
     
     // Process queue items with album art
     let queueItems = [];
-    if (queueData?.queue) {
+    if (queueData?.queue && spotifyConnected) {
       queueItems = await Promise.all(
         queueData.queue.slice(0, 10).map(async (item: any) => {
-          const albumArt = await spotifyService.getAlbumArt(item.uri);
-          return {
-            ...item,
-            image_url: albumArt
-          };
+          try {
+            const albumArt = await spotifyService.getAlbumArt(item.uri);
+            return {
+              ...item,
+              image_url: albumArt
+            };
+          } catch (artError) {
+            // Fallback without album art
+            return {
+              ...item,
+              image_url: null
+            };
+          }
         })
       );
     }
@@ -44,12 +73,14 @@ export async function GET(req: NextRequest) {
       device: playbackState?.device || null,
       is_playing: playbackState?.is_playing || false,
       shuffle_state: playbackState?.shuffle_state || false,
-      repeat_state: playbackState?.repeat_state || 'off'
+      repeat_state: playbackState?.repeat_state || 'off',
+      spotify_connected: spotifyConnected
     });
     
   } catch (error) {
-    if (error instanceof Error && error.message.includes('token')) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+    // Only return 401 for admin authentication errors
+    if (error instanceof Error && (error.message.includes('No token provided') || error.message.includes('Admin access required'))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     console.error('Error getting queue details:', error);

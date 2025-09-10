@@ -218,7 +218,8 @@ export default function AdminPanel() {
       if (queueRes.ok) {
         const queueData = await queueRes.json();
         setPlaybackState(queueData);
-        setSpotifyConnected(true);
+        // Use the spotify_connected field from the API response
+        setSpotifyConnected(queueData.spotify_connected !== false);
       } else if (queueRes.status !== 401) {
         // Only set disconnected if it's not a 401 (already handled above)
         setSpotifyConnected(false);
