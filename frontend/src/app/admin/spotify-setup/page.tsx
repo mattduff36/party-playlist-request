@@ -207,11 +207,11 @@ export default function SpotifySetupPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">🎵 Spotify Setup</h1>
+        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-black">🎵 Spotify Setup</h1>
           <button
             onClick={() => router.push('/admin')}
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded text-sm"
           >
             Back to Admin
           </button>
@@ -233,8 +233,8 @@ export default function SpotifySetupPage() {
         )}
 
         {/* Spotify Connection Status */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">Spotify Connection Status</h2>
+        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+          <h2 className="text-lg sm:text-xl font-bold mb-4 text-black">Spotify Connection Status</h2>
           
           {spotifyStatus?.authenticated ? (
             <div className="space-y-4">
@@ -245,10 +245,10 @@ export default function SpotifySetupPage() {
 
               {spotifyStatus.user && (
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2">Account Information</h3>
-                  <p><strong>Name:</strong> {spotifyStatus.user.display_name}</p>
-                  <p><strong>Email:</strong> {spotifyStatus.user.email}</p>
-                  <p><strong>Plan:</strong> {spotifyStatus.user.product}</p>
+                  <h3 className="font-semibold mb-2 text-black">Account Information</h3>
+                  <p className="text-black"><strong>Name:</strong> {spotifyStatus.user.display_name}</p>
+                  <p className="text-black"><strong>Email:</strong> {spotifyStatus.user.email}</p>
+                  <p className="text-black"><strong>Plan:</strong> {spotifyStatus.user.product}</p>
                 </div>
               )}
 
@@ -267,11 +267,11 @@ export default function SpotifySetupPage() {
               </div>
 
               <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">⚠️ Before Connecting:</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm">
+                <h3 className="font-semibold mb-2 text-black">⚠️ Before Connecting:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-black">
                   <li>Make sure you have created a Spotify Developer App</li>
-                  <li>Verify your Client ID and Client Secret are set in the backend</li>
-                  <li>Ensure the redirect URI matches: <code>http://localhost:3001/api/spotify/callback</code></li>
+                  <li>Verify your Client ID and Client Secret are set in Vercel</li>
+                  <li className="break-all">Ensure the redirect URI matches: <code className="bg-gray-200 px-1 rounded text-xs">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
                   <li>You need Spotify Premium for full playback control features</li>
                 </ul>
               </div>
@@ -289,8 +289,8 @@ export default function SpotifySetupPage() {
 
         {/* Available Devices */}
         {spotifyStatus?.devices && spotifyStatus.devices.length > 0 && (
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Available Devices</h2>
+          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+            <h2 className="text-lg sm:text-xl font-bold mb-4 text-black">Available Devices</h2>
             <div className="grid gap-4">
               {spotifyStatus.devices.map((device) => (
                 <div
@@ -299,18 +299,18 @@ export default function SpotifySetupPage() {
                     device.is_active ? 'border-green-500 bg-green-50' : 'border-gray-300'
                   }`}
                 >
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                      <h3 className="font-semibold">{device.name}</h3>
-                      <p className="text-gray-600 text-sm">{device.type}</p>
+                      <h3 className="font-semibold text-black">{device.name}</h3>
+                      <p className="text-gray-800 text-sm">{device.type}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right">
                       <div className={`px-2 py-1 rounded text-xs ${
-                        device.is_active ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'
+                        device.is_active ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'
                       }`}>
                         {device.is_active ? 'Active' : 'Inactive'}
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">Volume: {device.volume_percent}%</p>
+                      <p className="text-sm text-gray-700 mt-1">Volume: {device.volume_percent}%</p>
                     </div>
                   </div>
                 </div>
@@ -321,13 +321,13 @@ export default function SpotifySetupPage() {
 
         {/* Playlist Management */}
         {spotifyStatus?.authenticated && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Party Playlists</h2>
+          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-black">Party Playlists</h2>
               <button
                 onClick={createPartyPlaylist}
                 disabled={isLoading}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded"
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded text-sm"
               >
                 Create New Playlist
               </button>
@@ -337,16 +337,16 @@ export default function SpotifySetupPage() {
               <div className="grid gap-4">
                 {playlists.map((playlist) => (
                   <div key={playlist.id} className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-semibold">{playlist.name}</h3>
-                        <p className="text-gray-600 text-sm">{playlist.description}</p>
-                        <p className="text-gray-500 text-xs mt-1">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-black">{playlist.name}</h3>
+                        <p className="text-gray-800 text-sm">{playlist.description}</p>
+                        <p className="text-gray-700 text-xs mt-1">
                           {playlist.tracks_total} tracks • {playlist.public ? 'Public' : 'Private'}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                      <div className="text-left sm:text-right">
+                        <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all text-black">
                           {playlist.id}
                         </code>
                       </div>
@@ -355,7 +355,7 @@ export default function SpotifySetupPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">
+              <p className="text-black text-center py-8">
                 No playlists found. Create one to get started!
               </p>
             )}
@@ -363,13 +363,13 @@ export default function SpotifySetupPage() {
         )}
 
         {/* Setup Instructions */}
-        <div className="bg-blue-50 rounded-lg p-6 mt-6">
-          <h2 className="text-xl font-bold mb-4">📋 Setup Instructions</h2>
-          <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Create a Spotify Developer App at <a href="https://developer.spotify.com/dashboard" target="_blank" className="text-blue-600 underline">developer.spotify.com</a></li>
-            <li>Copy your Client ID and Client Secret to the backend .env file</li>
-            <li>Set the redirect URI to: <code className="bg-gray-200 px-1 rounded">http://localhost:3001/api/spotify/callback</code></li>
-            <li>Click "Connect Spotify Account" above to authenticate</li>
+        <div className="bg-blue-50 rounded-lg p-4 sm:p-6 mt-6">
+          <h2 className="text-lg sm:text-xl font-bold mb-4 text-black">📋 Setup Instructions</h2>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-black">
+            <li>Create a Spotify Developer App at <a href="https://developer.spotify.com/dashboard" target="_blank" className="text-blue-600 underline break-all">developer.spotify.com</a></li>
+            <li>Copy your Client ID and Client Secret to Vercel environment variables</li>
+            <li className="break-all">Set the redirect URI to: <code className="bg-gray-200 px-1 rounded text-xs">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
+            <li>Click &quot;Connect Spotify Account&quot; above to authenticate</li>
             <li>Create or select a playlist for approved songs</li>
             <li>Start playing music on any device to enable queue control</li>
           </ol>
