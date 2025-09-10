@@ -70,11 +70,13 @@ export default function SpotifySetupPage() {
           setError(''); // Clear errors when successfully connected
         }
       } else {
-        setError('Failed to check Spotify connection status');
+        const errorText = await response.text();
+        console.error('Stats API error:', response.status, errorText);
+        setError(`Failed to check Spotify connection status (${response.status})`);
       }
     } catch (error) {
       console.error('Error checking Spotify connection:', error);
-      setError('Failed to check Spotify connection status');
+      setError(`Failed to check Spotify connection status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsCheckingStatus(false);
     }

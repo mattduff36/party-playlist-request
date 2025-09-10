@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.request_count - a.request_count)
       .slice(0, 10);
 
-    const spotifyConnected = await spotifyService.isAuthenticated();
+    const spotifyConnected = await spotifyService.isConnected();
 
     return NextResponse.json({
       total_requests: counts.total,
@@ -58,8 +58,15 @@ export async function GET(req: NextRequest) {
     }
     
     console.error('Error getting stats:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      name: error instanceof Error ? error.name : 'Unknown'
+    });
+    
     return NextResponse.json({ 
-      error: 'Failed to get statistics' 
+      error: 'Failed to get statistics',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
