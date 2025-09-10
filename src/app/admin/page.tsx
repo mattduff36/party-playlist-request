@@ -105,6 +105,10 @@ export default function AdminPanel() {
   // Spotify connection state
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  
+  // Circuit breaker for failed Spotify requests
+  const [spotifyFailureCount, setSpotifyFailureCount] = useState(0);
+  const [lastSpotifyFailure, setLastSpotifyFailure] = useState<number>(0);
 
   // Mobile responsive state
   const [isMobile, setIsMobile] = useState(false);
@@ -205,12 +209,25 @@ export default function AdminPanel() {
         'Content-Type': 'application/json',
       };
 
-      const [requestsRes, queueRes, settingsRes, statsRes] = await Promise.all([
+      // Circuit breaker: Skip Spotify queue requests if they've been failing
+      const now = Date.now();
+      const shouldSkipSpotify = spotifyFailureCount >= 3 && (now - lastSpotifyFailure) < 60000; // Skip for 1 minute after 3 failures
+      
+      let queueRes;
+      if (shouldSkipSpotify) {
+        console.log('🚫 Skipping Spotify queue request due to circuit breaker');
+        queueRes = { ok: false, status: 503, json: async () => ({ spotify_connected: false }) };
+      }
+      
+      const requests = [
         fetch('/api/admin/requests?status=pending&limit=50', { headers }),
-        fetch('/api/admin/queue/details', { headers }),
+        shouldSkipSpotify ? Promise.resolve(queueRes) : fetch('/api/admin/queue/details', { headers }),
         fetch('/api/admin/event-settings', { headers }),
         fetch('/api/admin/stats', { headers })
-      ]);
+      ];
+      
+      const [requestsRes, queueResponse, settingsRes, statsRes] = await Promise.all(requests);
+      queueRes = queueResponse;
 
       // Check for authentication errors (but not Spotify-related 401s)
       if (requestsRes.status === 401 || settingsRes.status === 401 || statsRes.status === 401) {
@@ -235,9 +252,30 @@ export default function AdminPanel() {
         setPlaybackState(queueData);
         // Use the spotify_connected field from the API response
         setSpotifyConnected(queueData.spotify_connected !== false);
-      } else if (queueRes.status !== 401) {
-        // Only set disconnected if it's not a 401 (already handled above)
-        setSpotifyConnected(false);
+        
+        // Reset circuit breaker on success
+        if (spotifyFailureCount > 0) {
+          setSpotifyFailureCount(0);
+          setLastSpotifyFailure(0);
+          console.log('✅ Spotify requests working again, circuit breaker reset');
+        }
+      } else {
+        // Handle Spotify failures
+        if (queueRes.status === 504 || queueRes.status === 503) {
+          const newFailureCount = spotifyFailureCount + 1;
+          setSpotifyFailureCount(newFailureCount);
+          setLastSpotifyFailure(Date.now());
+          console.log(`⚠️ Spotify request failed (${newFailureCount}/3), status: ${queueRes.status}`);
+          
+          if (newFailureCount >= 3) {
+            console.log('🚫 Circuit breaker activated - will skip Spotify requests for 1 minute');
+          }
+        }
+        
+        if (queueRes.status !== 401) {
+          // Only set disconnected if it's not a 401 (already handled above)
+          setSpotifyConnected(false);
+        }
       }
 
       if (settingsRes.ok) {
@@ -602,6 +640,11 @@ export default function AdminPanel() {
               <p className="text-yellow-200 text-sm mt-1">
                 Connect your Spotify account to control playback and manage the queue.
               </p>
+              {spotifyFailureCount >= 3 && (
+                <p className="text-red-300 text-xs mt-2 font-medium">
+                  ⚠️ Circuit breaker active - Spotify requests temporarily disabled due to timeouts
+                </p>
+              )}
               <p className="text-yellow-300 text-xs mt-2">
                 Having connection issues? Try resetting your Spotify connection first.
               </p>
@@ -620,6 +663,19 @@ export default function AdminPanel() {
               >
                 Reset Connection
               </button>
+              {spotifyFailureCount >= 3 && (
+                <button
+                  onClick={() => {
+                    setSpotifyFailureCount(0);
+                    setLastSpotifyFailure(0);
+                    console.log('🔄 Circuit breaker manually reset');
+                    fetchData(); // Retry immediately
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                >
+                  Retry Spotify
+                </button>
+              )}
             </div>
           </div>
         </div>

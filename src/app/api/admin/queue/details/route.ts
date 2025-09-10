@@ -11,9 +11,23 @@ export async function GET(req: NextRequest) {
     await authService.requireAdminAuth(req);
     console.log(`✅ Admin auth verified (${Date.now() - startTime}ms)`);
     
-    // Check if Spotify is connected first to avoid repeated failed attempts
+    // Quick connection check with fast timeout
     const connectionCheckStart = Date.now();
-    let spotifyConnected = await spotifyService.isConnected();
+    let spotifyConnected = false;
+    
+    try {
+      // Use a very short timeout for connection check
+      const connectionTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection check timeout')), 2000);
+      });
+      
+      const connectionCheck = spotifyService.isConnected();
+      spotifyConnected = await Promise.race([connectionCheck, connectionTimeout]) as boolean;
+    } catch (connectionError) {
+      console.log(`⚠️ Connection check failed: ${(connectionError as Error).message}`);
+      spotifyConnected = false;
+    }
+    
     console.log(`🎵 Spotify connection check: ${spotifyConnected} (${Date.now() - connectionCheckStart}ms)`);
     
     let playbackState = null;
@@ -24,9 +38,9 @@ export async function GET(req: NextRequest) {
         const spotifyCallStart = Date.now();
         console.log('🎵 Fetching Spotify playback and queue data...');
         
-        // Add timeout to prevent hanging
+        // Add very aggressive timeout to prevent hanging (Vercel has 10s limit)
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Spotify API timeout after 25 seconds')), 25000);
+          setTimeout(() => reject(new Error('Spotify API timeout after 5 seconds')), 5000);
         });
         
         const spotifyPromise = Promise.all([
@@ -41,20 +55,15 @@ export async function GET(req: NextRequest) {
         
         console.log(`🎵 Spotify data fetched (${Date.now() - spotifyCallStart}ms)`);
       } catch (spotifyError) {
-        // If we get auth errors, mark as disconnected
+        // If we get any error, immediately mark as disconnected and return empty data
         const errorMessage = (spotifyError as Error).message;
         console.log(`❌ Spotify error: ${errorMessage}`);
         
-        if (errorMessage.includes('No Spotify authentication found') || 
-            errorMessage.includes('Failed to refresh access token') ||
-            errorMessage.includes('Spotify API timeout')) {
-          console.log('🔄 Spotify authentication invalid or timeout, marking as disconnected');
-          spotifyConnected = false;
-          playbackState = null;
-          queueData = null;
-        } else {
-          console.log('⚠️ Spotify API error (will retry next poll):', errorMessage);
-        }
+        // Always mark as disconnected on any error to prevent retry loops
+        console.log('🔄 Spotify error detected, marking as disconnected to prevent retry loops');
+        spotifyConnected = false;
+        playbackState = null;
+        queueData = null;
       }
     }
     
