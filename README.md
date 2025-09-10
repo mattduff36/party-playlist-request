@@ -28,17 +28,22 @@ A modern web application that allows party guests to request songs via a public 
 
 ## 🏗️ Architecture
 
+**🚀 NEW: Vercel-Only Deployment!**
+
 ```
-/party-dj-request
-├── /backend          # Node.js/Express API server
-│   ├── /routes       # API route handlers
-│   ├── /services     # Business logic (Spotify, Auth)
-│   ├── /db           # Database schema and utilities
-│   └── server.js     # Main server file
-├── /frontend         # Next.js React application
-│   └── /src/app      # App router pages
-└── README.md         # This file
+/party-playlist-request
+└── /frontend         # Everything in one Next.js app!
+    ├── /src/app
+    │   ├── /api      # Backend API routes (serverless)
+    │   ├── /admin    # Admin dashboard pages
+    │   └── page.tsx  # Guest interface
+    ├── /src/lib      # Shared utilities (DB, Spotify, Auth)
+    └── vercel.json   # Vercel configuration
 ```
+
+**Database**: Vercel KV (Redis) - No separate database server needed!  
+**Backend**: Next.js API routes - No separate backend server needed!  
+**Deployment**: Single Vercel deployment - Simple and cost-effective!
 
 ## 🛠️ Installation & Setup
 
@@ -50,12 +55,8 @@ A modern web application that allows party guests to request songs via a public 
 ### 1. Clone and Install Dependencies
 
 ```bash
-# Install backend dependencies
-cd backend
-npm install
-
-# Install frontend dependencies  
-cd ../frontend
+# Install dependencies (everything is in frontend now!)
+cd frontend
 npm install
 ```
 
@@ -73,21 +74,17 @@ npm install
 
 ### 3. Environment Configuration
 
-#### Backend (.env)
 ```bash
-cd backend
-cp .env.example .env
+cd frontend
+cp .env.local.example .env.local
 ```
 
-Edit `.env` with your settings:
+Edit `.env.local` with your settings:
 ```env
-# Server Configuration
-PORT=3001
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
-
-# Database
-DATABASE_PATH=./db/party_dj.db
+# Spotify API Configuration
+SPOTIFY_CLIENT_ID=your-spotify-client-id
+SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+SPOTIFY_REDIRECT_URI=http://localhost:3000/api/spotify/callback
 
 # JWT Secret (generate a strong random string)
 JWT_SECRET=your-super-secret-jwt-key-here
@@ -95,37 +92,22 @@ JWT_SECRET=your-super-secret-jwt-key-here
 # Admin Password
 ADMIN_PASSWORD=your-admin-password
 
-# Spotify API Configuration
-SPOTIFY_CLIENT_ID=your-spotify-client-id
-SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
-SPOTIFY_REDIRECT_URI=http://localhost:3001/api/spotify/callback
-```
-
-#### Frontend (.env.local)
-```bash
-cd frontend
-cp .env.local.example .env.local
-```
-
-Edit `.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001/api
+# Vercel KV (for production - get from Vercel dashboard)
+# KV_REST_API_URL=your-kv-rest-api-url
+# KV_REST_API_TOKEN=your-kv-rest-api-token
 ```
 
 ### 4. Start the Application
 
 ```bash
-# Start backend (from /backend directory)
-npm run dev
-
-# Start frontend (from /frontend directory)
+# Start the application (from /frontend directory)
 npm run dev
 ```
 
 The application will be available at:
 - **Guest Interface**: http://localhost:3000
 - **Admin Panel**: http://localhost:3000/admin
-- **Backend API**: http://localhost:3001
+- **API Endpoints**: http://localhost:3000/api/*
 
 ### 5. Initial Setup
 
@@ -182,34 +164,27 @@ The application will be available at:
 
 ## 🚀 Deployment
 
-### Backend Deployment (Heroku/Railway/Fly.io)
+### **🎯 Vercel-Only Deployment (Recommended)**
 
-1. **Prepare for deployment**:
-   ```bash
-   cd backend
-   # Ensure package.json has correct start script
-   ```
+**Everything runs on Vercel - no separate backend needed!**
 
-2. **Set environment variables** on your hosting platform
+1. **Set up Vercel KV**:
+   - Go to Vercel dashboard → Storage → Create KV database
+   - Copy the connection details
 
-3. **Deploy** using your platform's CLI or Git integration
+2. **Deploy to Vercel**:
+   - Import your GitHub repo to Vercel
+   - Set **Root Directory**: `frontend`
+   - Add all environment variables (see above)
+   - Deploy!
 
-### Frontend Deployment (Vercel/Netlify)
+3. **Update Spotify app**:
+   - Redirect URI: `https://your-app.vercel.app/api/spotify/callback`
+   - Website: `https://your-app.vercel.app`
 
-1. **Connect your Git repository**
-2. **Set build settings**:
-   - Build Command: `npm run build`
-   - Output Directory: `.next`
-3. **Configure environment variables**:
-   - `NEXT_PUBLIC_API_URL` = your backend URL
+**Cost**: Likely **$0** with Vercel's free tier! 🎉
 
-### Production Considerations
-
-- **HTTPS Required**: Spotify Web API requires HTTPS in production
-- **CORS Configuration**: Update CORS settings for your domain
-- **Database**: Consider PostgreSQL for production (SQLite works for small deployments)
-- **Rate Limiting**: Adjust limits based on your party size
-- **Monitoring**: Add logging and error tracking
+**See `VERCEL-ONLY-SETUP.md` for detailed instructions.**
 
 ## 🛡️ Security Features
 

@@ -29,7 +29,7 @@ interface Playlist {
   tracks_total: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE = '/api';
 
 export default function SpotifySetupPage() {
   const router = useRouter();

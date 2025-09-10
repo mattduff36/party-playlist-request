@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { authService } from '@/lib/auth';
+import { getRequestsCount, getAllRequests } from '@/lib/db';
+import { spotifyService } from '@/lib/spotify';
+
+export async function GET(req: NextRequest) {
+  try {
+    await authService.requireAdminAuth(req);
+    
+    const counts = await getRequestsCount();
+    const allRequests = await getAllRequests(1000); // Get more for stats
+    
+    // Calculate today's requests
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayRequests = allRequests.filter(r => 
+      new Date(r.created_at).getTime() >= today.getTime()
+    ).length;
+
+    // Calculate recent requests (last hour)
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const recentRequests = allRequests.filter(r => 
+      new Date(r.created_at).getTime() > oneHourAgo
+    ).length;
+
+    // Get top artists (last 7 days)
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const recentRequestsForArtists = allRequests.filter(r => 
+      new Date(r.created_at).getTime() > sevenDaysAgo
+    );
+
+    const artistCounts: { [key: string]: number } = {};
+    recentRequestsForArtists.forEach(r => {
+      artistCounts[r.artist_name] = (artistCounts[r.artist_name] || 0) + 1;
+    });
+
+    const topArtists = Object.entries(artistCounts)
+      .map(([artist_name, request_count]) => ({ artist_name, request_count }))
+      .sort((a, b) => b.request_count - a.request_count)
+      .slice(0, 10);
+
+    const spotifyConnected = await spotifyService.isAuthenticated();
+
+    return NextResponse.json({
+      total_requests: counts.total,
+      pending_requests: counts.pending,
+      approved_requests: counts.approved,
+      rejected_requests: counts.rejected,
+      today_requests: todayRequests,
+      recent_requests: recentRequests,
+      top_artists: topArtists,
+      spotify_connected: spotifyConnected
+    });
+
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('token')) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    
+    console.error('Error getting stats:', error);
+    return NextResponse.json({ 
+      error: 'Failed to get statistics' 
+    }, { status: 500 });
+  }
+}
