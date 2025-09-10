@@ -426,58 +426,7 @@ class SpotifyService {
     }
   }
 
-  async isAuthenticated(): Promise<boolean> {
-    try {
-      const auth = await getSpotifyAuth();
-      return !!(auth && auth.access_token && auth.refresh_token);
-    } catch (error) {
-      return false;
-    }
-  }
-
-  async getPlaylists(): Promise<any[]> {
-    const playlists = await this.makeAuthenticatedRequest('GET', '/me/playlists?limit=50');
-    
-    return playlists.items
-      .filter((playlist: any) => playlist.owner.id)
-      .map((playlist: any) => ({
-        id: playlist.id,
-        name: playlist.name,
-        description: playlist.description,
-        public: playlist.public,
-        collaborative: playlist.collaborative,
-        tracks_total: playlist.tracks.total,
-        images: playlist.images
-      }));
-  }
-
-  async createPlaylist(name: string, description: string, isPublic = false): Promise<any> {
-    const userData = await this.makeAuthenticatedRequest('GET', '/me');
-    
-    const playlist = await this.makeAuthenticatedRequest('POST', `/users/${userData.id}/playlists`, {
-      name: name,
-      description: description,
-      public: isPublic
-    });
-
-    return {
-      id: playlist.id,
-      name: playlist.name,
-      description: playlist.description,
-      external_urls: playlist.external_urls
-    };
-  }
-
-  async getUserInfo(): Promise<any> {
-    const userData = await this.makeAuthenticatedRequest('GET', '/me');
-    return {
-      id: userData.id,
-      display_name: userData.display_name,
-      email: userData.email,
-      country: userData.country,
-      product: userData.product
-    };
-  }
+  // Legacy methods removed - using modern approach with isConnected() and admin/stats endpoint
 }
 
 export const spotifyService = new SpotifyService();
