@@ -140,7 +140,10 @@ export default function AdminPanel() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ 
+          username: 'admin', // Hardcoded username for simplicity
+          password 
+        }),
       });
 
       if (response.ok) {
