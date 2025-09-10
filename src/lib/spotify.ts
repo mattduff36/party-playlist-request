@@ -234,43 +234,58 @@ class SpotifyService {
       throw new Error('No refresh token provided');
     }
 
-    const response = await fetch(`${this.authURL}/api/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: this.clientId
-      })
-    });
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    try {
+      const response = await fetch(`${this.authURL}/api/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: this.clientId
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Spotify token refresh failed:', response.status, errorText);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Spotify token refresh failed:', response.status, errorText);
+        
+        // If refresh token is invalid/revoked, clear stored auth
+        if (response.status === 400 && errorText.includes('invalid_grant')) {
+          console.log('Clearing invalid Spotify tokens');
+          await this.clearTokens();
+        }
+        
+        throw new Error(`Failed to refresh access token: ${response.status} ${errorText}`);
+      }
+
+      const tokenData = await response.json();
       
-      // If refresh token is invalid/revoked, clear stored auth
-      if (response.status === 400 && errorText.includes('invalid_grant')) {
-        console.log('Clearing invalid Spotify tokens');
-        await this.clearTokens();
+      if (!tokenData.access_token) {
+        throw new Error('No access token received from Spotify');
       }
       
-      throw new Error(`Failed to refresh access token: ${response.status} ${errorText}`);
+      if (!tokenData.refresh_token) {
+        tokenData.refresh_token = refreshToken;
+      }
+      
+      await this.saveTokens(tokenData);
+      return tokenData.access_token;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Spotify token refresh timed out after 10 seconds');
+        throw new Error('Spotify token refresh timeout');
+      }
+      throw error;
     }
-
-    const tokenData = await response.json();
-    
-    if (!tokenData.access_token) {
-      throw new Error('No access token received from Spotify');
-    }
-    
-    if (!tokenData.refresh_token) {
-      tokenData.refresh_token = refreshToken;
-    }
-    
-    await this.saveTokens(tokenData);
-    return tokenData.access_token;
   }
 
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, retries = 1): Promise<any> {
