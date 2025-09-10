@@ -40,7 +40,7 @@ export default function SpotifySetupPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Check for admin token
+  // Check for admin token and initialize
   useEffect(() => {
     const savedToken = localStorage.getItem('admin_token');
     if (!savedToken) {
@@ -48,6 +48,14 @@ export default function SpotifySetupPage() {
       return;
     }
     setToken(savedToken);
+    
+    // Clear any stale error messages when page loads normally
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasCallbackParams = urlParams.has('code') || urlParams.has('error');
+    if (!hasCallbackParams) {
+      setError(''); // Clear errors for normal page visits
+    }
+    
     fetchSpotifyStatus(savedToken);
   }, []);
 
@@ -59,11 +67,14 @@ export default function SpotifySetupPage() {
       });
       setSpotifyStatus(response.data);
       
+      // Clear any previous error messages if we successfully got status
       if (response.data.authenticated) {
+        setError(''); // Clear errors when successfully connected
         fetchPlaylists(authToken);
       }
     } catch (error) {
       console.error('Error fetching Spotify status:', error);
+      setError('Failed to check Spotify connection status');
     }
   };
 
@@ -117,6 +128,7 @@ export default function SpotifySetupPage() {
     const state = urlParams.get('state');
     const error = urlParams.get('error');
 
+    // Only handle callback if we have URL parameters (meaning we came from Spotify)
     if (error) {
       setError(decodeURIComponent(error));
       // Clean up URL
@@ -124,20 +136,30 @@ export default function SpotifySetupPage() {
       return;
     }
 
+    // Only process callback if we have both code and state (from Spotify redirect)
     if (code && state && token) {
       handleSpotifyCallback(code, state);
     }
-  }, [token]); // Added token dependency
+    // If no URL parameters, this is a normal page visit - don't set any errors
+  }, [token]);
 
   const handleSpotifyCallback = async (code: string, state: string) => {
     const storedState = localStorage.getItem('spotify_state');
     const codeVerifier = localStorage.getItem('spotify_code_verifier');
 
-    console.log('Callback data:', { code, state, storedState, codeVerifier: !!codeVerifier });
+    console.log('Processing Spotify callback:', { 
+      hasCode: !!code, 
+      hasState: !!state, 
+      hasStoredState: !!storedState, 
+      hasCodeVerifier: !!codeVerifier 
+    });
+
+    // Clear any existing error messages at the start of callback processing
+    setError('');
 
     // If no stored state, this might be a fresh page load after redirect
     if (!storedState) {
-      console.log('No stored state found - this might be a page refresh after redirect');
+      console.log('No stored state found - session may have expired');
       setError('Connection session expired. Please try connecting again.');
       // Clean up URL parameters
       window.history.replaceState({}, document.title, '/admin/spotify-setup');
@@ -146,7 +168,7 @@ export default function SpotifySetupPage() {
 
     if (state !== storedState) {
       console.log('State mismatch:', { expected: storedState, received: state });
-      setError(`Invalid state parameter. Please try connecting again.`);
+      setError('Invalid state parameter. Please try connecting again.');
       // Clean up localStorage and URL
       localStorage.removeItem('spotify_code_verifier');
       localStorage.removeItem('spotify_state');
@@ -156,6 +178,9 @@ export default function SpotifySetupPage() {
 
     if (!codeVerifier) {
       setError('Missing code verifier. Please try connecting again.');
+      // Clean up localStorage and URL
+      localStorage.removeItem('spotify_state');
+      window.history.replaceState({}, document.title, '/admin/spotify-setup');
       return;
     }
 
@@ -171,6 +196,7 @@ export default function SpotifySetupPage() {
 
       console.log('Spotify callback response:', response.data);
       setSuccess('Spotify authentication successful! Redirecting back to admin panel...');
+      setError(''); // Clear any errors
       
       // Clean up localStorage
       localStorage.removeItem('spotify_code_verifier');
@@ -179,11 +205,12 @@ export default function SpotifySetupPage() {
       // Clear URL parameters
       window.history.replaceState({}, document.title, '/admin/spotify-setup');
       
-      // Refresh status
+      // Refresh status to show connected state
       await fetchSpotifyStatus(token);
       
       // Redirect back to admin after a short delay to show success message
       setTimeout(() => {
+        setSuccess(''); // Clear success message before redirect
         router.push('/admin');
       }, 2000);
     } catch (error: any) {
@@ -201,16 +228,38 @@ export default function SpotifySetupPage() {
       return;
     }
 
+    setIsLoading(true);
     try {
       await axios.delete(`${API_BASE}/spotify/disconnect`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       setSuccess('Spotify disconnected successfully');
+      setError(''); // Clear any errors
       setSpotifyStatus(null);
       setPlaylists([]);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to disconnect Spotify');
+      setSuccess(''); // Clear success message on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Refresh status manually
+  const refreshStatus = async () => {
+    if (!token) return;
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await fetchSpotifyStatus(token);
+      setSuccess('Status refreshed successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      setError('Failed to refresh status');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -245,12 +294,22 @@ export default function SpotifySetupPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center">
             🎵 Spotify Setup
           </h1>
-          <button
-            onClick={() => router.push('/admin')}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
-          >
-            Back to Admin
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={refreshStatus}
+              disabled={isLoading}
+              className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
+              title="Refresh connection status"
+            >
+              {isLoading ? '⟳' : '↻'} Refresh
+            </button>
+            <button
+              onClick={() => router.push('/admin')}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
+            >
+              Back to Admin
+            </button>
+          </div>
         </div>
       </div>
 
