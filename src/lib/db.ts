@@ -237,6 +237,19 @@ export async function getAllRequests(limit = 50, offset = 0): Promise<Request[]>
   return result.rows;
 }
 
+export async function checkRecentDuplicate(trackUri: string, minutesAgo: number = 30): Promise<Request | null> {
+  const client = getPool();
+  const result = await client.query(
+    `SELECT * FROM requests 
+     WHERE track_uri = $1 
+     AND created_at > NOW() - INTERVAL '${minutesAgo} minutes'
+     AND status IN ('pending', 'approved', 'queued')
+     LIMIT 1`,
+    [trackUri]
+  );
+  return result.rows[0] || null;
+}
+
 export async function getRequestsCount(): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
   const client = getPool();
   

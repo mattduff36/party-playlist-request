@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, hashIP, getAllRequests, initializeDefaults } from '@/lib/db';
+import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 
 // Rate limiting storage
@@ -84,14 +84,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check for recent duplicates
-    const recentRequests = await getAllRequests(50);
-    const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-    const recentDuplicate = recentRequests.find(r => 
-      r.track_uri === trackUri && 
-      new Date(r.created_at).getTime() > thirtyMinutesAgo &&
-      ['pending', 'approved', 'queued'].includes(r.status)
-    );
+    // Check for recent duplicates using efficient database query
+    const recentDuplicate = await checkRecentDuplicate(trackUri, 30);
 
     if (recentDuplicate) {
       return NextResponse.json({ 
