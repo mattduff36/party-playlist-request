@@ -62,7 +62,7 @@ export default function DisplayPage() {
   useEffect(() => {
     const generateQR = async () => {
       try {
-        const url = await QRCode.toDataURL('https://partyplaylist.mpdee.co.uk/', {
+        const url = await QRCode.toDataURL('https://partyplaylist.co.uk/', {
           width: 200,
           margin: 2,
           color: {
