@@ -35,12 +35,12 @@ interface Request {
 }
 
 interface CurrentTrack {
-  name: string;
-  artists: string[];
-  album: string;
-  duration_ms: number;
-  progress_ms: number;
-  uri: string;
+    name: string;
+    artists: string[];
+    album: string;
+    duration_ms: number;
+    progress_ms: number;
+    uri: string;
   image_url?: string;
 }
 
@@ -161,14 +161,14 @@ export default function AdminPanel() {
         },
         body: JSON.stringify({ 
           username: 'admin', // Hardcoded username for simplicity
-          password 
+        password
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         localStorage.setItem('admin_token', data.token);
-        setIsAuthenticated(true);
+      setIsAuthenticated(true);
         setPassword('');
         // Start fetching data after successful login
         fetchData();
@@ -351,17 +351,26 @@ export default function AdminPanel() {
   const handleSpotifyDisconnect = async () => {
     try {
       const token = localStorage.getItem('admin_token');
-      await fetch('/api/spotify/disconnect', {
-        method: 'POST',
+      const response = await fetch('/api/spotify/disconnect', {
+        method: 'DELETE', // Fixed: was POST, should be DELETE
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      setSpotifyConnected(false);
-      fetchData(); // Refresh data
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Spotify disconnected:', result.message);
+        setSpotifyConnected(false);
+        fetchData(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to disconnect Spotify');
+      }
     } catch (err) {
       console.error('Error disconnecting Spotify:', err);
+      alert(`Failed to disconnect Spotify: ${err.message}`);
     }
   };
 
@@ -495,36 +504,36 @@ export default function AdminPanel() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-          <div className="text-center mb-8">
+        <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">DJ Admin Login</h1>
             <p className="text-gray-400">Enter your admin password to continue</p>
-          </div>
+        </div>
 
-          <form onSubmit={handleLogin}>
-            <div className="mb-6">
+        <form onSubmit={handleLogin}>
+          <div className="mb-6">
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
+              Password
+            </label>
+            <input
+              type="password"
                 id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                 placeholder="Enter admin password"
-                required
-              />
-            </div>
+              required
+            />
+          </div>
 
-            {loginError && (
+          {loginError && (
               <div className="mb-4 p-3 bg-red-600/20 border border-red-600 rounded-lg">
                 <p className="text-red-400 text-sm">{loginError}</p>
               </div>
-            )}
+          )}
 
-            <button
-              type="submit"
-              disabled={isLoggingIn}
+          <button
+            type="submit"
+            disabled={isLoggingIn}
               className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
             >
               {isLoggingIn ? (
@@ -535,15 +544,15 @@ export default function AdminPanel() {
               ) : (
                 <span>Login</span>
               )}
-            </button>
-          </form>
+          </button>
+        </form>
         </div>
       </div>
     );
   }
 
   if (loading) {
-    return (
+  return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading admin panel...</div>
       </div>
@@ -560,7 +569,7 @@ export default function AdminPanel() {
           { id: 'queue', icon: Clock, label: 'Queue' },
           { id: 'settings', icon: Settings, label: 'Settings' }
         ].map((tab) => (
-          <button
+            <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex-1 py-3 px-2 text-center ${
@@ -569,10 +578,10 @@ export default function AdminPanel() {
           >
             <tab.icon className="w-5 h-5 mx-auto mb-1" />
             <div className="text-xs">{tab.label}</div>
-          </button>
+            </button>
         ))}
-      </div>
-    </div>
+          </div>
+        </div>
   );
 
   // Desktop Sidebar
@@ -582,7 +591,7 @@ export default function AdminPanel() {
         <h1 className="text-2xl font-bold text-white">DJ Admin</h1>
         <p className="text-gray-400 text-sm mt-1">Party Control Center</p>
       </div>
-      
+
       <nav className="flex-1 px-4">
         {[
           { id: 'overview', icon: Music, label: 'Overview' },
@@ -623,8 +632,8 @@ export default function AdminPanel() {
           Display Screen
           <ExternalLink className="w-4 h-4 ml-auto" />
         </a>
-      </div>
-    </div>
+          </div>
+        </div>
   );
 
   // Overview Tab
@@ -648,7 +657,7 @@ export default function AdminPanel() {
               <p className="text-yellow-300 text-xs mt-2">
                 Having connection issues? Try resetting your Spotify connection first.
               </p>
-            </div>
+          </div>
             <div className="flex flex-col space-y-2">
               <button
                 onClick={handleSpotifyConnect}
@@ -676,10 +685,10 @@ export default function AdminPanel() {
                   Retry Spotify
                 </button>
               )}
-            </div>
           </div>
-        </div>
-      )}
+          </div>
+          </div>
+        )}
 
 
       {/* Current Playback */}
@@ -704,11 +713,11 @@ export default function AdminPanel() {
               <SkipForward className="w-5 h-5 text-white" />
             </button>
           </div>
-        </div>
-
+                  </div>
+                  
         {spotifyConnected ? (
           playbackState?.current_track ? (
-            <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-4">
               {playbackState.current_track.image_url && (
                 <img
                   src={playbackState.current_track.image_url}
@@ -750,7 +759,7 @@ export default function AdminPanel() {
           <div className="text-center py-8 text-gray-400">
             <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Connect to Spotify to see what's playing</p>
-            <button
+                    <button
               onClick={handleSpotifyConnect}
               className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
             >
@@ -836,7 +845,7 @@ export default function AdminPanel() {
                 className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
               >
                 Connect Spotify
-              </button>
+                    </button>
             </div>
           )}
         </div>
@@ -985,15 +994,15 @@ export default function AdminPanel() {
                 </select>
                 
                 {allRequests.length > 0 && (
-                  <button
+                    <button
                     onClick={handleSelectAll}
                     className="text-purple-400 hover:text-purple-300 text-sm"
-                  >
+                    >
                     {selectedRequests.length === allRequests.length ? 'Deselect All' : 'Select All'}
-                  </button>
+                    </button>
                 )}
               </div>
-            </div>
+                  </div>
 
             {selectedRequests.length > 0 && (
               <div className="flex items-center space-x-2">
@@ -1014,8 +1023,8 @@ export default function AdminPanel() {
                   <XCircle className="w-4 h-4" />
                   <span>Reject All</span>
                 </button>
-              </div>
-            )}
+                    </div>
+                  )}
           </div>
         </div>
 
@@ -1025,8 +1034,8 @@ export default function AdminPanel() {
             <div className="p-8 text-center">
               <Music className="w-12 h-12 mx-auto mb-4 text-gray-500" />
               <p className="text-gray-400">No requests found</p>
-            </div>
-          ) : (
+                </div>
+              ) : (
             <div className="divide-y divide-gray-700">
               {allRequests.map((request) => (
                 <div key={request.id} className="p-4 hover:bg-gray-700/50 transition-colors">
@@ -1042,7 +1051,7 @@ export default function AdminPanel() {
                     {/* Album Art Placeholder */}
                     <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
                       <Music className="w-6 h-6 text-gray-400" />
-                    </div>
+                </div>
 
                     {/* Track Info */}
                     <div className="flex-1 min-w-0">
@@ -1066,9 +1075,9 @@ export default function AdminPanel() {
                           <span className="text-purple-300">
                             by {request.requester_nickname}
                           </span>
-                        )}
-                      </div>
-                    </div>
+              )}
+            </div>
+          </div>
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2">
@@ -1120,13 +1129,13 @@ export default function AdminPanel() {
                             )}
                           </div>
                           <div className="flex items-center space-x-1 ml-4">
-                            <button
+                    <button
                               onClick={() => handleApprove(request.id, true)}
                               className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
                               title="Play Next"
                             >
                               <PlayCircle className="w-3 h-3" />
-                            </button>
+                    </button>
                             <button
                               onClick={() => handleApprove(request.id)}
                               className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
@@ -1173,10 +1182,10 @@ export default function AdminPanel() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+                  ))}
+                </div>
           )}
-        </div>
+              </div>
       </div>
     );
   };
@@ -1223,8 +1232,8 @@ export default function AdminPanel() {
           <div className="text-center">
             <RefreshCw className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" />
             <p className="text-gray-400">Loading Spotify interface...</p>
-          </div>
-        </div>
+                </div>
+                </div>
       );
     }
 
@@ -1290,7 +1299,7 @@ export default function AdminPanel() {
                 >
                   <SkipForward className="w-6 h-6 text-white" />
                 </button>
-              </div>
+                          </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-400">
@@ -1298,7 +1307,7 @@ export default function AdminPanel() {
               <p>No music currently playing</p>
             </div>
           )}
-        </div>
+                        </div>
 
         {/* Device Info */}
         {detailedQueue?.device && (
@@ -1330,7 +1339,7 @@ export default function AdminPanel() {
               {detailedQueue?.shuffle_state && (
                 <span className="px-2 py-1 bg-purple-600/20 text-purple-400 rounded">
                   Shuffle ON
-                </span>
+                          </span>
               )}
               {detailedQueue?.repeat_state !== 'off' && (
                 <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded">
@@ -1379,13 +1388,13 @@ export default function AdminPanel() {
                     {formatDuration(track.duration_ms)}
                   </div>
                   
-                  <button
+                              <button
                     onClick={() => window.open(`https://open.spotify.com/track/${track.uri.split(':')[2]}`, '_blank')}
                     className="p-2 text-gray-400 hover:text-white transition-colors"
                     title="Open in Spotify"
-                  >
+                              >
                     <ExternalLink className="w-4 h-4" />
-                  </button>
+                              </button>
                 </div>
               ))}
               
@@ -1410,7 +1419,7 @@ export default function AdminPanel() {
         <div className="bg-gray-800 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Queue Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
+                              <button
               onClick={handleSkip}
               className="flex items-center justify-center space-x-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
@@ -1432,8 +1441,8 @@ export default function AdminPanel() {
             >
               <RefreshCw className="w-5 h-5" />
               <span>Refresh Queue</span>
-            </button>
-          </div>
+                              </button>
+                            </div>
         </div>
       </div>
     );
@@ -1682,9 +1691,9 @@ export default function AdminPanel() {
                   </>
                 )}
               </button>
-            </div>
-          </div>
-        </div>
+                        </div>
+                      </div>
+                    </div>
 
         {/* Preview Link */}
         <div className="bg-gray-800 rounded-lg p-6">
@@ -1703,7 +1712,7 @@ export default function AdminPanel() {
             <span>Open Display Screen</span>
             <ExternalLink className="w-4 h-4" />
           </a>
-        </div>
+                </div>
       </div>
     );
   };
@@ -1736,9 +1745,9 @@ export default function AdminPanel() {
                 </h1>
                 {eventSettings?.dj_name && (
                   <p className="text-gray-400">DJ {eventSettings.dj_name}</p>
-                )}
-              </div>
+              )}
             </div>
+          </div>
             
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -1774,7 +1783,7 @@ export default function AdminPanel() {
                 >
                   Reset
                 </button>
-              </div>
+        </div>
               
               <button
                 onClick={fetchData}
@@ -1791,7 +1800,7 @@ export default function AdminPanel() {
               >
                 <XCircle className="w-5 h-5" />
               </button>
-            </div>
+      </div>
           </div>
         </header>
 

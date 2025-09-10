@@ -274,11 +274,19 @@ class SpotifyService {
   }
 
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, retries = 1): Promise<any> {
+    const requestId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
-    console.log(`🌐 Making Spotify API request: ${method} ${endpoint}`);
+    console.log(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint} (retries left: ${retries})`);
     
-    const accessToken = await this.getAccessToken();
-    console.log(`🌐 Access token obtained (${Date.now() - startTime}ms)`);
+    let accessToken: string;
+    try {
+      const tokenStart = Date.now();
+      accessToken = await this.getAccessToken();
+      console.log(`🔑 [${requestId}] Access token obtained (${Date.now() - tokenStart}ms)`);
+    } catch (tokenError) {
+      console.error(`❌ [${requestId}] Failed to get access token: ${(tokenError as Error).message}`);
+      throw tokenError;
+    }
     
     const config: RequestInit = {
       method,
@@ -293,20 +301,28 @@ class SpotifyService {
     }
 
     const fetchStart = Date.now();
+    console.log(`🌐 [${requestId}] Starting HTTP request to ${this.baseURL}${endpoint}...`);
     
     // Add reasonable timeout to prevent hanging requests (Vercel serverless limit)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    const timeoutId = setTimeout(() => {
+      console.log(`⏰ [${requestId}] Request timeout after 8 seconds, aborting...`);
+      controller.abort();
+    }, 8000); // 8 second timeout
     
     config.signal = controller.signal;
     
     let response;
     try {
+      console.log(`📡 [${requestId}] Sending fetch request...`);
       response = await fetch(`${this.baseURL}${endpoint}`, config);
       clearTimeout(timeoutId);
-      console.log(`🌐 Spotify API response: ${response.status} (${Date.now() - fetchStart}ms)`);
+      console.log(`📡 [${requestId}] Fetch completed: ${response.status} ${response.statusText} (${Date.now() - fetchStart}ms)`);
     } catch (error) {
       clearTimeout(timeoutId);
+      const errorMessage = (error as Error).message;
+      console.error(`❌ [${requestId}] Fetch failed after ${Date.now() - fetchStart}ms: ${errorMessage}`);
+      
       if (error.name === 'AbortError') {
         throw new Error(`Spotify API request timeout after 8 seconds: ${method} ${endpoint}`);
       }
@@ -392,11 +408,26 @@ class SpotifyService {
   }
 
   async getCurrentPlayback(): Promise<any> {
+    const callId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
-    console.log('🎵 Getting current playback...');
-    const result = await this.makeAuthenticatedRequest('GET', '/me/player');
-    console.log(`🎵 Current playback retrieved (${Date.now() - startTime}ms)`);
-    return result;
+    console.log(`🎵 [${callId}] getCurrentPlayback() called at ${new Date().toISOString()}`);
+    
+    try {
+      console.log(`🌐 [${callId}] Making authenticated request to /me/player...`);
+      const result = await this.makeAuthenticatedRequest('GET', '/me/player');
+      
+      console.log(`✅ [${callId}] getCurrentPlayback() completed (${Date.now() - startTime}ms)`);
+      if (result) {
+        console.log(`🎵 [${callId}] Playback data: device=${result.device?.name || 'unknown'}, is_playing=${result.is_playing}, track=${result.item?.name || 'unknown'}`);
+      } else {
+        console.log(`🎵 [${callId}] No active playback session found`);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`❌ [${callId}] getCurrentPlayback() failed after ${Date.now() - startTime}ms:`, error);
+      throw error;
+    }
   }
 
   async getDevices(): Promise<any[]> {
@@ -431,11 +462,29 @@ class SpotifyService {
   }
 
   async getQueue(): Promise<any> {
+    const callId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
-    console.log('🎵 Getting queue...');
-    const result = await this.makeAuthenticatedRequest('GET', '/me/player/queue');
-    console.log(`🎵 Queue retrieved (${Date.now() - startTime}ms)`);
-    return result;
+    console.log(`🎵 [${callId}] getQueue() called at ${new Date().toISOString()}`);
+    
+    try {
+      console.log(`🌐 [${callId}] Making authenticated request to /me/player/queue...`);
+      const result = await this.makeAuthenticatedRequest('GET', '/me/player/queue');
+      
+      console.log(`✅ [${callId}] getQueue() completed (${Date.now() - startTime}ms)`);
+      if (result?.queue) {
+        console.log(`🎵 [${callId}] Queue data: ${result.queue.length} items in queue`);
+        if (result.queue.length > 0) {
+          console.log(`🎵 [${callId}] Next track: ${result.queue[0]?.name || 'unknown'}`);
+        }
+      } else {
+        console.log(`🎵 [${callId}] No queue data found`);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`❌ [${callId}] getQueue() failed after ${Date.now() - startTime}ms:`, error);
+      throw error;
+    }
   }
 
   async getTrackDetails(trackId: string): Promise<any> {

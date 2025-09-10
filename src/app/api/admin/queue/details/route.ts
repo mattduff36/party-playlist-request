@@ -4,43 +4,100 @@ import { spotifyService } from '@/lib/spotify';
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
-  console.log('🔍 Queue details endpoint called');
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🔍 [${requestId}] Queue details endpoint called at ${new Date().toISOString()}`);
   
   try {
     // Verify admin authentication first
+    const authStart = Date.now();
     await authService.requireAdminAuth(req);
-    console.log(`✅ Admin auth verified (${Date.now() - startTime}ms)`);
+    console.log(`✅ [${requestId}] Admin auth verified (${Date.now() - authStart}ms)`);
+    
+    // Check if we have Spotify tokens first
+    console.log(`🔍 [${requestId}] Checking Spotify token availability...`);
+    const tokenCheckStart = Date.now();
+    let hasTokens = false;
+    try {
+      hasTokens = await spotifyService.isConnected();
+      console.log(`🔍 [${requestId}] Token check result: ${hasTokens} (${Date.now() - tokenCheckStart}ms)`);
+    } catch (tokenError) {
+      console.log(`❌ [${requestId}] Token check failed: ${(tokenError as Error).message} (${Date.now() - tokenCheckStart}ms)`);
+    }
+    
+    if (!hasTokens) {
+      console.log(`⚠️ [${requestId}] No Spotify tokens available, returning empty response`);
+      return NextResponse.json({
+        current_track: null,
+        queue: [],
+        device: null,
+        is_playing: false,
+        shuffle_state: false,
+        repeat_state: 'off',
+        spotify_connected: false,
+        debug: {
+          request_id: requestId,
+          has_tokens: false,
+          total_duration: Date.now() - startTime
+        }
+      });
+    }
     
     // Get both current playback and queue - let Spotify API calls handle their own auth
-    console.log('🎵 Fetching Spotify playback and queue data...');
+    console.log(`🎵 [${requestId}] Fetching Spotify playback and queue data...`);
     const spotifyCallStart = Date.now();
     
     let playbackState = null;
     let queueData = null;
     let spotifyConnected = true; // Assume connected, let API calls determine if not
+    let spotifyErrors = [];
     
+    // Try getCurrentPlayback first
+    console.log(`🎵 [${requestId}] Calling getCurrentPlayback()...`);
+    const playbackStart = Date.now();
     try {
-      [playbackState, queueData] = await Promise.all([
-        spotifyService.getCurrentPlayback(),
-        spotifyService.getQueue()
-      ]);
-      console.log(`🎵 Spotify data fetched successfully (${Date.now() - spotifyCallStart}ms)`);
-    } catch (spotifyError) {
-      const errorMessage = (spotifyError as Error).message;
-      console.log(`❌ Spotify API error: ${errorMessage}`);
+      playbackState = await spotifyService.getCurrentPlayback();
+      console.log(`✅ [${requestId}] getCurrentPlayback() successful (${Date.now() - playbackStart}ms)`);
+      if (playbackState) {
+        console.log(`🎵 [${requestId}] Playback state: ${playbackState.is_playing ? 'playing' : 'paused'}, track: ${playbackState.item?.name || 'unknown'}`);
+      } else {
+        console.log(`🎵 [${requestId}] No active playback`);
+      }
+    } catch (playbackError) {
+      const errorMessage = (playbackError as Error).message;
+      console.log(`❌ [${requestId}] getCurrentPlayback() failed: ${errorMessage} (${Date.now() - playbackStart}ms)`);
+      spotifyErrors.push(`getCurrentPlayback: ${errorMessage}`);
       
-      // Mark as disconnected if we get auth errors
       if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         spotifyConnected = false;
-        console.log('🔄 Spotify auth error detected, marking as disconnected');
-      } else {
-        // For other errors (timeouts, network issues), still return empty data but log differently
-        console.log('⚠️ Spotify API call failed, returning empty data');
-        spotifyConnected = false;
+        console.log(`🔄 [${requestId}] Auth error in getCurrentPlayback, marking as disconnected`);
       }
+    }
+    
+    // Try getQueue second
+    console.log(`🎵 [${requestId}] Calling getQueue()...`);
+    const queueStart = Date.now();
+    try {
+      queueData = await spotifyService.getQueue();
+      console.log(`✅ [${requestId}] getQueue() successful (${Date.now() - queueStart}ms)`);
+      if (queueData?.queue) {
+        console.log(`🎵 [${requestId}] Queue has ${queueData.queue.length} items`);
+      } else {
+        console.log(`🎵 [${requestId}] No queue data`);
+      }
+    } catch (queueError) {
+      const errorMessage = (queueError as Error).message;
+      console.log(`❌ [${requestId}] getQueue() failed: ${errorMessage} (${Date.now() - queueStart}ms)`);
+      spotifyErrors.push(`getQueue: ${errorMessage}`);
       
-      playbackState = null;
-      queueData = null;
+      if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        spotifyConnected = false;
+        console.log(`🔄 [${requestId}] Auth error in getQueue, marking as disconnected`);
+      }
+    }
+    
+    console.log(`🎵 [${requestId}] Spotify API calls completed (${Date.now() - spotifyCallStart}ms total)`);
+    if (spotifyErrors.length > 0) {
+      console.log(`⚠️ [${requestId}] Spotify errors encountered: ${spotifyErrors.join(', ')}`);
     }
     
     // Process current track with album art
@@ -101,7 +158,7 @@ export async function GET(req: NextRequest) {
       );
     }
     
-    console.log(`🎯 Queue details endpoint completed (${Date.now() - startTime}ms total)`);
+    console.log(`🎯 [${requestId}] Queue details endpoint completed (${Date.now() - startTime}ms total)`);
     
     return NextResponse.json({
       current_track: currentTrack,
@@ -110,7 +167,14 @@ export async function GET(req: NextRequest) {
       is_playing: playbackState?.is_playing || false,
       shuffle_state: playbackState?.shuffle_state || false,
       repeat_state: playbackState?.repeat_state || 'off',
-      spotify_connected: spotifyConnected
+      spotify_connected: spotifyConnected,
+      debug: {
+        request_id: requestId,
+        has_tokens: hasTokens,
+        spotify_errors: spotifyErrors,
+        total_duration: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      }
     });
     
   } catch (error) {
