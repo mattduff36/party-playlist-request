@@ -93,8 +93,16 @@ export default function SpotifySetupPage() {
       localStorage.setItem('spotify_code_verifier', response.data.code_challenge);
       localStorage.setItem('spotify_state', response.data.state);
       
-      // Redirect to Spotify authorization
-      window.location.href = response.data.auth_url;
+      // For mobile, open in same tab to avoid download issues
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // On mobile, navigate directly
+        window.location.href = response.data.auth_url;
+      } else {
+        // On desktop, can use window.open if preferred
+        window.location.href = response.data.auth_url;
+      }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to start Spotify authentication');
     } finally {
@@ -110,14 +118,16 @@ export default function SpotifySetupPage() {
     const error = urlParams.get('error');
 
     if (error) {
-      setError(`Spotify authentication failed: ${error}`);
+      setError(decodeURIComponent(error));
+      // Clean up URL
+      window.history.replaceState({}, document.title, '/admin/spotify-setup');
       return;
     }
 
-    if (code && state) {
+    if (code && state && token) {
       handleSpotifyCallback(code, state);
     }
-  }, []);
+  }, [token]); // Added token dependency
 
   const handleSpotifyCallback = async (code: string, state: string) => {
     const storedState = localStorage.getItem('spotify_state');
@@ -273,6 +283,7 @@ export default function SpotifySetupPage() {
                   <li>Verify your Client ID and Client Secret are set in Vercel</li>
                   <li className="break-all">Ensure the redirect URI matches: <code className="bg-gray-200 px-1 rounded text-xs">https://partyplaylist.mpdee.co.uk/api/spotify/callback</code></li>
                   <li>You need Spotify Premium for full playback control features</li>
+                  <li className="text-blue-600">📱 <strong>Mobile users:</strong> The connection will redirect you to Spotify and back</li>
                 </ul>
               </div>
 
