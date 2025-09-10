@@ -33,8 +33,14 @@ function isRateLimited(ip: string): { limited: boolean; message?: string } {
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`🎵 [${requestId}] Request endpoint called`);
+  const startTime = Date.now();
+  
   try {
+    console.log(`⏱️ [${requestId}] Initializing defaults...`);
     await initializeDefaults();
+    console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
 
     const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
     
@@ -75,19 +81,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Get track information from Spotify
+    console.log(`🎵 [${requestId}] Getting track info from Spotify...`);
     let trackInfo;
     try {
       trackInfo = await spotifyService.getTrack(trackUri);
+      console.log(`✅ [${requestId}] Track info retrieved (${Date.now() - startTime}ms)`);
     } catch (error) {
+      console.log(`❌ [${requestId}] Failed to get track info (${Date.now() - startTime}ms):`, error);
       return NextResponse.json({ 
         error: 'Unable to find track on Spotify. Please check the URL/URI.' 
       }, { status: 400 });
     }
 
     // Check for recent duplicates using efficient database query
+    console.log(`🔍 [${requestId}] Checking for recent duplicates...`);
     const recentDuplicate = await checkRecentDuplicate(trackUri, 30);
+    console.log(`✅ [${requestId}] Duplicate check completed (${Date.now() - startTime}ms)`);
 
     if (recentDuplicate) {
+      console.log(`⚠️ [${requestId}] Duplicate found, rejecting request`);
       return NextResponse.json({ 
         error: 'This track has already been requested recently. Please choose a different song.' 
       }, { status: 409 });
@@ -95,6 +107,7 @@ export async function POST(req: NextRequest) {
 
     const ipHash = hashIP(clientIP);
 
+    console.log(`💾 [${requestId}] Creating database request...`);
     const newRequest = await createRequest({
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
@@ -107,6 +120,7 @@ export async function POST(req: NextRequest) {
       spotify_added_to_queue: false,
       spotify_added_to_playlist: false
     });
+    console.log(`✅ [${requestId}] Request created successfully (${Date.now() - startTime}ms total)`);
 
     return NextResponse.json({
       success: true,
@@ -124,7 +138,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Error submitting request:', error);
+    console.error(`❌ [${requestId}] Error submitting request (${Date.now() - startTime}ms):`, error);
     return NextResponse.json({ 
       error: 'Failed to submit request. Please try again.' 
     }, { status: 500 });
