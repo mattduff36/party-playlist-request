@@ -294,9 +294,9 @@ class SpotifyService {
 
     const fetchStart = Date.now();
     
-    // Add ultra-aggressive timeout to prevent hanging requests (Vercel serverless limit)
+    // Add reasonable timeout to prevent hanging requests (Vercel serverless limit)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
     
     config.signal = controller.signal;
     
@@ -308,7 +308,7 @@ class SpotifyService {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        throw new Error(`Spotify API request timeout after 1.5 seconds: ${method} ${endpoint}`);
+        throw new Error(`Spotify API request timeout after 8 seconds: ${method} ${endpoint}`);
       }
       throw error;
     }

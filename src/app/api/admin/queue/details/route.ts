@@ -11,65 +11,41 @@ export async function GET(req: NextRequest) {
     await authService.requireAdminAuth(req);
     console.log(`✅ Admin auth verified (${Date.now() - startTime}ms)`);
     
-    // Quick connection check with fast timeout
-    const connectionCheckStart = Date.now();
-    let spotifyConnected = false;
-    
-    try {
-      // Use an ultra-short timeout for connection check
-      const connectionTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection check timeout')), 500);
-      });
-      
-      const connectionCheck = spotifyService.isConnected();
-      spotifyConnected = await Promise.race([connectionCheck, connectionTimeout]) as boolean;
-    } catch (connectionError) {
-      console.log(`⚠️ Connection check failed: ${(connectionError as Error).message}`);
-      spotifyConnected = false;
-    }
-    
-    console.log(`🎵 Spotify connection check: ${spotifyConnected} (${Date.now() - connectionCheckStart}ms)`);
+    // Get both current playback and queue - let Spotify API calls handle their own auth
+    console.log('🎵 Fetching Spotify playback and queue data...');
+    const spotifyCallStart = Date.now();
     
     let playbackState = null;
     let queueData = null;
+    let spotifyConnected = true; // Assume connected, let API calls determine if not
     
-    if (spotifyConnected) {
-      try {
-        const spotifyCallStart = Date.now();
-        console.log('🎵 Fetching Spotify playback and queue data...');
-        
-        // Add ultra-aggressive timeout to prevent hanging (Vercel has 10s limit, we need buffer)
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Spotify API timeout after 2 seconds')), 2000);
-        });
-        
-        const spotifyPromise = Promise.all([
-          spotifyService.getCurrentPlayback(),
-          spotifyService.getQueue()
-        ]);
-        
-        [playbackState, queueData] = await Promise.race([
-          spotifyPromise,
-          timeoutPromise
-        ]) as any[];
-        
-        console.log(`🎵 Spotify data fetched (${Date.now() - spotifyCallStart}ms)`);
-      } catch (spotifyError) {
-        // If we get any error, immediately mark as disconnected and return empty data
-        const errorMessage = (spotifyError as Error).message;
-        console.log(`❌ Spotify error: ${errorMessage}`);
-        
-        // Always mark as disconnected on any error to prevent retry loops
-        console.log('🔄 Spotify error detected, marking as disconnected to prevent retry loops');
+    try {
+      [playbackState, queueData] = await Promise.all([
+        spotifyService.getCurrentPlayback(),
+        spotifyService.getQueue()
+      ]);
+      console.log(`🎵 Spotify data fetched successfully (${Date.now() - spotifyCallStart}ms)`);
+    } catch (spotifyError) {
+      const errorMessage = (spotifyError as Error).message;
+      console.log(`❌ Spotify API error: ${errorMessage}`);
+      
+      // Mark as disconnected if we get auth errors
+      if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         spotifyConnected = false;
-        playbackState = null;
-        queueData = null;
+        console.log('🔄 Spotify auth error detected, marking as disconnected');
+      } else {
+        // For other errors (timeouts, network issues), still return empty data but log differently
+        console.log('⚠️ Spotify API call failed, returning empty data');
+        spotifyConnected = false;
       }
+      
+      playbackState = null;
+      queueData = null;
     }
     
-    // Process current track (skip album art if auth issues detected)
+    // Process current track with album art
     let currentTrack = null;
-    if (playbackState?.item && spotifyConnected) {
+    if (playbackState?.item) {
       // Create basic track info first
       currentTrack = {
         id: playbackState.item.id,
@@ -85,34 +61,44 @@ export async function GET(req: NextRequest) {
         is_playing: playbackState.is_playing
       };
 
-      // Try to get album art, but don't fail if auth issues
+      // Try to get album art, but don't fail if there are issues
       try {
         const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
         currentTrack.image_url = albumArt;
       } catch (artError) {
-        // Log but don't fail - album art is optional
-        console.log('Could not fetch album art (auth may be invalid):', (artError as Error).message);
+        console.log('Could not fetch album art:', (artError as Error).message);
       }
     }
     
-    // Process queue items (album art is optional)
+    // Process queue items with album art
     let queueItems = [];
-    if (queueData?.queue && spotifyConnected) {
-      queueItems = queueData.queue.slice(0, 10).map((item: any) => {
-        // Create basic item info first
-        const queueItem = {
-          id: item.id,
-          uri: item.uri,
-          name: item.name,
-          artists: item.artists.map((artist: any) => artist.name),
-          album: item.album.name,
-          duration_ms: item.duration_ms,
-          explicit: item.explicit,
-          external_urls: item.external_urls,
-          image_url: null // Default to null, album art will be loaded separately if needed
-        };
-        return queueItem;
-      });
+    if (queueData?.queue) {
+      queueItems = await Promise.all(
+        queueData.queue.slice(0, 10).map(async (item: any) => {
+          const queueItem = {
+            id: item.id,
+            uri: item.uri,
+            name: item.name,
+            artists: item.artists.map((artist: any) => artist.name),
+            album: item.album.name,
+            duration_ms: item.duration_ms,
+            explicit: item.explicit,
+            external_urls: item.external_urls,
+            image_url: null
+          };
+          
+          // Try to get album art for each item
+          try {
+            const albumArt = await spotifyService.getAlbumArt(item.uri);
+            queueItem.image_url = albumArt;
+          } catch (artError) {
+            // Album art is optional, continue without it
+            console.log(`Could not fetch album art for ${item.name}:`, (artError as Error).message);
+          }
+          
+          return queueItem;
+        })
+      );
     }
     
     console.log(`🎯 Queue details endpoint completed (${Date.now() - startTime}ms total)`);
@@ -136,7 +122,8 @@ export async function GET(req: NextRequest) {
     }
     
     return NextResponse.json({ 
-      error: 'Failed to get queue details' 
+      error: 'Failed to get queue details',
+      spotify_connected: false
     }, { status: 500 });
   }
 }
