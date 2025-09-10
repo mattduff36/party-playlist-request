@@ -58,7 +58,8 @@ export default function HomePage() {
     setIsSearching(true);
     try {
       const response = await axios.get<SearchResult>(`${API_BASE}/search`, {
-        params: { q: query.trim(), limit: 20 }
+        params: { q: query.trim(), limit: 20 },
+        timeout: 15000 // 15 second timeout for search
       });
       setSearchResults(response.data.tracks);
     } catch (error) {
@@ -96,7 +97,12 @@ export default function HomePage() {
         requestData.track_url = url;
       }
 
-      const response = await axios.post<RequestResponse>(`${API_BASE}/request`, requestData);
+      const response = await axios.post<RequestResponse>(`${API_BASE}/request`, requestData, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (response.data.success) {
         setRequestStatus('success');
@@ -112,10 +118,24 @@ export default function HomePage() {
         }, 5000);
       }
     } catch (error: any) {
+      console.error('Request submission error:', error);
       setRequestStatus('error');
-      setStatusMessage(
-        error.response?.data?.error || 'Failed to submit request. Please try again.'
-      );
+      
+      // Handle different types of errors
+      let errorMessage = 'Failed to submit request. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.error || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Request was made but no response received (timeout, network error)
+        errorMessage = 'Request timeout or network error. Please check your connection and try again.';
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'An unexpected error occurred.';
+      }
+      
+      setStatusMessage(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
