@@ -100,10 +100,14 @@ export async function GET(req: NextRequest) {
       console.log(`⚠️ [${requestId}] Spotify errors encountered: ${spotifyErrors.join(', ')}`);
     }
     
-    // Process current track with album art
+    // Process current track with album art from existing data
     let currentTrack = null;
     if (playbackState?.item) {
-      // Create basic track info first
+      // Use album art from the playback response instead of making additional API calls
+      const albumImages = playbackState.item.album?.images || [];
+      const imageUrl = albumImages.length > 0 ? 
+        (albumImages[1]?.url || albumImages[0]?.url) : null;
+      
       currentTrack = {
         id: playbackState.item.id,
         uri: playbackState.item.uri,
@@ -113,49 +117,33 @@ export async function GET(req: NextRequest) {
         duration_ms: playbackState.item.duration_ms,
         explicit: playbackState.item.explicit,
         external_urls: playbackState.item.external_urls,
-        image_url: null, // Default to null
+        image_url: imageUrl,
         progress_ms: playbackState.progress_ms,
         is_playing: playbackState.is_playing
       };
-
-      // Try to get album art, but don't fail if there are issues
-      try {
-        const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
-        currentTrack.image_url = albumArt;
-      } catch (artError) {
-        console.log('Could not fetch album art:', (artError as Error).message);
-      }
     }
     
-    // Process queue items with album art
+    // Process queue items with album art from existing data
     let queueItems = [];
     if (queueData?.queue) {
-      queueItems = await Promise.all(
-        queueData.queue.slice(0, 10).map(async (item: any) => {
-          const queueItem = {
-            id: item.id,
-            uri: item.uri,
-            name: item.name,
-            artists: item.artists.map((artist: any) => artist.name),
-            album: item.album.name,
-            duration_ms: item.duration_ms,
-            explicit: item.explicit,
-            external_urls: item.external_urls,
-            image_url: null
-          };
-          
-          // Try to get album art for each item
-          try {
-            const albumArt = await spotifyService.getAlbumArt(item.uri);
-            queueItem.image_url = albumArt;
-          } catch (artError) {
-            // Album art is optional, continue without it
-            console.log(`Could not fetch album art for ${item.name}:`, (artError as Error).message);
-          }
-          
-          return queueItem;
-        })
-      );
+      queueItems = queueData.queue.slice(0, 10).map((item: any) => {
+        // Use album art from the queue response instead of making additional API calls
+        const albumImages = item.album?.images || [];
+        const imageUrl = albumImages.length > 0 ? 
+          (albumImages[1]?.url || albumImages[0]?.url) : null;
+        
+        return {
+          id: item.id,
+          uri: item.uri,
+          name: item.name,
+          artists: item.artists.map((artist: any) => artist.name),
+          album: item.album.name,
+          duration_ms: item.duration_ms,
+          explicit: item.explicit,
+          external_urls: item.external_urls,
+          image_url: imageUrl
+        };
+      });
     }
     
     console.log(`🎯 [${requestId}] Queue details endpoint completed (${Date.now() - startTime}ms total)`);
