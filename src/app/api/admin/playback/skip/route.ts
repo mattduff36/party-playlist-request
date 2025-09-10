@@ -22,8 +22,25 @@ export async function POST(req: NextRequest) {
     }
     
     console.error('Error skipping track:', error);
+    
+    // Provide more detailed error information
+    let errorMessage = 'Failed to skip track';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Handle common Spotify playback errors
+      if (error.message.includes('NO_ACTIVE_DEVICE')) {
+        errorMessage = 'No active Spotify device found. Please start playing music on a Spotify device first.';
+      } else if (error.message.includes('PREMIUM_REQUIRED')) {
+        errorMessage = 'Spotify Premium is required for playback control.';
+      } else if (error.message.includes('403')) {
+        errorMessage = 'Insufficient permissions for playback control. Please re-authenticate with Spotify.';
+      }
+    }
+    
     return NextResponse.json({ 
-      error: 'Failed to skip track' 
+      error: errorMessage,
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
