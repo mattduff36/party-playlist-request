@@ -13,7 +13,7 @@
     "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "@vercel/kv": "^1.0.0",
+    "pg": "^8.11.0",
     "jsonwebtoken": "^9.0.2",
     "bcryptjs": "^2.4.3"
   },
@@ -25,6 +25,7 @@
     "@types/react-dom": "^19",
     "@types/jsonwebtoken": "^9.0.0",
     "@types/bcryptjs": "^2.4.0",
+    "@types/pg": "^8.10.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",

@@ -11,12 +11,9 @@ JWT_SECRET=ba9790256fc3ba793acb9e8e163d1c6f8c1f1656ae1861be4a97a9c1a6973595b76fc
 
 ADMIN_PASSWORD=admin123
 
-KV_REST_API_URL=your-kv-rest-api-url-from-vercel-kv-dashboard
-
-KV_REST_API_TOKEN=your-kv-rest-api-token-from-vercel-kv-dashboard
+DATABASE_URL=postgresql://neondb_owner:npg_u7JFeoIbUhG3@ep-red-sound-abigblx5-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require
 
 REPLACE THESE:
 - your-spotify-client-id-here = Your Spotify Client ID
 - your-spotify-client-secret-here = Your Spotify Client Secret  
 - your-vercel-app.vercel.app = Your actual Vercel URL (after deploy)
-- KV URLs/tokens = Get from Vercel KV dashboard after creating database
