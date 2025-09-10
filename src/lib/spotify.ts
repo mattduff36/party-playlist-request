@@ -259,8 +259,25 @@ class SpotifyService {
     }
 
     const fetchStart = Date.now();
-    const response = await fetch(`${this.baseURL}${endpoint}`, config);
-    console.log(`🌐 Spotify API response: ${response.status} (${Date.now() - fetchStart}ms)`);
+    
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+    
+    config.signal = controller.signal;
+    
+    let response;
+    try {
+      response = await fetch(`${this.baseURL}${endpoint}`, config);
+      clearTimeout(timeoutId);
+      console.log(`🌐 Spotify API response: ${response.status} (${Date.now() - fetchStart}ms)`);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`Spotify API request timeout after 20 seconds: ${method} ${endpoint}`);
+      }
+      throw error;
+    }
 
     if (response.status === 429 && retries > 0) {
       const retryAfter = response.headers.get('retry-after') || '1';

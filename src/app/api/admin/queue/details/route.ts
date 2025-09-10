@@ -24,10 +24,20 @@ export async function GET(req: NextRequest) {
         const spotifyCallStart = Date.now();
         console.log('🎵 Fetching Spotify playback and queue data...');
         
-        [playbackState, queueData] = await Promise.all([
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Spotify API timeout after 25 seconds')), 25000);
+        });
+        
+        const spotifyPromise = Promise.all([
           spotifyService.getCurrentPlayback(),
           spotifyService.getQueue()
         ]);
+        
+        [playbackState, queueData] = await Promise.race([
+          spotifyPromise,
+          timeoutPromise
+        ]) as any[];
         
         console.log(`🎵 Spotify data fetched (${Date.now() - spotifyCallStart}ms)`);
       } catch (spotifyError) {
@@ -36,8 +46,9 @@ export async function GET(req: NextRequest) {
         console.log(`❌ Spotify error: ${errorMessage}`);
         
         if (errorMessage.includes('No Spotify authentication found') || 
-            errorMessage.includes('Failed to refresh access token')) {
-          console.log('🔄 Spotify authentication invalid, marking as disconnected');
+            errorMessage.includes('Failed to refresh access token') ||
+            errorMessage.includes('Spotify API timeout')) {
+          console.log('🔄 Spotify authentication invalid or timeout, marking as disconnected');
           spotifyConnected = false;
           playbackState = null;
           queueData = null;

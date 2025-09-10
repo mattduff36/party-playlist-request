@@ -130,14 +130,15 @@ export default function AdminPanel() {
     // Check if we're returning from Spotify setup and force refresh
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('spotify_connected')) {
-      console.log('Detected return from Spotify setup, forcing data refresh...');
+      console.log('Detected return from Spotify setup, waiting for tokens to propagate...');
       // Clear the URL parameter
       window.history.replaceState({}, document.title, '/admin');
-      // Force immediate data refresh when authenticated
+      // Wait longer for tokens to propagate before making API calls
       if (token) {
         setTimeout(() => {
+          console.log('Tokens should be ready, refreshing data...');
           fetchData();
-        }, 1000);
+        }, 3000); // Increased from 1s to 3s
       }
     }
   }, []);
