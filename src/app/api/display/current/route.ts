@@ -10,10 +10,14 @@ export async function GET(req: NextRequest) {
       spotifyService.getCurrentPlayback().catch(() => null)
     ]);
     
-    // Add album art to current track
+    // Process current track with album art from existing data
     let currentTrack = null;
     if (playbackState?.item) {
-      const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
+      // Use album art from the playback response instead of making additional API calls
+      const albumImages = playbackState.item.album?.images || [];
+      const imageUrl = albumImages.length > 0 ? 
+        (albumImages[1]?.url || albumImages[0]?.url) : null;
+      
       currentTrack = {
         name: playbackState.item.name,
         artists: playbackState.item.artists.map((a: any) => a.name),
@@ -21,27 +25,29 @@ export async function GET(req: NextRequest) {
         duration_ms: playbackState.item.duration_ms,
         progress_ms: playbackState.progress_ms,
         uri: playbackState.item.uri,
-        image_url: albumArt
+        image_url: imageUrl
       };
     }
 
-    // Get queue data
+    // Get queue data with album art from existing data
     let upcomingSongs = [];
     try {
       const queueData = await spotifyService.getQueue();
       if (queueData?.queue) {
-        upcomingSongs = await Promise.all(
-          queueData.queue.slice(0, 3).map(async (item: any) => {
-            const albumArt = await spotifyService.getAlbumArt(item.uri);
-            return {
-              name: item.name,
-              artists: item.artists.map((a: any) => a.name),
-              album: item.album.name,
-              uri: item.uri,
-              image_url: albumArt
-            };
-          })
-        );
+        upcomingSongs = queueData.queue.slice(0, 3).map((item: any) => {
+          // Use album art from the queue response instead of making additional API calls
+          const albumImages = item.album?.images || [];
+          const imageUrl = albumImages.length > 0 ? 
+            (albumImages[1]?.url || albumImages[0]?.url) : null;
+          
+          return {
+            name: item.name,
+            artists: item.artists.map((a: any) => a.name),
+            album: item.album.name,
+            uri: item.uri,
+            image_url: imageUrl
+          };
+        });
       }
     } catch (error) {
       console.error('Error getting queue for display:', error);
