@@ -242,51 +242,51 @@ export default function AdminPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">🎛️ Admin Login</h1>
-            <p className="text-gray-600 mt-2">Access the DJ control panel</p>
+      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-black">🎛️ Admin Login</h1>
+          <p className="text-gray-800 mt-2">Access the DJ control panel</p>
+        </div>
+
+        <form onSubmit={handleLogin}>
+          <div className="mb-4">
+            <label className="block text-black text-sm font-bold mb-2">
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-black"
+              required
+            />
           </div>
 
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
+          <div className="mb-6">
+            <label className="block text-black text-sm font-bold mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-black"
+              required
+            />
+          </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
+          {loginError && (
+            <div className="mb-4 text-red-600 text-sm">{loginError}</div>
+          )}
 
-            {loginError && (
-              <div className="mb-4 text-red-600 text-sm">{loginError}</div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg"
-            >
-              {isLoggingIn ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
+          <button
+            type="submit"
+            disabled={isLoggingIn}
+            className="w-full bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg"
+          >
+            {isLoggingIn ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
         </div>
       </div>
     );
@@ -296,7 +296,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-100">
         <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">🎛️ DJ Control Panel</h1>
+          <h1 className="text-2xl font-bold text-black">🎛️ DJ Control Panel</h1>
           <div className="flex space-x-3">
             <a
               href="/admin/spotify-setup"
@@ -338,22 +338,22 @@ export default function AdminPage() {
         {/* Stats Dashboard */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-6 text-center">
-              <div className="text-3xl font-bold text-blue-600">{stats.pending_requests}</div>
-              <div className="text-gray-600">Pending</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6 text-center">
-              <div className="text-3xl font-bold text-green-600">{stats.approved_requests}</div>
-              <div className="text-gray-600">Approved</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6 text-center">
-              <div className="text-3xl font-bold text-orange-600">{stats.today_requests}</div>
-              <div className="text-gray-600">Today</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6 text-center">
-              <div className="text-3xl font-bold text-purple-600">{stats.total_requests}</div>
-              <div className="text-gray-600">Total</div>
-            </div>
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-3xl font-bold text-blue-600">{stats.pending_requests}</div>
+            <div className="text-black">Pending</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-3xl font-bold text-green-600">{stats.approved_requests}</div>
+            <div className="text-black">Approved</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-3xl font-bold text-orange-600">{stats.today_requests}</div>
+            <div className="text-black">Today</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-3xl font-bold text-purple-600">{stats.total_requests}</div>
+            <div className="text-black">Total</div>
+          </div>
           </div>
         )}
 
@@ -361,14 +361,14 @@ export default function AdminPage() {
           {/* Current Playback */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4">🎵 Now Playing</h2>
+              <h2 className="text-xl font-bold mb-4 text-black">🎵 Now Playing</h2>
               
               {playbackState?.current_track ? (
                 <div className="space-y-4">
                   <div>
-                    <h3 className="font-semibold text-lg">{playbackState.current_track.name}</h3>
-                    <p className="text-gray-600">{playbackState.current_track.artists.join(', ')}</p>
-                    <p className="text-gray-500 text-sm">{playbackState.current_track.album}</p>
+                    <h3 className="font-semibold text-lg text-black">{playbackState.current_track.name}</h3>
+                    <p className="text-gray-800">{playbackState.current_track.artists.join(', ')}</p>
+                    <p className="text-gray-700 text-sm">{playbackState.current_track.album}</p>
                   </div>
                   
                   <div className="flex items-center space-x-4">
@@ -392,13 +392,13 @@ export default function AdminPage() {
                   </div>
 
                   {playbackState.device && (
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-700">
                       📱 {playbackState.device.name} ({playbackState.device.type})
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-gray-500 text-center py-8">
+                <div className="text-gray-700 text-center py-8">
                   No active playback
                 </div>
               )}
@@ -409,7 +409,7 @@ export default function AdminPage() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-lg p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">📋 Song Requests</h2>
+                <h2 className="text-xl font-bold text-black">📋 Song Requests</h2>
                 
                 <div className="flex space-x-2">
                   {(['all', 'pending', 'approved', 'rejected'] as const).map((status) => (
@@ -431,10 +431,10 @@ export default function AdminPage() {
               {isLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="text-gray-500 mt-2">Loading...</p>
+                  <p className="text-black mt-2">Loading...</p>
                 </div>
               ) : requests.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-black">
                   No requests found
                 </div>
               ) : (
@@ -451,10 +451,10 @@ export default function AdminPage() {
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h3 className="font-semibold">{request.track_name}</h3>
-                          <p className="text-gray-600">{request.artist_name}</p>
-                          <p className="text-gray-500 text-sm">{request.album_name}</p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                          <h3 className="font-semibold text-black">{request.track_name}</h3>
+                          <p className="text-gray-800">{request.artist_name}</p>
+                          <p className="text-gray-700 text-sm">{request.album_name}</p>
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-700">
                             <span>⏱️ {formatDuration(request.duration_ms)}</span>
                             <span>📅 {formatDate(request.created_at)}</span>
                             {request.requester_nickname && (
