@@ -95,6 +95,7 @@ export default function AdminPanel() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
 
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -230,7 +231,7 @@ export default function AdminPanel() {
   };
 
   // Fetch all data with authentication
-  const fetchData = async () => {
+  const fetchData = async (showBackgroundIndicator = false) => {
     if (!isAuthenticated) return;
 
     const token = localStorage.getItem('admin_token');
@@ -240,6 +241,9 @@ export default function AdminPanel() {
     }
 
     try {
+      if (showBackgroundIndicator) {
+        setIsBackgroundRefreshing(true);
+      }
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -329,6 +333,10 @@ export default function AdminPanel() {
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load admin data');
+    } finally {
+      if (showBackgroundIndicator) {
+        setTimeout(() => setIsBackgroundRefreshing(false), 500);
+      }
     }
   };
 
@@ -338,13 +346,17 @@ export default function AdminPanel() {
 
     fetchData();
     
-    // Auto-refresh every 10 seconds for better UX, but not on settings tab
+    // Auto-refresh every 15 seconds for better UX, but not on settings tab
+    // Increased from 10s to 15s to reduce server load and UI updates
     const interval = setInterval(() => {
       if (activeTab !== 'settings') {
         // Silent refresh - don't show loading states
-        fetchData();
+        // Only refresh if the page is visible to avoid unnecessary API calls
+        if (!document.hidden) {
+          fetchData(false); // false = no background indicator for automatic refreshes
+        }
       }
-    }, 10000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [isAuthenticated, activeTab]);
 
@@ -695,8 +707,18 @@ export default function AdminPanel() {
   const Sidebar = () => (
     <div className="hidden md:flex md:flex-col md:w-64 bg-gray-800 border-r border-gray-700">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-white">DJ Admin</h1>
-        <p className="text-gray-400 text-sm mt-1">Party Control Center</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">DJ Admin</h1>
+            <p className="text-gray-400 text-sm mt-1">Party Control Center</p>
+          </div>
+          {isBackgroundRefreshing && (
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>Updating...</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <nav className="flex-1 px-4">
@@ -1299,39 +1321,20 @@ export default function AdminPanel() {
 
   // Queue Tab
   const QueueTab = () => {
-    const [detailedQueue, setDetailedQueue] = useState<any>(null);
     const [initialLoading, setInitialLoading] = useState(true);
 
-    // Fetch detailed queue information
+    // Use playbackState from main component instead of separate API calls
     useEffect(() => {
-      const fetchDetailedQueue = async (isInitial = false) => {
-        try {
-          const token = localStorage.getItem('admin_token');
-          const response = await fetch('/api/admin/queue/details', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setDetailedQueue(data);
-          }
-        } catch (err) {
-          console.error('Error fetching detailed queue:', err);
-        } finally {
-          if (isInitial) {
-            setInitialLoading(false);
-          }
-        }
-      };
-
-      fetchDetailedQueue(true);
+      // Set initial loading to false once we have data or after a short delay
+      const timer = setTimeout(() => {
+        setInitialLoading(false);
+      }, 1000);
       
-      // Auto-refresh every 10 seconds (silently)
-      const interval = setInterval(() => fetchDetailedQueue(false), 10000);
-      return () => clearInterval(interval);
+      return () => clearTimeout(timer);
     }, []);
+
+    // Use existing playbackState data instead of making separate API calls
+    const detailedQueue = playbackState;
 
     if (initialLoading) {
       return (
