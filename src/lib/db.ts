@@ -318,7 +318,7 @@ export async function setSpotifyAuth(auth: SpotifyAuth): Promise<void> {
   `, [auth.access_token, auth.refresh_token, auth.expires_at, auth.scope, auth.token_type]);
 }
 
-export async function deleteSpotifyAuth(): Promise<void> {
+export async function clearSpotifyAuth(): Promise<void> {
   const client = getPool();
   await client.query('DELETE FROM spotify_auth WHERE id = 1');
 }

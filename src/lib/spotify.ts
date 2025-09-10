@@ -46,9 +46,8 @@ class SpotifyService {
 
   async clearTokens(): Promise<void> {
     try {
-      const db = await import('./db');
-      const client = db.getPool();
-      await client.query('DELETE FROM spotify_auth WHERE id = 1');
+      const { clearSpotifyAuth } = await import('./db');
+      await clearSpotifyAuth();
       console.log('Cleared invalid Spotify tokens from database');
     } catch (error) {
       console.error('Error clearing Spotify tokens:', error);
