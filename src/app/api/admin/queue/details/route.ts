@@ -7,20 +7,21 @@ export async function GET(req: NextRequest) {
     // Verify admin authentication first
     await authService.requireAdminAuth(req);
     
-    // Try to get Spotify data, but handle connection issues gracefully
+    // Check if Spotify is connected first to avoid repeated failed attempts
+    const spotifyConnected = await spotifyService.isConnected();
     let playbackState = null;
     let queueData = null;
-    let spotifyConnected = true;
     
-    try {
-      [playbackState, queueData] = await Promise.all([
-        spotifyService.getCurrentPlayback(),
-        spotifyService.getQueue()
-      ]);
-    } catch (spotifyError) {
-      // Spotify connection issues - return empty data but don't fail
-      spotifyConnected = false;
-      console.log('Spotify not connected or error:', spotifyError);
+    if (spotifyConnected) {
+      try {
+        [playbackState, queueData] = await Promise.all([
+          spotifyService.getCurrentPlayback(),
+          spotifyService.getQueue()
+        ]);
+      } catch (spotifyError) {
+        // Spotify API call failed - log but don't spam console
+        console.log('Spotify API error (will retry next poll):', (spotifyError as Error).message);
+      }
     }
     
     // Process current track with album art

@@ -35,6 +35,15 @@ class SpotifyService {
     this.redirectUri = process.env.SPOTIFY_REDIRECT_URI || '';
   }
 
+  async isConnected(): Promise<boolean> {
+    try {
+      const auth = await getSpotifyAuth();
+      return !!(auth && auth.access_token && auth.refresh_token);
+    } catch (error) {
+      return false;
+    }
+  }
+
   generatePKCE() {
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
     const codeChallenge = crypto
@@ -124,6 +133,10 @@ class SpotifyService {
       throw new Error('No Spotify authentication found');
     }
 
+    if (!auth.refresh_token) {
+      throw new Error('No Spotify refresh token available');
+    }
+
     const now = new Date();
     const expiresAt = new Date(auth.expires_at);
 
@@ -135,6 +148,10 @@ class SpotifyService {
   }
 
   private async refreshAccessToken(refreshToken: string): Promise<string> {
+    if (!refreshToken) {
+      throw new Error('No refresh token provided');
+    }
+
     const response = await fetch(`${this.authURL}/api/token`, {
       method: 'POST',
       headers: {
@@ -148,10 +165,16 @@ class SpotifyService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh access token');
+      const errorText = await response.text();
+      console.error('Spotify token refresh failed:', response.status, errorText);
+      throw new Error(`Failed to refresh access token: ${response.status} ${errorText}`);
     }
 
     const tokenData = await response.json();
+    
+    if (!tokenData.access_token) {
+      throw new Error('No access token received from Spotify');
+    }
     
     if (!tokenData.refresh_token) {
       tokenData.refresh_token = refreshToken;
