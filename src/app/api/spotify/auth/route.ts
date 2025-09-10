@@ -18,11 +18,16 @@ export async function GET(req: NextRequest) {
     });
     
     // Store OAuth session server-side instead of relying on localStorage
-    await storeOAuthSession(authData.state, authData.codeVerifier);
-    console.log('OAuth session stored server-side for state:', authData.state);
-    
-    // Clean up expired sessions while we're here
-    await cleanupExpiredOAuthSessions();
+    try {
+      await storeOAuthSession(authData.state, authData.codeVerifier);
+      console.log('OAuth session stored server-side for state:', authData.state);
+      
+      // Clean up expired sessions while we're here
+      await cleanupExpiredOAuthSessions();
+    } catch (dbError) {
+      console.log('⚠️ Failed to store OAuth session server-side (will rely on localStorage):', (dbError as Error).message);
+      // Continue without server-side storage - localStorage will be the only option
+    }
     
     return NextResponse.json({
       auth_url: authData.url,
