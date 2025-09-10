@@ -83,8 +83,8 @@ export default function SpotifySetupPage() {
   };
 
   const handleSpotifyCallback = async (code: string, state: string) => {
-    const storedState = localStorage.getItem('spotify_state');
-    const codeVerifier = localStorage.getItem('spotify_code_verifier');
+    let storedState = localStorage.getItem('spotify_state');
+    let codeVerifier = localStorage.getItem('spotify_code_verifier');
 
     console.log('Processing Spotify callback:', {
       hasCode: !!code,
@@ -97,15 +97,35 @@ export default function SpotifySetupPage() {
     // Clear errors at the start of processing
     setError('');
 
-    if (!storedState) {
-      console.error('OAuth callback failed: No stored state found in localStorage');
-      setError('Authentication failed: No stored state found. This may be due to browser security settings or cookies being disabled. Please try connecting again.');
-      return;
+    // If localStorage failed, try to get OAuth session from server
+    if (!storedState || !codeVerifier || state !== storedState) {
+      console.log('localStorage OAuth data missing or invalid, trying server-side session...');
+      
+      try {
+        const token = localStorage.getItem('admin_token');
+        const response = await fetch(`/api/spotify/oauth-session?state=${encodeURIComponent(state)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const sessionData = await response.json();
+          if (sessionData.code_verifier) {
+            console.log('✅ Retrieved OAuth session from server');
+            codeVerifier = sessionData.code_verifier;
+            storedState = state; // Use the state from URL since server validated it
+          }
+        } else {
+          console.log('❌ Server-side OAuth session not found');
+        }
+      } catch (serverError) {
+        console.log('❌ Failed to retrieve server-side OAuth session:', serverError);
+      }
     }
 
-    if (!codeVerifier) {
-      console.error('OAuth callback failed: No code verifier found in localStorage');
-      setError('Authentication failed: No code verifier found. This may be due to browser security settings or cookies being disabled. Please try connecting again.');
+    // Final validation
+    if (!storedState || !codeVerifier) {
+      console.error('OAuth callback failed: No OAuth session found (localStorage or server-side)');
+      setError('Authentication failed: OAuth session not found. This may be due to browser security settings or session expiry. Please try connecting again.');
       return;
     }
 

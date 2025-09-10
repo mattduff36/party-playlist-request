@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { spotifyService } from '@/lib/spotify';
+import { storeOAuthSession, cleanupExpiredOAuthSessions } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,11 +17,18 @@ export async function GET(req: NextRequest) {
       hasState: !!authData.state 
     });
     
+    // Store OAuth session server-side instead of relying on localStorage
+    await storeOAuthSession(authData.state, authData.codeVerifier);
+    console.log('OAuth session stored server-side for state:', authData.state);
+    
+    // Clean up expired sessions while we're here
+    await cleanupExpiredOAuthSessions();
+    
     return NextResponse.json({
       auth_url: authData.url,
       state: authData.state,
       code_challenge: authData.codeChallenge,
-      code_verifier: authData.codeVerifier
+      code_verifier: authData.codeVerifier // Still return for client-side backup
     });
 
   } catch (error) {

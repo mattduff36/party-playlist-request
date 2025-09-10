@@ -70,6 +70,17 @@ export async function POST(req: NextRequest) {
     const tokenData = await spotifyService.exchangeCodeForToken(code, code_verifier);
     console.log('Token exchange successful');
     
+    // Clean up OAuth session after successful token exchange
+    if (state) {
+      try {
+        const { clearOAuthSession } = await import('@/lib/db');
+        await clearOAuthSession(state);
+        console.log('OAuth session cleaned up for state:', state);
+      } catch (cleanupError) {
+        console.log('Failed to cleanup OAuth session (non-critical):', cleanupError);
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       message: 'Spotify authentication successful',

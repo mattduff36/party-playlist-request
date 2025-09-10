@@ -144,6 +144,15 @@ export async function initializeDatabase() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS oauth_sessions (
+        state TEXT PRIMARY KEY,
+        code_verifier TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '10 minutes')
+      )
+    `);
+
     // Create indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)`);
@@ -321,6 +330,39 @@ export async function setSpotifyAuth(auth: SpotifyAuth): Promise<void> {
 export async function clearSpotifyAuth(): Promise<void> {
   const client = getPool();
   await client.query('DELETE FROM spotify_auth WHERE id = 1');
+}
+
+// OAuth session management
+export async function storeOAuthSession(state: string, codeVerifier: string): Promise<void> {
+  const client = getPool();
+  await client.query(`
+    INSERT INTO oauth_sessions (state, code_verifier)
+    VALUES ($1, $2)
+    ON CONFLICT (state) DO UPDATE SET 
+      code_verifier = $2, 
+      created_at = CURRENT_TIMESTAMP,
+      expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
+  `, [state, codeVerifier]);
+}
+
+export async function getOAuthSession(state: string): Promise<{ code_verifier: string } | null> {
+  const client = getPool();
+  const result = await client.query(`
+    SELECT code_verifier FROM oauth_sessions 
+    WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
+  `, [state]);
+  
+  return result.rows[0] || null;
+}
+
+export async function clearOAuthSession(state: string): Promise<void> {
+  const client = getPool();
+  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [state]);
+}
+
+export async function cleanupExpiredOAuthSessions(): Promise<void> {
+  const client = getPool();
+  await client.query('DELETE FROM oauth_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
 }
 
 // Event Settings functions
