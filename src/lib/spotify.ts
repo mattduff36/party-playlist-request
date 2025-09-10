@@ -46,17 +46,26 @@ class SpotifyService {
   async isConnected(): Promise<boolean> {
     try {
       const auth = await getSpotifyAuth();
+      return !!(auth && auth.access_token && auth.refresh_token);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async isConnectedAndValid(): Promise<boolean> {
+    try {
+      const auth = await getSpotifyAuth();
       if (!auth || !auth.access_token || !auth.refresh_token) {
         return false;
       }
       
-      // Quick validation - try to get access token (this will refresh if needed)
+      // Full validation - try to get access token (this will refresh if needed)
       try {
         await this.getAccessToken();
         return true;
       } catch (error) {
         // If token refresh fails, we're not connected
-        console.log('Token validation failed in isConnected():', (error as Error).message);
+        console.log('Token validation failed:', (error as Error).message);
         return false;
       }
     } catch (error) {
@@ -157,7 +166,11 @@ class SpotifyService {
   }
 
   async getAccessToken(): Promise<string> {
+    const startTime = Date.now();
+    console.log('🔑 Getting Spotify access token...');
+    
     const auth = await getSpotifyAuth();
+    console.log(`🔑 Auth data retrieved (${Date.now() - startTime}ms)`);
     
     if (!auth || !auth.access_token) {
       throw new Error('No Spotify authentication found');
@@ -171,9 +184,14 @@ class SpotifyService {
     const expiresAt = new Date(auth.expires_at);
 
     if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-      return await this.refreshAccessToken(auth.refresh_token);
+      console.log('🔄 Token needs refresh, refreshing...');
+      const refreshStart = Date.now();
+      const newToken = await this.refreshAccessToken(auth.refresh_token);
+      console.log(`🔄 Token refreshed (${Date.now() - refreshStart}ms)`);
+      return newToken;
     }
 
+    console.log(`🔑 Using existing token (${Date.now() - startTime}ms total)`);
     return auth.access_token;
   }
 
@@ -222,7 +240,11 @@ class SpotifyService {
   }
 
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, retries = 1): Promise<any> {
+    const startTime = Date.now();
+    console.log(`🌐 Making Spotify API request: ${method} ${endpoint}`);
+    
     const accessToken = await this.getAccessToken();
+    console.log(`🌐 Access token obtained (${Date.now() - startTime}ms)`);
     
     const config: RequestInit = {
       method,
@@ -236,7 +258,9 @@ class SpotifyService {
       config.body = JSON.stringify(data);
     }
 
+    const fetchStart = Date.now();
     const response = await fetch(`${this.baseURL}${endpoint}`, config);
+    console.log(`🌐 Spotify API response: ${response.status} (${Date.now() - fetchStart}ms)`);
 
     if (response.status === 429 && retries > 0) {
       const retryAfter = response.headers.get('retry-after') || '1';
@@ -317,7 +341,11 @@ class SpotifyService {
   }
 
   async getCurrentPlayback(): Promise<any> {
-    return await this.makeAuthenticatedRequest('GET', '/me/player');
+    const startTime = Date.now();
+    console.log('🎵 Getting current playback...');
+    const result = await this.makeAuthenticatedRequest('GET', '/me/player');
+    console.log(`🎵 Current playback retrieved (${Date.now() - startTime}ms)`);
+    return result;
   }
 
   async getDevices(): Promise<any[]> {
@@ -352,7 +380,11 @@ class SpotifyService {
   }
 
   async getQueue(): Promise<any> {
-    return await this.makeAuthenticatedRequest('GET', '/me/player/queue');
+    const startTime = Date.now();
+    console.log('🎵 Getting queue...');
+    const result = await this.makeAuthenticatedRequest('GET', '/me/player/queue');
+    console.log(`🎵 Queue retrieved (${Date.now() - startTime}ms)`);
+    return result;
   }
 
   async getTrackDetails(trackId: string): Promise<any> {

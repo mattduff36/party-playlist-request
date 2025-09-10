@@ -3,32 +3,46 @@ import { authService } from '@/lib/auth';
 import { spotifyService } from '@/lib/spotify';
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now();
+  console.log('🔍 Queue details endpoint called');
+  
   try {
     // Verify admin authentication first
     await authService.requireAdminAuth(req);
+    console.log(`✅ Admin auth verified (${Date.now() - startTime}ms)`);
     
     // Check if Spotify is connected first to avoid repeated failed attempts
+    const connectionCheckStart = Date.now();
     let spotifyConnected = await spotifyService.isConnected();
+    console.log(`🎵 Spotify connection check: ${spotifyConnected} (${Date.now() - connectionCheckStart}ms)`);
+    
     let playbackState = null;
     let queueData = null;
     
     if (spotifyConnected) {
       try {
+        const spotifyCallStart = Date.now();
+        console.log('🎵 Fetching Spotify playback and queue data...');
+        
         [playbackState, queueData] = await Promise.all([
           spotifyService.getCurrentPlayback(),
           spotifyService.getQueue()
         ]);
+        
+        console.log(`🎵 Spotify data fetched (${Date.now() - spotifyCallStart}ms)`);
       } catch (spotifyError) {
         // If we get auth errors, mark as disconnected
         const errorMessage = (spotifyError as Error).message;
+        console.log(`❌ Spotify error: ${errorMessage}`);
+        
         if (errorMessage.includes('No Spotify authentication found') || 
             errorMessage.includes('Failed to refresh access token')) {
-          console.log('Spotify authentication invalid, marking as disconnected');
+          console.log('🔄 Spotify authentication invalid, marking as disconnected');
           spotifyConnected = false;
           playbackState = null;
           queueData = null;
         } else {
-          console.log('Spotify API error (will retry next poll):', errorMessage);
+          console.log('⚠️ Spotify API error (will retry next poll):', errorMessage);
         }
       }
     }
@@ -81,6 +95,8 @@ export async function GET(req: NextRequest) {
       });
     }
     
+    console.log(`🎯 Queue details endpoint completed (${Date.now() - startTime}ms total)`);
+    
     return NextResponse.json({
       current_track: currentTrack,
       queue: queueItems,
@@ -92,12 +108,13 @@ export async function GET(req: NextRequest) {
     });
     
   } catch (error) {
+    console.error(`❌ Error in queue details endpoint (${Date.now() - startTime}ms):`, error);
+    
     // Only return 401 for admin authentication errors
     if (error instanceof Error && (error.message.includes('No token provided') || error.message.includes('Admin access required'))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    console.error('Error getting queue details:', error);
     return NextResponse.json({ 
       error: 'Failed to get queue details' 
     }, { status: 500 });
