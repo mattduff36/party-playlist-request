@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
-import { deleteSpotifyAuth } from '@/lib/db';
+import { clearSpotifyAuth } from '@/lib/db';
 
 export async function DELETE(req: NextRequest) {
   try {
     await authService.requireAdminAuth(req);
     
-    await deleteSpotifyAuth();
+    await clearSpotifyAuth();
     
     return NextResponse.json({
       success: true,

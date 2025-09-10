@@ -33,6 +33,14 @@ class SpotifyService {
     this.clientId = process.env.SPOTIFY_CLIENT_ID || '';
     this.clientSecret = process.env.SPOTIFY_CLIENT_SECRET || '';
     this.redirectUri = process.env.SPOTIFY_REDIRECT_URI || '';
+    
+    // Debug: Check if environment variables are set
+    console.log('Spotify service initialized:', {
+      hasClientId: !!this.clientId,
+      hasClientSecret: !!this.clientSecret,
+      hasRedirectUri: !!this.redirectUri,
+      redirectUri: this.redirectUri
+    });
   }
 
   async isConnected(): Promise<boolean> {

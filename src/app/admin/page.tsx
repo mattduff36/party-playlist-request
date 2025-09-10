@@ -258,13 +258,33 @@ export default function AdminPanel() {
   const handleSpotifyConnect = async () => {
     setSpotifyConnecting(true);
     try {
-      const response = await fetch('/api/spotify/auth');
+      console.log('Attempting to connect to Spotify...');
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch('/api/spotify/auth', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('Spotify auth response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        window.location.href = data.auth_url;
+        console.log('Spotify auth data received:', { hasAuthUrl: !!data.auth_url });
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          throw new Error('No auth URL received from server');
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Spotify auth error:', errorData);
+        throw new Error(errorData.error || 'Failed to get Spotify auth URL');
       }
     } catch (err) {
       console.error('Error connecting to Spotify:', err);
+      alert(`Failed to connect to Spotify: ${err.message}`);
     } finally {
       setSpotifyConnecting(false);
     }
@@ -284,6 +304,42 @@ export default function AdminPanel() {
       fetchData(); // Refresh data
     } catch (err) {
       console.error('Error disconnecting Spotify:', err);
+    }
+  };
+
+  const handleSpotifyReset = async () => {
+    if (!confirm('This will completely reset your Spotify connection and clear all stored authentication data. You will need to reconnect to Spotify. Continue?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch('/api/admin/spotify/reset', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Immediately update UI state
+        setSpotifyConnected(false);
+        setPlaybackState(null);
+        
+        // Force a complete refresh of all data
+        setTimeout(() => {
+          fetchData();
+        }, 500);
+        
+        alert('Spotify connection reset successfully! You can now reconnect to Spotify.');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reset Spotify connection');
+      }
+    } catch (err) {
+      console.error('Error resetting Spotify connection:', err);
+      alert('Failed to reset Spotify connection. Please try again.');
     }
   };
 
@@ -519,14 +575,25 @@ export default function AdminPanel() {
               <p className="text-yellow-200 text-sm mt-1">
                 Connect your Spotify account to control playback and manage the queue.
               </p>
+              <p className="text-yellow-300 text-xs mt-2">
+                Having connection issues? Try resetting your Spotify connection first.
+              </p>
             </div>
-            <button
-              onClick={handleSpotifyConnect}
-              disabled={spotifyConnecting}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm transition-colors"
-            >
-              {spotifyConnecting ? 'Connecting...' : 'Connect Spotify'}
-            </button>
+            <div className="flex flex-col space-y-2">
+              <button
+                onClick={handleSpotifyConnect}
+                disabled={spotifyConnecting}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+              >
+                {spotifyConnecting ? 'Connecting...' : 'Connect Spotify'}
+              </button>
+              <button
+                onClick={handleSpotifyReset}
+                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Reset Connection
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1550,6 +1617,15 @@ export default function AdminPanel() {
                     Disconnect
                   </button>
                 )}
+                
+                {/* Reset button - always available for troubleshooting */}
+                <button
+                  onClick={handleSpotifyReset}
+                  className="ml-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors"
+                  title="Reset Spotify connection and clear all stored authentication data"
+                >
+                  Reset
+                </button>
               </div>
               
               <button

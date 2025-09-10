@@ -4,9 +4,17 @@ import { spotifyService } from '@/lib/spotify';
 
 export async function GET(req: NextRequest) {
   try {
+    console.log('Spotify auth endpoint called');
     await authService.requireAdminAuth(req);
     
+    console.log('Admin auth verified, generating Spotify auth URL...');
     const authData = spotifyService.getAuthorizationURL();
+    
+    console.log('Spotify auth URL generated:', { 
+      hasUrl: !!authData.url, 
+      urlLength: authData.url?.length,
+      hasState: !!authData.state 
+    });
     
     return NextResponse.json({
       auth_url: authData.url,
@@ -16,13 +24,15 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
+    console.error('Error in Spotify auth endpoint:', error);
+    
     if (error instanceof Error && error.message.includes('token')) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
     
-    console.error('Error starting Spotify auth:', error);
     return NextResponse.json({ 
-      error: 'Failed to start Spotify authentication' 
+      error: 'Failed to start Spotify authentication',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
