@@ -27,7 +27,7 @@ interface Request {
   album_name: string;
   duration_ms: number;
   requester_nickname?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed';
+  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
   created_at: string;
   approved_at?: string;
   approved_by?: string;
@@ -243,16 +243,20 @@ export default function AdminPanel() {
     }
   };
 
-  // Auto-refresh data when authenticated
+  // Auto-refresh data when authenticated (except on settings tab)
   useEffect(() => {
     if (!isAuthenticated) return;
 
     fetchData();
     
-    // Auto-refresh every 5 seconds
-    const interval = setInterval(fetchData, 5000);
+    // Auto-refresh every 5 seconds, but not on settings tab
+    const interval = setInterval(() => {
+      if (activeTab !== 'settings') {
+        fetchData();
+      }
+    }, 5000);
     return () => clearInterval(interval);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeTab]);
 
   // Spotify connection functions
   const handleSpotifyConnect = async () => {
@@ -529,20 +533,27 @@ export default function AdminPanel() {
         {[
           { id: 'overview', icon: Music, label: 'Overview' },
           { id: 'requests', icon: Users, label: 'Song Requests' },
-          { id: 'queue', icon: Clock, label: 'Spotify Queue' },
+          { id: 'queue', icon: Clock, label: 'Spotify' },
           { id: 'settings', icon: Settings, label: 'Event Settings' }
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`w-full flex items-center px-4 py-3 mb-2 rounded-lg text-left transition-colors ${
+            className={`w-full flex items-center justify-between px-4 py-3 mb-2 rounded-lg text-left transition-colors ${
               activeTab === tab.id 
                 ? 'bg-purple-600 text-white' 
                 : 'text-gray-300 hover:bg-gray-700'
             }`}
           >
-            <tab.icon className="w-5 h-5 mr-3" />
-            {tab.label}
+            <div className="flex items-center">
+              <tab.icon className="w-5 h-5 mr-3" />
+              {tab.label}
+            </div>
+            {tab.id === 'requests' && stats?.pending_requests > 0 && (
+              <span className="bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full">
+                {stats.pending_requests}
+              </span>
+            )}
           </button>
         ))}
       </nav>
@@ -598,48 +609,6 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Total Requests</p>
-              <p className="text-2xl font-bold text-white">{stats?.total_requests || 0}</p>
-            </div>
-            <Users className="w-8 h-8 text-blue-400" />
-          </div>
-        </div>
-        
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Pending</p>
-              <p className="text-2xl font-bold text-yellow-400">{stats?.pending_requests || 0}</p>
-            </div>
-            <Clock className="w-8 h-8 text-yellow-400" />
-          </div>
-        </div>
-        
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Approved</p>
-              <p className="text-2xl font-bold text-green-400">{stats?.approved_requests || 0}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-400" />
-          </div>
-        </div>
-        
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Today</p>
-              <p className="text-2xl font-bold text-purple-400">{stats?.today_requests || 0}</p>
-            </div>
-            <Music className="w-8 h-8 text-purple-400" />
-          </div>
-        </div>
-      </div>
 
       {/* Current Playback */}
       <div className="bg-gray-800 rounded-lg p-6">
@@ -705,53 +674,72 @@ export default function AdminPanel() {
         )}
       </div>
 
-      {/* Recent Requests Preview */}
+      {/* Spotify Playlist - Next 10 Songs */}
       <div className="bg-gray-800 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Recent Requests</h2>
+          <h2 className="text-xl font-semibold text-white">Coming Up Next</h2>
           <button
-            onClick={() => setActiveTab('requests')}
+            onClick={() => setActiveTab('queue')}
             className="text-purple-400 hover:text-purple-300 text-sm"
           >
-            View All →
+            View Full Queue →
           </button>
         </div>
         
         <div className="space-y-3">
-          {requests.slice(0, 3).map((request) => (
-            <div key={request.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-              <div className="flex-1">
-                <h4 className="text-white font-medium">{request.track_name}</h4>
-                <p className="text-gray-400 text-sm">{request.artist_name}</p>
-                {request.requester_nickname && (
-                  <p className="text-purple-300 text-xs">by {request.requester_nickname}</p>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => handleApprove(request.id, true)}
-                  className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
-                  title="Play Next"
+          {playbackState?.queue && playbackState.queue.length > 0 ? (
+            playbackState.queue.slice(0, 10).map((track: any, index: number) => {
+              // Check if this track was requested and approved
+              const matchingRequest = requests.find(req => 
+                req.status === 'approved' && 
+                (req.track_uri === track.uri || 
+                 (req.track_name.toLowerCase() === track.name.toLowerCase() && 
+                  req.artist_name.toLowerCase() === track.artists.join(', ').toLowerCase()))
+              );
+              
+              return (
+                <div 
+                  key={`${track.uri}-${index}`} 
+                  className={`flex items-center p-3 rounded-lg ${
+                    matchingRequest ? 'bg-green-600/20 border border-green-600' : 'bg-gray-700'
+                  }`}
                 >
-                  <PlayCircle className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleApprove(request.id)}
-                  className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
-                  title="Add to Queue"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleReject(request.id)}
-                  className="p-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs"
-                  title="Reject"
-                >
-                  <XCircle className="w-4 h-4" />
-                </button>
-              </div>
+                  <div className="flex items-center space-x-3 flex-1">
+                    <span className="text-gray-400 text-sm font-mono w-6">
+                      {index + 1}
+                    </span>
+                    {track.image_url && (
+                      <img
+                        src={track.image_url}
+                        alt="Album Art"
+                        className="w-10 h-10 rounded"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h4 className={`font-medium ${matchingRequest ? 'text-green-300' : 'text-white'}`}>
+                        {track.name}
+                      </h4>
+                      <p className="text-gray-400 text-sm">{track.artists.join(', ')}</p>
+                      {matchingRequest && (
+                        <p className="text-green-400 text-xs">
+                          ✓ Requested by {matchingRequest.requester_nickname || 'Anonymous'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-gray-400 text-sm">
+                    {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No upcoming songs in queue</p>
+              <p className="text-sm">Connect to Spotify to see the queue</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
@@ -760,7 +748,7 @@ export default function AdminPanel() {
   // Requests Tab
   const RequestsTab = () => {
     const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
-    const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+    const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
     const [allRequests, setAllRequests] = useState<Request[]>([]);
 
     // Fetch requests based on filter
@@ -780,7 +768,21 @@ export default function AdminPanel() {
           });
           if (response.ok) {
             const data = await response.json();
-            setAllRequests(data.requests || []);
+            let requests = data.requests || [];
+            
+            // Sort requests when showing all: Approved > Pending > Played > Rejected
+            if (filterStatus === 'all') {
+              const statusOrder = { 'approved': 1, 'pending': 2, 'played': 3, 'rejected': 4 };
+              requests = requests.sort((a: Request, b: Request) => {
+                const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
+                const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                // Within same status, sort by created_at (newest first)
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+            }
+            
+            setAllRequests(requests);
           }
         } catch (err) {
           console.error('Error fetching requests:', err);
@@ -856,6 +858,7 @@ export default function AdminPanel() {
       switch (status) {
         case 'pending': return 'text-yellow-400 bg-yellow-400/10';
         case 'approved': return 'text-green-400 bg-green-400/10';
+        case 'played': return 'text-purple-400 bg-purple-400/10';
         case 'rejected': return 'text-red-400 bg-red-400/10';
         case 'failed': return 'text-orange-400 bg-orange-400/10';
         default: return 'text-gray-400 bg-gray-400/10';
@@ -875,10 +878,11 @@ export default function AdminPanel() {
                   onChange={(e) => setFilterStatus(e.target.value as any)}
                   className="bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="pending">Pending ({requests.length})</option>
+                  <option value="all">All Requests (Ordered)</option>
                   <option value="approved">Approved</option>
+                  <option value="pending">Pending ({requests.length})</option>
+                  <option value="played">Played</option>
                   <option value="rejected">Rejected</option>
-                  <option value="all">All Requests</option>
                 </select>
                 
                 {allRequests.length > 0 && (
@@ -1006,15 +1010,58 @@ export default function AdminPanel() {
                       )}
                       
                       {request.status === 'rejected' && (
-                        <div className="flex items-center space-x-2 text-red-400 text-sm">
-                          <XCircle className="w-4 h-4" />
-                          <span>Rejected</span>
-                          {request.rejection_reason && (
-                            <span className="text-gray-500" title={request.rejection_reason}>
-                              ({request.rejection_reason})
-                            </span>
-                          )}
-                        </div>
+                        <>
+                          <div className="flex items-center space-x-2 text-red-400 text-sm">
+                            <XCircle className="w-4 h-4" />
+                            <span>Rejected</span>
+                            {request.rejection_reason && (
+                              <span className="text-gray-500" title={request.rejection_reason}>
+                                ({request.rejection_reason})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-1 ml-4">
+                            <button
+                              onClick={() => handleApprove(request.id, true)}
+                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              title="Play Next"
+                            >
+                              <PlayCircle className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleApprove(request.id)}
+                              className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              title="Add to Queue"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                      
+                      {request.status === 'played' && (
+                        <>
+                          <div className="flex items-center space-x-2 text-purple-400 text-sm">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Played</span>
+                          </div>
+                          <div className="flex items-center space-x-1 ml-4">
+                            <button
+                              onClick={() => handleApprove(request.id, true)}
+                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              title="Play Next"
+                            >
+                              <PlayCircle className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleApprove(request.id)}
+                              className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              title="Add to Queue"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </>
                       )}
 
                       <button
@@ -1038,11 +1085,11 @@ export default function AdminPanel() {
   // Queue Tab
   const QueueTab = () => {
     const [detailedQueue, setDetailedQueue] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const [initialLoading, setInitialLoading] = useState(true);
 
     // Fetch detailed queue information
     useEffect(() => {
-      const fetchDetailedQueue = async () => {
+      const fetchDetailedQueue = async (isInitial = false) => {
         try {
           const token = localStorage.getItem('admin_token');
           const response = await fetch('/api/admin/queue/details', {
@@ -1058,23 +1105,25 @@ export default function AdminPanel() {
         } catch (err) {
           console.error('Error fetching detailed queue:', err);
         } finally {
-          setLoading(false);
+          if (isInitial) {
+            setInitialLoading(false);
+          }
         }
       };
 
-      fetchDetailedQueue();
+      fetchDetailedQueue(true);
       
-      // Auto-refresh every 10 seconds
-      const interval = setInterval(fetchDetailedQueue, 10000);
+      // Auto-refresh every 10 seconds (silently)
+      const interval = setInterval(() => fetchDetailedQueue(false), 10000);
       return () => clearInterval(interval);
     }, []);
 
-    if (loading) {
+    if (initialLoading) {
       return (
         <div className="bg-gray-800 rounded-lg p-6">
           <div className="text-center">
             <RefreshCw className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" />
-            <p className="text-gray-400">Loading queue...</p>
+            <p className="text-gray-400">Loading Spotify interface...</p>
           </div>
         </div>
       );

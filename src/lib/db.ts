@@ -10,7 +10,7 @@ export interface Request {
   duration_ms: number;
   requester_ip_hash: string;
   requester_nickname?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed';
+  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
   created_at: string;
   approved_at?: string;
   approved_by?: string;
