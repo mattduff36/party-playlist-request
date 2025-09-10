@@ -167,10 +167,21 @@ export default function SpotifySetupPage() {
       
       if (response.ok) {
         const data = await response.json();
-        if (data.auth_url) {
+        if (data.auth_url && data.state && data.code_verifier) {
+          // Store state and code verifier for OAuth callback verification
+          localStorage.setItem('spotify_state', data.state);
+          localStorage.setItem('spotify_code_verifier', data.code_verifier);
+          
+          console.log('Stored OAuth data:', {
+            hasState: !!data.state,
+            hasCodeVerifier: !!data.code_verifier,
+            authUrlLength: data.auth_url.length
+          });
+          
+          // Redirect to Spotify for authorization
           window.location.href = data.auth_url;
         } else {
-          setError('Failed to get Spotify authorization URL');
+          setError('Failed to get complete Spotify authorization data');
         }
       } else {
         const errorData = await response.json();
