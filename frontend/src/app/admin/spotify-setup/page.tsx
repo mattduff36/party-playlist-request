@@ -89,8 +89,8 @@ export default function SpotifySetupPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Store code verifier for callback
-      localStorage.setItem('spotify_code_verifier', response.data.code_challenge);
+      // Store code verifier for callback  
+      localStorage.setItem('spotify_code_verifier', response.data.code_verifier);
       localStorage.setItem('spotify_state', response.data.state);
       
       // For mobile, open in same tab to avoid download issues
@@ -133,19 +133,21 @@ export default function SpotifySetupPage() {
     const storedState = localStorage.getItem('spotify_state');
     const codeVerifier = localStorage.getItem('spotify_code_verifier');
 
+    console.log('Callback data:', { code, state, storedState, codeVerifier: !!codeVerifier });
+
     if (state !== storedState) {
-      setError('Invalid state parameter');
+      setError(`Invalid state parameter. Expected: ${storedState}, Got: ${state}`);
       return;
     }
 
     if (!codeVerifier) {
-      setError('Missing code verifier');
+      setError('Missing code verifier. Please try connecting again.');
       return;
     }
 
     setIsLoading(true);
     try {
-      await axios.post(`${API_BASE}/spotify/callback`, {
+      const response = await axios.post(`${API_BASE}/spotify/callback`, {
         code,
         state,
         code_verifier: codeVerifier
@@ -153,6 +155,7 @@ export default function SpotifySetupPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      console.log('Spotify callback response:', response.data);
       setSuccess('Spotify authentication successful!');
       
       // Clean up localStorage
@@ -165,7 +168,9 @@ export default function SpotifySetupPage() {
       // Refresh status
       fetchSpotifyStatus(token);
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to complete Spotify authentication');
+      console.error('Spotify callback error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to complete Spotify authentication';
+      setError(`Authentication failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }

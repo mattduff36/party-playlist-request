@@ -46,7 +46,7 @@ class SpotifyService {
   }
 
   getAuthorizationURL() {
-    const { codeChallenge } = this.generatePKCE();
+    const { codeVerifier, codeChallenge } = this.generatePKCE();
     const state = crypto.randomBytes(16).toString('hex');
     
     const params = new URLSearchParams({
@@ -62,11 +62,19 @@ class SpotifyService {
     return {
       url: `${this.authURL}/authorize?${params.toString()}`,
       state,
-      codeChallenge
+      codeChallenge,
+      codeVerifier
     };
   }
 
   async exchangeCodeForToken(code: string, codeVerifier: string) {
+    console.log('Spotify token exchange:', { 
+      hasCode: !!code, 
+      hasCodeVerifier: !!codeVerifier,
+      clientId: this.clientId ? 'SET' : 'MISSING',
+      redirectUri: this.redirectUri
+    });
+
     const response = await fetch(`${this.authURL}/api/token`, {
       method: 'POST',
       headers: {
@@ -81,11 +89,16 @@ class SpotifyService {
       })
     });
 
+    console.log('Spotify token response status:', response.status);
+
     if (!response.ok) {
-      throw new Error('Failed to exchange code for token');
+      const errorText = await response.text();
+      console.error('Spotify token exchange failed:', response.status, errorText);
+      throw new Error(`Failed to exchange code for token: ${response.status} ${errorText}`);
     }
 
     const tokenData = await response.json();
+    console.log('Token exchange successful, saving tokens...');
     await this.saveTokens(tokenData);
     
     return tokenData;

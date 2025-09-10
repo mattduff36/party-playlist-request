@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       auth_url: authData.url,
       state: authData.state,
-      code_challenge: authData.codeChallenge
+      code_challenge: authData.codeChallenge,
+      code_verifier: authData.codeVerifier
     });
 
   } catch (error) {

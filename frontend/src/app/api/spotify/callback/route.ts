@@ -43,19 +43,32 @@ export async function POST(req: NextRequest) {
     // This requires admin authentication
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('Spotify callback: No authorization header provided');
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
     const body = await req.json();
     const { code, state, code_verifier } = body;
     
+    console.log('Spotify callback POST data:', { 
+      hasCode: !!code, 
+      hasState: !!state, 
+      hasCodeVerifier: !!code_verifier 
+    });
+    
     if (!code || !code_verifier) {
+      console.error('Spotify callback: Missing code or code_verifier', { 
+        hasCode: !!code, 
+        hasCodeVerifier: !!code_verifier 
+      });
       return NextResponse.json({ 
         error: 'Authorization code and code verifier are required' 
       }, { status: 400 });
     }
 
+    console.log('Attempting to exchange code for token...');
     const tokenData = await spotifyService.exchangeCodeForToken(code, code_verifier);
+    console.log('Token exchange successful');
     
     return NextResponse.json({
       success: true,
@@ -66,8 +79,15 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in Spotify callback:', error);
+    
+    // Return more specific error message
+    let errorMessage = 'Failed to complete Spotify authentication';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return NextResponse.json({ 
-      error: 'Failed to complete Spotify authentication' 
+      error: errorMessage 
     }, { status: 400 });
   }
 }
