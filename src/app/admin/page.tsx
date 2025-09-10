@@ -616,6 +616,30 @@ export default function AdminPanel() {
     }
   };
 
+  const handleDoubleClickMarkPlayed = async (requestId: string, trackName: string) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/mark-as-played/${requestId}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`🎵 Double-click: Marked "${trackName}" as played`);
+        fetchData(); // Refresh data to show updated status
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to mark request as played:', errorData.error);
+      }
+    } catch (err) {
+      console.error('Error marking request as played:', err);
+    }
+  };
+
   const formatDuration = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
@@ -1181,7 +1205,19 @@ export default function AdminPanel() {
               ) : (
             <div className="divide-y divide-gray-700">
               {allRequests.map((request) => (
-                <div key={request.id} className={`p-4 transition-colors ${getRequestBackgroundColor(request.status)} hover:opacity-80`}>
+                <div 
+                  key={request.id} 
+                  className={`p-4 transition-colors ${getRequestBackgroundColor(request.status)} ${
+                    request.status === 'approved' 
+                      ? 'hover:opacity-80 cursor-pointer' 
+                      : 'hover:opacity-80'
+                  }`}
+                  onDoubleClick={request.status === 'approved' 
+                    ? () => handleDoubleClickMarkPlayed(request.id, request.track_name)
+                    : undefined
+                  }
+                  title={request.status === 'approved' ? 'Double-click to mark as played' : undefined}
+                >
                   <div className="flex items-center space-x-4">
 
                     {/* Album Art Placeholder */}
@@ -1250,6 +1286,7 @@ export default function AdminPanel() {
                           {request.approved_by && (
                             <span className="text-gray-500">by {request.approved_by}</span>
                           )}
+                          <span className="text-xs text-gray-400 italic">• Double-click to mark played</span>
                         </div>
                       )}
                       
