@@ -96,6 +96,16 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
+
+  // Spotify connection state
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+
   // Mobile responsive state
   const [isMobile, setIsMobile] = useState(false);
 
@@ -109,15 +119,88 @@ export default function AdminPanel() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch all data
-  const fetchData = async () => {
+  // Check if user is already authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      setIsAuthenticated(true);
+    }
+    setLoading(false);
+  }, []);
+
+  // Login function
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError(null);
+
     try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('admin_token', data.token);
+        setIsAuthenticated(true);
+        setPassword('');
+        // Start fetching data after successful login
+        fetchData();
+      } else {
+        const errorData = await response.json();
+        setLoginError(errorData.error || 'Login failed');
+      }
+    } catch (err) {
+      setLoginError('Network error. Please try again.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    setIsAuthenticated(false);
+    setRequests([]);
+    setPlaybackState(null);
+    setEventSettings(null);
+    setStats(null);
+  };
+
+  // Fetch all data with authentication
+  const fetchData = async () => {
+    if (!isAuthenticated) return;
+
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      setIsAuthenticated(false);
+      return;
+    }
+
+    try {
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
       const [requestsRes, queueRes, settingsRes, statsRes] = await Promise.all([
-        fetch('/api/admin/requests?status=pending&limit=50'),
-        fetch('/api/admin/queue/details'),
-        fetch('/api/admin/event-settings'),
-        fetch('/api/admin/stats')
+        fetch('/api/admin/requests?status=pending&limit=50', { headers }),
+        fetch('/api/admin/queue/details', { headers }),
+        fetch('/api/admin/event-settings', { headers }),
+        fetch('/api/admin/stats', { headers })
       ]);
+
+      // Check for authentication errors
+      if (requestsRes.status === 401 || queueRes.status === 401 || 
+          settingsRes.status === 401 || statsRes.status === 401) {
+        localStorage.removeItem('admin_token');
+        setIsAuthenticated(false);
+        return;
+      }
 
       if (requestsRes.ok) {
         const requestsData = await requestsRes.json();
@@ -137,29 +220,72 @@ export default function AdminPanel() {
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
+        setSpotifyConnected(statsData.spotify_connected || false);
       }
 
-      setLoading(false);
+      setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load admin data');
-      setLoading(false);
     }
   };
 
+  // Auto-refresh data when authenticated
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     fetchData();
     
     // Auto-refresh every 5 seconds
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
+
+  // Spotify connection functions
+  const handleSpotifyConnect = async () => {
+    setSpotifyConnecting(true);
+    try {
+      const response = await fetch('/api/spotify/auth');
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.auth_url;
+      }
+    } catch (err) {
+      console.error('Error connecting to Spotify:', err);
+    } finally {
+      setSpotifyConnecting(false);
+    }
+  };
+
+  const handleSpotifyDisconnect = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      await fetch('/api/spotify/disconnect', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      setSpotifyConnected(false);
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error('Error disconnecting Spotify:', err);
+    }
+  };
 
   // Playback controls
   const handlePlayPause = async () => {
     try {
+      const token = localStorage.getItem('admin_token');
       const endpoint = playbackState?.is_playing ? '/api/admin/playback/pause' : '/api/admin/playback/resume';
-      await fetch(endpoint, { method: 'POST' });
+      await fetch(endpoint, { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       fetchData(); // Refresh data
     } catch (err) {
       console.error('Error controlling playback:', err);
@@ -168,7 +294,14 @@ export default function AdminPanel() {
 
   const handleSkip = async () => {
     try {
-      await fetch('/api/admin/playback/skip', { method: 'POST' });
+      const token = localStorage.getItem('admin_token');
+      await fetch('/api/admin/playback/skip', { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       fetchData(); // Refresh data
     } catch (err) {
       console.error('Error skipping track:', err);
@@ -178,9 +311,13 @@ export default function AdminPanel() {
   // Request actions
   const handleApprove = async (requestId: string, playNext = false) => {
     try {
+      const token = localStorage.getItem('admin_token');
       await fetch(`/api/admin/approve/${requestId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({ play_next: playNext })
       });
       fetchData(); // Refresh data
@@ -191,9 +328,13 @@ export default function AdminPanel() {
 
   const handleReject = async (requestId: string, reason = 'Not suitable') => {
     try {
+      const token = localStorage.getItem('admin_token');
       await fetch(`/api/admin/reject/${requestId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({ reason })
       });
       fetchData(); // Refresh data
@@ -222,18 +363,62 @@ export default function AdminPanel() {
     return `${diffDays}d ago`;
   };
 
-  if (loading) {
+  // Login Screen
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading admin panel...</div>
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">DJ Admin Login</h1>
+            <p className="text-gray-400">Enter your admin password to continue</p>
+          </div>
+
+          <form onSubmit={handleLogin}>
+            <div className="mb-6">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="Enter admin password"
+                required
+              />
+            </div>
+
+            {loginError && (
+              <div className="mb-4 p-3 bg-red-600/20 border border-red-600 rounded-lg">
+                <p className="text-red-400 text-sm">{loginError}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              {isLoggingIn ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Logging in...</span>
+                </>
+              ) : (
+                <span>Login</span>
+              )}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-red-400 text-xl">{error}</div>
+        <div className="text-white text-xl">Loading admin panel...</div>
       </div>
     );
   }
@@ -311,6 +496,28 @@ export default function AdminPanel() {
   // Overview Tab
   const OverviewTab = () => (
     <div className="space-y-6">
+      {/* Spotify Connection Warning */}
+      {!spotifyConnected && (
+        <div className="bg-yellow-600/20 border border-yellow-600 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            <div className="flex-1">
+              <h3 className="text-yellow-400 font-medium">Spotify Not Connected</h3>
+              <p className="text-yellow-200 text-sm mt-1">
+                Connect your Spotify account to control playback and manage the queue.
+              </p>
+            </div>
+            <button
+              onClick={handleSpotifyConnect}
+              disabled={spotifyConnecting}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+            >
+              {spotifyConnecting ? 'Connecting...' : 'Connect Spotify'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-800 rounded-lg p-6">
@@ -480,11 +687,17 @@ export default function AdminPanel() {
     useEffect(() => {
       const fetchRequests = async () => {
         try {
+          const token = localStorage.getItem('admin_token');
           const url = filterStatus === 'all' 
             ? '/api/admin/requests?limit=100'
             : `/api/admin/requests?status=${filterStatus}&limit=100`;
           
-          const response = await fetch(url);
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
           if (response.ok) {
             const data = await response.json();
             setAllRequests(data.requests || []);
@@ -519,11 +732,17 @@ export default function AdminPanel() {
       }
       setSelectedRequests([]);
       // Refresh requests
+      const token = localStorage.getItem('admin_token');
       const url = filterStatus === 'all' 
         ? '/api/admin/requests?limit=100'
         : `/api/admin/requests?status=${filterStatus}&limit=100`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setAllRequests(data.requests || []);
@@ -536,11 +755,17 @@ export default function AdminPanel() {
       }
       setSelectedRequests([]);
       // Refresh requests
+      const token = localStorage.getItem('admin_token');
       const url = filterStatus === 'all' 
         ? '/api/admin/requests?limit=100'
         : `/api/admin/requests?status=${filterStatus}&limit=100`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setAllRequests(data.requests || []);
@@ -739,7 +964,13 @@ export default function AdminPanel() {
     useEffect(() => {
       const fetchDetailedQueue = async () => {
         try {
-          const response = await fetch('/api/admin/queue/details');
+          const token = localStorage.getItem('admin_token');
+          const response = await fetch('/api/admin/queue/details', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
           if (response.ok) {
             const data = await response.json();
             setDetailedQueue(data);
@@ -1009,9 +1240,11 @@ export default function AdminPanel() {
       setSaveMessage(null);
 
       try {
+        const token = localStorage.getItem('admin_token');
         const response = await fetch('/api/admin/event-settings', {
           method: 'POST',
           headers: {
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(formData)
@@ -1281,10 +1514,29 @@ export default function AdminPanel() {
             
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${stats?.spotify_connected ? 'bg-green-400' : 'bg-red-400'}`} />
+                <div className={`w-2 h-2 rounded-full ${spotifyConnected ? 'bg-green-400' : 'bg-red-400'}`} />
                 <span className="text-gray-400 text-sm">
-                  {stats?.spotify_connected ? 'Spotify Connected' : 'Spotify Disconnected'}
+                  {spotifyConnected ? 'Spotify Connected' : 'Spotify Disconnected'}
                 </span>
+                
+                {!spotifyConnected && (
+                  <button
+                    onClick={handleSpotifyConnect}
+                    disabled={spotifyConnecting}
+                    className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xs rounded transition-colors"
+                  >
+                    {spotifyConnecting ? 'Connecting...' : 'Connect'}
+                  </button>
+                )}
+                
+                {spotifyConnected && (
+                  <button
+                    onClick={handleSpotifyDisconnect}
+                    className="ml-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                )}
               </div>
               
               <button
@@ -1293,6 +1545,14 @@ export default function AdminPanel() {
                 title="Refresh"
               >
                 <RefreshCw className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                title="Logout"
+              >
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
           </div>
