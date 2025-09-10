@@ -1,7 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { 
+  Play, 
+  Pause, 
+  SkipForward, 
+  Volume2, 
+  Settings, 
+  Music, 
+  Users, 
+  Clock,
+  CheckCircle,
+  XCircle,
+  PlayCircle,
+  Trash2,
+  ExternalLink,
+  RefreshCw,
+  Monitor
+} from 'lucide-react';
 
 interface Request {
   id: string;
@@ -18,22 +34,47 @@ interface Request {
   rejection_reason?: string;
 }
 
+interface CurrentTrack {
+  name: string;
+  artists: string[];
+  album: string;
+  duration_ms: number;
+  progress_ms: number;
+  uri: string;
+  image_url?: string;
+}
+
+interface QueueItem {
+  name: string;
+  artists: string[];
+  album: string;
+  uri: string;
+  image_url?: string;
+}
+
 interface PlaybackState {
   is_playing: boolean;
-  current_track?: {
-    name: string;
-    artists: string[];
-    album: string;
-    duration_ms: number;
-    progress_ms: number;
-    uri: string;
-  };
+  current_track?: CurrentTrack;
+  queue?: QueueItem[];
   device?: {
     id: string;
     name: string;
     type: string;
     volume_percent: number;
   };
+  shuffle_state?: boolean;
+  repeat_state?: string;
+}
+
+interface EventSettings {
+  event_title: string;
+  dj_name: string;
+  venue_info: string;
+  welcome_message: string;
+  secondary_message: string;
+  tertiary_message: string;
+  show_qr_code: boolean;
+  display_refresh_interval: number;
 }
 
 interface Stats {
@@ -46,167 +87,118 @@ interface Stats {
   spotify_connected: boolean;
 }
 
-const API_BASE = '/api';
-
-export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  
+export default function AdminPanel() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'queue' | 'settings'>('overview');
   const [requests, setRequests] = useState<Request[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
+  const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
-  
-  const [token, setToken] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Check for existing token on mount
+  // Mobile responsive state
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
-    const savedToken = localStorage.getItem('admin_token');
-    if (savedToken) {
-      setToken(savedToken);
-      setIsAuthenticated(true);
-      fetchRequests();
-      fetchStats();
-      fetchPlaybackState();
-    }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Login function
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError('');
-
+  // Fetch all data
+  const fetchData = async () => {
     try {
-      const response = await axios.post(`${API_BASE}/admin/login`, {
-        username,
-        password
-      });
+      const [requestsRes, queueRes, settingsRes, statsRes] = await Promise.all([
+        fetch('/api/admin/requests?status=pending&limit=50'),
+        fetch('/api/admin/queue/details'),
+        fetch('/api/admin/event-settings'),
+        fetch('/api/admin/stats')
+      ]);
 
-      const { token: authToken } = response.data;
-      setToken(authToken);
-      localStorage.setItem('admin_token', authToken);
-      setIsAuthenticated(true);
-      
-      // Fetch initial data
-      fetchRequests();
-      fetchStats();
-      fetchPlaybackState();
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      setLoginError(errorMessage);
-    } finally {
-      setIsLoggingIn(false);
+      if (requestsRes.ok) {
+        const requestsData = await requestsRes.json();
+        setRequests(requestsData.requests || []);
+      }
+
+      if (queueRes.ok) {
+        const queueData = await queueRes.json();
+        setPlaybackState(queueData);
+      }
+
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        setEventSettings(settingsData);
+      }
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load admin data');
+      setLoading(false);
     }
   };
 
-  // Logout function
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    setToken('');
-    setIsAuthenticated(false);
-    setUsername('');
-    setPassword('');
-  };
-
-  // Fetch requests
-  const fetchRequests = async () => {
-    if (!token) return;
+  useEffect(() => {
+    fetchData();
     
-    setIsLoading(true);
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Playback controls
+  const handlePlayPause = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/admin/requests`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { status: filter === 'all' ? undefined : filter, limit: 100 }
-      });
-      setRequests(response.data.requests);
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-    } finally {
-      setIsLoading(false);
+      const endpoint = playbackState?.is_playing ? '/api/admin/playback/pause' : '/api/admin/playback/resume';
+      await fetch(endpoint, { method: 'POST' });
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error('Error controlling playback:', err);
     }
   };
 
-  // Fetch stats
-  const fetchStats = async () => {
-    if (!token) return;
-    
+  const handleSkip = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/admin/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStats(response.data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+      await fetch('/api/admin/playback/skip', { method: 'POST' });
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error('Error skipping track:', err);
     }
   };
 
-  // Fetch playback state
-  const fetchPlaybackState = async () => {
-    if (!token) return;
-    
+  // Request actions
+  const handleApprove = async (requestId: string, playNext = false) => {
     try {
-      const response = await axios.get(`${API_BASE}/admin/queue`, {
-        headers: { Authorization: `Bearer ${token}` }
+      await fetch(`/api/admin/approve/${requestId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ play_next: playNext })
       });
-      setPlaybackState(response.data);
-    } catch (error) {
-      console.error('Error fetching playback state:', error);
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error('Error approving request:', err);
     }
   };
 
-  // Approve request
-  const approveRequest = async (id: string) => {
+  const handleReject = async (requestId: string, reason = 'Not suitable') => {
     try {
-      await axios.post(`${API_BASE}/admin/approve/${id}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+      await fetch(`/api/admin/reject/${requestId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
       });
-      fetchRequests();
-      fetchStats();
-    } catch (error) {
-      console.error('Error approving request:', error);
-    }
-  };
-
-  // Reject request
-  const rejectRequest = async (id: string, reason?: string) => {
-    try {
-      await axios.post(`${API_BASE}/admin/reject/${id}`, { reason }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchRequests();
-      fetchStats();
-    } catch (error) {
-      console.error('Error rejecting request:', error);
-    }
-  };
-
-  // Skip track
-  const skipTrack = async () => {
-    try {
-      await axios.post(`${API_BASE}/admin/playback/skip`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTimeout(fetchPlaybackState, 1000); // Refresh after a delay
-    } catch (error) {
-      console.error('Error skipping track:', error);
-    }
-  };
-
-  // Pause/Resume playback
-  const togglePlayback = async () => {
-    try {
-      const endpoint = playbackState?.is_playing ? 'pause' : 'resume';
-      await axios.post(`${API_BASE}/admin/playback/${endpoint}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTimeout(fetchPlaybackState, 1000);
-    } catch (error) {
-      console.error('Error toggling playback:', error);
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error('Error rejecting request:', err);
     }
   };
 
@@ -216,289 +208,1103 @@ export default function AdminPage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
   };
 
-  // Auto-refresh data
-  useEffect(() => {
-    if (isAuthenticated && token) {
-      const interval = setInterval(() => {
-        fetchRequests();
-        fetchPlaybackState();
-      }, 10000); // Refresh every 10 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, token, filter]);
-
-  // Update requests when filter changes
-  useEffect(() => {
-    if (isAuthenticated && token) {
-      fetchRequests();
-    }
-  }, [filter]);
-
-  if (!isAuthenticated) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-black">🎛️ Admin Login</h1>
-          <p className="text-gray-800 mt-2">Access the DJ control panel</p>
-        </div>
-
-        <form onSubmit={handleLogin}>
-          <div className="mb-4">
-            <label className="block text-black text-sm font-bold mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-black"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-black text-sm font-bold mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-black"
-              required
-            />
-          </div>
-
-          {loginError && (
-            <div className="mb-4 text-red-600 text-sm">{loginError}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoggingIn}
-            className="w-full bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg"
-          >
-            {isLoggingIn ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-        </div>
+        <div className="text-white text-xl">Loading admin panel...</div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-        <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-black">🎛️ DJ Control Panel</h1>
-          <div className="flex space-x-3">
-            <a
-              href="/admin/spotify-setup"
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            >
-              🎵 Spotify Setup
-            </a>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Logout
-            </button>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+      </div>
+    );
+  }
+
+  // Mobile Navigation
+  const MobileNav = () => (
+    <div className="md:hidden bg-gray-800 border-t border-gray-700 fixed bottom-0 left-0 right-0 z-50">
+      <div className="flex">
+        {[
+          { id: 'overview', icon: Music, label: 'Overview' },
+          { id: 'requests', icon: Users, label: 'Requests' },
+          { id: 'queue', icon: Clock, label: 'Queue' },
+          { id: 'settings', icon: Settings, label: 'Settings' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex-1 py-3 px-2 text-center ${
+              activeTab === tab.id ? 'text-purple-400 bg-gray-700' : 'text-gray-400'
+            }`}
+          >
+            <tab.icon className="w-5 h-5 mx-auto mb-1" />
+            <div className="text-xs">{tab.label}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Desktop Sidebar
+  const Sidebar = () => (
+    <div className="hidden md:flex md:flex-col md:w-64 bg-gray-800 border-r border-gray-700">
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-white">DJ Admin</h1>
+        <p className="text-gray-400 text-sm mt-1">Party Control Center</p>
+      </div>
+      
+      <nav className="flex-1 px-4">
+        {[
+          { id: 'overview', icon: Music, label: 'Overview' },
+          { id: 'requests', icon: Users, label: 'Song Requests' },
+          { id: 'queue', icon: Clock, label: 'Spotify Queue' },
+          { id: 'settings', icon: Settings, label: 'Event Settings' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`w-full flex items-center px-4 py-3 mb-2 rounded-lg text-left transition-colors ${
+              activeTab === tab.id 
+                ? 'bg-purple-600 text-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            <tab.icon className="w-5 h-5 mr-3" />
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="p-4 border-t border-gray-700">
+        <a
+          href="/display"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          <Monitor className="w-5 h-5 mr-3" />
+          Display Screen
+          <ExternalLink className="w-4 h-4 ml-auto" />
+        </a>
+      </div>
+    </div>
+  );
+
+  // Overview Tab
+  const OverviewTab = () => (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Total Requests</p>
+              <p className="text-2xl font-bold text-white">{stats?.total_requests || 0}</p>
+            </div>
+            <Users className="w-8 h-8 text-blue-400" />
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Pending</p>
+              <p className="text-2xl font-bold text-yellow-400">{stats?.pending_requests || 0}</p>
+            </div>
+            <Clock className="w-8 h-8 text-yellow-400" />
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Approved</p>
+              <p className="text-2xl font-bold text-green-400">{stats?.approved_requests || 0}</p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-400" />
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Today</p>
+              <p className="text-2xl font-bold text-purple-400">{stats?.today_requests || 0}</p>
+            </div>
+            <Music className="w-8 h-8 text-purple-400" />
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Spotify Connection Status */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className={`w-3 h-3 rounded-full mr-3 ${stats?.spotify_connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="font-semibold">
-                Spotify: {stats?.spotify_connected ? 'Connected' : 'Not Connected'}
-              </span>
+      {/* Current Playback */}
+      <div className="bg-gray-800 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Now Playing</h2>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handlePlayPause}
+              className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+            >
+              {playbackState?.is_playing ? (
+                <Pause className="w-5 h-5 text-white" />
+              ) : (
+                <Play className="w-5 h-5 text-white" />
+              )}
+            </button>
+            <button
+              onClick={handleSkip}
+              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            >
+              <SkipForward className="w-5 h-5 text-white" />
+            </button>
+          </div>
+        </div>
+
+        {playbackState?.current_track ? (
+          <div className="flex items-center space-x-4">
+            {playbackState.current_track.image_url && (
+              <img
+                src={playbackState.current_track.image_url}
+                alt="Album Art"
+                className="w-16 h-16 rounded-lg"
+              />
+            )}
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-white">
+                {playbackState.current_track.name}
+              </h3>
+              <p className="text-gray-400">
+                {playbackState.current_track.artists.join(', ')}
+              </p>
+              <p className="text-gray-500 text-sm">
+                {playbackState.current_track.album}
+              </p>
             </div>
-            {!stats?.spotify_connected && (
-              <a
-                href="/admin/spotify-setup"
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded text-sm"
-              >
-                Connect Now
-              </a>
+            <div className="text-right">
+              <p className="text-gray-400 text-sm">
+                {formatDuration(playbackState.current_track.progress_ms)} / {formatDuration(playbackState.current_track.duration_ms)}
+              </p>
+              {playbackState.device && (
+                <p className="text-gray-500 text-xs flex items-center">
+                  <Volume2 className="w-3 h-3 mr-1" />
+                  {playbackState.device.name}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No music currently playing</p>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Requests Preview */}
+      <div className="bg-gray-800 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Recent Requests</h2>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className="text-purple-400 hover:text-purple-300 text-sm"
+          >
+            View All →
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          {requests.slice(0, 3).map((request) => (
+            <div key={request.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+              <div className="flex-1">
+                <h4 className="text-white font-medium">{request.track_name}</h4>
+                <p className="text-gray-400 text-sm">{request.artist_name}</p>
+                {request.requester_nickname && (
+                  <p className="text-purple-300 text-xs">by {request.requester_nickname}</p>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleApprove(request.id, true)}
+                  className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                  title="Play Next"
+                >
+                  <PlayCircle className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleApprove(request.id)}
+                  className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                  title="Add to Queue"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleReject(request.id)}
+                  className="p-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs"
+                  title="Reject"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Requests Tab
+  const RequestsTab = () => {
+    const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
+    const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+    const [allRequests, setAllRequests] = useState<Request[]>([]);
+
+    // Fetch requests based on filter
+    useEffect(() => {
+      const fetchRequests = async () => {
+        try {
+          const url = filterStatus === 'all' 
+            ? '/api/admin/requests?limit=100'
+            : `/api/admin/requests?status=${filterStatus}&limit=100`;
+          
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            setAllRequests(data.requests || []);
+          }
+        } catch (err) {
+          console.error('Error fetching requests:', err);
+        }
+      };
+
+      fetchRequests();
+    }, [filterStatus]);
+
+    const handleSelectAll = () => {
+      if (selectedRequests.length === allRequests.length) {
+        setSelectedRequests([]);
+      } else {
+        setSelectedRequests(allRequests.map(r => r.id));
+      }
+    };
+
+    const handleSelectRequest = (requestId: string) => {
+      setSelectedRequests(prev => 
+        prev.includes(requestId) 
+          ? prev.filter(id => id !== requestId)
+          : [...prev, requestId]
+      );
+    };
+
+    const handleBulkApprove = async () => {
+      for (const requestId of selectedRequests) {
+        await handleApprove(requestId);
+      }
+      setSelectedRequests([]);
+      // Refresh requests
+      const url = filterStatus === 'all' 
+        ? '/api/admin/requests?limit=100'
+        : `/api/admin/requests?status=${filterStatus}&limit=100`;
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setAllRequests(data.requests || []);
+      }
+    };
+
+    const handleBulkReject = async () => {
+      for (const requestId of selectedRequests) {
+        await handleReject(requestId, 'Bulk rejection');
+      }
+      setSelectedRequests([]);
+      // Refresh requests
+      const url = filterStatus === 'all' 
+        ? '/api/admin/requests?limit=100'
+        : `/api/admin/requests?status=${filterStatus}&limit=100`;
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setAllRequests(data.requests || []);
+      }
+    };
+
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'pending': return 'text-yellow-400 bg-yellow-400/10';
+        case 'approved': return 'text-green-400 bg-green-400/10';
+        case 'rejected': return 'text-red-400 bg-red-400/10';
+        case 'failed': return 'text-orange-400 bg-orange-400/10';
+        default: return 'text-gray-400 bg-gray-400/10';
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Header with filters and bulk actions */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-2">Song Requests</h2>
+              <div className="flex items-center space-x-4">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                  className="bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="pending">Pending ({requests.length})</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="all">All Requests</option>
+                </select>
+                
+                {allRequests.length > 0 && (
+                  <button
+                    onClick={handleSelectAll}
+                    className="text-purple-400 hover:text-purple-300 text-sm"
+                  >
+                    {selectedRequests.length === allRequests.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {selectedRequests.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-400 text-sm">
+                  {selectedRequests.length} selected
+                </span>
+                <button
+                  onClick={handleBulkApprove}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm flex items-center space-x-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Approve All</span>
+                </button>
+                <button
+                  onClick={handleBulkReject}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm flex items-center space-x-2"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Reject All</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Stats Dashboard */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl font-bold text-blue-600">{stats.pending_requests}</div>
-            <div className="text-black">Pending</div>
+        {/* Requests List */}
+        <div className="bg-gray-800 rounded-lg overflow-hidden">
+          {allRequests.length === 0 ? (
+            <div className="p-8 text-center">
+              <Music className="w-12 h-12 mx-auto mb-4 text-gray-500" />
+              <p className="text-gray-400">No requests found</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-700">
+              {allRequests.map((request) => (
+                <div key={request.id} className="p-4 hover:bg-gray-700/50 transition-colors">
+                  <div className="flex items-center space-x-4">
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={selectedRequests.includes(request.id)}
+                      onChange={() => handleSelectRequest(request.id)}
+                      className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                    />
+
+                    {/* Album Art Placeholder */}
+                    <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
+                      <Music className="w-6 h-6 text-gray-400" />
+                    </div>
+
+                    {/* Track Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-3 mb-1">
+                        <h3 className="text-white font-medium truncate">
+                          {request.track_name}
+                        </h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                          {request.status}
+                        </span>
+                      </div>
+                      
+                      <p className="text-gray-400 text-sm truncate">
+                        {request.artist_name} • {request.album_name}
+                      </p>
+                      
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                        <span>{formatDuration(request.duration_ms)}</span>
+                        <span>{formatTimeAgo(request.created_at)}</span>
+                        {request.requester_nickname && (
+                          <span className="text-purple-300">
+                            by {request.requester_nickname}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center space-x-2">
+                      {request.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(request.id, true)}
+                            className="p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors group"
+                            title="Play Next"
+                          >
+                            <PlayCircle className="w-4 h-4 text-white" />
+                          </button>
+                          <button
+                            onClick={() => handleApprove(request.id)}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            title="Add to Queue"
+                          >
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </button>
+                          <button
+                            onClick={() => handleReject(request.id)}
+                            className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            title="Reject"
+                          >
+                            <XCircle className="w-4 h-4 text-white" />
+                          </button>
+                        </>
+                      )}
+                      
+                      {request.status === 'approved' && (
+                        <div className="flex items-center space-x-2 text-green-400 text-sm">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Approved</span>
+                          {request.approved_by && (
+                            <span className="text-gray-500">by {request.approved_by}</span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {request.status === 'rejected' && (
+                        <div className="flex items-center space-x-2 text-red-400 text-sm">
+                          <XCircle className="w-4 h-4" />
+                          <span>Rejected</span>
+                          {request.rejection_reason && (
+                            <span className="text-gray-500" title={request.rejection_reason}>
+                              ({request.rejection_reason})
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => window.open(`https://open.spotify.com/track/${request.track_uri.split(':')[2]}`, '_blank')}
+                        className="p-2 text-gray-400 hover:text-white transition-colors"
+                        title="Open in Spotify"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Queue Tab
+  const QueueTab = () => {
+    const [detailedQueue, setDetailedQueue] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch detailed queue information
+    useEffect(() => {
+      const fetchDetailedQueue = async () => {
+        try {
+          const response = await fetch('/api/admin/queue/details');
+          if (response.ok) {
+            const data = await response.json();
+            setDetailedQueue(data);
+          }
+        } catch (err) {
+          console.error('Error fetching detailed queue:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchDetailedQueue();
+      
+      // Auto-refresh every 10 seconds
+      const interval = setInterval(fetchDetailedQueue, 10000);
+      return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+      return (
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" />
+            <p className="text-gray-400">Loading queue...</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl font-bold text-green-600">{stats.approved_requests}</div>
-            <div className="text-black">Approved</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl font-bold text-orange-600">{stats.today_requests}</div>
-            <div className="text-black">Today</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-3xl font-bold text-purple-600">{stats.total_requests}</div>
-            <div className="text-black">Total</div>
-          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Current Track */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Music className="w-6 h-6 mr-2" />
+            Now Playing
+          </h2>
+          
+          {detailedQueue?.current_track ? (
+            <div className="flex items-center space-x-4">
+              {detailedQueue.current_track.image_url && (
+                <img
+                  src={detailedQueue.current_track.image_url}
+                  alt="Album Art"
+                  className="w-20 h-20 rounded-lg"
+                />
+              )}
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold text-white mb-1">
+                  {detailedQueue.current_track.name}
+                </h3>
+                <p className="text-gray-400 mb-2">
+                  {detailedQueue.current_track.artists.join(', ')}
+                </p>
+                <p className="text-gray-500 text-sm mb-3">
+                  {detailedQueue.current_track.album}
+                </p>
+                
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${(detailedQueue.current_track.progress_ms / detailedQueue.current_track.duration_ms) * 100}%`
+                    }}
+                  />
+                </div>
+                
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>{formatDuration(detailedQueue.current_track.progress_ms)}</span>
+                  <span>{formatDuration(detailedQueue.current_track.duration_ms)}</span>
+                </div>
+              </div>
+              
+              <div className="flex flex-col space-y-2">
+                <button
+                  onClick={handlePlayPause}
+                  className="p-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                >
+                  {detailedQueue.is_playing ? (
+                    <Pause className="w-6 h-6 text-white" />
+                  ) : (
+                    <Play className="w-6 h-6 text-white" />
+                  )}
+                </button>
+                <button
+                  onClick={handleSkip}
+                  className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                  <SkipForward className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <Music className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No music currently playing</p>
+            </div>
+          )}
+        </div>
+
+        {/* Device Info */}
+        {detailedQueue?.device && (
+          <div className="bg-gray-800 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Volume2 className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-white font-medium">{detailedQueue.device.name}</p>
+                  <p className="text-gray-400 text-sm">{detailedQueue.device.type}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-400 text-sm">Volume</p>
+                <p className="text-white font-medium">{detailedQueue.device.volume_percent}%</p>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Current Playback */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4 text-black">🎵 Now Playing</h2>
-              
-              {playbackState?.current_track ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-lg text-black">{playbackState.current_track.name}</h3>
-                    <p className="text-gray-800">{playbackState.current_track.artists.join(', ')}</p>
-                    <p className="text-gray-700 text-sm">{playbackState.current_track.album}</p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={togglePlayback}
-                      className={`px-4 py-2 rounded-lg text-white font-semibold ${
-                        playbackState.is_playing 
-                          ? 'bg-yellow-500 hover:bg-yellow-600' 
-                          : 'bg-green-500 hover:bg-green-600'
-                      }`}
-                    >
-                      {playbackState.is_playing ? '⏸️ Pause' : '▶️ Play'}
-                    </button>
-                    
-                    <button
-                      onClick={skipTrack}
-                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold"
-                    >
-                      ⏭️ Skip
-                    </button>
-                  </div>
-
-                  {playbackState.device && (
-                    <div className="text-sm text-gray-700">
-                      📱 {playbackState.device.name} ({playbackState.device.type})
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-gray-700 text-center py-8">
-                  No active playback
-                </div>
+        {/* Spotify Queue */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white flex items-center">
+              <Clock className="w-6 h-6 mr-2" />
+              Spotify Queue
+            </h2>
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              {detailedQueue?.shuffle_state && (
+                <span className="px-2 py-1 bg-purple-600/20 text-purple-400 rounded">
+                  Shuffle ON
+                </span>
+              )}
+              {detailedQueue?.repeat_state !== 'off' && (
+                <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded">
+                  Repeat {detailedQueue.repeat_state}
+                </span>
               )}
             </div>
           </div>
 
-          {/* Requests List */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-black">📋 Song Requests</h2>
-                
-                <div className="flex space-x-2">
-                  {(['all', 'pending', 'approved', 'rejected'] as const).map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setFilter(status)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                        filter === status
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </button>
-                  ))}
+          {detailedQueue?.queue && detailedQueue.queue.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-gray-400 text-sm mb-4">
+                {detailedQueue.queue.length} songs in queue
+              </p>
+              
+              {detailedQueue.queue.slice(0, 10).map((track: any, index: number) => (
+                <div 
+                  key={`${track.uri}-${index}`}
+                  className="flex items-center space-x-4 p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <div className="text-gray-400 font-medium w-8 text-center">
+                    {index + 1}
+                  </div>
+                  
+                  {track.image_url && (
+                    <img
+                      src={track.image_url}
+                      alt="Album Art"
+                      className="w-12 h-12 rounded-lg"
+                    />
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-white font-medium truncate">
+                      {track.name}
+                    </h4>
+                    <p className="text-gray-400 text-sm truncate">
+                      {track.artists.join(', ')}
+                    </p>
+                    <p className="text-gray-500 text-xs truncate">
+                      {track.album}
+                    </p>
+                  </div>
+                  
+                  <div className="text-gray-400 text-sm">
+                    {formatDuration(track.duration_ms)}
+                  </div>
+                  
+                  <button
+                    onClick={() => window.open(`https://open.spotify.com/track/${track.uri.split(':')[2]}`, '_blank')}
+                    className="p-2 text-gray-400 hover:text-white transition-colors"
+                    title="Open in Spotify"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
-
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="text-black mt-2">Loading...</p>
-                </div>
-              ) : requests.length === 0 ? (
-                <div className="text-center py-8 text-black">
-                  No requests found
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {requests.map((request) => (
-                    <div
-                      key={request.id}
-                      className={`border rounded-lg p-4 ${
-                        request.status === 'pending' ? 'border-yellow-300 bg-yellow-50' :
-                        request.status === 'approved' ? 'border-green-300 bg-green-50' :
-                        request.status === 'rejected' ? 'border-red-300 bg-red-50' :
-                        'border-gray-300 bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-black">{request.track_name}</h3>
-                          <p className="text-gray-800">{request.artist_name}</p>
-                          <p className="text-gray-700 text-sm">{request.album_name}</p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-700">
-                            <span>⏱️ {formatDuration(request.duration_ms)}</span>
-                            <span>📅 {formatDate(request.created_at)}</span>
-                            {request.requester_nickname && (
-                              <span>👤 {request.requester_nickname}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col space-y-2 ml-4">
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            request.status === 'pending' ? 'bg-yellow-200 text-yellow-800' :
-                            request.status === 'approved' ? 'bg-green-200 text-green-800' :
-                            request.status === 'rejected' ? 'bg-red-200 text-red-800' :
-                            'bg-gray-200 text-gray-800'
-                          }`}>
-                            {request.status.toUpperCase()}
-                          </span>
-
-                          {request.status === 'pending' && (
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => approveRequest(request.id)}
-                                className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded"
-                              >
-                                ✅ Approve
-                              </button>
-                              <button
-                                onClick={() => rejectRequest(request.id)}
-                                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded"
-                              >
-                                ❌ Reject
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              ))}
+              
+              {detailedQueue.queue.length > 10 && (
+                <div className="text-center py-4">
+                  <p className="text-gray-400 text-sm">
+                    ... and {detailedQueue.queue.length - 10} more songs
+                  </p>
                 </div>
               )}
             </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <Clock className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No songs in queue</p>
+              <p className="text-sm mt-1">Approved requests will appear here</p>
+            </div>
+          )}
+        </div>
+
+        {/* Queue Actions */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Queue Actions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={handleSkip}
+              className="flex items-center justify-center space-x-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              <SkipForward className="w-5 h-5" />
+              <span>Skip Current</span>
+            </button>
+            
+            <button
+              onClick={() => window.open('https://open.spotify.com/queue', '_blank')}
+              className="flex items-center justify-center space-x-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            >
+              <ExternalLink className="w-5 h-5" />
+              <span>Open Spotify Queue</span>
+            </button>
+            
+            <button
+              onClick={() => fetchData()}
+              className="flex items-center justify-center space-x-2 p-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+            >
+              <RefreshCw className="w-5 h-5" />
+              <span>Refresh Queue</span>
+            </button>
           </div>
         </div>
       </div>
+    );
+  };
+
+  // Settings Tab
+  const SettingsTab = () => {
+    const [formData, setFormData] = useState<EventSettings | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+    // Initialize form data when eventSettings loads
+    useEffect(() => {
+      if (eventSettings) {
+        setFormData({ ...eventSettings });
+      }
+    }, [eventSettings]);
+
+    const handleInputChange = (field: keyof EventSettings, value: string | boolean | number) => {
+      if (formData) {
+        setFormData({
+          ...formData,
+          [field]: value
+        });
+      }
+    };
+
+    const handleSave = async () => {
+      if (!formData) return;
+
+      setSaving(true);
+      setSaveMessage(null);
+
+      try {
+        const response = await fetch('/api/admin/event-settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setEventSettings(result.settings);
+          setSaveMessage('Settings saved successfully!');
+          
+          // Clear message after 3 seconds
+          setTimeout(() => setSaveMessage(null), 3000);
+        } else {
+          setSaveMessage('Failed to save settings');
+        }
+      } catch (err) {
+        console.error('Error saving settings:', err);
+        setSaveMessage('Error saving settings');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    if (!formData) {
+      return (
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" />
+            <p className="text-gray-400">Loading settings...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Event Information */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-white mb-6 flex items-center">
+            <Settings className="w-6 h-6 mr-2" />
+            Event Information
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Event Title
+              </label>
+              <input
+                type="text"
+                value={formData.event_title}
+                onChange={(e) => handleInputChange('event_title', e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="Party DJ Requests"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                DJ Name
+              </label>
+              <input
+                type="text"
+                value={formData.dj_name}
+                onChange={(e) => handleInputChange('dj_name', e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="DJ Name (optional)"
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Venue Information
+              </label>
+              <input
+                type="text"
+                value={formData.venue_info}
+                onChange={(e) => handleInputChange('venue_info', e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="Venue name or location (optional)"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Display Messages */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Display Screen Messages</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            These messages will rotate on the display screen. Leave empty to hide a message.
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Welcome Message (Primary)
+              </label>
+              <input
+                type="text"
+                value={formData.welcome_message}
+                onChange={(e) => handleInputChange('welcome_message', e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="Request your favorite songs!"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Secondary Message
+              </label>
+              <input
+                type="text"
+                value={formData.secondary_message}
+                onChange={(e) => handleInputChange('secondary_message', e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="Your requests will be reviewed by the DJ"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Tertiary Message
+              </label>
+              <input
+                type="text"
+                value={formData.tertiary_message}
+                onChange={(e) => handleInputChange('tertiary_message', e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                placeholder="Keep the party going!"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Display Settings */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Display Settings</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Refresh Interval (seconds)
+              </label>
+              <input
+                type="number"
+                min="5"
+                max="300"
+                value={formData.display_refresh_interval}
+                onChange={(e) => handleInputChange('display_refresh_interval', parseInt(e.target.value))}
+                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              />
+              <p className="text-gray-500 text-xs mt-1">
+                How often the display screen updates (5-300 seconds)
+              </p>
+            </div>
+            
+            <div className="flex items-center">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.show_qr_code}
+                  onChange={(e) => handleInputChange('show_qr_code', e.target.checked)}
+                  className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                />
+                <div>
+                  <span className="text-white font-medium">Show QR Code</span>
+                  <p className="text-gray-400 text-sm">Display QR code for song requests</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Save Changes</h3>
+              <p className="text-gray-400 text-sm">
+                Changes will be applied to the display screen immediately
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {saveMessage && (
+                <span className={`text-sm ${
+                  saveMessage.includes('success') ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {saveMessage}
+                </span>
+              )}
+              
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Settings className="w-4 h-4" />
+                    <span>Save Settings</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview Link */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Display Screen Preview</h3>
+          <p className="text-gray-400 mb-4">
+            Test your settings on the display screen
+          </p>
+          
+          <a
+            href="/display"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <Monitor className="w-5 h-5" />
+            <span>Open Display Screen</span>
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    );
+  };
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'overview': return <OverviewTab />;
+      case 'requests': return <RequestsTab />;
+      case 'queue': return <QueueTab />;
+      case 'settings': return <SettingsTab />;
+      default: return <OverviewTab />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex">
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-white md:hidden">
+                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+              </h1>
+              <div className="hidden md:block">
+                <h1 className="text-2xl font-bold text-white">
+                  {eventSettings?.event_title || 'Party DJ Admin'}
+                </h1>
+                {eventSettings?.dj_name && (
+                  <p className="text-gray-400">DJ {eventSettings.dj_name}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${stats?.spotify_connected ? 'bg-green-400' : 'bg-red-400'}`} />
+                <span className="text-gray-400 text-sm">
+                  {stats?.spotify_connected ? 'Spotify Connected' : 'Spotify Disconnected'}
+                </span>
+              </div>
+              
+              <button
+                onClick={fetchData}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
+          {renderActiveTab()}
+        </main>
+      </div>
+
+      <MobileNav />
     </div>
   );
 }

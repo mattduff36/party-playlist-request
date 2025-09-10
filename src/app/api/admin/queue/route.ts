@@ -18,16 +18,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
-      is_playing: playbackState.is_playing,
-      current_track: playbackState.item ? {
+    // Add album art to current track
+    let currentTrackWithArt = null;
+    if (playbackState.item) {
+      const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
+      currentTrackWithArt = {
         name: playbackState.item.name,
         artists: playbackState.item.artists.map((a: any) => a.name),
         album: playbackState.item.album.name,
         duration_ms: playbackState.item.duration_ms,
         progress_ms: playbackState.progress_ms,
-        uri: playbackState.item.uri
-      } : null,
+        uri: playbackState.item.uri,
+        image_url: albumArt
+      };
+    }
+
+    return NextResponse.json({
+      is_playing: playbackState.is_playing,
+      current_track: currentTrackWithArt,
       device: playbackState.device ? {
         id: playbackState.device.id,
         name: playbackState.device.name,

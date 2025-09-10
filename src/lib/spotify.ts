@@ -248,15 +248,6 @@ class SpotifyService {
     };
   }
 
-  async addToQueue(trackUri: string, deviceId?: string): Promise<boolean> {
-    const params = new URLSearchParams({ uri: trackUri });
-    if (deviceId) {
-      params.append('device_id', deviceId);
-    }
-
-    await this.makeAuthenticatedRequest('POST', `/me/player/queue?${params.toString()}`);
-    return true;
-  }
 
   async addToPlaylist(playlistId: string, trackUri: string): Promise<boolean> {
     await this.makeAuthenticatedRequest('POST', `/playlists/${playlistId}/tracks`, {
@@ -290,6 +281,40 @@ class SpotifyService {
     const params = deviceId ? `?device_id=${deviceId}` : '';
     await this.makeAuthenticatedRequest('PUT', `/me/player/play${params}`);
     return true;
+  }
+
+  async addToQueue(trackUri: string, deviceId?: string): Promise<boolean> {
+    const params = new URLSearchParams({ uri: trackUri });
+    if (deviceId) params.append('device_id', deviceId);
+    
+    await this.makeAuthenticatedRequest('POST', `/me/player/queue?${params.toString()}`);
+    return true;
+  }
+
+  async getQueue(): Promise<any> {
+    return await this.makeAuthenticatedRequest('GET', '/me/player/queue');
+  }
+
+  async getTrackDetails(trackId: string): Promise<any> {
+    return await this.makeAuthenticatedRequest('GET', `/tracks/${trackId}`);
+  }
+
+  async getAlbumArt(trackUri: string): Promise<string | null> {
+    try {
+      const trackId = trackUri.replace('spotify:track:', '');
+      const track = await this.getTrackDetails(trackId);
+      
+      if (track.album?.images?.length > 0) {
+        // Return the medium-sized image (usually index 1, or largest if only one)
+        const images = track.album.images;
+        return images[1]?.url || images[0]?.url || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting album art:', error);
+      return null;
+    }
   }
 
   async isAuthenticated(): Promise<boolean> {

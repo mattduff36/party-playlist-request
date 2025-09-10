@@ -41,6 +41,19 @@ export interface SpotifyAuth {
   updated_at: string;
 }
 
+export interface EventSettings {
+  id: number;
+  event_title: string;
+  dj_name: string;
+  venue_info: string;
+  welcome_message: string;
+  secondary_message: string;
+  tertiary_message: string;
+  show_qr_code: boolean;
+  display_refresh_interval: number;
+  updated_at: string;
+}
+
 // Database connection
 let pool: Pool;
 
@@ -110,6 +123,22 @@ export async function initializeDatabase() {
         expires_at TIMESTAMP,
         scope TEXT,
         token_type TEXT DEFAULT 'Bearer',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT single_row CHECK (id = 1)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS event_settings (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        event_title TEXT DEFAULT 'Party DJ Requests',
+        dj_name TEXT DEFAULT '',
+        venue_info TEXT DEFAULT '',
+        welcome_message TEXT DEFAULT 'Request your favorite songs!',
+        secondary_message TEXT DEFAULT 'Your requests will be reviewed by the DJ',
+        tertiary_message TEXT DEFAULT 'Keep the party going!',
+        show_qr_code BOOLEAN DEFAULT TRUE,
+        display_refresh_interval INTEGER DEFAULT 20,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT single_row CHECK (id = 1)
       )
@@ -292,6 +321,44 @@ export async function setSpotifyAuth(auth: SpotifyAuth): Promise<void> {
 export async function deleteSpotifyAuth(): Promise<void> {
   const client = getPool();
   await client.query('DELETE FROM spotify_auth WHERE id = 1');
+}
+
+// Event Settings functions
+export async function getEventSettings(): Promise<EventSettings> {
+  const client = getPool();
+  const result = await client.query('SELECT * FROM event_settings WHERE id = 1');
+  
+  if (result.rows.length === 0) {
+    // Create default settings if none exist
+    await client.query(`
+      INSERT INTO event_settings (id) VALUES (1)
+      ON CONFLICT (id) DO NOTHING
+    `);
+    const newResult = await client.query('SELECT * FROM event_settings WHERE id = 1');
+    return newResult.rows[0];
+  }
+  
+  return result.rows[0];
+}
+
+export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>): Promise<EventSettings> {
+  const client = getPool();
+  
+  const fields = Object.keys(settings).filter(key => settings[key as keyof typeof settings] !== undefined);
+  const values = fields.map(field => settings[field as keyof typeof settings]);
+  const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+  
+  if (fields.length === 0) {
+    return getEventSettings();
+  }
+  
+  await client.query(`
+    UPDATE event_settings 
+    SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
+    WHERE id = 1
+  `, values);
+  
+  return getEventSettings();
 }
 
 // Utility functions

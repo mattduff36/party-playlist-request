@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params;
     
     const body = await req.json();
-    const { add_to_queue = true, add_to_playlist = true } = body;
+    const { add_to_queue = true, add_to_playlist = true, play_next = false } = body;
     
     const request = await getRequest(id);
 
@@ -29,6 +29,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const deviceSetting = await getSetting('target_device_id');
         await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined);
         queueSuccess = true;
+        
+        // If play_next is true, skip the current track to play this one next
+        if (play_next) {
+          try {
+            await spotifyService.skipToNext(deviceSetting || undefined);
+          } catch (skipError) {
+            console.error('Error skipping to next track:', skipError);
+            // Don't fail the whole operation if skip fails
+          }
+        }
       } catch (error) {
         console.error('Error adding to queue:', error);
         errors.push('Failed to add to Spotify queue');
@@ -64,11 +74,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       success: true,
-      message: 'Request processed',
+      message: play_next && queueSuccess ? 'Request approved and playing next' : 'Request processed',
       result: {
         status: newStatus,
         queue_added: queueSuccess,
         playlist_added: playlistSuccess,
+        play_next: play_next && queueSuccess,
         errors: errors.length > 0 ? errors : null
       }
     });
