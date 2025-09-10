@@ -340,6 +340,60 @@ export default function AdminPanel() {
     }
   };
 
+  // Function to mark played requests
+  const markPlayedRequests = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch('/api/admin/mark-played', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.marked_played > 0) {
+          console.log(`✅ Marked ${data.marked_played} requests as played`);
+          // Refresh data to show updated statuses
+          fetchData(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error marking played requests:', error);
+    }
+  };
+
+  // Function to cleanup old played requests
+  const cleanupPlayedRequests = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch('/api/admin/cleanup-played', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.deleted_count > 0) {
+          console.log(`🧹 Auto-deleted ${data.deleted_count} old played requests`);
+          // Refresh data to show updated list
+          fetchData(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up played requests:', error);
+    }
+  };
+
   // Auto-refresh data when authenticated (except on settings tab)
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -348,12 +402,20 @@ export default function AdminPanel() {
     
     // Auto-refresh every 15 seconds for better UX, but not on settings tab
     // Increased from 10s to 15s to reduce server load and UI updates
+    let refreshCount = 0;
     const interval = setInterval(() => {
       if (activeTab !== 'settings') {
         // Silent refresh - don't show loading states
         // Only refresh if the page is visible to avoid unnecessary API calls
         if (!document.hidden) {
           fetchData(false); // false = no background indicator for automatic refreshes
+          markPlayedRequests(); // Check for played songs
+          
+          // Run cleanup every 4th refresh (every minute)
+          refreshCount++;
+          if (refreshCount % 4 === 0) {
+            cleanupPlayedRequests(); // Cleanup old played songs
+          }
         }
       }
     }, 15000);
@@ -524,6 +586,33 @@ export default function AdminPanel() {
       fetchData(); // Refresh data
     } catch (err) {
       console.error('Error rejecting request:', err);
+    }
+  };
+
+  const handleDelete = async (requestId: string) => {
+    if (!confirm('Are you sure you want to permanently delete this request?')) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/delete/${requestId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Deleted request: ${data.deleted_request.track_name}`);
+        fetchData(); // Refresh data
+      } else {
+        console.error('Failed to delete request');
+      }
+    } catch (err) {
+      console.error('Error deleting request:', err);
     }
   };
 
@@ -984,7 +1073,6 @@ export default function AdminPanel() {
 
   // Requests Tab
   const RequestsTab = () => {
-    const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
     const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
     const [allRequests, setAllRequests] = useState<Request[]>([]);
 
@@ -1007,15 +1095,19 @@ export default function AdminPanel() {
             const data = await response.json();
             let requests = data.requests || [];
             
-            // Sort requests when showing all: Approved > Pending > Played > Rejected
+            // Sort requests when showing all: Pending > Approved > Rejected > Played
             if (filterStatus === 'all') {
-              const statusOrder = { 'approved': 1, 'pending': 2, 'played': 3, 'rejected': 4 };
+              const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
               requests = requests.sort((a: Request, b: Request) => {
                 const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
                 const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
                 if (aOrder !== bOrder) return aOrder - bOrder;
-                // Within same status, sort by created_at (newest first)
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                // Within same status, sort by created_at (newest first for pending, oldest first for others)
+                if (a.status === 'pending') {
+                  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); // oldest first for pending
+                } else {
+                  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest first for others
+                }
               });
             }
             
@@ -1029,67 +1121,8 @@ export default function AdminPanel() {
       fetchRequests();
     }, [filterStatus]);
 
-    const handleSelectAll = () => {
-      if (selectedRequests.length === allRequests.length) {
-        setSelectedRequests([]);
-      } else {
-        setSelectedRequests(allRequests.map(r => r.id));
-      }
-    };
 
-    const handleSelectRequest = (requestId: string) => {
-      setSelectedRequests(prev => 
-        prev.includes(requestId) 
-          ? prev.filter(id => id !== requestId)
-          : [...prev, requestId]
-      );
-    };
 
-    const handleBulkApprove = async () => {
-      for (const requestId of selectedRequests) {
-        await handleApprove(requestId);
-      }
-      setSelectedRequests([]);
-      // Refresh requests
-      const token = localStorage.getItem('admin_token');
-      const url = filterStatus === 'all' 
-        ? '/api/admin/requests?limit=100'
-        : `/api/admin/requests?status=${filterStatus}&limit=100`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAllRequests(data.requests || []);
-      }
-    };
-
-    const handleBulkReject = async () => {
-      for (const requestId of selectedRequests) {
-        await handleReject(requestId, 'Bulk rejection');
-      }
-      setSelectedRequests([]);
-      // Refresh requests
-      const token = localStorage.getItem('admin_token');
-      const url = filterStatus === 'all' 
-        ? '/api/admin/requests?limit=100'
-        : `/api/admin/requests?status=${filterStatus}&limit=100`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAllRequests(data.requests || []);
-      }
-    };
 
     const getStatusColor = (status: string) => {
       switch (status) {
@@ -1099,6 +1132,16 @@ export default function AdminPanel() {
         case 'rejected': return 'text-red-400 bg-red-400/10';
         case 'failed': return 'text-orange-400 bg-orange-400/10';
         default: return 'text-gray-400 bg-gray-400/10';
+      }
+    };
+
+    const getRequestBackgroundColor = (status: string) => {
+      switch (status) {
+        case 'pending': return 'bg-yellow-500/20 border-l-4 border-yellow-500';
+        case 'approved': return 'bg-green-500/20 border-l-4 border-green-500';
+        case 'rejected': return 'bg-red-500/20 border-l-4 border-red-500';
+        case 'played': return 'bg-gray-700'; // Keep current color for played
+        default: return 'bg-gray-700';
       }
     };
 
@@ -1122,38 +1165,9 @@ export default function AdminPanel() {
                   <option value="rejected">Rejected</option>
                 </select>
                 
-                {allRequests.length > 0 && (
-                    <button
-                    onClick={handleSelectAll}
-                    className="text-purple-400 hover:text-purple-300 text-sm"
-                    >
-                    {selectedRequests.length === allRequests.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                )}
               </div>
                   </div>
 
-            {selectedRequests.length > 0 && (
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-400 text-sm">
-                  {selectedRequests.length} selected
-                </span>
-                <button
-                  onClick={handleBulkApprove}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm flex items-center space-x-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Approve All</span>
-                </button>
-                <button
-                  onClick={handleBulkReject}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm flex items-center space-x-2"
-                >
-                  <XCircle className="w-4 h-4" />
-                  <span>Reject All</span>
-                </button>
-                    </div>
-                  )}
           </div>
         </div>
 
@@ -1167,15 +1181,8 @@ export default function AdminPanel() {
               ) : (
             <div className="divide-y divide-gray-700">
               {allRequests.map((request) => (
-                <div key={request.id} className="p-4 hover:bg-gray-700/50 transition-colors">
+                <div key={request.id} className={`p-4 transition-colors ${getRequestBackgroundColor(request.status)} hover:opacity-80`}>
                   <div className="flex items-center space-x-4">
-                    {/* Checkbox */}
-                    <input
-                      type="checkbox"
-                      checked={selectedRequests.includes(request.id)}
-                      onChange={() => handleSelectRequest(request.id)}
-                      className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
-                    />
 
                     {/* Album Art Placeholder */}
                     <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
@@ -1307,6 +1314,14 @@ export default function AdminPanel() {
                         title="Open in Spotify"
                       >
                         <ExternalLink className="w-4 h-4" />
+                      </button>
+                      
+                      <button
+                        onClick={() => handleDelete(request.id)}
+                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                        title="Delete Request"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

@@ -57,7 +57,7 @@ export interface EventSettings {
 // Database connection
 let pool: Pool;
 
-function getPool() {
+export function getPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
@@ -86,7 +86,7 @@ export async function initializeDatabase() {
         duration_ms INTEGER NOT NULL,
         requester_ip_hash TEXT NOT NULL,
         requester_nickname TEXT,
-        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'queued', 'failed')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'queued', 'failed', 'played')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         approved_at TIMESTAMP,
         approved_by TEXT,

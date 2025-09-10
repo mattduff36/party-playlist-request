@@ -6,8 +6,15 @@ export async function POST(req: NextRequest) {
   try {
     await authService.requireAdminAuth(req);
     
-    const body = await req.json();
-    const { device_id } = body;
+    // Handle empty request body gracefully
+    let device_id;
+    try {
+      const body = await req.json();
+      device_id = body.device_id;
+    } catch (jsonError) {
+      // No JSON body provided, use undefined device_id
+      device_id = undefined;
+    }
     
     await spotifyService.pausePlayback(device_id);
     
