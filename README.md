@@ -28,36 +28,44 @@ A modern web application that allows party guests to request songs via a public 
 
 ## 🏗️ Architecture
 
-**🚀 NEW: Vercel-Only Deployment!**
+**🚀 Vercel-Only Deployment - Everything in one Next.js app!**
 
 ```
 /party-playlist-request
-└── /frontend         # Everything in one Next.js app!
-    ├── /src/app
-    │   ├── /api      # Backend API routes (serverless)
-    │   ├── /admin    # Admin dashboard pages
-    │   └── page.tsx  # Guest interface
-    ├── /src/lib      # Shared utilities (DB, Spotify, Auth)
-    └── vercel.json   # Vercel configuration
+├── /src/app
+│   ├── /api          # Backend API routes (serverless)
+│   ├── /admin        # Admin dashboard pages
+│   └── page.tsx      # Guest interface
+├── /src/lib          # Shared utilities (DB, Spotify, Auth)
+├── /public           # Static assets
+└── vercel.json       # Vercel configuration
 ```
 
-**Database**: Vercel KV (Redis) - No separate database server needed!  
+**Database**: Vercel Postgres (required for both development and production)  
 **Backend**: Next.js API routes - No separate backend server needed!  
 **Deployment**: Single Vercel deployment - Simple and cost-effective!
 
-## 🛠️ Installation & Setup
+## 🛠️ Quick Start
 
 ### Prerequisites
 - Node.js 18+ and npm
 - Spotify Developer Account
 - Spotify Premium (required for playback control)
 
-### 1. Clone and Install Dependencies
+### 1. Clone and Setup
 
 ```bash
-# Install dependencies (everything is in frontend now!)
-cd frontend
+# Clone the repository
+git clone <your-repo-url>
+cd party-playlist-request
+
+# Install dependencies and setup environment
 npm install
+./setup-dev.sh
+
+# Or manually:
+cp .env.local.example .env.local
+# Edit .env.local with your Spotify credentials
 ```
 
 ### 2. Spotify App Setup
@@ -67,17 +75,12 @@ npm install
    - **App Name**: Party DJ Request System
    - **App Description**: Song request system for parties
    - **Website**: Your domain (or http://localhost:3000 for development)
-   - **Redirect URI**: `http://localhost:3001/api/spotify/callback`
+   - **Redirect URI**: `http://localhost:3000/api/spotify/callback`
    - **APIs Used**: Web API
 
 3. Note your **Client ID** and **Client Secret**
 
 ### 3. Environment Configuration
-
-```bash
-cd frontend
-cp .env.local.example .env.local
-```
 
 Edit `.env.local` with your settings:
 ```env
@@ -92,15 +95,13 @@ JWT_SECRET=your-super-secret-jwt-key-here
 # Admin Password
 ADMIN_PASSWORD=your-admin-password
 
-# Vercel KV (for production - get from Vercel dashboard)
-# KV_REST_API_URL=your-kv-rest-api-url
-# KV_REST_API_TOKEN=your-kv-rest-api-token
+# Database (PostgreSQL - get from Vercel Dashboard -> Storage -> Postgres)
+DATABASE_URL=postgres://username:password@host:port/database
 ```
 
-### 4. Start the Application
+### 4. Start Development Server
 
 ```bash
-# Start the application (from /frontend directory)
 npm run dev
 ```
 
@@ -117,12 +118,12 @@ The application will be available at:
    - Password: (what you set in ADMIN_PASSWORD)
 
 2. **Connect Spotify**:
-   - In admin panel, you'll need to authenticate with Spotify
-   - This requires the backend API endpoints for Spotify OAuth
+   - In admin panel, go to Spotify Setup
+   - Authenticate with your Spotify account
 
-3. **Configure Party Playlist**:
-   - Create or select a Spotify playlist for approved songs
-   - Set the playlist ID in admin settings
+3. **Start Using**:
+   - Share the guest URL with party attendees
+   - Monitor and approve requests from the admin panel
 
 ## 📱 Usage
 
@@ -140,51 +141,15 @@ The application will be available at:
 3. **Request**: Click "Request" on any song or paste a Spotify link
 4. **Wait**: Requests appear instantly in the DJ's admin panel
 
-## 🔧 API Endpoints
-
-### Guest Endpoints
-- `POST /api/request` - Submit a song request
-- `GET /api/search` - Search Spotify catalog
-- `GET /api/track/:id` - Get track information
-- `GET /api/status` - Get public system status
-
-### Admin Endpoints
-- `POST /api/admin/login` - Admin authentication
-- `GET /api/admin/requests` - Get requests (with filtering)
-- `POST /api/admin/approve/:id` - Approve a request
-- `POST /api/admin/reject/:id` - Reject a request
-- `GET /api/admin/queue` - Get current playback state
-- `GET /api/admin/stats` - Get system statistics
-
-### Spotify Endpoints
-- `GET /api/spotify/auth` - Start OAuth flow
-- `POST /api/spotify/callback` - Handle OAuth callback
-- `GET /api/spotify/status` - Check authentication status
-- `GET /api/spotify/playlists` - Get user playlists
-
 ## 🚀 Deployment
 
-### **🎯 Vercel-Only Deployment (Recommended)**
+### **🎯 Vercel Deployment (Recommended)**
 
 **Everything runs on Vercel - no separate backend needed!**
 
-1. **Set up Vercel KV**:
-   - Go to Vercel dashboard → Storage → Create KV database
-   - Copy the connection details
-
-2. **Deploy to Vercel**:
-   - Import your GitHub repo to Vercel
-   - Set **Root Directory**: `frontend`
-   - Add all environment variables (see above)
-   - Deploy!
-
-3. **Update Spotify app**:
-   - Redirect URI: `https://your-app.vercel.app/api/spotify/callback`
-   - Website: `https://your-app.vercel.app`
+See `VERCEL-ONLY-SETUP.md` for detailed deployment instructions.
 
 **Cost**: Likely **$0** with Vercel's free tier! 🎉
-
-**See `VERCEL-ONLY-SETUP.md` for detailed instructions.**
 
 ## 🛡️ Security Features
 
@@ -206,6 +171,19 @@ The application will be available at:
   - `playlist-modify-public`
   - `playlist-modify-private`
 
+## 🔧 Development Scripts
+
+```bash
+npm run dev          # Start development server with Turbopack
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run lint:fix     # Fix ESLint errors
+npm run type-check   # Run TypeScript type checking
+npm run clean        # Clean build cache
+npm run dev:debug    # Start dev server with Node.js debugger
+```
+
 ## 🐛 Troubleshooting
 
 ### Common Issues
@@ -221,17 +199,17 @@ The application will be available at:
 
 3. **Search not working**:
    - Verify Spotify authentication is complete
-   - Check backend logs for API errors
+   - Check browser console for API errors
 
 4. **Requests not appearing**:
    - Check rate limiting (wait 30 seconds between requests)
-   - Verify backend is running and accessible
+   - Verify API endpoints are accessible
 
-### Logs
+## 📄 Documentation
 
-- **Backend logs**: Check your backend console/hosting platform logs
-- **Frontend errors**: Check browser developer console
-- **Database issues**: Check if SQLite file has proper permissions
+- `VERCEL-ONLY-SETUP.md` - Complete Vercel deployment guide
+- `SPOTIFY-SETUP-GUIDE.md` - Detailed Spotify configuration
+- `ENVIRONMENT-VARIABLES.md` - Environment variable reference
 
 ## 📄 License
 
@@ -240,14 +218,6 @@ This project is open source and available under the MIT License.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 🎉 Credits
-
-Built with:
-- **Backend**: Node.js, Express, SQLite
-- **Frontend**: Next.js, React, Tailwind CSS
-- **APIs**: Spotify Web API
-- **Authentication**: JWT, bcrypt
 
 ---
 
