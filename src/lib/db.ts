@@ -242,10 +242,10 @@ export async function checkRecentDuplicate(trackUri: string, minutesAgo: number 
   const result = await client.query(
     `SELECT * FROM requests 
      WHERE track_uri = $1 
-     AND created_at > NOW() - INTERVAL $2
+     AND created_at > NOW() - INTERVAL '${minutesAgo} minutes'
      AND status IN ('pending', 'approved', 'queued')
      LIMIT 1`,
-    [trackUri, `${minutesAgo} minutes`]
+    [trackUri]
   );
   return result.rows[0] || null;
 }
