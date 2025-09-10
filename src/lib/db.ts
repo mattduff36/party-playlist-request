@@ -86,7 +86,7 @@ export async function initializeDatabase() {
         duration_ms INTEGER NOT NULL,
         requester_ip_hash TEXT NOT NULL,
         requester_nickname TEXT,
-        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'queued', 'failed', 'played')),
+        status TEXT NOT NULL DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         approved_at TIMESTAMP,
         approved_by TEXT,
@@ -143,6 +143,24 @@ export async function initializeDatabase() {
         CONSTRAINT single_row CHECK (id = 1)
       )
     `);
+
+    // Migration: Update status constraint to include 'played'
+    try {
+      await client.query(`
+        ALTER TABLE requests 
+        DROP CONSTRAINT IF EXISTS requests_status_check;
+      `);
+      
+      await client.query(`
+        ALTER TABLE requests 
+        ADD CONSTRAINT requests_status_check 
+        CHECK (status IN ('pending', 'approved', 'rejected', 'queued', 'failed', 'played'));
+      `);
+      
+      console.log('✅ Database constraint updated to include "played" status');
+    } catch (migrationError) {
+      console.log('ℹ️ Status constraint migration already applied or not needed');
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS oauth_sessions (
