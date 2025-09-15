@@ -32,6 +32,16 @@ interface EventSettings {
   display_refresh_interval: number;
 }
 
+interface Notification {
+  id: string;
+  type: 'approval' | 'rejection' | 'info';
+  message: string;
+  requester_name?: string;
+  track_name?: string;
+  created_at: string;
+  shown: boolean;
+}
+
 export default function DisplayPage() {
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
@@ -39,6 +49,8 @@ export default function DisplayPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
+  const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
+  const [showingNotification, setShowingNotification] = useState(false);
 
   // Detect device type
   useEffect(() => {
@@ -108,12 +120,47 @@ export default function DisplayPage() {
       }
     };
 
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch('/api/notifications');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.notifications && data.notifications.length > 0 && !showingNotification) {
+            const notification = data.notifications[0];
+            setCurrentNotification(notification);
+            setShowingNotification(true);
+            
+            // Show notification for 5 seconds, then mark as shown
+            setTimeout(async () => {
+              try {
+                await fetch('/api/notifications', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ notificationId: notification.id })
+                });
+              } catch (error) {
+                console.error('Error marking notification as shown:', error);
+              }
+              setShowingNotification(false);
+              setCurrentNotification(null);
+            }, 5000);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
     fetchDisplayData();
+    fetchNotifications();
     
     // Set up polling based on refresh interval
-    const interval = setInterval(fetchDisplayData, (eventSettings?.display_refresh_interval || 20) * 1000);
+    const interval = setInterval(() => {
+      fetchDisplayData();
+      fetchNotifications();
+    }, (eventSettings?.display_refresh_interval || 20) * 1000);
     return () => clearInterval(interval);
-  }, [eventSettings?.display_refresh_interval]);
+  }, [eventSettings?.display_refresh_interval, showingNotification]);
 
   // Rotate messages
   useEffect(() => {
@@ -150,6 +197,15 @@ export default function DisplayPage() {
 
   const currentMessage = messages[currentMessageIndex] || eventSettings.welcome_message;
 
+  // Determine what to show in the scrolling message area
+  const displayContent = showingNotification && currentNotification 
+    ? currentNotification.message 
+    : messages.join(' • ') + ' • ' + messages.join(' • ');
+  
+  const messageTextColor = showingNotification && currentNotification?.type === 'approval' 
+    ? 'text-green-400' 
+    : 'text-white';
+
   // TV Layout (Large screens)
   if (deviceType === 'tv') {
     return (
@@ -173,25 +229,25 @@ export default function DisplayPage() {
                 {/* Now Playing - Takes most of the space */}
                 <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex-1 flex flex-col justify-center">
                   <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
-                  {currentTrack ? (
-                    <div className="text-center">
-                      {currentTrack.image_url && (
-                        <img 
-                          src={currentTrack.image_url} 
-                          alt="Album Art" 
+                {currentTrack ? (
+                  <div className="text-center">
+                    {currentTrack.image_url && (
+                      <img 
+                        src={currentTrack.image_url} 
+                        alt="Album Art" 
                           className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
                         />
                       )}
                       <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
                       <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
                       <p className="text-sm text-gray-400">{currentTrack.album}</p>
-                    </div>
-                  ) : (
+                  </div>
+                ) : (
                     <div className="text-center text-gray-400 text-lg">
-                      No song currently playing
-                    </div>
-                  )}
-                </div>
+                    No song currently playing
+                  </div>
+                )}
+              </div>
 
                 {/* QR Code - Square block at bottom */}
                 {eventSettings.show_qr_code && qrCodeUrl && (
@@ -206,27 +262,27 @@ export default function DisplayPage() {
               <div className="col-span-2">
                 {upcomingSongs.length > 0 ? (
                   <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
-                    <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
+                  <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
                     <div className="space-y-3 overflow-y-auto max-h-[calc(100%-4rem)]">
                       {upcomingSongs.slice(0, 12).map((song, index) => (
                         <div key={song.uri} className="flex items-center justify-between p-3 bg-white/10 rounded-lg">
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <div className="text-xl font-bold text-purple-300 flex-shrink-0 w-8">
-                              {index + 1}
-                            </div>
+                          {index + 1}
+                        </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="text-lg font-semibold truncate">{song.name}</h4>
                               <p className="text-gray-300 text-sm truncate">{song.artists.join(', ')}</p>
-                            </div>
-                          </div>
+                        </div>
+                      </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-3">
                               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
                                 {song.requester_nickname}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                  </div>
+                </div>
+              )}
+            </div>
                       ))}
                     </div>
                   </div>
@@ -235,8 +291,8 @@ export default function DisplayPage() {
                     <div className="text-center text-gray-400 text-xl">
                       No upcoming songs in queue
                     </div>
-                  </div>
-                )}
+                </div>
+              )}
               </div>
 
               {/* Top Requesters */}
@@ -304,8 +360,8 @@ export default function DisplayPage() {
             <div className="flex items-center h-full">
               <div className="text-xl mr-3">📢</div>
               <div className="flex-1 overflow-hidden">
-                  <div className="animate-marquee whitespace-nowrap text-lg font-medium">
-                    {messages.join(' • ')} • {messages.join(' • ')}
+                  <div className={`animate-marquee whitespace-nowrap text-lg font-medium ${messageTextColor}`}>
+                    {displayContent}
                   </div>
               </div>
             </div>
@@ -466,8 +522,8 @@ export default function DisplayPage() {
               <div className="flex items-center h-full">
                 <div className="text-base mr-2">📢</div>
                 <div className="flex-1 overflow-hidden">
-                  <div className="animate-marquee whitespace-nowrap text-sm font-medium">
-                    {messages.join(' • ')} • {messages.join(' • ')}
+                  <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
+                    {displayContent}
                   </div>
                 </div>
               </div>
@@ -477,21 +533,21 @@ export default function DisplayPage() {
       );
     } else {
       // Tablet Portrait - Simplified layout
-      return (
+    return (
         <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4 overflow-hidden">
           <div className="max-w-2xl mx-auto h-full flex flex-col">
             <div className="text-center py-3 flex-shrink-0">
               <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
-              {eventSettings.dj_name && (
+            {eventSettings.dj_name && (
                 <p className="text-sm text-purple-200">DJ {eventSettings.dj_name}</p>
-              )}
-            </div>
+            )}
+          </div>
 
-            {/* Current Song */}
+              {/* Current Song */}
             <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-shrink-0 mb-4">
               <h2 className="text-xl font-semibold mb-3 text-center">🎵 Now Playing</h2>
-              {currentTrack ? (
-                <div className="text-center">
+                {currentTrack ? (
+                  <div className="text-center">
                   {currentTrack.image_url && (
                     <img 
                       src={currentTrack.image_url} 
@@ -501,13 +557,13 @@ export default function DisplayPage() {
                   )}
                   <h3 className="text-lg font-bold mb-2">{currentTrack.name}</h3>
                   <p className="text-base text-gray-300">{currentTrack.artists.join(', ')}</p>
-                </div>
-              ) : (
-                <div className="text-center text-gray-400">No song playing</div>
-              )}
-            </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400">No song playing</div>
+                )}
+              </div>
 
-            {/* Up Next */}
+              {/* Up Next */}
             <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 min-h-0 overflow-hidden mb-4">
               <h2 className="text-xl font-semibold mb-3">🎶 Up Next</h2>
               {upcomingSongs.length > 0 ? (
@@ -525,9 +581,9 @@ export default function DisplayPage() {
                           </div>
                         </div>
                       )}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-400 text-center">No upcoming songs in queue</p>
@@ -540,15 +596,15 @@ export default function DisplayPage() {
               <div className="flex items-center h-full">
                 <div className="text-lg mr-3">📢</div>
                 <div className="flex-1 overflow-hidden">
-                  <div className="animate-marquee whitespace-nowrap text-base font-medium">
-                    {messages.join(' • ')} • {messages.join(' • ')}
-                  </div>
+                  <div className={`animate-marquee whitespace-nowrap text-base font-medium ${messageTextColor}`}>
+                    {displayContent}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      );
+      </div>
+    );
     }
   }
 
@@ -557,7 +613,7 @@ export default function DisplayPage() {
   
   if (isLandscape) {
     // Mobile Landscape - Full desktop layout with very small text
-    return (
+  return (
       <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-2 overflow-hidden">
         <div className="max-w-5xl mx-auto h-full flex flex-col">
           {/* Header - Fixed Height */}
@@ -579,7 +635,7 @@ export default function DisplayPage() {
               <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 flex-1 flex flex-col justify-center">
                 <h2 className="text-xs font-semibold mb-2 text-center">🎵 Now Playing</h2>
                 {currentTrack ? (
-                  <div className="text-center">
+        <div className="text-center">
                     {currentTrack.image_url && (
                       <img 
                         src={currentTrack.image_url} 
@@ -682,8 +738,8 @@ export default function DisplayPage() {
             <div className="flex items-center h-full">
               <div className="text-xs mr-1">📢</div>
               <div className="flex-1 overflow-hidden">
-                <div className="animate-marquee whitespace-nowrap text-xs font-medium">
-                  {messages.join(' • ')} • {messages.join(' • ')}
+                <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
+                  {displayContent}
                 </div>
               </div>
             </div>
@@ -698,16 +754,16 @@ export default function DisplayPage() {
         <div className="max-w-sm mx-auto h-full flex flex-col">
           <div className="text-center flex-shrink-0 mb-3">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
-            {eventSettings.dj_name && (
+          {eventSettings.dj_name && (
               <p className="text-xs text-purple-200">DJ {eventSettings.dj_name}</p>
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Current Song */}
+        {/* Current Song */}
           <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-shrink-0 mb-3">
-            <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
-            {currentTrack ? (
-              <div className="text-center">
+          <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
+          {currentTrack ? (
+            <div className="text-center">
                 {currentTrack.image_url && (
                   <img 
                     src={currentTrack.image_url} 
@@ -715,13 +771,13 @@ export default function DisplayPage() {
                     className="w-24 h-24 mx-auto rounded-lg shadow-lg mb-3"
                   />
                 )}
-                <h3 className="text-lg font-bold mb-1">{currentTrack.name}</h3>
-                <p className="text-sm text-gray-300">{currentTrack.artists.join(', ')}</p>
-              </div>
-            ) : (
-              <div className="text-center text-gray-400 text-sm">No song playing</div>
-            )}
-          </div>
+              <h3 className="text-lg font-bold mb-1">{currentTrack.name}</h3>
+              <p className="text-sm text-gray-300">{currentTrack.artists.join(', ')}</p>
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 text-sm">No song playing</div>
+          )}
+        </div>
 
           {/* Up Next */}
           <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden mb-3">
@@ -739,16 +795,16 @@ export default function DisplayPage() {
                         <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
                           {song.requester_nickname}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+          </div>
+        )}
+                </div>
+              ))}
+            </div>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-400 text-center text-sm">No upcoming songs in queue</p>
-              </div>
-            )}
+          </div>
+        )}
           </div>
 
           {/* Scrolling Messages Bar at Bottom */}
@@ -756,14 +812,14 @@ export default function DisplayPage() {
             <div className="flex items-center h-full">
               <div className="text-sm mr-2">📢</div>
               <div className="flex-1 overflow-hidden">
-                <div className="animate-marquee whitespace-nowrap text-xs font-medium">
-                  {messages.join(' • ')} • {messages.join(' • ')}
+                <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
+                  {displayContent}
                 </div>
               </div>
             </div>
           </div>
-        </div>
       </div>
-    );
+    </div>
+  );
   }
 }

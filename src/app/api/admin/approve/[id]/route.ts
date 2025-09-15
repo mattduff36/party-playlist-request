@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
-import { getRequest, updateRequest, getSetting } from '@/lib/db';
+import { getRequest, updateRequest, getSetting, createNotification } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -65,6 +65,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       spotify_added_to_queue: queueSuccess,
       spotify_added_to_playlist: playlistSuccess
     });
+
+    // Create approval notification for display
+    if (newStatus === 'approved') {
+      await createNotification({
+        type: 'approval',
+        message: `Request by ${request.requester_nickname || 'Anonymous'} for ${request.track_name} approved!`,
+        requester_name: request.requester_nickname,
+        track_name: request.track_name
+      });
+    }
 
     return NextResponse.json({
       success: true,

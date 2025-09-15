@@ -41,6 +41,16 @@ export interface SpotifyAuth {
   updated_at: string;
 }
 
+export interface Notification {
+  id: string;
+  type: 'approval' | 'rejection' | 'info';
+  message: string;
+  requester_name?: string;
+  track_name?: string;
+  created_at: string;
+  shown: boolean;
+}
+
 export interface EventSettings {
   id: number;
   event_title: string;
@@ -168,6 +178,18 @@ export async function initializeDatabase() {
         code_verifier TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '10 minutes')
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK (type IN ('approval', 'rejection', 'info')),
+        message TEXT NOT NULL,
+        requester_name TEXT,
+        track_name TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        shown BOOLEAN DEFAULT FALSE
       )
     `);
 
@@ -441,6 +463,49 @@ export function hashIP(ip: string): string {
 
 export function generateUUID(): string {
   return crypto.randomUUID();
+}
+
+// Notification functions
+export async function createNotification(notification: Omit<Notification, 'id' | 'created_at' | 'shown'>): Promise<string> {
+  const client = await pool.connect();
+  try {
+    const id = generateUUID();
+    const created_at = new Date().toISOString();
+    
+    const result = await client.query(
+      `INSERT INTO notifications (id, type, message, requester_name, track_name, created_at, shown) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [id, notification.type, notification.message, notification.requester_name, notification.track_name, created_at, false]
+    );
+    
+    return result.rows[0].id;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getNotifications(): Promise<Notification[]> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT * FROM notifications WHERE shown = false ORDER BY created_at ASC LIMIT 5'
+    );
+    return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
+export async function markNotificationAsShown(id: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(
+      'UPDATE notifications SET shown = true WHERE id = $1',
+      [id]
+    );
+  } finally {
+    client.release();
+  }
 }
 
 // Initialize default data
