@@ -169,29 +169,38 @@ export default function DisplayPage() {
           <div className="flex flex-col h-[calc(100vh-12rem)]">
             {/* Main Content Area */}
             <div className="flex-1 grid grid-cols-4 gap-8 mb-8">
-              {/* Current Song */}
-              <div className="col-span-1">
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex flex-col justify-center">
-                  <h2 className="text-2xl font-semibold mb-4 text-center">🎵 Now Playing</h2>
+              {/* Now Playing + QR Code Column */}
+              <div className="col-span-1 space-y-4">
+                {/* Now Playing - Reduced Height */}
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 flex-1">
+                  <h2 className="text-xl font-semibold mb-3 text-center">🎵 Now Playing</h2>
                   {currentTrack ? (
                     <div className="text-center">
                       {currentTrack.image_url && (
                         <img 
                           src={currentTrack.image_url} 
                           alt="Album Art" 
-                          className="w-32 h-32 mx-auto rounded-lg shadow-lg mb-4"
+                          className="w-24 h-24 mx-auto rounded-lg shadow-lg mb-3"
                         />
                       )}
-                      <h3 className="text-2xl font-bold mb-2 leading-tight">{currentTrack.name}</h3>
-                      <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
-                      <p className="text-sm text-gray-400">{currentTrack.album}</p>
+                      <h3 className="text-lg font-bold mb-1 leading-tight">{currentTrack.name}</h3>
+                      <p className="text-sm text-gray-300 mb-1">{currentTrack.artists.join(', ')}</p>
+                      <p className="text-xs text-gray-400">{currentTrack.album}</p>
                     </div>
                   ) : (
-                    <div className="text-center text-gray-400 text-lg">
+                    <div className="text-center text-gray-400 text-sm">
                       No song currently playing
                     </div>
                   )}
                 </div>
+
+                {/* QR Code - Under Now Playing */}
+                {eventSettings.show_qr_code && qrCodeUrl && (
+                  <div className="bg-white rounded-2xl p-4 text-center">
+                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-2 w-24 h-24" />
+                    <p className="text-black text-sm font-semibold">Request your song now!</p>
+                  </div>
+                )}
               </div>
 
               {/* Up Next - Longer Section */}
@@ -231,17 +240,62 @@ export default function DisplayPage() {
                 )}
               </div>
 
-              {/* QR Code and Messages */}
-              <div className="col-span-1 space-y-6">
-                {eventSettings.show_qr_code && qrCodeUrl && (
-                  <div className="bg-white rounded-2xl p-6 text-center">
-                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-3 w-32 h-32" />
-                    <p className="text-black text-lg font-semibold">Request your song now!</p>
+              {/* Top Requesters */}
+              <div className="col-span-1">
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
+                  <h2 className="text-3xl font-semibold mb-6 text-center">🏆 Top Requesters!</h2>
+                  <div className="space-y-4">
+                    {/* Placeholder top requesters */}
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg border border-yellow-500/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">🥇</div>
+                        <div>
+                          <div className="text-lg font-bold text-yellow-300">Sarah M.</div>
+                          <div className="text-sm text-gray-300">12 requests</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-400/20 to-gray-500/20 rounded-lg border border-gray-400/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">🥈</div>
+                        <div>
+                          <div className="text-lg font-bold text-gray-300">Mike R.</div>
+                          <div className="text-sm text-gray-300">8 requests</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded-lg border border-amber-600/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">🥉</div>
+                        <div>
+                          <div className="text-lg font-bold text-amber-300">Alex K.</div>
+                          <div className="text-sm text-gray-300">6 requests</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-lg font-bold text-purple-300 w-8">4.</div>
+                        <div>
+                          <div className="text-base font-semibold">Emma L.</div>
+                          <div className="text-sm text-gray-300">4 requests</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-lg font-bold text-purple-300 w-8">5.</div>
+                        <div>
+                          <div className="text-base font-semibold">Chris P.</div>
+                          <div className="text-sm text-gray-300">3 requests</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 text-center">
-                  <p className="text-lg leading-relaxed">{currentMessage}</p>
                 </div>
               </div>
             </div>
