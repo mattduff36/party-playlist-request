@@ -70,9 +70,9 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
   // Check if user is authenticated
   const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('admin_token');
 
-  // Sync WebSocket data with local state
+  // Sync WebSocket data with local state (only when WebSocket is authenticated)
   useEffect(() => {
-    if (enableWebSocket && webSocket.adminData) {
+    if (enableWebSocket && webSocket.isAuthenticated && webSocket.adminData) {
       console.log('🔄 Syncing WebSocket data to local state');
       
       if (webSocket.adminData.requests) {
@@ -104,10 +104,8 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
       if (webSocket.adminData.stats) {
         setStats(webSocket.adminData.stats);
       }
-      
-      setLoading(false);
     }
-  }, [enableWebSocket, webSocket.adminData]);
+  }, [enableWebSocket, webSocket.isAuthenticated, webSocket.adminData]);
 
   // Fetch all data with authentication
   const fetchData = useCallback(async (showBackgroundIndicator = false) => {
@@ -202,10 +200,22 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
   }, [isAuthenticated, spotifyFailureCount, lastSpotifyFailure]);
 
   // Auto-refresh data when authenticated
+  // Initial data fetch - always run this regardless of WebSocket
   useEffect(() => {
     if (!isAuthenticated) return;
+    
+    console.log('🚀 Running initial data fetch');
     fetchData(); // Initial fetch only
-  }, [isAuthenticated, fetchData]);
+    
+    // If WebSocket is enabled, also authenticate it
+    if (enableWebSocket && webSocket.isConnected && !webSocket.isAuthenticated) {
+      const token = localStorage.getItem('admin_token');
+      if (token) {
+        console.log('🔐 Authenticating WebSocket with token');
+        webSocket.authenticate(token);
+      }
+    }
+  }, [isAuthenticated, fetchData, enableWebSocket, webSocket.isConnected, webSocket.isAuthenticated, webSocket.authenticate]);
 
   // Separate useEffect for polling to avoid recreating intervals
   // Only use polling when WebSocket is disabled or not connected

@@ -12,8 +12,11 @@ import {
   Users, 
   Clock,
   RefreshCw,
-  Monitor
+  Monitor,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
+import { useAdminData } from '@/hooks/useAdminData';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -26,6 +29,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
+  // Get admin data for Spotify connection status
+  const { playbackState, isWebSocketConnected } = useAdminData();
 
   // Check authentication on mount
   useEffect(() => {
@@ -280,6 +286,39 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </h2>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Connection Status Indicators */}
+              <div className="hidden md:flex items-center space-x-4">
+                {/* Spotify Connection Status */}
+                <div className="flex items-center space-x-2">
+                  {playbackState?.spotify_connected ? (
+                    <>
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-green-400 text-sm">Spotify</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span className="text-red-400 text-sm">Spotify</span>
+                    </>
+                  )}
+                </div>
+                
+                {/* WebSocket Connection Status */}
+                <div className="flex items-center space-x-2">
+                  {isWebSocketConnected ? (
+                    <>
+                      <Wifi className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400 text-sm">Live</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-4 h-4 text-yellow-400" />
+                      <span className="text-yellow-400 text-sm">Polling</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              
               <a
                 href="/display"
                 target="_blank"
