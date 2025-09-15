@@ -304,9 +304,9 @@ export default function DisplayPage() {
             <div className="flex items-center h-full">
               <div className="text-xl mr-3">📢</div>
               <div className="flex-1 overflow-hidden">
-                <div className="animate-marquee whitespace-nowrap text-lg font-medium">
-                  {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
-                </div>
+                  <div className="animate-marquee whitespace-nowrap text-lg font-medium">
+                    {messages.join(' • ')} • {messages.join(' • ')}
+                  </div>
               </div>
             </div>
           </div>
@@ -467,7 +467,7 @@ export default function DisplayPage() {
                 <div className="text-base mr-2">📢</div>
                 <div className="flex-1 overflow-hidden">
                   <div className="animate-marquee whitespace-nowrap text-sm font-medium">
-                    {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
+                    {messages.join(' • ')} • {messages.join(' • ')}
                   </div>
                 </div>
               </div>
@@ -541,7 +541,7 @@ export default function DisplayPage() {
                 <div className="text-lg mr-3">📢</div>
                 <div className="flex-1 overflow-hidden">
                   <div className="animate-marquee whitespace-nowrap text-base font-medium">
-                    {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
+                    {messages.join(' • ')} • {messages.join(' • ')}
                   </div>
                 </div>
               </div>
@@ -683,7 +683,7 @@ export default function DisplayPage() {
               <div className="text-xs mr-1">📢</div>
               <div className="flex-1 overflow-hidden">
                 <div className="animate-marquee whitespace-nowrap text-xs font-medium">
-                  {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
+                  {messages.join(' • ')} • {messages.join(' • ')}
                 </div>
               </div>
             </div>
@@ -757,7 +757,7 @@ export default function DisplayPage() {
               <div className="text-sm mr-2">📢</div>
               <div className="flex-1 overflow-hidden">
                 <div className="animate-marquee whitespace-nowrap text-xs font-medium">
-                  {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
+                  {messages.join(' • ')} • {messages.join(' • ')}
                 </div>
               </div>
             </div>
