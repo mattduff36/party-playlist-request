@@ -1,5 +1,6 @@
+'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useWebSocket } from './useWebSocket';
 
 interface SpotifyState {
   current_track: any;
@@ -14,81 +15,81 @@ interface AdminData {
   requests: any[];
   spotify_state: SpotifyState | null;
   event_settings: any;
-  stats: any;
+  stats: {
+    total_requests: number;
+    pending_requests: number;
+    approved_requests: number;
+    rejected_requests: number;
+    played_requests: number;
+    unique_requesters: number;
+    spotify_connected: boolean;
+  };
 }
 
 interface UseRealtimeUpdatesReturn {
-  // Connection state
   isConnected: boolean;
-  connectionType: 'websocket' | 'sse' | 'polling';
-  
-  // Data
+  connectionType: 'sse' | 'polling';
   adminData: AdminData | null;
   spotifyState: SpotifyState | null;
-  
-  // Actions (only available with WebSocket)
-  sendAction?: (type: string, payload: any) => void;
-  
-  // Real-time progress
   currentProgress: number;
 }
 
 export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
-  const webSocket = useWebSocket();
   const [sseData, setSseData] = useState<AdminData | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Determine if we should use WebSocket or SSE
-  const shouldUseWebSocket = typeof window !== 'undefined' && process.env.NODE_ENV === 'development';
-  const shouldUseSSE = typeof window !== 'undefined' && process.env.NODE_ENV === 'production';
+  // Try SSE first, fallback to polling if it fails
+  const [useSSE, setUseSSE] = useState(true);
 
-  // SSE connection for production
+  // SSE connection
   useEffect(() => {
-    if (!shouldUseSSE) return;
+    if (!useSSE || typeof window === 'undefined') return;
 
     const token = localStorage.getItem('admin_token');
     if (!token) return;
 
     console.log('🌐 Connecting to SSE for real-time updates');
-
-    const eventSource = new EventSource('/api/admin/events');
+    
+    const eventSource = new EventSource(`/api/admin/events?token=${encodeURIComponent(token)}`);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('📡 SSE connected');
+      console.log('✅ SSE connection established');
       setSseConnected(true);
     };
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
-        if (data.type === 'admin:update') {
-          console.log('📦 SSE data update received');
-          setSseData(data.data);
-        } else if (data.type === 'connected') {
-          console.log('✅ SSE connection confirmed');
+        if (data.type === 'connected') {
+          console.log('SSE server acknowledged connection');
+        } else {
+          console.log('📡 Received SSE data update');
+          setSseData(data);
         }
       } catch (error) {
-        console.error('SSE message parse error:', error);
+        console.error('Error parsing SSE message:', error);
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('❌ SSE connection error:', error);
+      console.error('❌ SSE connection error, falling back to polling:', error);
       setSseConnected(false);
+      setUseSSE(false); // Fallback to polling
+      eventSource.close();
     };
 
     return () => {
       eventSource.close();
       setSseConnected(false);
+      console.log('❌ SSE connection closed');
     };
-  }, [shouldUseSSE]);
+  }, [useSSE]);
 
-  // Progress simulation for SSE
+  // Progress simulation
   const startProgressSimulation = useCallback((state: SpotifyState) => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
@@ -98,15 +99,10 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
 
     const startTime = Date.now();
     const initialProgress = state.progress_ms;
-    const serverTimestamp = state.timestamp;
     
-    // Account for time since server update
-    const timeSinceUpdate = startTime - serverTimestamp;
-    const adjustedInitialProgress = initialProgress + timeSinceUpdate;
-
     progressIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const newProgress = adjustedInitialProgress + elapsed;
+      const newProgress = initialProgress + elapsed;
       const maxProgress = state.current_track.duration_ms;
 
       if (newProgress >= maxProgress) {
@@ -120,7 +116,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
 
   // Update progress when Spotify state changes
   useEffect(() => {
-    const spotifyState = shouldUseWebSocket ? webSocket.spotifyState : sseData?.spotify_state;
+    const spotifyState = sseData?.spotify_state;
     
     if (spotifyState) {
       setCurrentProgress(spotifyState.progress_ms);
@@ -132,7 +128,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
         }
       }
     }
-  }, [shouldUseWebSocket, webSocket.spotifyState, sseData?.spotify_state, startProgressSimulation]);
+  }, [sseData?.spotify_state, startProgressSimulation]);
 
   // Cleanup
   useEffect(() => {
@@ -143,21 +139,11 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
     };
   }, []);
 
-  // Determine connection state and data source
-  const isConnected = shouldUseWebSocket ? webSocket.isConnected && webSocket.isAuthenticated : sseConnected;
-  const connectionType = shouldUseWebSocket 
-    ? (webSocket.isConnected && webSocket.isAuthenticated ? 'websocket' : 'polling')
-    : (sseConnected ? 'sse' : 'polling');
-  
-  const adminData = shouldUseWebSocket ? webSocket.adminData : sseData;
-  const spotifyState = shouldUseWebSocket ? webSocket.spotifyState : sseData?.spotify_state || null;
-
   return {
-    isConnected,
-    connectionType,
-    adminData,
-    spotifyState,
-    sendAction: shouldUseWebSocket ? webSocket.sendAction : undefined,
+    isConnected: sseConnected,
+    connectionType: sseConnected ? 'sse' : 'polling',
+    adminData: sseData,
+    spotifyState: sseData?.spotify_state || null,
     currentProgress,
   };
 }

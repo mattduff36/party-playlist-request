@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 
 interface CurrentTrack {
   name: string;
@@ -54,25 +54,25 @@ export default function DisplayPage() {
   const [showingNotification, setShowingNotification] = useState(false);
   
   // WebSocket for real-time updates
-  const webSocket = useWebSocket();
+  const realtimeUpdates = useRealtimeUpdates();
 
-  // Sync WebSocket Spotify data with display state
+  // Sync real-time Spotify data with display state
   useEffect(() => {
-    if (webSocket.spotifyState && webSocket.spotifyState.current_track) {
-      const spotifyTrack = webSocket.spotifyState.current_track;
+    if (realtimeUpdates.spotifyState && realtimeUpdates.spotifyState.current_track) {
+      const spotifyTrack = realtimeUpdates.spotifyState.current_track;
       setCurrentTrack({
         name: spotifyTrack.name || '',
         artists: spotifyTrack.artists?.map((a: any) => a.name) || [],
         album: spotifyTrack.album?.name || '',
         duration_ms: spotifyTrack.duration_ms || 0,
-        progress_ms: webSocket.currentProgress || spotifyTrack.progress_ms || 0,
+        progress_ms: realtimeUpdates.currentProgress || spotifyTrack.progress_ms || 0,
         uri: spotifyTrack.uri || '',
         image_url: spotifyTrack.album?.images?.[0]?.url
       });
       
       // Update upcoming songs from queue
-      if (webSocket.spotifyState.queue) {
-        const queueItems = webSocket.spotifyState.queue.map((track: any) => ({
+      if (realtimeUpdates.spotifyState.queue) {
+        const queueItems = realtimeUpdates.spotifyState.queue.map((track: any) => ({
           name: track.name || '',
           artists: track.artists?.map((a: any) => a.name) || [],
           album: track.album?.name || '',
@@ -82,7 +82,7 @@ export default function DisplayPage() {
         setUpcomingSongs(queueItems);
       }
     }
-  }, [webSocket.spotifyState, webSocket.currentProgress]);
+  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress]);
 
   // Detect device type
   useEffect(() => {

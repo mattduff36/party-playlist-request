@@ -1,7 +1,49 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRealtimeProgress, useInteractionLock } from './useRealtimeProgress';
+// Create a simple interaction lock hook inline since we removed the other file
+const useInteractionLock = () => {
+  const [isInteracting, setIsInteracting] = useState(false);
+  
+  const lockInteraction = useCallback((duration: number) => {
+    setIsInteracting(true);
+    setTimeout(() => setIsInteracting(false), duration);
+  }, []);
+  
+  return { isInteracting, lockInteraction };
+};
+
+// Create a simple progress hook inline
+const useRealtimeProgress = (playbackState: PlaybackState | null) => {
+  const [progress, setProgress] = useState(0);
+  
+  useEffect(() => {
+    if (!playbackState?.is_playing || !playbackState.timestamp) {
+      setProgress(playbackState?.progress_ms || 0);
+      return;
+    }
+    
+    const startTime = Date.now();
+    const initialProgress = playbackState.progress_ms;
+    
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const newProgress = initialProgress + elapsed;
+      const maxProgress = playbackState.duration_ms;
+      
+      if (newProgress >= maxProgress) {
+        setProgress(maxProgress);
+        clearInterval(interval);
+      } else {
+        setProgress(Math.max(0, newProgress));
+      }
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [playbackState?.is_playing, playbackState?.timestamp, playbackState?.progress_ms, playbackState?.duration_ms]);
+  
+  return progress;
+};
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface Request {
@@ -248,82 +290,76 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     };
   }, [isAuthenticated, isInteracting, fetchData, disablePolling, realtimeUpdates.isConnected, realtimeUpdates.connectionType]);
 
-  // Action handlers
+  // Action handlers - all use HTTP since SSE doesn't support sending actions
   const handleApprove = async (id: string, playNext = false) => {
     lockInteraction(3000);
     
-    // Use WebSocket if available, otherwise fall back to HTTP
-    if (realtimeUpdates.sendAction) {
-      realtimeUpdates.sendAction('approve-request', { requestId: id, playNext });
-    } else {
-      const token = localStorage.getItem('admin_token');
-      try {
-        const response = await fetch(`/api/admin/approve/${id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ play_next: playNext }),
-        });
-        
-        if (response.ok) {
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/approve/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ play_next: playNext }),
+      });
+      
+      if (response.ok) {
+        // Don't fetch data immediately if SSE is connected - it will update automatically
+        if (!realtimeUpdates.isConnected) {
           fetchData();
         }
-      } catch (error) {
-        console.error('Error approving request:', error);
       }
+    } catch (error) {
+      console.error('Error approving request:', error);
     }
   };
 
   const handleReject = async (id: string) => {
     lockInteraction(3000);
     
-    // Use WebSocket if available, otherwise fall back to HTTP
-    if (realtimeUpdates.sendAction) {
-      realtimeUpdates.sendAction('reject-request', { requestId: id });
-    } else {
-      const token = localStorage.getItem('admin_token');
-      try {
-        const response = await fetch(`/api/admin/reject/${id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (response.ok) {
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/reject/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        // Don't fetch data immediately if SSE is connected - it will update automatically
+        if (!realtimeUpdates.isConnected) {
           fetchData();
         }
-      } catch (error) {
-        console.error('Error rejecting request:', error);
       }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
     }
   };
 
   const handleDelete = async (id: string) => {
     lockInteraction(3000);
     
-    // Use WebSocket if available, otherwise fall back to HTTP
-    if (realtimeUpdates.sendAction) {
-      realtimeUpdates.sendAction('delete-request', { requestId: id });
-    } else {
-      const token = localStorage.getItem('admin_token');
-      try {
-        const response = await fetch(`/api/admin/delete/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/delete/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        // Don't fetch data immediately if SSE is connected - it will update automatically
+        if (!realtimeUpdates.isConnected) {
           fetchData();
         }
-      } catch (error) {
-        console.error('Error deleting request:', error);
       }
+    } catch (error) {
+      console.error('Error deleting request:', error);
     }
   };
 
@@ -341,7 +377,10 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       });
       
       if (response.ok) {
-        fetchData();
+        // Don't fetch data immediately if SSE is connected - it will update automatically
+        if (!realtimeUpdates.isConnected) {
+          fetchData();
+        }
       }
     } catch (error) {
       console.error('Error playing request again:', error);
@@ -351,26 +390,24 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   const handlePlaybackControl = async (action: 'play' | 'pause' | 'skip') => {
     lockInteraction(3000);
     
-    // Use WebSocket if available, otherwise fall back to HTTP
-    if (realtimeUpdates.sendAction) {
-      realtimeUpdates.sendAction('playback-control', { action });
-    } else {
-      const token = localStorage.getItem('admin_token');
-      try {
-        const endpoint = action === 'skip' ? 'skip' : action === 'play' ? 'resume' : 'pause';
-        const response = await fetch(`/api/admin/playback/${endpoint}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
+    const token = localStorage.getItem('admin_token');
+    try {
+      const endpoint = action === 'skip' ? 'skip' : action === 'play' ? 'resume' : 'pause';
+      const response = await fetch(`/api/admin/playback/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        // Don't fetch data immediately if SSE is connected - it will update automatically
+        if (!realtimeUpdates.isConnected) {
           fetchData();
         }
-      } catch (error) {
-        console.error(`Error ${action}ing playback:`, error);
       }
+    } catch (error) {
+      console.error(`Error ${action}ing playback:`, error);
     }
   };
 
@@ -387,7 +424,10 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       });
       
       if (response.ok) {
-        fetchData();
+        // Don't fetch data immediately if SSE is connected - it will update automatically
+        if (!realtimeUpdates.isConnected) {
+          fetchData();
+        }
       }
     } catch (error) {
       console.error('Error updating settings:', error);
@@ -408,8 +448,8 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     isInteracting,
     
     // Real-time connection state
-    isWebSocketConnected: realtimeUpdates.isConnected,
-    isWebSocketAuthenticated: realtimeUpdates.connectionType !== 'polling',
+    isWebSocketConnected: realtimeUpdates.isConnected, // Keep name for compatibility
+    isWebSocketAuthenticated: realtimeUpdates.connectionType !== 'polling', // Keep name for compatibility
     connectionType: realtimeUpdates.connectionType,
     
     // Actions
