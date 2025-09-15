@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
         const interval = setInterval(async () => {
           try {
             // Fetch latest admin data
-            const { getAllRequests, getEventSettings } = require('@/lib/db');
-            const SpotifyService = require('@/lib/spotify').SpotifyService;
+            const { getAllRequests, getEventSettings } = await import('@/lib/db');
+            const { SpotifyService } = await import('@/lib/spotify');
             
             const [requests, eventSettings] = await Promise.all([
               getAllRequests(50, 0).catch(() => []),

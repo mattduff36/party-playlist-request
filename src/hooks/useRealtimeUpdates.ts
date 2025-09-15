@@ -42,12 +42,12 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Determine if we should use WebSocket or SSE
-  const useWebSocket = process.env.NODE_ENV === 'development';
-  const useSSE = process.env.NODE_ENV === 'production';
+  const shouldUseWebSocket = typeof window !== 'undefined' && process.env.NODE_ENV === 'development';
+  const shouldUseSSE = typeof window !== 'undefined' && process.env.NODE_ENV === 'production';
 
   // SSE connection for production
   useEffect(() => {
-    if (!useSSE) return;
+    if (!shouldUseSSE) return;
 
     const token = localStorage.getItem('admin_token');
     if (!token) return;
@@ -86,7 +86,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
       eventSource.close();
       setSseConnected(false);
     };
-  }, [useSSE]);
+  }, [shouldUseSSE]);
 
   // Progress simulation for SSE
   const startProgressSimulation = useCallback((state: SpotifyState) => {
@@ -120,7 +120,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
 
   // Update progress when Spotify state changes
   useEffect(() => {
-    const spotifyState = useWebSocket ? webSocket.spotifyState : sseData?.spotify_state;
+    const spotifyState = shouldUseWebSocket ? webSocket.spotifyState : sseData?.spotify_state;
     
     if (spotifyState) {
       setCurrentProgress(spotifyState.progress_ms);
@@ -132,7 +132,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
         }
       }
     }
-  }, [useWebSocket, webSocket.spotifyState, sseData?.spotify_state, startProgressSimulation]);
+  }, [shouldUseWebSocket, webSocket.spotifyState, sseData?.spotify_state, startProgressSimulation]);
 
   // Cleanup
   useEffect(() => {
@@ -144,20 +144,20 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
   }, []);
 
   // Determine connection state and data source
-  const isConnected = useWebSocket ? webSocket.isConnected && webSocket.isAuthenticated : sseConnected;
-  const connectionType = useWebSocket 
+  const isConnected = shouldUseWebSocket ? webSocket.isConnected && webSocket.isAuthenticated : sseConnected;
+  const connectionType = shouldUseWebSocket 
     ? (webSocket.isConnected && webSocket.isAuthenticated ? 'websocket' : 'polling')
     : (sseConnected ? 'sse' : 'polling');
   
-  const adminData = useWebSocket ? webSocket.adminData : sseData;
-  const spotifyState = useWebSocket ? webSocket.spotifyState : sseData?.spotify_state || null;
+  const adminData = shouldUseWebSocket ? webSocket.adminData : sseData;
+  const spotifyState = shouldUseWebSocket ? webSocket.spotifyState : sseData?.spotify_state || null;
 
   return {
     isConnected,
     connectionType,
     adminData,
     spotifyState,
-    sendAction: useWebSocket ? webSocket.sendAction : undefined,
+    sendAction: shouldUseWebSocket ? webSocket.sendAction : undefined,
     currentProgress,
   };
 }
