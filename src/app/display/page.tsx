@@ -166,67 +166,95 @@ export default function DisplayPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-12 items-start">
-            {/* Current Song */}
-            <div className="col-span-2">
-              <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-8 mb-8">
-                <h2 className="text-3xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
-                {currentTrack ? (
-                  <div className="text-center">
-                    {currentTrack.image_url && (
-                      <img 
-                        src={currentTrack.image_url} 
-                        alt="Album Art" 
-                        className="w-48 h-48 mx-auto rounded-lg shadow-lg mb-6"
-                      />
-                    )}
-                    <h3 className="text-4xl font-bold mb-2">{currentTrack.name}</h3>
-                    <p className="text-2xl text-gray-300 mb-4">{currentTrack.artists.join(', ')}</p>
-                    <p className="text-xl text-gray-400">{currentTrack.album}</p>
+          <div className="flex flex-col h-[calc(100vh-12rem)]">
+            {/* Main Content Area */}
+            <div className="flex-1 grid grid-cols-4 gap-8 mb-8">
+              {/* Current Song */}
+              <div className="col-span-1">
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex flex-col justify-center">
+                  <h2 className="text-2xl font-semibold mb-4 text-center">🎵 Now Playing</h2>
+                  {currentTrack ? (
+                    <div className="text-center">
+                      {currentTrack.image_url && (
+                        <img 
+                          src={currentTrack.image_url} 
+                          alt="Album Art" 
+                          className="w-32 h-32 mx-auto rounded-lg shadow-lg mb-4"
+                        />
+                      )}
+                      <h3 className="text-2xl font-bold mb-2 leading-tight">{currentTrack.name}</h3>
+                      <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
+                      <p className="text-sm text-gray-400">{currentTrack.album}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400 text-lg">
+                      No song currently playing
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Up Next - Longer Section */}
+              <div className="col-span-2">
+                {upcomingSongs.length > 0 ? (
+                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
+                    <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
+                    <div className="space-y-3 overflow-y-auto max-h-[calc(100%-4rem)]">
+                      {upcomingSongs.slice(0, 12).map((song, index) => (
+                        <div key={song.uri} className="flex items-center justify-between p-3 bg-white/10 rounded-lg">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div className="text-xl font-bold text-purple-300 flex-shrink-0 w-8">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-lg font-semibold truncate">{song.name}</h4>
+                              <p className="text-gray-300 text-sm truncate">{song.artists.join(', ')}</p>
+                            </div>
+                          </div>
+                          {song.requester_nickname && (
+                            <div className="flex-shrink-0 ml-3">
+                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                                {song.requester_nickname}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-400 text-xl">
-                    No song currently playing
+                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex items-center justify-center">
+                    <div className="text-center text-gray-400 text-xl">
+                      No upcoming songs in queue
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Up Next */}
-              {upcomingSongs.length > 0 && (
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-8">
-                  <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
-                  <div className="space-y-4">
-                    {upcomingSongs.slice(0, 3).map((song, index) => (
-                      <div key={song.uri} className="flex items-center space-x-4 p-4 bg-white/10 rounded-lg">
-                        <div className="text-2xl font-bold text-purple-300">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-xl font-semibold">{song.name}</h4>
-                          <p className="text-gray-300">{song.artists.join(', ')}</p>
-                          {song.requester_nickname && (
-                            <p className="text-sm text-purple-200">Requested by {song.requester_nickname}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+              {/* QR Code and Messages */}
+              <div className="col-span-1 space-y-6">
+                {eventSettings.show_qr_code && qrCodeUrl && (
+                  <div className="bg-white rounded-2xl p-6 text-center">
+                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-3 w-32 h-32" />
+                    <p className="text-black text-lg font-semibold">Request your song now!</p>
                   </div>
+                )}
+
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 text-center">
+                  <p className="text-lg leading-relaxed">{currentMessage}</p>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* QR Code and Messages */}
-            <div className="space-y-8">
-              {eventSettings.show_qr_code && qrCodeUrl && (
-                <div className="bg-white rounded-2xl p-8 text-center">
-                  <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-4" />
-                  <p className="text-black text-xl font-semibold">Request a Song</p>
-                  <p className="text-gray-600 text-sm mt-2">Scan to add your requests!</p>
+            {/* Scrolling Messages Bar at Bottom */}
+            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-4 overflow-hidden">
+              <div className="flex items-center">
+                <div className="text-2xl mr-4">📢</div>
+                <div className="flex-1 overflow-hidden">
+                  <div className="animate-marquee whitespace-nowrap text-xl font-medium">
+                    {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
+                  </div>
                 </div>
-              )}
-
-              <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 text-center">
-                <p className="text-xl leading-relaxed">{currentMessage}</p>
               </div>
             </div>
           </div>
@@ -266,13 +294,19 @@ export default function DisplayPage() {
               {upcomingSongs.length > 0 && (
                 <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6">
                   <h2 className="text-xl font-semibold mb-4">🎶 Up Next</h2>
-                  <div className="space-y-2">
-                    {upcomingSongs.slice(0, 3).map((song, index) => (
-                      <div key={song.uri} className="text-sm">
-                        <span className="font-semibold">{index + 1}. {song.name}</span>
-                        <span className="text-gray-300"> - {song.artists.join(', ')}</span>
+                  <div className="space-y-3">
+                    {upcomingSongs.slice(0, 4).map((song, index) => (
+                      <div key={song.uri} className="flex items-center justify-between p-2 bg-white/5 rounded">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{index + 1}. {song.name}</div>
+                          <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
+                        </div>
                         {song.requester_nickname && (
-                          <div className="text-xs text-purple-200">Requested by {song.requester_nickname}</div>
+                          <div className="flex-shrink-0 ml-2">
+                            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                              {song.requester_nickname}
+                            </div>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -338,12 +372,18 @@ export default function DisplayPage() {
           <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4">
             <h2 className="text-lg font-semibold mb-3">🎶 Up Next</h2>
             <div className="space-y-2">
-              {upcomingSongs.slice(0, 2).map((song, index) => (
-                <div key={song.uri} className="text-xs">
-                  <span className="font-semibold">{index + 1}. {song.name}</span>
-                  <div className="text-gray-300">{song.artists.join(', ')}</div>
+              {upcomingSongs.slice(0, 3).map((song, index) => (
+                <div key={song.uri} className="flex items-center justify-between p-2 bg-white/5 rounded text-xs">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold truncate">{index + 1}. {song.name}</div>
+                    <div className="text-gray-300 truncate">{song.artists.join(', ')}</div>
+                  </div>
                   {song.requester_nickname && (
-                    <div className="text-xs text-purple-200">Requested by {song.requester_nickname}</div>
+                    <div className="flex-shrink-0 ml-2">
+                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                        {song.requester_nickname}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}
