@@ -43,7 +43,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     setLoginError('');
 
     const formData = new FormData(e.currentTarget);
+    const username = formData.get('username') as string;
     const password = formData.get('password') as string;
+
+    if (!username || !password) {
+      setLoginError('Username and password are required');
+      setIsLoggingIn(false);
+      return;
+    }
 
     try {
       const response = await fetch('/api/admin/login', {
@@ -51,7 +58,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (response.ok) {
@@ -200,8 +207,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  required
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter username"
+                />
+              </div>
+              
+              <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-                  Admin Password
+                  Password
                 </label>
                 <input
                   type="password"
@@ -209,7 +230,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   name="password"
                   required
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Enter admin password"
+                  placeholder="Enter password"
                 />
               </div>
               
