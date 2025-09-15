@@ -140,67 +140,88 @@ class WebSocketManager {
   }
 
   private async handleApproveRequest(payload: { requestId: string; playNext?: boolean }) {
-    // Implementation will call existing API endpoints
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/admin/approve/${payload.requestId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ play_next: payload.playNext })
-    });
+    // Use internal database calls instead of HTTP to avoid auth issues
+    const { updateRequest } = require('./db');
+    const SpotifyService = require('./spotify').SpotifyService;
     
-    if (!response.ok) {
+    try {
+      // Update request status
+      await updateRequest(payload.requestId, { status: 'approved' });
+      
+      // Add to Spotify if connected
+      const spotifyService = new SpotifyService();
+      const request = await require('./db').getRequest(payload.requestId);
+      
+      if (request && request.track_uri) {
+        if (payload.playNext) {
+          await spotifyService.addToQueue(request.track_uri);
+          // Note: Spotify doesn't have a direct "play next" API, so we add to queue
+        } else {
+          await spotifyService.addToQueue(request.track_uri);
+        }
+      }
+    } catch (error) {
+      console.error('Error approving request:', error);
       throw new Error('Failed to approve request');
     }
   }
 
   private async handleRejectRequest(payload: { requestId: string; reason?: string }) {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/admin/reject/${payload.requestId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: payload.reason })
-    });
+    // Use internal database calls instead of HTTP to avoid auth issues
+    const { updateRequest } = require('./db');
     
-    if (!response.ok) {
+    try {
+      await updateRequest(payload.requestId, { status: 'rejected' });
+    } catch (error) {
+      console.error('Error rejecting request:', error);
       throw new Error('Failed to reject request');
     }
   }
 
   private async handleDeleteRequest(payload: { requestId: string }) {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/admin/delete/${payload.requestId}`, {
-      method: 'DELETE'
-    });
+    // Use internal database calls instead of HTTP to avoid auth issues
+    const { updateRequest } = require('./db');
     
-    if (!response.ok) {
+    try {
+      // Mark as deleted instead of actually deleting (safer)
+      await updateRequest(payload.requestId, { status: 'deleted' });
+    } catch (error) {
+      console.error('Error deleting request:', error);
       throw new Error('Failed to delete request');
     }
   }
 
   private async handlePlaybackControl(payload: { action: 'play' | 'pause' | 'skip' }) {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-    const endpoint = payload.action === 'skip' 
-      ? '/api/admin/playback/skip'
-      : `/api/admin/playback/${payload.action === 'play' ? 'resume' : 'pause'}`;
+    // Use internal Spotify service calls instead of HTTP to avoid auth issues
+    const SpotifyService = require('./spotify').SpotifyService;
+    const spotifyService = new SpotifyService();
     
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
+    try {
+      switch (payload.action) {
+        case 'play':
+          await spotifyService.resumePlayback();
+          break;
+        case 'pause':
+          await spotifyService.pausePlayback();
+          break;
+        case 'skip':
+          await spotifyService.skipToNext();
+          break;
+      }
+    } catch (error) {
+      console.error(`Error ${payload.action}ing playback:`, error);
       throw new Error(`Failed to ${payload.action} playback`);
     }
   }
 
   private async handleUpdateSettings(payload: any) {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/admin/event-settings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    // Use internal database calls instead of HTTP to avoid auth issues
+    const { updateEventSettings } = require('./db');
     
-    if (!response.ok) {
+    try {
+      await updateEventSettings(payload);
+    } catch (error) {
+      console.error('Error updating settings:', error);
       throw new Error('Failed to update settings');
     }
   }
@@ -220,31 +241,33 @@ class WebSocketManager {
 
   private async pollSpotifyState() {
     try {
-      // Get current Spotify state
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/admin/queue/details`);
-      if (!response.ok) return;
-
-      const spotifyData = await response.json();
+      // Get current Spotify state - use internal API call to avoid auth issues
+      const SpotifyService = require('./spotify').SpotifyService;
+      const spotifyService = new SpotifyService();
       
-      if (spotifyData.spotify_connected && spotifyData.current_track) {
-        const currentState: SpotifyState = {
-          current_track: spotifyData.current_track,
-          queue: spotifyData.queue || [],
-          playback_state: spotifyData.playback_state,
-          is_playing: spotifyData.current_track.is_playing,
-          progress_ms: spotifyData.current_track.progress_ms,
-          timestamp: Date.now()
-        };
+      const [currentPlayback, queue] = await Promise.all([
+        spotifyService.getCurrentPlayback(),
+        spotifyService.getQueue()
+      ]);
+      
+      if (!currentPlayback || !currentPlayback.item) return;
+      
+      const currentState: SpotifyState = {
+        current_track: currentPlayback.item,
+        queue: queue?.queue || [],
+        playback_state: currentPlayback,
+        is_playing: currentPlayback.is_playing,
+        progress_ms: currentPlayback.progress_ms,
+        timestamp: Date.now()
+      };
 
-        // Check if state has changed significantly
-        if (this.hasSpotifyStateChanged(currentState)) {
-          this.lastSpotifyState = currentState;
-          
-          // Broadcast to all authenticated admins
-          if (this.io) {
-            this.io.to('authenticated-admins').emit('spotify:update', currentState);
-          }
+      // Check if state has changed significantly
+      if (this.hasSpotifyStateChanged(currentState)) {
+        this.lastSpotifyState = currentState;
+        
+        // Broadcast to all authenticated admins
+        if (this.io) {
+          this.io.to('authenticated-admins').emit('spotify:update', currentState);
         }
       }
     } catch (error) {
@@ -268,19 +291,30 @@ class WebSocketManager {
 
   private async broadcastAdminUpdate() {
     try {
-      // Fetch latest admin data
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-      const [requestsRes, settingsRes, statsRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/requests?status=pending&limit=50`),
-        fetch(`${baseUrl}/api/admin/event-settings`),
-        fetch(`${baseUrl}/api/admin/stats`)
+      // Use internal database calls instead of HTTP to avoid auth issues
+      const { getAllRequests, getEventSettings } = require('./db');
+      
+      const [requests, eventSettings] = await Promise.all([
+        getAllRequests(50, 0).catch(() => []),
+        getEventSettings().catch(() => null)
       ]);
 
+      // Calculate basic stats
+      const stats = {
+        total_requests: requests.length,
+        pending_requests: requests.filter((r: any) => r.status === 'pending').length,
+        approved_requests: requests.filter((r: any) => r.status === 'approved').length,
+        rejected_requests: requests.filter((r: any) => r.status === 'rejected').length,
+        played_requests: requests.filter((r: any) => r.status === 'played').length,
+        unique_requesters: new Set(requests.map((r: any) => r.requester_nickname || 'Anonymous')).size,
+        spotify_connected: !!this.lastSpotifyState
+      };
+
       const adminData: AdminData = {
-        requests: requestsRes.ok ? await requestsRes.json() : [],
+        requests,
         spotify_state: this.lastSpotifyState,
-        event_settings: settingsRes.ok ? await settingsRes.json() : null,
-        stats: statsRes.ok ? await statsRes.json() : null
+        event_settings: eventSettings,
+        stats
       };
 
       this.lastAdminData = adminData;
