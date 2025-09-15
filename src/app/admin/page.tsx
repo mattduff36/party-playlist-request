@@ -1189,29 +1189,27 @@ export default function AdminPanel() {
     </div>
   );
 
-  // Requests Tab - simple approach to prevent re-creation
-  const RequestsTab = () => {
-    console.log('📋 RequestsTab component rendering');
+  // Requests Tab - using props to avoid re-render issues
+  const RequestsTab = ({ requestsData }: { requestsData: Request[] }) => {
+    console.log('📋 RequestsTab component rendering with', requestsData.length, 'requests');
     const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
     const [allRequests, setAllRequests] = useState<Request[]>([]);
-    const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
-    // DISABLED: Use main component's data instead of independent fetching
-    // This prevents the excessive API calls we were seeing
+    // Filter and sort the passed requests data
     useEffect(() => {
       console.log('📋 RequestsTab: Filter changed to:', filterStatus);
-      console.log('📋 RequestsTab: Using main component requests data instead of fetching');
+      console.log('📋 RequestsTab: Processing', requestsData.length, 'requests from props');
       
-      // Use the main component's requests data and filter it locally
-      let filteredRequests = requests;
+      // Filter the requests data based on selected filter
+      let filteredRequests = requestsData;
       if (filterStatus !== 'all') {
-        filteredRequests = requests.filter(req => req.status === filterStatus);
+        filteredRequests = requestsData.filter(req => req.status === filterStatus);
       }
       
       // Sort requests when showing all: Pending > Approved > Rejected > Played
       if (filterStatus === 'all') {
         const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
-        filteredRequests = [...requests].sort((a: Request, b: Request) => {
+        filteredRequests = [...requestsData].sort((a: Request, b: Request) => {
           const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
           const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
           if (aOrder !== bOrder) return aOrder - bOrder;
@@ -1225,7 +1223,7 @@ export default function AdminPanel() {
       }
       
       setAllRequests(filteredRequests);
-    }, [filterStatus, requests]); // Use main component's requests data
+    }, [filterStatus, requestsData]); // Depend on props data
 
 
 
@@ -1987,7 +1985,7 @@ export default function AdminPanel() {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'overview': return <OverviewTab />;
-      case 'requests': return <RequestsTab />;
+      case 'requests': return <RequestsTab requestsData={requests} />;
       case 'queue': return <QueueTab />;
       case 'settings': return <SettingsTab />;
       default: return <OverviewTab />;
