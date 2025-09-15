@@ -134,6 +134,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           <div className="px-3 mt-6">
             <div className="border-t border-gray-700 pt-4">
+              <button
+                onClick={() => router.push('/admin/spotify-setup')}
+                className="w-full flex items-center px-4 py-3 mb-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <Music className="w-5 h-5 mr-3" />
+                🎵 Spotify Setup
+              </button>
               <a
                 href="/display"
                 target="_blank"

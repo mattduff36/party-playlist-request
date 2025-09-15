@@ -40,7 +40,11 @@ export async function GET(req: NextRequest) {
     console.error('Error in Spotify auth endpoint:', error);
     
     if (error instanceof Error && error.message.includes('token')) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      return NextResponse.json({ 
+        error: 'Authentication required. Please log in to the admin panel first.',
+        redirect: '/admin',
+        message: 'To connect Spotify, please go to the admin panel and use the "🎵 Spotify Setup" link.'
+      }, { status: 401 });
     }
     
     return NextResponse.json({ 
