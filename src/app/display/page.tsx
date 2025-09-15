@@ -508,9 +508,9 @@ export default function DisplayPage() {
             </div>
 
             {/* Up Next */}
-            {upcomingSongs.length > 0 && (
-              <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 min-h-0 overflow-hidden mb-4">
-                <h2 className="text-xl font-semibold mb-3">🎶 Up Next</h2>
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 min-h-0 overflow-hidden mb-4">
+              <h2 className="text-xl font-semibold mb-3">🎶 Up Next</h2>
+              {upcomingSongs.length > 0 ? (
                 <div className="space-y-2 overflow-y-auto h-full">
                   {upcomingSongs.slice(0, 12).map((song, index) => (
                     <div key={song.uri} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
@@ -528,8 +528,12 @@ export default function DisplayPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-400 text-center">No upcoming songs in queue</p>
+                </div>
+              )}
+            </div>
 
             {/* Scrolling Messages Bar at Bottom */}
             <div className="bg-black/50 backdrop-blur-sm rounded-xl p-3 overflow-hidden flex-shrink-0 h-14">
@@ -691,8 +695,8 @@ export default function DisplayPage() {
     // Mobile Portrait - Simplified layout
     return (
       <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-3 overflow-hidden">
-        <div className="max-w-sm mx-auto h-full flex flex-col space-y-3">
-          <div className="text-center flex-shrink-0">
+        <div className="max-w-sm mx-auto h-full flex flex-col">
+          <div className="text-center flex-shrink-0 mb-3">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
               <p className="text-xs text-purple-200">DJ {eventSettings.dj_name}</p>
@@ -700,7 +704,7 @@ export default function DisplayPage() {
           </div>
 
           {/* Current Song */}
-          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-shrink-0">
+          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-shrink-0 mb-3">
             <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
             {currentTrack ? (
               <div className="text-center">
@@ -720,9 +724,9 @@ export default function DisplayPage() {
           </div>
 
           {/* Up Next */}
-          {upcomingSongs.length > 0 && (
-            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden">
-              <h2 className="text-base font-semibold mb-2">🎶 Up Next</h2>
+          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden mb-3">
+            <h2 className="text-base font-semibold mb-2">🎶 Up Next</h2>
+            {upcomingSongs.length > 0 ? (
               <div className="space-y-2 overflow-y-auto h-full">
                 {upcomingSongs.slice(0, 8).map((song, index) => (
                   <div key={song.uri} className="flex items-center justify-between p-2 bg-white/5 rounded text-xs">
@@ -740,12 +744,16 @@ export default function DisplayPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-400 text-center text-sm">No upcoming songs in queue</p>
+              </div>
+            )}
+          </div>
 
           {/* Scrolling Messages Bar at Bottom */}
-          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 text-center flex-shrink-0">
-            <div className="flex items-center">
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 overflow-hidden flex-shrink-0 h-12">
+            <div className="flex items-center h-full">
               <div className="text-sm mr-2">📢</div>
               <div className="flex-1 overflow-hidden">
                 <div className="animate-marquee whitespace-nowrap text-xs font-medium">
