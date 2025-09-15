@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Play, 
   Pause, 
@@ -277,7 +277,7 @@ export default function AdminPanel() {
       }
       
       const requests = [
-        fetch('/api/admin/requests?status=pending&limit=50', { headers }),
+        fetch('/api/admin/requests?limit=100', { headers }), // Get ALL requests, not just pending
         shouldSkipSpotify ? Promise.resolve(queueRes) : fetch('/api/admin/queue/details', { headers }),
         fetch('/api/admin/event-settings', { headers }),
         fetch('/api/admin/stats', { headers })
@@ -1189,57 +1189,43 @@ export default function AdminPanel() {
     </div>
   );
 
-  // Requests Tab
+  // Requests Tab - simple approach to prevent re-creation
   const RequestsTab = () => {
     console.log('📋 RequestsTab component rendering');
     const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
     const [allRequests, setAllRequests] = useState<Request[]>([]);
+    const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
-    // Fetch requests based on filter
+    // DISABLED: Use main component's data instead of independent fetching
+    // This prevents the excessive API calls we were seeing
     useEffect(() => {
-      const fetchRequests = async () => {
-        try {
-          console.log('📋 RequestsTab: Fetching requests for filter:', filterStatus);
-          const token = localStorage.getItem('admin_token');
-          const url = filterStatus === 'all' 
-            ? '/api/admin/requests?limit=100'
-            : `/api/admin/requests?status=${filterStatus}&limit=100`;
-          
-          const response = await fetch(url, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            let requests = data.requests || [];
-            
-            // Sort requests when showing all: Pending > Approved > Rejected > Played
-            if (filterStatus === 'all') {
-              const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
-              requests = requests.sort((a: Request, b: Request) => {
-                const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
-                const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
-                if (aOrder !== bOrder) return aOrder - bOrder;
-                // Within same status, sort by created_at (newest first for pending, oldest first for others)
-                if (a.status === 'pending') {
-                  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); // oldest first for pending
-                } else {
-                  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest first for others
-                }
-              });
-            }
-            
-            setAllRequests(requests);
+      console.log('📋 RequestsTab: Filter changed to:', filterStatus);
+      console.log('📋 RequestsTab: Using main component requests data instead of fetching');
+      
+      // Use the main component's requests data and filter it locally
+      let filteredRequests = requests;
+      if (filterStatus !== 'all') {
+        filteredRequests = requests.filter(req => req.status === filterStatus);
+      }
+      
+      // Sort requests when showing all: Pending > Approved > Rejected > Played
+      if (filterStatus === 'all') {
+        const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
+        filteredRequests = [...requests].sort((a: Request, b: Request) => {
+          const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
+          const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          // Within same status, sort by created_at (newest first for pending, oldest first for others)
+          if (a.status === 'pending') {
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); // oldest first for pending
+          } else {
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest first for others
           }
-        } catch (err) {
-          console.error('Error fetching requests:', err);
-        }
-      };
-
-      fetchRequests();
-    }, [filterStatus]);
+        });
+      }
+      
+      setAllRequests(filteredRequests);
+    }, [filterStatus, requests]); // Use main component's requests data
 
 
 
