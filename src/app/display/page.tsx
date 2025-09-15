@@ -170,35 +170,35 @@ export default function DisplayPage() {
             {/* Main Content Area */}
             <div className="flex-1 grid grid-cols-4 gap-8 mb-8">
               {/* Now Playing + QR Code Column */}
-              <div className="col-span-1 space-y-4">
-                {/* Now Playing - Reduced Height */}
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 flex-1">
-                  <h2 className="text-xl font-semibold mb-3 text-center">🎵 Now Playing</h2>
+              <div className="col-span-1 flex flex-col h-full">
+                {/* Now Playing - Takes most of the space */}
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex-1 flex flex-col justify-center">
+                  <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
                   {currentTrack ? (
                     <div className="text-center">
                       {currentTrack.image_url && (
                         <img 
                           src={currentTrack.image_url} 
                           alt="Album Art" 
-                          className="w-24 h-24 mx-auto rounded-lg shadow-lg mb-3"
+                          className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
                         />
                       )}
-                      <h3 className="text-lg font-bold mb-1 leading-tight">{currentTrack.name}</h3>
-                      <p className="text-sm text-gray-300 mb-1">{currentTrack.artists.join(', ')}</p>
-                      <p className="text-xs text-gray-400">{currentTrack.album}</p>
+                      <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
+                      <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
+                      <p className="text-sm text-gray-400">{currentTrack.album}</p>
                     </div>
                   ) : (
-                    <div className="text-center text-gray-400 text-sm">
+                    <div className="text-center text-gray-400 text-lg">
                       No song currently playing
                     </div>
                   )}
                 </div>
 
-                {/* QR Code - Under Now Playing */}
+                {/* QR Code - Square block at bottom */}
                 {eventSettings.show_qr_code && qrCodeUrl && (
-                  <div className="bg-white rounded-2xl p-4 text-center">
-                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-2 w-24 h-24" />
-                    <p className="text-black text-sm font-semibold">Request your song now!</p>
+                  <div className="bg-white rounded-2xl p-6 text-center mt-4">
+                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-3 w-32 h-32" />
+                    <p className="text-black text-lg font-semibold">Request your song now!</p>
                   </div>
                 )}
               </div>
