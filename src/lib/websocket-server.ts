@@ -141,7 +141,8 @@ class WebSocketManager {
 
   private async handleApproveRequest(payload: { requestId: string; playNext?: boolean }) {
     // Implementation will call existing API endpoints
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/approve/${payload.requestId}`, {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/admin/approve/${payload.requestId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ play_next: payload.playNext })
@@ -153,7 +154,8 @@ class WebSocketManager {
   }
 
   private async handleRejectRequest(payload: { requestId: string; reason?: string }) {
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/reject/${payload.requestId}`, {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/admin/reject/${payload.requestId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: payload.reason })
@@ -165,7 +167,8 @@ class WebSocketManager {
   }
 
   private async handleDeleteRequest(payload: { requestId: string }) {
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/delete/${payload.requestId}`, {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/admin/delete/${payload.requestId}`, {
       method: 'DELETE'
     });
     
@@ -175,11 +178,12 @@ class WebSocketManager {
   }
 
   private async handlePlaybackControl(payload: { action: 'play' | 'pause' | 'skip' }) {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
     const endpoint = payload.action === 'skip' 
       ? '/api/admin/playback/skip'
       : `/api/admin/playback/${payload.action === 'play' ? 'resume' : 'pause'}`;
     
-    const response = await fetch(`${process.env.NEXTAUTH_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'POST'
     });
     
@@ -189,7 +193,8 @@ class WebSocketManager {
   }
 
   private async handleUpdateSettings(payload: any) {
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/event-settings`, {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/admin/event-settings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -216,7 +221,8 @@ class WebSocketManager {
   private async pollSpotifyState() {
     try {
       // Get current Spotify state
-      const response = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/queue/details`);
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/admin/queue/details`);
       if (!response.ok) return;
 
       const spotifyData = await response.json();
@@ -263,10 +269,11 @@ class WebSocketManager {
   private async broadcastAdminUpdate() {
     try {
       // Fetch latest admin data
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
       const [requestsRes, settingsRes, statsRes] = await Promise.all([
-        fetch(`${process.env.NEXTAUTH_URL}/api/admin/requests?status=pending&limit=50`),
-        fetch(`${process.env.NEXTAUTH_URL}/api/admin/event-settings`),
-        fetch(`${process.env.NEXTAUTH_URL}/api/admin/stats`)
+        fetch(`${baseUrl}/api/admin/requests?status=pending&limit=50`),
+        fetch(`${baseUrl}/api/admin/event-settings`),
+        fetch(`${baseUrl}/api/admin/stats`)
       ]);
 
       const adminData: AdminData = {
