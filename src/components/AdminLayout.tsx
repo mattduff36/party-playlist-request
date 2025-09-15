@@ -99,7 +99,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { id: 'overview', label: 'Overview', icon: Clock, href: '/admin/overview' },
     { id: 'requests', label: 'Song Requests', icon: Music, href: '/admin/requests' },
     { id: 'spotify', label: 'Spotify', icon: Play, href: '/admin/spotify' },
-    { id: 'settings', label: 'Event Settings', icon: Settings, href: '/admin/settings' },
+    { id: 'settings', label: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 
   // Sidebar component
@@ -134,13 +134,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           <div className="px-3 mt-6">
             <div className="border-t border-gray-700 pt-4">
-              <button
-                onClick={() => router.push('/admin/spotify-setup')}
-                className="w-full flex items-center px-4 py-3 mb-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <Music className="w-5 h-5 mr-3" />
-                🎵 Spotify Setup
-              </button>
               <a
                 href="/display"
                 target="_blank"

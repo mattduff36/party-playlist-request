@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw, Music } from 'lucide-react';
 import { useAdminData } from '../../../hooks/useAdminData';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
   const { eventSettings, updateEventSettings, loading } = useAdminData({ disablePolling: true });
+  const router = useRouter();
   
   const [formData, setFormData] = useState({
     event_title: '',
@@ -235,6 +237,26 @@ export default function SettingsPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Spotify Setup */}
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">🎵 Spotify Integration</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+            <div>
+              <h4 className="text-white font-medium">Spotify Connection</h4>
+              <p className="text-gray-400 text-sm">Connect your Spotify account to control music playback</p>
+            </div>
+            <button
+              onClick={() => router.push('/admin/spotify-setup')}
+              className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              <Music className="w-4 h-4 mr-2" />
+              Setup Spotify
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Additional Settings */}
