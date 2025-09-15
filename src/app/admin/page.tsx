@@ -1317,7 +1317,7 @@ export default function AdminPanel() {
                         <>
                           <button
                             onClick={() => handleApprove(request.id, true)}
-                            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors group"
+                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors group"
                             title="Play Next"
                           >
                             <PlayCircle className="w-5 h-5 text-white" />
@@ -1325,7 +1325,7 @@ export default function AdminPanel() {
                           </button>
                           <button
                             onClick={() => handleApprove(request.id)}
-                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                             title="Add to Queue"
                           >
                             <CheckCircle className="w-5 h-5 text-white" />
@@ -1367,7 +1367,7 @@ export default function AdminPanel() {
                           <div className="flex items-center space-x-2 ml-4">
                             <button
                               onClick={() => handleApprove(request.id, true)}
-                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
                               title="Play Next"
                             >
                               <PlayCircle className="w-4 h-4" />
@@ -1375,7 +1375,7 @@ export default function AdminPanel() {
                             </button>
                             <button
                               onClick={() => handleApprove(request.id)}
-                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
                               title="Add to Queue"
                             >
                               <CheckCircle className="w-4 h-4" />
@@ -1394,7 +1394,7 @@ export default function AdminPanel() {
                           <div className="flex items-center space-x-2 ml-4">
                             <button
                               onClick={() => handlePlayAgain(request.id, true)}
-                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
                               title="Play Next"
                             >
                               <PlayCircle className="w-4 h-4" />
@@ -1402,7 +1402,7 @@ export default function AdminPanel() {
                             </button>
                             <button
                               onClick={() => handlePlayAgain(request.id, false)}
-                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
                               title="Add to Queue"
                             >
                               <CheckCircle className="w-4 h-4" />
