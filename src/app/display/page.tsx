@@ -153,22 +153,21 @@ export default function DisplayPage() {
   // TV Layout (Large screens)
   if (deviceType === 'tv') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-6xl font-bold mb-4">{eventSettings.event_title}</h1>
+      <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto h-full flex flex-col">
+          {/* Header - Fixed Height */}
+          <div className="text-center py-4 flex-shrink-0">
+            <h1 className="text-5xl font-bold mb-2">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-              <p className="text-2xl text-purple-200">DJ {eventSettings.dj_name}</p>
+              <p className="text-xl text-purple-200">DJ {eventSettings.dj_name}</p>
             )}
             {eventSettings.venue_info && (
-              <p className="text-xl text-blue-200 mt-2">{eventSettings.venue_info}</p>
+              <p className="text-lg text-blue-200 mt-1">{eventSettings.venue_info}</p>
             )}
           </div>
 
-          <div className="flex flex-col h-[calc(100vh-12rem)]">
-            {/* Main Content Area */}
-            <div className="flex-1 grid grid-cols-4 gap-8 mb-8">
+          {/* Main Content Area - Dynamic Height */}
+          <div className="flex-1 grid grid-cols-4 gap-6 min-h-0 mb-4">
               {/* Now Playing + QR Code Column */}
               <div className="col-span-1 flex flex-col h-full">
                 {/* Now Playing - Takes most of the space */}
@@ -300,14 +299,13 @@ export default function DisplayPage() {
               </div>
             </div>
 
-            {/* Scrolling Messages Bar at Bottom */}
-            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-4 overflow-hidden">
-              <div className="flex items-center">
-                <div className="text-2xl mr-4">📢</div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="animate-marquee whitespace-nowrap text-xl font-medium">
-                    {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
-                  </div>
+          {/* Scrolling Messages Bar at Bottom - Fixed Height */}
+          <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 overflow-hidden flex-shrink-0 h-16">
+            <div className="flex items-center h-full">
+              <div className="text-xl mr-3">📢</div>
+              <div className="flex-1 overflow-hidden">
+                <div className="animate-marquee whitespace-nowrap text-lg font-medium">
+                  {messages.join(' • ')} • {messages.join(' • ')} • {messages.join(' • ')}
                 </div>
               </div>
             </div>
@@ -320,16 +318,16 @@ export default function DisplayPage() {
   // Tablet Layout
   if (deviceType === 'tablet') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-2">{eventSettings.event_title}</h1>
+      <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4 overflow-hidden">
+        <div className="max-w-4xl mx-auto h-full flex flex-col">
+          <div className="text-center py-3 flex-shrink-0">
+            <h1 className="text-3xl font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-              <p className="text-lg text-purple-200">DJ {eventSettings.dj_name}</p>
+              <p className="text-base text-purple-200">DJ {eventSettings.dj_name}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
             <div className="space-y-6">
               {/* Current Song */}
               <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6">
@@ -389,17 +387,17 @@ export default function DisplayPage() {
 
   // Mobile Layout
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4">
-      <div className="max-w-sm mx-auto space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
+    <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-3 overflow-hidden">
+      <div className="max-w-sm mx-auto h-full flex flex-col space-y-3">
+        <div className="text-center flex-shrink-0">
+          <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
           {eventSettings.dj_name && (
-            <p className="text-sm text-purple-200">DJ {eventSettings.dj_name}</p>
+            <p className="text-xs text-purple-200">DJ {eventSettings.dj_name}</p>
           )}
         </div>
 
         {/* Current Song */}
-        <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4">
+        <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-shrink-0">
           <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
           {currentTrack ? (
             <div className="text-center">
@@ -412,21 +410,17 @@ export default function DisplayPage() {
         </div>
 
         {eventSettings.show_qr_code && qrCodeUrl && (
-          <div className="bg-white rounded-lg p-4 text-center">
-            <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-2 w-24 h-24" />
-            <p className="text-black text-sm font-semibold">Request a Song</p>
+          <div className="bg-white rounded-lg p-3 text-center flex-shrink-0">
+            <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-2 w-20 h-20" />
+            <p className="text-black text-xs font-semibold">Request a Song</p>
           </div>
         )}
 
-        <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4 text-center">
-          <p className="text-sm">{currentMessage}</p>
-        </div>
-
         {upcomingSongs.length > 0 && (
-          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4">
-            <h2 className="text-lg font-semibold mb-3">🎶 Up Next</h2>
-            <div className="space-y-2">
-              {upcomingSongs.slice(0, 3).map((song, index) => (
+          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden">
+            <h2 className="text-base font-semibold mb-2">🎶 Up Next</h2>
+            <div className="space-y-2 overflow-y-auto h-full">
+              {upcomingSongs.slice(0, 8).map((song, index) => (
                 <div key={song.uri} className="flex items-center justify-between p-2 bg-white/5 rounded text-xs">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold truncate">{index + 1}. {song.name}</div>
@@ -444,6 +438,10 @@ export default function DisplayPage() {
             </div>
           </div>
         )}
+
+        <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 text-center flex-shrink-0">
+          <p className="text-xs">{currentMessage}</p>
+        </div>
       </div>
     </div>
   );
