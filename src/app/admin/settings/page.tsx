@@ -5,7 +5,7 @@ import { Save, RefreshCw } from 'lucide-react';
 import { useAdminData } from '../../../hooks/useAdminData';
 
 export default function SettingsPage() {
-  const { eventSettings, updateEventSettings, loading } = useAdminData();
+  const { eventSettings, updateEventSettings, loading } = useAdminData({ disablePolling: true });
   
   const [formData, setFormData] = useState({
     event_title: '',
@@ -105,61 +105,66 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* Welcome Message */}
-          <div>
-            <label htmlFor="welcome_message" className="block text-sm font-medium text-gray-300 mb-2">
-              Welcome Message
-            </label>
-            <textarea
-              id="welcome_message"
-              name="welcome_message"
-              value={formData.welcome_message}
-              onChange={handleInputChange}
-              rows={3}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              placeholder="Enter welcome message..."
-            />
-            <p className="text-gray-500 text-sm mt-1">
-              Primary message shown to users when requesting songs
-            </p>
-          </div>
+          {/* Display Screen Messages Section */}
+          <div className="border-t border-gray-700 pt-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Display Screen Messages</h3>
+            
+            {/* Welcome Message */}
+            <div className="mb-6">
+              <label htmlFor="welcome_message" className="block text-sm font-medium text-gray-300 mb-2">
+                Welcome Message
+              </label>
+              <textarea
+                id="welcome_message"
+                name="welcome_message"
+                value={formData.welcome_message}
+                onChange={handleInputChange}
+                rows={3}
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                placeholder="Enter welcome message..."
+              />
+              <p className="text-gray-500 text-sm mt-1">
+                Primary message shown to users when requesting songs
+              </p>
+            </div>
 
-          {/* Secondary Message */}
-          <div>
-            <label htmlFor="secondary_message" className="block text-sm font-medium text-gray-300 mb-2">
-              Secondary Message
-            </label>
-            <textarea
-              id="secondary_message"
-              name="secondary_message"
-              value={formData.secondary_message}
-              onChange={handleInputChange}
-              rows={2}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              placeholder="Enter secondary message..."
-            />
-            <p className="text-gray-500 text-sm mt-1">
-              Additional information or instructions for users
-            </p>
-          </div>
+            {/* Secondary Message */}
+            <div className="mb-6">
+              <label htmlFor="secondary_message" className="block text-sm font-medium text-gray-300 mb-2">
+                Secondary Message
+              </label>
+              <textarea
+                id="secondary_message"
+                name="secondary_message"
+                value={formData.secondary_message}
+                onChange={handleInputChange}
+                rows={2}
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                placeholder="Enter secondary message..."
+              />
+              <p className="text-gray-500 text-sm mt-1">
+                Additional information or instructions for users
+              </p>
+            </div>
 
-          {/* Tertiary Message */}
-          <div>
-            <label htmlFor="tertiary_message" className="block text-sm font-medium text-gray-300 mb-2">
-              Display Screen Messages
-            </label>
-            <textarea
-              id="tertiary_message"
-              name="tertiary_message"
-              value={formData.tertiary_message}
-              onChange={handleInputChange}
-              rows={2}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              placeholder="Enter display screen messages..."
-            />
-            <p className="text-gray-500 text-sm mt-1">
-              Messages that scroll on the display screen (separate multiple messages with commas)
-            </p>
+            {/* Tertiary Message */}
+            <div>
+              <label htmlFor="tertiary_message" className="block text-sm font-medium text-gray-300 mb-2">
+                Scrolling Messages
+              </label>
+              <textarea
+                id="tertiary_message"
+                name="tertiary_message"
+                value={formData.tertiary_message}
+                onChange={handleInputChange}
+                rows={2}
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                placeholder="Enter display screen messages..."
+              />
+              <p className="text-gray-500 text-sm mt-1">
+                Messages that scroll on the display screen (separate multiple messages with commas)
+              </p>
+            </div>
           </div>
 
           {/* Request Limit */}

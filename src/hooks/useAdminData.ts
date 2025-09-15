@@ -51,7 +51,8 @@ export interface Stats {
   unique_requesters: number;
 }
 
-export const useAdminData = () => {
+export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
+  const { disablePolling = false } = options;
   const [requests, setRequests] = useState<Request[]>([]);
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
@@ -167,7 +168,7 @@ export const useAdminData = () => {
 
   // Separate useEffect for polling to avoid recreating intervals
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || disablePolling) return;
     
     console.log('🔄 Setting up polling interval');
     
@@ -196,7 +197,7 @@ export const useAdminData = () => {
       console.log('🧹 Cleaning up polling interval');
       clearInterval(interval);
     };
-  }, [isAuthenticated, isInteracting, fetchData]);
+  }, [isAuthenticated, isInteracting, fetchData, disablePolling]);
 
   // Action handlers
   const handleApprove = async (id: string, playNext = false) => {
