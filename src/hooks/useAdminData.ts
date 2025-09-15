@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRealtimeProgress, useInteractionLock } from './useRealtimeProgress';
-import { useWebSocket } from './useWebSocket';
+import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface Request {
   id: string;
@@ -52,8 +52,8 @@ export interface Stats {
   unique_requesters: number;
 }
 
-export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?: boolean } = {}) => {
-  const { disablePolling = false, useWebSocket: enableWebSocket = true } = options;
+export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
+  const { disablePolling = false } = options;
   const [requests, setRequests] = useState<Request[]>([]);
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
@@ -64,26 +64,26 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
   const [lastSpotifyFailure, setLastSpotifyFailure] = useState(0);
 
   const { isInteracting, lockInteraction } = useInteractionLock();
-  const webSocket = useWebSocket();
+  const realtimeUpdates = useRealtimeUpdates();
   const realtimeProgress = useRealtimeProgress(playbackState);
 
   // Check if user is authenticated
   const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('admin_token');
 
-  // Sync WebSocket data with local state (only when WebSocket is authenticated)
+  // Sync real-time data with local state
   useEffect(() => {
-    if (enableWebSocket && webSocket.isAuthenticated && webSocket.adminData) {
-      console.log('🔄 Syncing WebSocket data to local state');
+    if (realtimeUpdates.isConnected && realtimeUpdates.adminData) {
+      console.log(`🔄 Syncing ${realtimeUpdates.connectionType} data to local state`);
       
-      if (webSocket.adminData.requests) {
-        setRequests(webSocket.adminData.requests);
+      if (realtimeUpdates.adminData.requests) {
+        setRequests(realtimeUpdates.adminData.requests);
       }
       
-      if (webSocket.adminData.spotify_state) {
-        const spotifyState = webSocket.adminData.spotify_state;
+      if (realtimeUpdates.adminData.spotify_state) {
+        const spotifyState = realtimeUpdates.adminData.spotify_state;
         setPlaybackState({
           is_playing: spotifyState.is_playing,
-          progress_ms: spotifyState.progress_ms,
+          progress_ms: realtimeUpdates.currentProgress || spotifyState.progress_ms,
           duration_ms: spotifyState.current_track?.duration_ms || 0,
           track_name: spotifyState.current_track?.name || '',
           artist_name: spotifyState.current_track?.artists?.[0]?.name || '',
@@ -97,15 +97,15 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
         });
       }
       
-      if (webSocket.adminData.event_settings) {
-        setEventSettings(webSocket.adminData.event_settings);
+      if (realtimeUpdates.adminData.event_settings) {
+        setEventSettings(realtimeUpdates.adminData.event_settings);
       }
       
-      if (webSocket.adminData.stats) {
-        setStats(webSocket.adminData.stats);
+      if (realtimeUpdates.adminData.stats) {
+        setStats(realtimeUpdates.adminData.stats);
       }
     }
-  }, [enableWebSocket, webSocket.isAuthenticated, webSocket.adminData]);
+  }, [realtimeUpdates.isConnected, realtimeUpdates.adminData, realtimeUpdates.currentProgress, realtimeUpdates.connectionType]);
 
   // Fetch all data with authentication
   const fetchData = useCallback(async (showBackgroundIndicator = false) => {
@@ -200,35 +200,26 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
   }, [isAuthenticated, spotifyFailureCount, lastSpotifyFailure]);
 
   // Auto-refresh data when authenticated
-  // Initial data fetch - always run this regardless of WebSocket
+  // Initial data fetch - always run this regardless of real-time connection
   useEffect(() => {
     if (!isAuthenticated) return;
     
     console.log('🚀 Running initial data fetch');
     fetchData(); // Initial fetch only
-    
-    // If WebSocket is enabled, also authenticate it
-    if (enableWebSocket && webSocket.isConnected && !webSocket.isAuthenticated) {
-      const token = localStorage.getItem('admin_token');
-      if (token) {
-        console.log('🔐 Authenticating WebSocket with token');
-        webSocket.authenticate(token);
-      }
-    }
-  }, [isAuthenticated, fetchData, enableWebSocket, webSocket.isConnected, webSocket.isAuthenticated, webSocket.authenticate]);
+  }, [isAuthenticated, fetchData]);
 
   // Separate useEffect for polling to avoid recreating intervals
-  // Only use polling when WebSocket is disabled or not connected
+  // Only use polling when real-time connection is not available
   useEffect(() => {
     if (!isAuthenticated || disablePolling) return;
     
-    // Skip polling if WebSocket is enabled and connected
-    if (enableWebSocket && webSocket.isConnected && webSocket.isAuthenticated) {
-      console.log('🔌 WebSocket connected - skipping polling');
+    // Skip polling if real-time connection is available
+    if (realtimeUpdates.isConnected) {
+      console.log(`🔌 ${realtimeUpdates.connectionType} connected - skipping polling`);
       return;
     }
     
-    console.log('🔄 Setting up polling interval (WebSocket not available)');
+    console.log('🔄 Setting up polling interval (real-time not available)');
     
     // Auto-refresh every 30 seconds
     let refreshCount = 0;
@@ -255,15 +246,15 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
       console.log('🧹 Cleaning up polling interval');
       clearInterval(interval);
     };
-  }, [isAuthenticated, isInteracting, fetchData, disablePolling, enableWebSocket, webSocket.isConnected, webSocket.isAuthenticated]);
+  }, [isAuthenticated, isInteracting, fetchData, disablePolling, realtimeUpdates.isConnected, realtimeUpdates.connectionType]);
 
   // Action handlers
   const handleApprove = async (id: string, playNext = false) => {
     lockInteraction(3000);
     
     // Use WebSocket if available, otherwise fall back to HTTP
-    if (enableWebSocket && webSocket.isAuthenticated) {
-      webSocket.sendAction('approve-request', { requestId: id, playNext });
+    if (realtimeUpdates.sendAction) {
+      realtimeUpdates.sendAction('approve-request', { requestId: id, playNext });
     } else {
       const token = localStorage.getItem('admin_token');
       try {
@@ -289,8 +280,8 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
     lockInteraction(3000);
     
     // Use WebSocket if available, otherwise fall back to HTTP
-    if (enableWebSocket && webSocket.isAuthenticated) {
-      webSocket.sendAction('reject-request', { requestId: id });
+    if (realtimeUpdates.sendAction) {
+      realtimeUpdates.sendAction('reject-request', { requestId: id });
     } else {
       const token = localStorage.getItem('admin_token');
       try {
@@ -315,8 +306,8 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
     lockInteraction(3000);
     
     // Use WebSocket if available, otherwise fall back to HTTP
-    if (enableWebSocket && webSocket.isAuthenticated) {
-      webSocket.sendAction('delete-request', { requestId: id });
+    if (realtimeUpdates.sendAction) {
+      realtimeUpdates.sendAction('delete-request', { requestId: id });
     } else {
       const token = localStorage.getItem('admin_token');
       try {
@@ -361,8 +352,8 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
     lockInteraction(3000);
     
     // Use WebSocket if available, otherwise fall back to HTTP
-    if (enableWebSocket && webSocket.isAuthenticated) {
-      webSocket.sendAction('playback-control', { action });
+    if (realtimeUpdates.sendAction) {
+      realtimeUpdates.sendAction('playback-control', { action });
     } else {
       const token = localStorage.getItem('admin_token');
       try {
@@ -416,9 +407,10 @@ export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?:
     isBackgroundRefreshing,
     isInteracting,
     
-    // WebSocket state
-    isWebSocketConnected: enableWebSocket ? webSocket.isConnected : false,
-    isWebSocketAuthenticated: enableWebSocket ? webSocket.isAuthenticated : false,
+    // Real-time connection state
+    isWebSocketConnected: realtimeUpdates.isConnected,
+    isWebSocketAuthenticated: realtimeUpdates.connectionType !== 'polling',
+    connectionType: realtimeUpdates.connectionType,
     
     // Actions
     fetchData,
