@@ -1233,27 +1233,23 @@ export default function AdminPanel() {
 
     return (
       <div className="space-y-6">
-        {/* Header with filters and bulk actions */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Header with filters */}
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
+          <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Song Requests</h2>
-              <div className="flex items-center space-x-4">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="all">All Requests (Ordered)</option>
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending ({requests.length})</option>
-                  <option value="played">Played</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-                
-              </div>
-                  </div>
-
+              <h2 className="text-lg md:text-xl font-semibold text-white mb-3">Song Requests</h2>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as any)}
+                className="w-full md:w-auto bg-gray-700 text-white rounded-lg px-4 py-3 text-sm min-h-[44px] border border-gray-600 focus:border-purple-500 focus:outline-none"
+              >
+                <option value="all">All Requests (Ordered)</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending ({requests.length})</option>
+                <option value="played">Played</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1269,7 +1265,7 @@ export default function AdminPanel() {
               {allRequests.map((request) => (
                 <div 
                   key={request.id} 
-                  className={`p-4 transition-colors ${getRequestBackgroundColor(request.status)} ${
+                  className={`p-4 md:p-6 transition-colors ${getRequestBackgroundColor(request.status)} ${
                     request.status === 'approved' 
                       ? 'hover:opacity-80 cursor-pointer' 
                       : 'hover:opacity-80'
@@ -1280,66 +1276,69 @@ export default function AdminPanel() {
                   }
                   title={request.status === 'approved' ? 'Double-click to mark as played' : undefined}
                 >
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
 
-                    {/* Album Art Placeholder */}
-                    <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
-                      <Music className="w-6 h-6 text-gray-400" />
-                </div>
-
-                    {/* Track Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-3 mb-1">
-                        <h3 className="text-white font-medium truncate">
-                          {request.track_name}
-                        </h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                          {request.status}
-                        </span>
+                    {/* Track Info Section */}
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      {/* Album Art Placeholder */}
+                      <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Music className="w-6 h-6 text-gray-400" />
                       </div>
-                      
-                      <p className="text-gray-400 text-sm truncate">
-                        {request.artist_name} • {request.album_name}
-                      </p>
-                      
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        <span>{formatDuration(request.duration_ms)}</span>
-                        <span>{formatTimeAgo(request.created_at)}</span>
-                        {request.requester_nickname && (
-                          <span className="text-purple-300">
-                            by {request.requester_nickname}
+
+                      {/* Track Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                          <h3 className="text-white font-medium truncate">
+                            {request.track_name}
+                          </h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)} self-start sm:self-center`}>
+                            {request.status}
                           </span>
-              )}
-            </div>
-          </div>
+                        </div>
+                        
+                        <p className="text-gray-400 text-sm truncate">
+                          {request.artist_name} • {request.album_name}
+                        </p>
+                        
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                          <span>{formatDuration(request.duration_ms)}</span>
+                          <span>{formatTimeAgo(request.created_at)}</span>
+                          {request.requester_nickname && (
+                            <span className="text-purple-300">
+                              by {request.requester_nickname}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Actions */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 w-full sm:w-auto">
                       {request.status === 'pending' && (
                         <>
                           <button
                             onClick={() => handleApprove(request.id, true)}
-                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors group"
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-h-[48px] w-full sm:w-auto"
                             title="Play Next"
                           >
                             <PlayCircle className="w-5 h-5 text-white" />
-                            <span className="hidden sm:inline text-white text-sm font-medium">Play Next</span>
+                            <span className="text-white text-sm font-medium">Play Next</span>
                           </button>
                           <button
                             onClick={() => handleApprove(request.id)}
-                            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                            title="Add to Queue"
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-h-[48px] w-full sm:w-auto"
+                            title="Accept"
                           >
                             <CheckCircle className="w-5 h-5 text-white" />
-                            <span className="hidden sm:inline text-white text-sm font-medium">Accept</span>
+                            <span className="text-white text-sm font-medium">Accept</span>
                           </button>
                           <button
                             onClick={() => handleReject(request.id)}
-                            className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-h-[48px] w-full sm:w-auto"
                             title="Reject"
                           >
                             <XCircle className="w-5 h-5 text-white" />
-                            <span className="hidden sm:inline text-white text-sm font-medium">Reject</span>
+                            <span className="text-white text-sm font-medium">Reject</span>
                           </button>
                         </>
                       )}
@@ -1366,22 +1365,22 @@ export default function AdminPanel() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center space-x-2 ml-4">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 mt-2 sm:mt-0 sm:ml-4">
                             <button
                               onClick={() => handleApprove(request.id, true)}
-                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs min-h-[40px]"
                               title="Play Next"
                             >
                               <PlayCircle className="w-4 h-4" />
-                              <span className="hidden md:inline">Play Next</span>
+                              <span>Play Next</span>
                             </button>
                             <button
                               onClick={() => handleApprove(request.id)}
-                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
-                              title="Add to Queue"
+                              className="flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-xs min-h-[40px]"
+                              title="Accept"
                             >
                               <CheckCircle className="w-4 h-4" />
-                              <span className="hidden md:inline">Accept</span>
+                              <span>Accept</span>
                             </button>
                           </div>
                         </>
@@ -1393,42 +1392,44 @@ export default function AdminPanel() {
                             <CheckCircle className="w-4 h-4" />
                             <span>Played</span>
                           </div>
-                          <div className="flex items-center space-x-2 ml-4">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 mt-2 sm:mt-0 sm:ml-4">
                             <button
                               onClick={() => handlePlayAgain(request.id, true)}
-                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs min-h-[40px]"
                               title="Play Next"
                             >
                               <PlayCircle className="w-4 h-4" />
-                              <span className="hidden md:inline">Play Next</span>
+                              <span>Play Next</span>
                             </button>
                             <button
                               onClick={() => handlePlayAgain(request.id, false)}
-                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              className="flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-xs min-h-[40px]"
                               title="Add to Queue"
                             >
                               <CheckCircle className="w-4 h-4" />
-                              <span className="hidden md:inline">Add to Queue</span>
+                              <span>Add to Queue</span>
                             </button>
                           </div>
                         </>
                       )}
 
-                      <button
-                        onClick={() => window.open(`https://open.spotify.com/track/${request.track_uri.split(':')[2]}`, '_blank')}
-                        className="p-2 text-gray-400 hover:text-white transition-colors"
-                        title="Open in Spotify"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleDelete(request.id)}
-                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                        title="Delete Request"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 mt-2 sm:mt-0">
+                        <button
+                          onClick={() => window.open(`https://open.spotify.com/track/${request.track_uri.split(':')[2]}`, '_blank')}
+                          className="flex items-center justify-center p-3 text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] rounded-lg hover:bg-gray-700"
+                          title="Open in Spotify"
+                        >
+                          <ExternalLink className="w-5 h-5" />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDelete(request.id)}
+                          className="flex items-center justify-center p-3 text-gray-400 hover:text-red-400 transition-colors min-h-[44px] min-w-[44px] rounded-lg hover:bg-gray-700"
+                          title="Delete Request"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1471,29 +1472,29 @@ export default function AdminPanel() {
     return (
       <div className="space-y-6">
         {/* Current Track */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-            <Music className="w-6 h-6 mr-2" />
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
+          <h2 className="text-lg md:text-xl font-semibold text-white mb-4 flex items-center">
+            <Music className="w-5 h-5 md:w-6 md:h-6 mr-2" />
             Now Playing
           </h2>
           
           {detailedQueue?.current_track ? (
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
               {detailedQueue.current_track.image_url && (
                 <img
                   src={detailedQueue.current_track.image_url}
                   alt="Album Art"
-                  className="w-20 h-20 rounded-lg"
+                  className="w-24 h-24 sm:w-20 sm:h-20 rounded-lg mx-auto sm:mx-0 flex-shrink-0"
                 />
               )}
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold text-white mb-1">
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="text-lg md:text-xl font-semibold text-white mb-1 truncate">
                   {detailedQueue.current_track.name}
                 </h3>
-                <p className="text-gray-400 mb-2">
+                <p className="text-gray-400 mb-2 truncate">
                   {detailedQueue.current_track.artists.join(', ')}
                 </p>
-                <p className="text-gray-500 text-sm mb-3">
+                <p className="text-gray-500 text-sm mb-3 truncate">
                   {detailedQueue.current_track.album}
                 </p>
                 
@@ -1513,10 +1514,10 @@ export default function AdminPanel() {
                 </div>
               </div>
               
-              <div className="flex flex-col space-y-2">
+              <div className="flex flex-row sm:flex-col justify-center space-x-4 sm:space-x-0 sm:space-y-2">
                 <button
                   onClick={handlePlayPause}
-                  className="p-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  className="p-4 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors min-w-[56px] min-h-[56px] flex items-center justify-center"
                 >
                   {detailedQueue.is_playing ? (
                     <Pause className="w-6 h-6 text-white" />
@@ -1526,11 +1527,11 @@ export default function AdminPanel() {
                 </button>
                 <button
                   onClick={handleSkip}
-                  className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  className="p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors min-w-[56px] min-h-[56px] flex items-center justify-center"
                 >
                   <SkipForward className="w-6 h-6 text-white" />
                 </button>
-                          </div>
+              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-400">
@@ -1543,15 +1544,15 @@ export default function AdminPanel() {
         {/* Device Info */}
         {detailedQueue?.device && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center space-x-3">
                 <Volume2 className="w-5 h-5 text-gray-400" />
                 <div>
-                  <p className="text-white font-medium">{detailedQueue.device.name}</p>
+                  <p className="text-white font-medium truncate">{detailedQueue.device.name}</p>
                   <p className="text-gray-400 text-sm">{detailedQueue.device.type}</p>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <p className="text-gray-400 text-sm">Volume</p>
                 <p className="text-white font-medium">{detailedQueue.device.volume_percent}%</p>
               </div>
@@ -1560,20 +1561,20 @@ export default function AdminPanel() {
         )}
 
         {/* Spotify Queue */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-white flex items-center">
-              <Clock className="w-6 h-6 mr-2" />
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-lg md:text-xl font-semibold text-white flex items-center">
+              <Clock className="w-5 h-5 md:w-6 md:h-6 mr-2" />
               Spotify Queue
             </h2>
-            <div className="flex items-center space-x-2 text-sm text-gray-400">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
               {detailedQueue?.shuffle_state && (
-                <span className="px-2 py-1 bg-purple-600/20 text-purple-400 rounded">
+                <span className="px-2 py-1 bg-purple-600/20 text-purple-400 rounded text-xs">
                   Shuffle ON
-                          </span>
+                </span>
               )}
               {detailedQueue?.repeat_state !== 'off' && (
-                <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded">
+                <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs">
                   Repeat {detailedQueue.repeat_state}
                 </span>
               )}
@@ -1582,12 +1583,12 @@ export default function AdminPanel() {
 
           {detailedQueue?.queue && detailedQueue.queue.length > 0 ? (
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <p className="text-gray-400 text-sm">
                   {detailedQueue.queue.length} songs in queue
                 </p>
                 <p className="text-xs text-purple-400">
-                  💡 Drag songs to reorder (demo only - Spotify API limitation)
+                  💡 Drag to reorder (demo - API limitation)
                 </p>
               </div>
               
@@ -1600,7 +1601,7 @@ export default function AdminPanel() {
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
-                  className={`flex items-center space-x-4 p-3 rounded-lg transition-colors cursor-move ${
+                  className={`flex items-center space-x-2 sm:space-x-4 p-3 rounded-lg transition-colors cursor-move ${
                     draggedItem === index 
                       ? 'bg-purple-600/30 border-2 border-purple-500' 
                       : dragOverItem === index 
@@ -1608,9 +1609,9 @@ export default function AdminPanel() {
                         : 'bg-gray-700/50 hover:bg-gray-700'
                   }`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <GripVertical className="w-4 h-4 text-gray-500 cursor-grab active:cursor-grabbing" />
-                    <div className="text-gray-400 font-medium w-6 text-center">
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                    <GripVertical className="w-5 h-5 sm:w-4 sm:h-4 text-gray-500 cursor-grab active:cursor-grabbing" />
+                    <div className="text-gray-400 font-medium w-4 sm:w-6 text-center text-sm">
                       {index + 1}
                     </div>
                   </div>
@@ -1619,33 +1620,35 @@ export default function AdminPanel() {
                     <img
                       src={track.image_url}
                       alt="Album Art"
-                      className="w-12 h-12 rounded-lg"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex-shrink-0"
                     />
                   )}
                   
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-medium truncate">
+                    <h4 className="text-white font-medium truncate text-sm sm:text-base">
                       {track.name}
                     </h4>
-                    <p className="text-gray-400 text-sm truncate">
+                    <p className="text-gray-400 text-xs sm:text-sm truncate">
                       {track.artists.join(', ')}
                     </p>
-                    <p className="text-gray-500 text-xs truncate">
+                    <p className="text-gray-500 text-xs truncate hidden sm:block">
                       {track.album}
                     </p>
                   </div>
                   
-                  <div className="text-gray-400 text-sm">
-                    {formatDuration(track.duration_ms)}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <div className="text-gray-400 text-xs sm:text-sm">
+                      {formatDuration(track.duration_ms)}
+                    </div>
+                    
+                    <button
+                      onClick={() => window.open(`https://open.spotify.com/track/${track.uri.split(':')[2]}`, '_blank')}
+                      className="p-2 text-gray-400 hover:text-white transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center rounded"
+                      title="Open in Spotify"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
                   </div>
-                  
-                              <button
-                    onClick={() => window.open(`https://open.spotify.com/track/${track.uri.split(':')[2]}`, '_blank')}
-                    className="p-2 text-gray-400 hover:text-white transition-colors"
-                    title="Open in Spotify"
-                              >
-                    <ExternalLink className="w-4 h-4" />
-                              </button>
                 </div>
               ))}
               
@@ -1770,13 +1773,13 @@ export default function AdminPanel() {
     return (
       <div className="space-y-6">
         {/* Event Information */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-white mb-6 flex items-center">
-            <Settings className="w-6 h-6 mr-2" />
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
+          <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6 flex items-center">
+            <Settings className="w-5 h-5 md:w-6 md:h-6 mr-2" />
             Event Information
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Event Title
@@ -1785,7 +1788,7 @@ export default function AdminPanel() {
                 type="text"
                 value={formData.event_title}
                 onChange={(e) => handleInputChange('event_title', e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
                 placeholder="Party DJ Requests"
               />
             </div>
@@ -1798,7 +1801,7 @@ export default function AdminPanel() {
                 type="text"
                 value={formData.dj_name}
                 onChange={(e) => handleInputChange('dj_name', e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
                 placeholder="DJ Name (optional)"
               />
             </div>
@@ -1811,7 +1814,7 @@ export default function AdminPanel() {
                 type="text"
                 value={formData.venue_info}
                 onChange={(e) => handleInputChange('venue_info', e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
                 placeholder="Venue name or location (optional)"
               />
             </div>
@@ -1819,9 +1822,9 @@ export default function AdminPanel() {
         </div>
 
         {/* Display Messages */}
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Display Screen Messages</h3>
-          <p className="text-gray-400 text-sm mb-6">
+          <p className="text-gray-400 text-sm mb-4 md:mb-6">
             These messages will rotate on the display screen. Leave empty to hide a message.
           </p>
           
@@ -1834,7 +1837,7 @@ export default function AdminPanel() {
                 type="text"
                 value={formData.welcome_message}
                 onChange={(e) => handleInputChange('welcome_message', e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
                 placeholder="Request your favorite songs!"
               />
             </div>
@@ -1847,7 +1850,7 @@ export default function AdminPanel() {
                 type="text"
                 value={formData.secondary_message}
                 onChange={(e) => handleInputChange('secondary_message', e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
                 placeholder="Your requests will be reviewed by the DJ"
               />
             </div>
@@ -1860,7 +1863,7 @@ export default function AdminPanel() {
                 type="text"
                 value={formData.tertiary_message}
                 onChange={(e) => handleInputChange('tertiary_message', e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
                 placeholder="Keep the party going!"
               />
             </div>
@@ -1868,10 +1871,10 @@ export default function AdminPanel() {
         </div>
 
         {/* Display Settings */}
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Display Settings</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Refresh Interval (seconds)
@@ -1882,20 +1885,20 @@ export default function AdminPanel() {
                 max="300"
                 value={formData.display_refresh_interval}
                 onChange={(e) => handleInputChange('display_refresh_interval', parseInt(e.target.value))}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-base min-h-[48px]"
               />
               <p className="text-gray-500 text-xs mt-1">
                 How often the display screen updates (5-300 seconds)
               </p>
             </div>
             
-            <div className="flex items-center">
-              <label className="flex items-center space-x-3 cursor-pointer">
+            <div className="flex items-start md:items-center">
+              <label className="flex items-start md:items-center space-x-3 cursor-pointer min-h-[48px]">
                 <input
                   type="checkbox"
                   checked={formData.show_qr_code}
                   onChange={(e) => handleInputChange('show_qr_code', e.target.checked)}
-                  className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                  className="w-6 h-6 mt-1 md:mt-0 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
                 />
                 <div>
                   <span className="text-white font-medium">Show QR Code</span>
@@ -1907,8 +1910,8 @@ export default function AdminPanel() {
         </div>
 
         {/* Save Button */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold text-white">Save Changes</h3>
               <p className="text-gray-400 text-sm">
@@ -1916,9 +1919,9 @@ export default function AdminPanel() {
               </p>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               {saveMessage && (
-                <span className={`text-sm ${
+                <span className={`text-sm text-center sm:text-left ${
                   saveMessage.includes('success') ? 'text-green-400' : 'text-red-400'
                 }`}>
                   {saveMessage}
@@ -1928,7 +1931,7 @@ export default function AdminPanel() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center space-x-2 min-h-[48px] w-full sm:w-auto"
               >
                 {saving ? (
                   <>
