@@ -851,29 +851,31 @@ export default function AdminPanel() {
     );
   }
 
-  // Mobile Navigation
+  // Mobile Navigation - Always visible bottom navigation
   const MobileNav = () => (
-    <div className="md:hidden bg-gray-800 border-t border-gray-700 fixed bottom-0 left-0 right-0 z-50">
+    <div className="md:hidden bg-gray-900/95 backdrop-blur-sm border-t border-gray-600 fixed bottom-0 left-0 right-0 z-50 safe-area-inset-bottom">
       <div className="flex">
         {[
           { id: 'overview', icon: Music, label: 'Overview' },
           { id: 'requests', icon: Users, label: 'Requests' },
-          { id: 'queue', icon: Clock, label: 'Queue' },
+          { id: 'queue', icon: Clock, label: 'Spotify' },
           { id: 'settings', icon: Settings, label: 'Settings' }
         ].map((tab) => (
-            <button
+          <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-1 py-3 px-2 text-center ${
-              activeTab === tab.id ? 'text-purple-400 bg-gray-700' : 'text-gray-400'
+            className={`flex-1 py-3 px-1 text-center transition-colors min-h-[60px] flex flex-col items-center justify-center ${
+              activeTab === tab.id 
+                ? 'text-purple-400 bg-purple-900/30' 
+                : 'text-gray-400 hover:text-gray-300 active:bg-gray-700/50'
             }`}
           >
-            <tab.icon className="w-5 h-5 mx-auto mb-1" />
-            <div className="text-xs">{tab.label}</div>
-            </button>
+            <tab.icon className="w-6 h-6 mb-1" />
+            <div className="text-xs font-medium leading-tight">{tab.label}</div>
+          </button>
         ))}
-          </div>
-        </div>
+      </div>
+    </div>
   );
 
   // Desktop Sidebar
@@ -994,13 +996,13 @@ export default function AdminPanel() {
 
 
       {/* Current Playback */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-gray-800 rounded-lg p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Now Playing</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-white">Now Playing</h2>
           <div className="flex items-center space-x-2">
             <button
               onClick={handlePlayPause}
-              className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              className="p-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center"
             >
               {playbackState?.is_playing ? (
                 <Pause className="w-5 h-5 text-white" />
@@ -1010,42 +1012,42 @@ export default function AdminPanel() {
             </button>
             <button
               onClick={handleSkip}
-              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+              className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center"
             >
               <SkipForward className="w-5 h-5 text-white" />
             </button>
           </div>
-                  </div>
+        </div>
                   
         {spotifyConnected ? (
           playbackState?.current_track ? (
-                  <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
               {playbackState.current_track.image_url && (
                 <img
                   src={playbackState.current_track.image_url}
                   alt="Album Art"
-                  className="w-16 h-16 rounded-lg"
+                  className="w-20 h-20 sm:w-16 sm:h-16 rounded-lg mx-auto sm:mx-0"
                 />
               )}
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white">
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="text-lg font-semibold text-white truncate">
                   {playbackState.current_track.name}
                 </h3>
-                <p className="text-gray-400">
+                <p className="text-gray-400 truncate">
                   {playbackState.current_track.artists.join(', ')}
                 </p>
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-sm truncate">
                   {playbackState.current_track.album}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="text-center sm:text-right">
                 <p className="text-gray-400 text-sm">
                   {formatDuration(playbackState.current_track.progress_ms)} / {formatDuration(playbackState.current_track.duration_ms)}
                 </p>
                 {playbackState.device && (
-                  <p className="text-gray-500 text-xs flex items-center">
+                  <p className="text-gray-500 text-xs flex items-center justify-center sm:justify-end">
                     <Volume2 className="w-3 h-3 mr-1" />
-                    {playbackState.device.name}
+                    <span className="truncate max-w-[120px]">{playbackState.device.name}</span>
                   </p>
                 )}
               </div>
@@ -1071,22 +1073,22 @@ export default function AdminPanel() {
         )}
       </div>
 
-      {/* Spotify Playlist - Next 10 Songs */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      {/* Spotify Playlist - Next Songs */}
+      <div className="bg-gray-800 rounded-lg p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Coming Up Next</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-white">Coming Up Next</h2>
           <button
             onClick={() => setActiveTab('queue')}
-            className="text-purple-400 hover:text-purple-300 text-sm"
+            className="text-purple-400 hover:text-purple-300 text-sm px-2 py-1 rounded hover:bg-purple-900/20 transition-colors"
           >
-            View Full Queue →
+            View All →
           </button>
         </div>
         
         <div className="space-y-3">
           {spotifyConnected ? (
             playbackState?.queue && playbackState.queue.length > 0 ? (
-              playbackState.queue.slice(0, 10).map((track: any, index: number) => {
+              playbackState.queue.slice(0, 5).map((track: any, index: number) => {
                 // Check if this track was requested and approved
                 const matchingRequest = requests.find(req => 
                   req.status === 'approved' && 
@@ -1102,30 +1104,30 @@ export default function AdminPanel() {
                       matchingRequest ? 'bg-green-600/20 border border-green-600' : 'bg-gray-700'
                     }`}
                   >
-                    <div className="flex items-center space-x-3 flex-1">
-                      <span className="text-gray-400 text-sm font-mono w-6">
+                    <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                      <span className="text-gray-400 text-sm font-mono w-4 sm:w-6 flex-shrink-0">
                         {index + 1}
                       </span>
                       {track.image_url && (
                         <img
                           src={track.image_url}
                           alt="Album Art"
-                          className="w-10 h-10 rounded"
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded flex-shrink-0"
                         />
                       )}
-                      <div className="flex-1">
-                        <h4 className={`font-medium ${matchingRequest ? 'text-green-300' : 'text-white'}`}>
+                      <div className="flex-1 min-w-0">
+                        <h4 className={`font-medium truncate ${matchingRequest ? 'text-green-300' : 'text-white'}`}>
                           {track.name}
                         </h4>
-                        <p className="text-gray-400 text-sm">{track.artists.join(', ')}</p>
+                        <p className="text-gray-400 text-sm truncate">{track.artists.join(', ')}</p>
                         {matchingRequest && (
-                          <p className="text-green-400 text-xs">
-                            ✓ Requested by {matchingRequest.requester_nickname || 'Anonymous'}
+                          <p className="text-green-400 text-xs truncate">
+                            ✓ {matchingRequest.requester_nickname || 'Anonymous'}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="text-gray-400 text-sm">
+                    <div className="text-gray-400 text-xs sm:text-sm flex-shrink-0">
                       {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                     </div>
                   </div>
@@ -1982,10 +1984,10 @@ export default function AdminPanel() {
       
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+        <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 md:px-6 md:py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-white md:hidden">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-semibold text-white md:hidden truncate">
                 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
               </h1>
               <div className="hidden md:block">
@@ -1994,49 +1996,66 @@ export default function AdminPanel() {
                 </h1>
                 {eventSettings?.dj_name && (
                   <p className="text-gray-400">DJ {eventSettings.dj_name}</p>
-              )}
+                )}
+              </div>
             </div>
-          </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 md:space-x-4">
+              {/* Spotify Status - Simplified for mobile */}
+              <div className="flex items-center space-x-1 md:space-x-2">
                 <div className={`w-2 h-2 rounded-full ${spotifyConnected ? 'bg-green-400' : 'bg-red-400'}`} />
-                <span className="text-gray-400 text-sm">
-                  {spotifyConnected ? 'Spotify Connected' : 'Spotify Disconnected'}
+                <span className="text-gray-400 text-xs md:text-sm hidden sm:inline">
+                  {spotifyConnected ? 'Connected' : 'Disconnected'}
                 </span>
                 
-                {!spotifyConnected && (
-                  <button
-                    onClick={handleSpotifyConnect}
-                    disabled={spotifyConnecting}
-                    className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xs rounded transition-colors"
-                  >
-                    {spotifyConnecting ? 'Connecting...' : 'Connect'}
-                  </button>
-                )}
+                {/* Mobile: Show only essential buttons */}
+                <div className="md:hidden">
+                  {!spotifyConnected && (
+                    <button
+                      onClick={handleSpotifyConnect}
+                      disabled={spotifyConnecting}
+                      className="ml-1 px-2 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xs rounded transition-colors min-h-[32px]"
+                    >
+                      {spotifyConnecting ? '...' : 'Connect'}
+                    </button>
+                  )}
+                </div>
                 
-                {spotifyConnected && (
+                {/* Desktop: Show all buttons */}
+                <div className="hidden md:flex md:items-center md:space-x-2">
+                  {!spotifyConnected && (
+                    <button
+                      onClick={handleSpotifyConnect}
+                      disabled={spotifyConnecting}
+                      className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xs rounded transition-colors"
+                    >
+                      {spotifyConnecting ? 'Connecting...' : 'Connect'}
+                    </button>
+                  )}
+                  
+                  {spotifyConnected && (
+                    <button
+                      onClick={handleSpotifyDisconnect}
+                      className="ml-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                  
                   <button
-                    onClick={handleSpotifyDisconnect}
-                    className="ml-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                    onClick={handleSpotifyReset}
+                    className="ml-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors"
+                    title="Reset Spotify connection and clear all stored authentication data"
                   >
-                    Disconnect
+                    Reset
                   </button>
-                )}
-                
-                {/* Reset button - always available for troubleshooting */}
-                <button
-                  onClick={handleSpotifyReset}
-                  className="ml-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors"
-                  title="Reset Spotify connection and clear all stored authentication data"
-                >
-                  Reset
-                </button>
-        </div>
+                </div>
+              </div>
               
+              {/* Action buttons with proper touch targets */}
               <button
                 onClick={fetchData}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
+                className="p-2 text-gray-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="Refresh"
               >
                 <RefreshCw className="w-5 h-5" />
@@ -2044,17 +2063,17 @@ export default function AdminPanel() {
               
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                className="p-2 text-gray-400 hover:text-red-400 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="Logout"
               >
                 <XCircle className="w-5 h-5" />
               </button>
-      </div>
+            </div>
           </div>
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
+        <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6 overflow-y-auto">
           {renderActiveTab()}
         </main>
       </div>
