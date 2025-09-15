@@ -188,6 +188,102 @@ export default function SettingsPage() {
             </p>
           </div>
 
+          {/* Polling Intervals */}
+          <div className="bg-gray-700 rounded-lg p-4">
+            <h4 className="text-white font-medium mb-4">⏱️ Polling Intervals</h4>
+            <p className="text-gray-400 text-sm mb-4">
+              Configure how often different parts of the system refresh when real-time updates are not available (fallback mode)
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Admin Page Polling */}
+              <div>
+                <label htmlFor="admin_polling_interval" className="block text-sm font-medium text-gray-300 mb-2">
+                  Admin Page Refresh
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    id="admin_polling_interval"
+                    name="admin_polling_interval"
+                    value={formData.admin_polling_interval || 15}
+                    onChange={handleInputChange}
+                    min="5"
+                    max="300"
+                    className="flex-1 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-gray-400 text-sm">seconds</span>
+                </div>
+              </div>
+
+              {/* Display Page Polling */}
+              <div>
+                <label htmlFor="display_polling_interval" className="block text-sm font-medium text-gray-300 mb-2">
+                  Display Page Refresh
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    id="display_polling_interval"
+                    name="display_polling_interval"
+                    value={formData.display_polling_interval || 20}
+                    onChange={handleInputChange}
+                    min="5"
+                    max="300"
+                    className="flex-1 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-gray-400 text-sm">seconds</span>
+                </div>
+              </div>
+
+              {/* Now Playing Polling */}
+              <div>
+                <label htmlFor="now_playing_polling_interval" className="block text-sm font-medium text-gray-300 mb-2">
+                  Now Playing Status
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    id="now_playing_polling_interval"
+                    name="now_playing_polling_interval"
+                    value={formData.now_playing_polling_interval || 5}
+                    onChange={handleInputChange}
+                    min="1"
+                    max="60"
+                    className="flex-1 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-gray-400 text-sm">seconds</span>
+                </div>
+              </div>
+
+              {/* SSE Update Interval */}
+              <div>
+                <label htmlFor="sse_update_interval" className="block text-sm font-medium text-gray-300 mb-2">
+                  Real-time Updates
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    id="sse_update_interval"
+                    name="sse_update_interval"
+                    value={formData.sse_update_interval || 3}
+                    onChange={handleInputChange}
+                    min="1"
+                    max="30"
+                    className="flex-1 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="text-gray-400 text-sm">seconds</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-3 text-xs text-gray-500">
+              <p>• <strong>Admin/Display Refresh:</strong> How often pages refresh when SSE is unavailable</p>
+              <p>• <strong>Now Playing Status:</strong> How often the music progress bar updates</p>
+              <p>• <strong>Real-time Updates:</strong> How often SSE sends updates (affects server load)</p>
+            </div>
+          </div>
+
           {/* Auto Approve */}
           <div className="flex items-center">
             <input

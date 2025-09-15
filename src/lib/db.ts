@@ -61,6 +61,11 @@ export interface EventSettings {
   tertiary_message: string;
   show_qr_code: boolean;
   display_refresh_interval: number;
+  // Polling intervals (in seconds)
+  admin_polling_interval: number;
+  display_polling_interval: number;
+  now_playing_polling_interval: number;
+  sse_update_interval: number;
   updated_at: string;
 }
 
@@ -170,6 +175,33 @@ export async function initializeDatabase() {
       console.log('✅ Database constraint updated to include "played" status');
     } catch (migrationError) {
       console.log('ℹ️ Status constraint migration already applied or not needed');
+    }
+
+    // Migration: Add polling interval columns to event_settings
+    try {
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS admin_polling_interval INTEGER DEFAULT 15;
+      `);
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS display_polling_interval INTEGER DEFAULT 20;
+      `);
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS now_playing_polling_interval INTEGER DEFAULT 5;
+      `);
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS sse_update_interval INTEGER DEFAULT 3;
+      `);
+      
+      console.log('✅ Polling interval columns added to event_settings');
+    } catch (migrationError) {
+      console.log('ℹ️ Polling interval columns migration already applied or not needed');
     }
 
     await client.query(`

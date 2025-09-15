@@ -83,6 +83,11 @@ export interface EventSettings {
   tertiary_message: string;
   request_limit: number;
   auto_approve: boolean;
+  // Polling intervals (in seconds)
+  admin_polling_interval: number;
+  display_polling_interval: number;
+  now_playing_polling_interval: number;
+  sse_update_interval: number;
 }
 
 export interface Stats {

@@ -13,13 +13,16 @@ export default function OverviewPage() {
   } = useAdminData();
 
   const formatDuration = (ms: number) => {
+    if (!ms || isNaN(ms) || ms < 0) return '0:00';
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const formatProgress = (current: number, total: number) => {
-    return `${formatDuration(current)} / ${formatDuration(total)}`;
+    const currentFormatted = formatDuration(current);
+    const totalFormatted = formatDuration(total);
+    return `${currentFormatted} / ${totalFormatted}`;
   };
 
   if (loading) {
@@ -107,7 +110,11 @@ export default function OverviewPage() {
               <div 
                 className="bg-green-500 h-2 rounded-full transition-all duration-100"
                 style={{ 
-                  width: `${Math.min(100, (realtimeProgress / playbackState.duration_ms) * 100)}%` 
+                  width: `${Math.min(100, Math.max(0, 
+                    (realtimeProgress && playbackState.duration_ms && !isNaN(realtimeProgress) && !isNaN(playbackState.duration_ms)) 
+                      ? (realtimeProgress / playbackState.duration_ms) * 100 
+                      : 0
+                  ))}%` 
                 }}
               ></div>
             </div>
@@ -187,7 +194,7 @@ export default function OverviewPage() {
                   </p>
                 </div>
                 <span className="text-gray-500 text-xs">
-                  {formatDuration(track.duration_ms)}
+                  {formatDuration(track.duration_ms || 0)}
                 </span>
               </div>
             ))}
