@@ -19,6 +19,7 @@ import {
   GripVertical
 } from 'lucide-react';
 import SwipeToDelete from '../../components/SwipeToDelete';
+import { useRealtimeProgress, useInteractionLock } from '../../hooks/useRealtimeProgress';
 
 interface Request {
   id: string;
@@ -121,6 +122,19 @@ export default function AdminPanel() {
 
   // Mobile responsive state
   const [isMobile, setIsMobile] = useState(false);
+
+  // Real-time progress and interaction management
+  const { isInteracting, lockInteraction } = useInteractionLock();
+  
+  // Real-time progress for current track
+  const realtimeProgress = useRealtimeProgress(
+    playbackState?.current_track ? {
+      progress_ms: playbackState.current_track.progress_ms,
+      duration_ms: playbackState.current_track.duration_ms,
+      is_playing: playbackState.current_track.is_playing,
+      timestamp: Date.now() // We'll improve this with server timestamps later
+    } : null
+  );
 
   useEffect(() => {
     const checkMobile = () => {
@@ -409,8 +423,8 @@ export default function AdminPanel() {
     const interval = setInterval(() => {
       if (activeTab !== 'settings') {
         // Silent refresh - don't show loading states
-        // Only refresh if the page is visible to avoid unnecessary API calls
-        if (!document.hidden) {
+        // Only refresh if the page is visible and user is not interacting
+        if (!document.hidden && !isInteracting) {
           fetchData(false); // false = no background indicator for automatic refreshes
           markPlayedRequests(); // Check for played songs
           
@@ -621,6 +635,7 @@ export default function AdminPanel() {
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedItem(index);
     e.dataTransfer.effectAllowed = 'move';
+    lockInteraction(5000); // Lock refreshing for 5 seconds during drag
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
@@ -772,7 +787,8 @@ export default function AdminPanel() {
     );
   }
 
-  if (loading) {
+  // Only show loading screen on initial load, not during refreshes
+  if (loading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading admin panel...</div>
@@ -1041,7 +1057,7 @@ export default function AdminPanel() {
               </div>
               <div className="text-center sm:text-right">
                 <p className="text-gray-400 text-sm">
-                  {formatDuration(playbackState.current_track.progress_ms)} / {formatDuration(playbackState.current_track.duration_ms)}
+                  {formatDuration(realtimeProgress)} / {formatDuration(playbackState.current_track.duration_ms)}
                 </p>
                 {playbackState.device && (
                   <p className="text-gray-500 text-xs flex items-center justify-center sm:justify-end">
@@ -1508,15 +1524,15 @@ export default function AdminPanel() {
                 {/* Progress Bar */}
                 <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
                   <div 
-                    className="bg-purple-600 h-2 rounded-full transition-all duration-1000"
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-100"
                     style={{
-                      width: `${(detailedQueue.current_track.progress_ms / detailedQueue.current_track.duration_ms) * 100}%`
+                      width: `${(realtimeProgress / detailedQueue.current_track.duration_ms) * 100}%`
                     }}
                   />
                 </div>
                 
                 <div className="flex justify-between text-sm text-gray-400">
-                  <span>{formatDuration(detailedQueue.current_track.progress_ms)}</span>
+                  <span>{formatDuration(realtimeProgress)}</span>
                   <span>{formatDuration(detailedQueue.current_track.duration_ms)}</span>
                 </div>
               </div>
