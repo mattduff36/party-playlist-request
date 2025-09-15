@@ -14,11 +14,11 @@ import {
   XCircle,
   PlayCircle,
   Trash2,
-  ExternalLink,
   RefreshCw,
   Monitor,
   GripVertical
 } from 'lucide-react';
+import SwipeToDelete from '@/components/SwipeToDelete';
 
 interface Request {
   id: string;
@@ -1263,82 +1263,82 @@ export default function AdminPanel() {
               ) : (
             <div className="divide-y divide-gray-700">
               {allRequests.map((request) => (
-                <div 
-                  key={request.id} 
-                  className={`p-4 md:p-6 transition-colors ${getRequestBackgroundColor(request.status)} ${
-                    request.status === 'approved' 
-                      ? 'hover:opacity-80 cursor-pointer' 
-                      : 'hover:opacity-80'
-                  }`}
-                  onDoubleClick={request.status === 'approved' 
-                    ? () => handleDoubleClickMarkPlayed(request.id, request.track_name)
-                    : undefined
-                  }
-                  title={request.status === 'approved' ? 'Double-click to mark as played' : undefined}
+                <SwipeToDelete
+                  key={request.id}
+                  onDelete={() => handleDelete(request.id)}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div 
+                    className={`p-4 md:p-6 transition-colors ${getRequestBackgroundColor(request.status)} ${
+                      request.status === 'approved' 
+                        ? 'hover:opacity-80 cursor-pointer' 
+                        : 'hover:opacity-80'
+                    }`}
+                    onDoubleClick={request.status === 'approved' 
+                      ? () => handleDoubleClickMarkPlayed(request.id, request.track_name)
+                      : undefined
+                    }
+                    title={request.status === 'approved' ? 'Double-click to mark as played' : undefined}
+                  >
+                  <div className="flex items-center gap-3">
 
-                    {/* Track Info Section */}
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      {/* Album Art Placeholder */}
-                      <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Music className="w-6 h-6 text-gray-400" />
+                    {/* Album Art Placeholder */}
+                    <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Music className="w-6 h-6 text-gray-400" />
+                    </div>
+
+                    {/* Track Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-white font-medium truncate flex-1">
+                          {request.track_name}
+                        </h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)} flex-shrink-0`}>
+                          {request.status}
+                        </span>
                       </div>
-
-                      {/* Track Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                          <h3 className="text-white font-medium truncate">
-                            {request.track_name}
-                          </h3>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)} self-start sm:self-center`}>
-                            {request.status}
+                      
+                      <p className="text-gray-400 text-sm truncate">
+                        {request.artist_name} • {request.album_name}
+                      </p>
+                      
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
+                        <span>{formatDuration(request.duration_ms)}</span>
+                        <span>{formatTimeAgo(request.created_at)}</span>
+                        {request.requester_nickname && (
+                          <span className="text-purple-300">
+                            by {request.requester_nickname}
                           </span>
-                        </div>
-                        
-                        <p className="text-gray-400 text-sm truncate">
-                          {request.artist_name} • {request.album_name}
-                        </p>
-                        
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
-                          <span>{formatDuration(request.duration_ms)}</span>
-                          <span>{formatTimeAgo(request.created_at)}</span>
-                          {request.requester_nickname && (
-                            <span className="text-purple-300">
-                              by {request.requester_nickname}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       {request.status === 'pending' && (
                         <>
                           <button
                             onClick={() => handleApprove(request.id, true)}
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-h-[48px] w-full sm:w-auto"
+                            className="flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Play Next"
                           >
                             <PlayCircle className="w-5 h-5 text-white" />
-                            <span className="text-white text-sm font-medium">Play Next</span>
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Play Next</span>
                           </button>
                           <button
                             onClick={() => handleApprove(request.id)}
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-h-[48px] w-full sm:w-auto"
+                            className="flex items-center justify-center p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Accept"
                           >
                             <CheckCircle className="w-5 h-5 text-white" />
-                            <span className="text-white text-sm font-medium">Accept</span>
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Accept</span>
                           </button>
                           <button
                             onClick={() => handleReject(request.id)}
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-h-[48px] w-full sm:w-auto"
+                            className="flex items-center justify-center p-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Reject"
                           >
                             <XCircle className="w-5 h-5 text-white" />
-                            <span className="text-white text-sm font-medium">Reject</span>
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Reject</span>
                           </button>
                         </>
                       )}
@@ -1358,31 +1358,29 @@ export default function AdminPanel() {
                         <>
                           <div className="flex items-center space-x-2 text-red-400 text-sm">
                             <XCircle className="w-4 h-4" />
-                            <span>Rejected</span>
+                            <span className="hidden sm:inline">Rejected</span>
                             {request.rejection_reason && (
-                              <span className="text-gray-500" title={request.rejection_reason}>
+                              <span className="text-gray-500 hidden md:inline" title={request.rejection_reason}>
                                 ({request.rejection_reason})
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 mt-2 sm:mt-0 sm:ml-4">
-                            <button
-                              onClick={() => handleApprove(request.id, true)}
-                              className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs min-h-[40px]"
-                              title="Play Next"
-                            >
-                              <PlayCircle className="w-4 h-4" />
-                              <span>Play Next</span>
-                            </button>
-                            <button
-                              onClick={() => handleApprove(request.id)}
-                              className="flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-xs min-h-[40px]"
-                              title="Accept"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              <span>Accept</span>
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleApprove(request.id, true)}
+                            className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            title="Play Next"
+                          >
+                            <PlayCircle className="w-4 h-4 text-white" />
+                            <span className="hidden md:inline ml-1 text-white text-xs">Play Next</span>
+                          </button>
+                          <button
+                            onClick={() => handleApprove(request.id)}
+                            className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            title="Accept"
+                          >
+                            <CheckCircle className="w-4 h-4 text-white" />
+                            <span className="hidden md:inline ml-1 text-white text-xs">Accept</span>
+                          </button>
                         </>
                       )}
                       
@@ -1390,49 +1388,39 @@ export default function AdminPanel() {
                         <>
                           <div className="flex items-center space-x-2 text-purple-400 text-sm">
                             <CheckCircle className="w-4 h-4" />
-                            <span>Played</span>
+                            <span className="hidden sm:inline">Played</span>
                           </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 mt-2 sm:mt-0 sm:ml-4">
-                            <button
-                              onClick={() => handlePlayAgain(request.id, true)}
-                              className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs min-h-[40px]"
-                              title="Play Next"
-                            >
-                              <PlayCircle className="w-4 h-4" />
-                              <span>Play Next</span>
-                            </button>
-                            <button
-                              onClick={() => handlePlayAgain(request.id, false)}
-                              className="flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-xs min-h-[40px]"
-                              title="Add to Queue"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              <span>Add to Queue</span>
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handlePlayAgain(request.id, true)}
+                            className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            title="Play Next"
+                          >
+                            <PlayCircle className="w-4 h-4 text-white" />
+                            <span className="hidden md:inline ml-1 text-white text-xs">Play Next</span>
+                          </button>
+                          <button
+                            onClick={() => handlePlayAgain(request.id, false)}
+                            className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            title="Add to Queue"
+                          >
+                            <CheckCircle className="w-4 h-4 text-white" />
+                            <span className="hidden md:inline ml-1 text-white text-xs">Add to Queue</span>
+                          </button>
                         </>
                       )}
 
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 mt-2 sm:mt-0">
-                        <button
-                          onClick={() => window.open(`https://open.spotify.com/track/${request.track_uri.split(':')[2]}`, '_blank')}
-                          className="flex items-center justify-center p-3 text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] rounded-lg hover:bg-gray-700"
-                          title="Open in Spotify"
-                        >
-                          <ExternalLink className="w-5 h-5" />
-                        </button>
-                        
-                        <button
-                          onClick={() => handleDelete(request.id)}
-                          className="flex items-center justify-center p-3 text-gray-400 hover:text-red-400 transition-colors min-h-[44px] min-w-[44px] rounded-lg hover:bg-gray-700"
-                          title="Delete Request"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
+                      {/* Delete button - hidden on mobile, replaced with swipe gesture */}
+                      <button
+                        onClick={() => handleDelete(request.id)}
+                        className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-red-400 transition-colors min-h-[40px] min-w-[40px] rounded hover:bg-gray-700"
+                        title="Delete Request"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                </div>
+                  </div>
+                </SwipeToDelete>
                   ))}
                 </div>
           )}
@@ -1641,13 +1629,6 @@ export default function AdminPanel() {
                       {formatDuration(track.duration_ms)}
                     </div>
                     
-                    <button
-                      onClick={() => window.open(`https://open.spotify.com/track/${track.uri.split(':')[2]}`, '_blank')}
-                      className="p-2 text-gray-400 hover:text-white transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center rounded"
-                      title="Open in Spotify"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -1681,13 +1662,6 @@ export default function AdminPanel() {
               <span>Skip Current</span>
             </button>
             
-            <button
-              onClick={() => window.open('https://open.spotify.com/queue', '_blank')}
-              className="flex items-center justify-center space-x-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-            >
-              <ExternalLink className="w-5 h-5" />
-              <span>Open Spotify Queue</span>
-            </button>
             
             <button
               onClick={() => fetchData()}
