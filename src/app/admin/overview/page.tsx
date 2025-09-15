@@ -2,15 +2,19 @@
 
 import { Play, Pause, SkipForward, Volume2, Music, Users, Clock } from 'lucide-react';
 import { useAdminData } from '../../../hooks/useAdminData';
+import { useNowPlayingProgress } from '../../../hooks/useNowPlayingProgress';
 
 export default function OverviewPage() {
   const {
     playbackState,
     stats,
-    realtimeProgress,
+    eventSettings,
     handlePlaybackControl,
     loading
   } = useAdminData();
+
+  // Use the specialized now playing progress hook
+  const nowPlayingProgress = useNowPlayingProgress(playbackState, eventSettings);
 
   const formatDuration = (ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
@@ -100,7 +104,7 @@ export default function OverviewPage() {
                   {playbackState.artist_name} • {playbackState.album_name}
                 </p>
                 <p className="text-gray-500 text-xs mt-1">
-                  {formatProgress(realtimeProgress, playbackState.duration_ms)}
+                  {formatProgress(nowPlayingProgress, playbackState.duration_ms)}
                 </p>
               </div>
             </div>
@@ -111,8 +115,8 @@ export default function OverviewPage() {
                 className="bg-green-500 h-2 rounded-full transition-all duration-100"
                 style={{ 
                   width: `${Math.min(100, Math.max(0, 
-                    (realtimeProgress && playbackState.duration_ms && !isNaN(realtimeProgress) && !isNaN(playbackState.duration_ms)) 
-                      ? (realtimeProgress / playbackState.duration_ms) * 100 
+                    (nowPlayingProgress && playbackState.duration_ms && !isNaN(nowPlayingProgress) && !isNaN(playbackState.duration_ms)) 
+                      ? (nowPlayingProgress / playbackState.duration_ms) * 100 
                       : 0
                   ))}%` 
                 }}

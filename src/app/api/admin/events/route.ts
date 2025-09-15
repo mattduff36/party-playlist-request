@@ -37,9 +37,10 @@ export async function GET(req: NextRequest) {
         // Send initial connection message
         controller.enqueue(`data: ${JSON.stringify({ type: 'connected', timestamp: Date.now() })}\n\n`);
 
-        // Send periodic updates with shorter intervals to avoid Vercel timeout
+        // Send periodic updates with configurable intervals to avoid Vercel timeout
         let updateCount = 0;
-        const maxUpdates = 10; // Limit to 10 updates (50 seconds max)
+        let sseUpdateInterval = 3; // Default 3 seconds
+        let maxUpdates = 10; // Default to 10 updates
         
         const sendUpdate = async () => {
           try {
@@ -51,6 +52,13 @@ export async function GET(req: NextRequest) {
               getAllRequests(50, 0).catch(() => []),
               getEventSettings().catch(() => null)
             ]);
+
+            // Update SSE interval from settings (only on first update)
+            if (updateCount === 0 && eventSettings?.sse_update_interval) {
+              sseUpdateInterval = eventSettings.sse_update_interval;
+              maxUpdates = Math.floor(30 / sseUpdateInterval); // Keep connections under 30 seconds
+              console.log(`SSE using ${sseUpdateInterval}s intervals, max ${maxUpdates} updates`);
+            }
 
             // Get Spotify state if available
             let spotifyState = null;
@@ -98,7 +106,7 @@ export async function GET(req: NextRequest) {
             
             // Schedule next update or close connection
             if (updateCount < maxUpdates) {
-              setTimeout(sendUpdate, 3000); // 3 second intervals
+              setTimeout(sendUpdate, sseUpdateInterval * 1000); // Use configurable interval
             } else {
               // Send close signal and let client reconnect
               controller.enqueue(`data: ${JSON.stringify({ type: 'reconnect', message: 'Connection refresh needed' })}\n\n`);

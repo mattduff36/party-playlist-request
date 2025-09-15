@@ -266,9 +266,10 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       return;
     }
     
-    console.log('🔄 Setting up polling interval (real-time not available)');
+    // Get polling interval from settings (default to 15 seconds if not available)
+    const pollingInterval = (eventSettings?.admin_polling_interval || 15) * 1000; // Convert to milliseconds
+    console.log(`🔄 Setting up polling interval: ${pollingInterval/1000}s (real-time not available)`);
     
-    // Auto-refresh every 30 seconds
     let refreshCount = 0;
     const interval = setInterval(() => {
       console.log('⏰ Polling tick - hidden:', document.hidden, 'interacting:', isInteracting);
@@ -279,7 +280,7 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
         console.log('🔄 Running scheduled refresh');
         fetchData(false); // false = no background indicator for automatic refreshes
         
-        // Run cleanup every 4th refresh (every 2 minutes)
+        // Run cleanup every 4th refresh
         refreshCount++;
         if (refreshCount % 4 === 0) {
           // Could add cleanup logic here if needed
@@ -287,13 +288,13 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       } else {
         console.log('⏸️ Skipping refresh - page hidden or user interacting');
       }
-    }, 30000); // 30 seconds
+    }, pollingInterval);
     
     return () => {
       console.log('🧹 Cleaning up polling interval');
       clearInterval(interval);
     };
-  }, [isAuthenticated, isInteracting, fetchData, disablePolling, realtimeUpdates.isConnected, realtimeUpdates.connectionType]);
+  }, [isAuthenticated, isInteracting, fetchData, disablePolling, realtimeUpdates.isConnected, realtimeUpdates.connectionType, eventSettings?.admin_polling_interval]);
 
   // Action handlers - all use HTTP since SSE doesn't support sending actions
   const handleApprove = async (id: string, playNext = false) => {

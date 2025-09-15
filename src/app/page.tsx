@@ -42,6 +42,11 @@ interface EventSettings {
   tertiary_message: string;
   show_qr_code: boolean;
   display_refresh_interval: number;
+  // Polling intervals (in seconds) - optional for compatibility
+  admin_polling_interval?: number;
+  display_polling_interval?: number;
+  now_playing_polling_interval?: number;
+  sse_update_interval?: number;
 }
 
 const API_BASE = '/api';
