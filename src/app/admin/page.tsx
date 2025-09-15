@@ -416,28 +416,45 @@ export default function AdminPanel() {
     if (!isAuthenticated) return;
 
     fetchData();
+  }, [isAuthenticated]);
+
+  // Separate useEffect for polling to avoid recreating intervals on tab changes
+  useEffect(() => {
+    if (!isAuthenticated) return;
     
-    // Auto-refresh every 15 seconds for better UX, but not on settings tab
-    // Increased from 10s to 15s to reduce server load and UI updates
+    console.log('🔄 Setting up polling interval');
+    
+    // Auto-refresh every 30 seconds (increased to reduce load)
     let refreshCount = 0;
     const interval = setInterval(() => {
+      console.log('⏰ Polling tick - tab:', activeTab, 'hidden:', document.hidden, 'interacting:', isInteracting);
+      
       if (activeTab !== 'settings') {
         // Silent refresh - don't show loading states
         // Only refresh if the page is visible and user is not interacting
         if (!document.hidden && !isInteracting) {
+          console.log('🔄 Running scheduled refresh');
           fetchData(false); // false = no background indicator for automatic refreshes
           markPlayedRequests(); // Check for played songs
           
-          // Run cleanup every 4th refresh (every minute)
+          // Run cleanup every 4th refresh (every 2 minutes)
           refreshCount++;
           if (refreshCount % 4 === 0) {
             cleanupPlayedRequests(); // Cleanup old played songs
           }
+        } else {
+          console.log('⏸️ Skipping refresh - page hidden or user interacting');
         }
+      } else {
+        console.log('⏸️ Skipping refresh - on settings tab');
       }
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated, activeTab]);
+    }, 30000); // Increased from 15s to 30s
+    
+    return () => {
+      console.log('🧹 Cleaning up polling interval');
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]); // Only depend on authentication
 
   // Spotify connection functions
   const handleSpotifyConnect = async () => {
@@ -1174,6 +1191,7 @@ export default function AdminPanel() {
 
   // Requests Tab
   const RequestsTab = () => {
+    console.log('📋 RequestsTab component rendering');
     const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
     const [allRequests, setAllRequests] = useState<Request[]>([]);
 
@@ -1181,6 +1199,7 @@ export default function AdminPanel() {
     useEffect(() => {
       const fetchRequests = async () => {
         try {
+          console.log('📋 RequestsTab: Fetching requests for filter:', filterStatus);
           const token = localStorage.getItem('admin_token');
           const url = filterStatus === 'all' 
             ? '/api/admin/requests?limit=100'
