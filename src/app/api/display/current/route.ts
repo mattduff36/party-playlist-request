@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
-import { getEventSettings } from '@/lib/db';
+import { getEventSettings, getRequestsByStatus } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,23 +29,31 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Get queue data with album art from existing data
+    // Get queue data with album art from existing data and approved requests
     let upcomingSongs = [];
     try {
-      const queueData = await spotifyService.getQueue();
+      const [queueData, approvedRequests] = await Promise.all([
+        spotifyService.getQueue().catch(() => null),
+        getRequestsByStatus('approved', 10).catch(() => [])
+      ]);
+      
       if (queueData?.queue) {
-        upcomingSongs = queueData.queue.slice(0, 3).map((item: any) => {
+        upcomingSongs = queueData.queue.slice(0, 5).map((item: any) => {
           // Use album art from the queue response instead of making additional API calls
           const albumImages = item.album?.images || [];
           const imageUrl = albumImages.length > 0 ? 
             (albumImages[1]?.url || albumImages[0]?.url) : null;
+          
+          // Find matching approved request to get requester name
+          const matchingRequest = approvedRequests.find((req: any) => req.track_uri === item.uri);
           
           return {
             name: item.name,
             artists: item.artists.map((a: any) => a.name),
             album: item.album.name,
             uri: item.uri,
-            image_url: imageUrl
+            image_url: imageUrl,
+            requester_nickname: matchingRequest?.requester_nickname || null
           };
         });
       }

@@ -30,15 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined);
         queueSuccess = true;
         
-        // If play_next is true, skip the current track to play this one next
-        if (play_next) {
-          try {
-            await spotifyService.skipToNext(deviceSetting || undefined);
-          } catch (skipError) {
-            console.error('Error skipping to next track:', skipError);
-            // Don't fail the whole operation if skip fails
-          }
-        }
+        // Note: Spotify API doesn't support adding to front of queue directly
+        // The track will be added to the end of the queue and will play after current queue items
+        // play_next parameter is kept for future enhancement or different queue management strategy
       } catch (error) {
         console.error('Error adding to queue:', error);
         errors.push('Failed to add to Spotify queue');
@@ -74,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       success: true,
-      message: play_next && queueSuccess ? 'Request approved and playing next' : 'Request processed',
+      message: play_next && queueSuccess ? 'Request approved and added to queue' : 'Request processed',
       result: {
         status: newStatus,
         queue_added: queueSuccess,

@@ -16,7 +16,8 @@ import {
   Trash2,
   ExternalLink,
   RefreshCw,
-  Monitor
+  Monitor,
+  GripVertical
 } from 'lucide-react';
 
 interface Request {
@@ -96,6 +97,8 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
+  const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<number | null>(null);
 
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -587,6 +590,63 @@ export default function AdminPanel() {
     } catch (err) {
       console.error('Error rejecting request:', err);
     }
+  };
+
+  const handlePlayAgain = async (requestId: string, playNext = false) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/play-again/${requestId}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ play_next: playNext })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`🎵 Added played song back to queue: ${data.message}`);
+        fetchData(); // Refresh data to show updated status
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to add played song to queue:', errorData.error);
+      }
+    } catch (err) {
+      console.error('Error adding played song to queue:', err);
+    }
+  };
+
+  // Drag and drop handlers for queue reordering
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedItem(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverItem(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverItem(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedItem === null) return;
+
+    // Show a message about Spotify API limitations
+    alert('Note: Spotify\'s Web API doesn\'t support reordering the playback queue directly. The queue order is managed by Spotify and follows its own logic. This drag-and-drop interface is for demonstration purposes.');
+    
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
   };
 
   const handleDelete = async (requestId: string) => {
@@ -1257,24 +1317,27 @@ export default function AdminPanel() {
                         <>
                           <button
                             onClick={() => handleApprove(request.id, true)}
-                            className="p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors group"
+                            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors group"
                             title="Play Next"
                           >
-                            <PlayCircle className="w-4 h-4 text-white" />
+                            <PlayCircle className="w-5 h-5 text-white" />
+                            <span className="hidden sm:inline text-white text-sm font-medium">Play Next</span>
                           </button>
                           <button
                             onClick={() => handleApprove(request.id)}
-                            className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                             title="Add to Queue"
                           >
-                            <CheckCircle className="w-4 h-4 text-white" />
+                            <CheckCircle className="w-5 h-5 text-white" />
+                            <span className="hidden sm:inline text-white text-sm font-medium">Accept</span>
                           </button>
                           <button
                             onClick={() => handleReject(request.id)}
-                            className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                             title="Reject"
                           >
-                            <XCircle className="w-4 h-4 text-white" />
+                            <XCircle className="w-5 h-5 text-white" />
+                            <span className="hidden sm:inline text-white text-sm font-medium">Reject</span>
                           </button>
                         </>
                       )}
@@ -1301,20 +1364,22 @@ export default function AdminPanel() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center space-x-1 ml-4">
-                    <button
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button
                               onClick={() => handleApprove(request.id, true)}
-                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
                               title="Play Next"
                             >
-                              <PlayCircle className="w-3 h-3" />
-                    </button>
+                              <PlayCircle className="w-4 h-4" />
+                              <span className="hidden md:inline">Play Next</span>
+                            </button>
                             <button
                               onClick={() => handleApprove(request.id)}
-                              className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
                               title="Add to Queue"
                             >
-                              <CheckCircle className="w-3 h-3" />
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="hidden md:inline">Accept</span>
                             </button>
                           </div>
                         </>
@@ -1326,20 +1391,22 @@ export default function AdminPanel() {
                             <CheckCircle className="w-4 h-4" />
                             <span>Played</span>
                           </div>
-                          <div className="flex items-center space-x-1 ml-4">
+                          <div className="flex items-center space-x-2 ml-4">
                             <button
-                              onClick={() => handleApprove(request.id, true)}
-                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
+                              onClick={() => handlePlayAgain(request.id, true)}
+                              className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-xs"
                               title="Play Next"
                             >
-                              <PlayCircle className="w-3 h-3" />
+                              <PlayCircle className="w-4 h-4" />
+                              <span className="hidden md:inline">Play Next</span>
                             </button>
                             <button
-                              onClick={() => handleApprove(request.id)}
-                              className="p-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
+                              onClick={() => handlePlayAgain(request.id, false)}
+                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-xs"
                               title="Add to Queue"
                             >
-                              <CheckCircle className="w-3 h-3" />
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="hidden md:inline">Add to Queue</span>
                             </button>
                           </div>
                         </>
@@ -1513,17 +1580,37 @@ export default function AdminPanel() {
 
           {detailedQueue?.queue && detailedQueue.queue.length > 0 ? (
             <div className="space-y-3">
-              <p className="text-gray-400 text-sm mb-4">
-                {detailedQueue.queue.length} songs in queue
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-gray-400 text-sm">
+                  {detailedQueue.queue.length} songs in queue
+                </p>
+                <p className="text-xs text-purple-400">
+                  💡 Drag songs to reorder (demo only - Spotify API limitation)
+                </p>
+              </div>
               
               {detailedQueue.queue.slice(0, 10).map((track: any, index: number) => (
                 <div 
                   key={`${track.uri}-${index}`}
-                  className="flex items-center space-x-4 p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center space-x-4 p-3 rounded-lg transition-colors cursor-move ${
+                    draggedItem === index 
+                      ? 'bg-purple-600/30 border-2 border-purple-500' 
+                      : dragOverItem === index 
+                        ? 'bg-purple-600/20 border-2 border-purple-400 border-dashed' 
+                        : 'bg-gray-700/50 hover:bg-gray-700'
+                  }`}
                 >
-                  <div className="text-gray-400 font-medium w-8 text-center">
-                    {index + 1}
+                  <div className="flex items-center space-x-2">
+                    <GripVertical className="w-4 h-4 text-gray-500 cursor-grab active:cursor-grabbing" />
+                    <div className="text-gray-400 font-medium w-6 text-center">
+                      {index + 1}
+                    </div>
                   </div>
                   
                   {track.image_url && (

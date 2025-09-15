@@ -271,6 +271,9 @@ export default function DisplayPage() {
                       <div key={song.uri} className="text-sm">
                         <span className="font-semibold">{index + 1}. {song.name}</span>
                         <span className="text-gray-300"> - {song.artists.join(', ')}</span>
+                        {song.requester_nickname && (
+                          <div className="text-xs text-purple-200">Requested by {song.requester_nickname}</div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -339,6 +342,9 @@ export default function DisplayPage() {
                 <div key={song.uri} className="text-xs">
                   <span className="font-semibold">{index + 1}. {song.name}</span>
                   <div className="text-gray-300">{song.artists.join(', ')}</div>
+                  {song.requester_nickname && (
+                    <div className="text-xs text-purple-200">Requested by {song.requester_nickname}</div>
+                  )}
                 </div>
               ))}
             </div>
