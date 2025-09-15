@@ -18,7 +18,7 @@ import {
   Monitor,
   GripVertical
 } from 'lucide-react';
-import SwipeToDelete from '@/components/SwipeToDelete';
+import SwipeToDelete from '../../components/SwipeToDelete';
 
 interface Request {
   id: string;
@@ -934,7 +934,6 @@ export default function AdminPanel() {
         >
           <Monitor className="w-5 h-5 mr-3" />
           Display Screen
-          <ExternalLink className="w-4 h-4 ml-auto" />
         </a>
           </div>
         </div>
@@ -1279,46 +1278,46 @@ export default function AdminPanel() {
                     }
                     title={request.status === 'approved' ? 'Double-click to mark as played' : undefined}
                   >
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col md:flex-row md:items-center gap-3">
+                    {/* Track Info */}
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {/* Album Art Placeholder */}
+                      <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Music className="w-6 h-6 text-gray-400" />
+                      </div>
 
-                    {/* Album Art Placeholder */}
-                    <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Music className="w-6 h-6 text-gray-400" />
-                    </div>
-
-                    {/* Track Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-white font-medium truncate flex-1">
+                      {/* Track Details */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-medium truncate mb-1">
                           {request.track_name}
                         </h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)} flex-shrink-0`}>
-                          {request.status}
-                        </span>
-                      </div>
-                      
-                      <p className="text-gray-400 text-sm truncate">
-                        {request.artist_name} • {request.album_name}
-                      </p>
-                      
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
-                        <span>{formatDuration(request.duration_ms)}</span>
-                        <span>{formatTimeAgo(request.created_at)}</span>
-                        {request.requester_nickname && (
-                          <span className="text-purple-300">
-                            by {request.requester_nickname}
-                          </span>
-                        )}
+                        
+                        <p className="text-gray-400 text-sm truncate">
+                          {request.artist_name} • {request.album_name}
+                        </p>
+                        
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
+                          <span>{formatDuration(request.duration_ms)}</span>
+                          <span>{formatTimeAgo(request.created_at)}</span>
+                          {request.requester_nickname && (
+                            <span className="text-purple-300">
+                              by {request.requester_nickname}
+                            </span>
+                          )}
+                          {request.status === 'approved' && (
+                            <span className="text-xs text-gray-400 italic">• Double-click to mark played</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Actions - Full width on mobile, inline on desktop */}
+                    <div className="flex items-center gap-2 w-full md:w-auto md:flex-shrink-0">
                       {request.status === 'pending' && (
                         <>
                           <button
                             onClick={() => handleApprove(request.id, true)}
-                            className="flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Play Next"
                           >
                             <PlayCircle className="w-5 h-5 text-white" />
@@ -1326,7 +1325,7 @@ export default function AdminPanel() {
                           </button>
                           <button
                             onClick={() => handleApprove(request.id)}
-                            className="flex items-center justify-center p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Accept"
                           >
                             <CheckCircle className="w-5 h-5 text-white" />
@@ -1334,7 +1333,7 @@ export default function AdminPanel() {
                           </button>
                           <button
                             onClick={() => handleReject(request.id)}
-                            className="flex items-center justify-center p-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Reject"
                           >
                             <XCircle className="w-5 h-5 text-white" />
@@ -1343,68 +1342,49 @@ export default function AdminPanel() {
                         </>
                       )}
                       
-                      {request.status === 'approved' && (
-                        <div className="flex items-center space-x-2 text-green-400 text-sm">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Approved</span>
-                          {request.approved_by && (
-                            <span className="text-gray-500">by {request.approved_by}</span>
-                          )}
-                          <span className="text-xs text-gray-400 italic">• Double-click to mark played</span>
-                        </div>
-                      )}
-                      
                       {request.status === 'rejected' && (
                         <>
-                          <div className="flex items-center space-x-2 text-red-400 text-sm">
-                            <XCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">Rejected</span>
-                            {request.rejection_reason && (
-                              <span className="text-gray-500 hidden md:inline" title={request.rejection_reason}>
-                                ({request.rejection_reason})
-                              </span>
-                            )}
-                          </div>
                           <button
                             onClick={() => handleApprove(request.id, true)}
-                            className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Play Next"
                           >
-                            <PlayCircle className="w-4 h-4 text-white" />
-                            <span className="hidden md:inline ml-1 text-white text-xs">Play Next</span>
+                            <PlayCircle className="w-5 h-5 text-white" />
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Play Next</span>
                           </button>
                           <button
                             onClick={() => handleApprove(request.id)}
-                            className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Accept"
                           >
-                            <CheckCircle className="w-4 h-4 text-white" />
-                            <span className="hidden md:inline ml-1 text-white text-xs">Accept</span>
+                            <CheckCircle className="w-5 h-5 text-white" />
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Accept</span>
                           </button>
+                          {request.rejection_reason && (
+                            <span className="text-gray-500 text-xs hidden md:inline ml-2" title={request.rejection_reason}>
+                              ({request.rejection_reason})
+                            </span>
+                          )}
                         </>
                       )}
                       
                       {request.status === 'played' && (
                         <>
-                          <div className="flex items-center space-x-2 text-purple-400 text-sm">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">Played</span>
-                          </div>
                           <button
                             onClick={() => handlePlayAgain(request.id, true)}
-                            className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Play Next"
                           >
-                            <PlayCircle className="w-4 h-4 text-white" />
-                            <span className="hidden md:inline ml-1 text-white text-xs">Play Next</span>
+                            <PlayCircle className="w-5 h-5 text-white" />
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Play Next</span>
                           </button>
                           <button
                             onClick={() => handlePlayAgain(request.id, false)}
-                            className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded transition-colors min-w-[40px] min-h-[40px]"
+                            className="flex-1 md:flex-none flex items-center justify-center p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[44px] min-h-[44px]"
                             title="Add to Queue"
                           >
-                            <CheckCircle className="w-4 h-4 text-white" />
-                            <span className="hidden md:inline ml-1 text-white text-xs">Add to Queue</span>
+                            <CheckCircle className="w-5 h-5 text-white" />
+                            <span className="hidden md:inline ml-2 text-white text-sm font-medium">Add to Queue</span>
                           </button>
                         </>
                       )}
@@ -1938,7 +1918,6 @@ export default function AdminPanel() {
           >
             <Monitor className="w-5 h-5" />
             <span>Open Display Screen</span>
-            <ExternalLink className="w-4 h-4" />
           </a>
                 </div>
       </div>
