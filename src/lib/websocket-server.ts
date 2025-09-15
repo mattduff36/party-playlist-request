@@ -100,8 +100,15 @@ class WebSocketManager {
   }
 
   private async verifyAdminToken(token: string): Promise<boolean> {
-    // Reuse existing admin token verification logic
-    return token === process.env.ADMIN_TOKEN;
+    try {
+      // Use the same JWT verification as the REST API
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      return decoded && decoded.username === 'admin';
+    } catch (error) {
+      console.error('JWT verification failed:', error);
+      return false;
+    }
   }
 
   private async handleAdminAction(action: any, socketId: string) {

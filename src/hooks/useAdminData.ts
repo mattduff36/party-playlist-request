@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRealtimeProgress, useInteractionLock } from './useRealtimeProgress';
+import { useWebSocket } from './useWebSocket';
 
 export interface Request {
   id: string;
@@ -51,8 +52,8 @@ export interface Stats {
   unique_requesters: number;
 }
 
-export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
-  const { disablePolling = false } = options;
+export const useAdminData = (options: { disablePolling?: boolean; useWebSocket?: boolean } = {}) => {
+  const { disablePolling = false, useWebSocket: enableWebSocket = true } = options;
   const [requests, setRequests] = useState<Request[]>([]);
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
@@ -63,10 +64,50 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   const [lastSpotifyFailure, setLastSpotifyFailure] = useState(0);
 
   const { isInteracting, lockInteraction } = useInteractionLock();
+  const webSocket = useWebSocket();
   const realtimeProgress = useRealtimeProgress(playbackState);
 
   // Check if user is authenticated
   const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('admin_token');
+
+  // Sync WebSocket data with local state
+  useEffect(() => {
+    if (enableWebSocket && webSocket.adminData) {
+      console.log('🔄 Syncing WebSocket data to local state');
+      
+      if (webSocket.adminData.requests) {
+        setRequests(webSocket.adminData.requests);
+      }
+      
+      if (webSocket.adminData.spotify_state) {
+        const spotifyState = webSocket.adminData.spotify_state;
+        setPlaybackState({
+          is_playing: spotifyState.is_playing,
+          progress_ms: spotifyState.progress_ms,
+          duration_ms: spotifyState.current_track?.duration_ms || 0,
+          track_name: spotifyState.current_track?.name || '',
+          artist_name: spotifyState.current_track?.artists?.[0]?.name || '',
+          album_name: spotifyState.current_track?.album?.name || '',
+          album_image_url: spotifyState.current_track?.album?.images?.[0]?.url,
+          device_name: spotifyState.playback_state?.device?.name,
+          volume_percent: spotifyState.playback_state?.device?.volume_percent,
+          spotify_connected: true,
+          queue: spotifyState.queue || [],
+          timestamp: spotifyState.timestamp
+        });
+      }
+      
+      if (webSocket.adminData.event_settings) {
+        setEventSettings(webSocket.adminData.event_settings);
+      }
+      
+      if (webSocket.adminData.stats) {
+        setStats(webSocket.adminData.stats);
+      }
+      
+      setLoading(false);
+    }
+  }, [enableWebSocket, webSocket.adminData]);
 
   // Fetch all data with authentication
   const fetchData = useCallback(async (showBackgroundIndicator = false) => {
@@ -167,10 +208,17 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   }, [isAuthenticated, fetchData]);
 
   // Separate useEffect for polling to avoid recreating intervals
+  // Only use polling when WebSocket is disabled or not connected
   useEffect(() => {
     if (!isAuthenticated || disablePolling) return;
     
-    console.log('🔄 Setting up polling interval');
+    // Skip polling if WebSocket is enabled and connected
+    if (enableWebSocket && webSocket.isConnected && webSocket.isAuthenticated) {
+      console.log('🔌 WebSocket connected - skipping polling');
+      return;
+    }
+    
+    console.log('🔄 Setting up polling interval (WebSocket not available)');
     
     // Auto-refresh every 30 seconds
     let refreshCount = 0;
@@ -197,66 +245,84 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       console.log('🧹 Cleaning up polling interval');
       clearInterval(interval);
     };
-  }, [isAuthenticated, isInteracting, fetchData, disablePolling]);
+  }, [isAuthenticated, isInteracting, fetchData, disablePolling, enableWebSocket, webSocket.isConnected, webSocket.isAuthenticated]);
 
   // Action handlers
   const handleApprove = async (id: string, playNext = false) => {
     lockInteraction(3000);
-    const token = localStorage.getItem('admin_token');
-    try {
-      const response = await fetch(`/api/admin/approve/${id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ play_next: playNext }),
-      });
-      
-      if (response.ok) {
-        fetchData();
+    
+    // Use WebSocket if available, otherwise fall back to HTTP
+    if (enableWebSocket && webSocket.isAuthenticated) {
+      webSocket.sendAction('approve-request', { requestId: id, playNext });
+    } else {
+      const token = localStorage.getItem('admin_token');
+      try {
+        const response = await fetch(`/api/admin/approve/${id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ play_next: playNext }),
+        });
+        
+        if (response.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error('Error approving request:', error);
       }
-    } catch (error) {
-      console.error('Error approving request:', error);
     }
   };
 
   const handleReject = async (id: string) => {
     lockInteraction(3000);
-    const token = localStorage.getItem('admin_token');
-    try {
-      const response = await fetch(`/api/admin/reject/${id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        fetchData();
+    
+    // Use WebSocket if available, otherwise fall back to HTTP
+    if (enableWebSocket && webSocket.isAuthenticated) {
+      webSocket.sendAction('reject-request', { requestId: id });
+    } else {
+      const token = localStorage.getItem('admin_token');
+      try {
+        const response = await fetch(`/api/admin/reject/${id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error('Error rejecting request:', error);
       }
-    } catch (error) {
-      console.error('Error rejecting request:', error);
     }
   };
 
   const handleDelete = async (id: string) => {
     lockInteraction(3000);
-    const token = localStorage.getItem('admin_token');
-    try {
-      const response = await fetch(`/api/admin/delete/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        fetchData();
+    
+    // Use WebSocket if available, otherwise fall back to HTTP
+    if (enableWebSocket && webSocket.isAuthenticated) {
+      webSocket.sendAction('delete-request', { requestId: id });
+    } else {
+      const token = localStorage.getItem('admin_token');
+      try {
+        const response = await fetch(`/api/admin/delete/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error('Error deleting request:', error);
       }
-    } catch (error) {
-      console.error('Error deleting request:', error);
     }
   };
 
@@ -283,21 +349,27 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
 
   const handlePlaybackControl = async (action: 'play' | 'pause' | 'skip') => {
     lockInteraction(3000);
-    const token = localStorage.getItem('admin_token');
-    try {
-      const endpoint = action === 'skip' ? 'skip' : action === 'play' ? 'resume' : 'pause';
-      const response = await fetch(`/api/admin/playback/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        fetchData();
+    
+    // Use WebSocket if available, otherwise fall back to HTTP
+    if (enableWebSocket && webSocket.isAuthenticated) {
+      webSocket.sendAction('playback-control', { action });
+    } else {
+      const token = localStorage.getItem('admin_token');
+      try {
+        const endpoint = action === 'skip' ? 'skip' : action === 'play' ? 'resume' : 'pause';
+        const response = await fetch(`/api/admin/playback/${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error(`Error ${action}ing playback:`, error);
       }
-    } catch (error) {
-      console.error(`Error ${action}ing playback:`, error);
     }
   };
 
@@ -333,6 +405,10 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     loading,
     isBackgroundRefreshing,
     isInteracting,
+    
+    // WebSocket state
+    isWebSocketConnected: enableWebSocket ? webSocket.isConnected : false,
+    isWebSocketAuthenticated: enableWebSocket ? webSocket.isAuthenticated : false,
     
     // Actions
     fetchData,
