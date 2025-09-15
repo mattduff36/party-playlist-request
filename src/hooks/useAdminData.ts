@@ -1,0 +1,346 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRealtimeProgress, useInteractionLock } from './useRealtimeProgress';
+
+export interface Request {
+  id: string;
+  track_uri: string;
+  track_name: string;
+  artist_name: string;
+  album_name: string;
+  duration_ms: number;
+  requester_nickname?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
+  created_at: string;
+  approved_at?: string;
+  approved_by?: string;
+  rejection_reason?: string;
+}
+
+export interface PlaybackState {
+  is_playing: boolean;
+  progress_ms: number;
+  duration_ms: number;
+  track_name: string;
+  artist_name: string;
+  album_name: string;
+  album_image_url?: string;
+  device_name?: string;
+  volume_percent?: number;
+  spotify_connected: boolean;
+  queue?: any[];
+  timestamp: number;
+}
+
+export interface EventSettings {
+  event_title: string;
+  welcome_message: string;
+  secondary_message: string;
+  tertiary_message: string;
+  request_limit: number;
+  auto_approve: boolean;
+}
+
+export interface Stats {
+  total_requests: number;
+  pending_requests: number;
+  approved_requests: number;
+  rejected_requests: number;
+  played_requests: number;
+  unique_requesters: number;
+}
+
+export const useAdminData = () => {
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
+  const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
+  const [spotifyFailureCount, setSpotifyFailureCount] = useState(0);
+  const [lastSpotifyFailure, setLastSpotifyFailure] = useState(0);
+
+  const { isInteracting, lockInteraction } = useInteractionLock();
+  const realtimeProgress = useRealtimeProgress(playbackState);
+
+  // Check if user is authenticated
+  const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('admin_token');
+
+  // Fetch all data with authentication
+  const fetchData = useCallback(async (showBackgroundIndicator = false) => {
+    if (!isAuthenticated) return;
+
+    const token = localStorage.getItem('admin_token');
+    if (!token) return;
+
+    try {
+      if (showBackgroundIndicator) {
+        setIsBackgroundRefreshing(true);
+      }
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
+      // Circuit breaker: Skip Spotify queue requests if they've been failing
+      const now = Date.now();
+      const shouldSkipSpotify = spotifyFailureCount >= 3 && (now - lastSpotifyFailure) < 60000;
+      
+      let queueRes;
+      if (shouldSkipSpotify) {
+        console.log('🚫 Skipping Spotify queue request due to circuit breaker');
+        queueRes = { ok: false, status: 503, json: async () => ({ spotify_connected: false }) };
+      }
+      
+      const requests = [
+        fetch('/api/admin/requests?limit=100', { headers }),
+        shouldSkipSpotify ? Promise.resolve(queueRes) : fetch('/api/admin/queue/details', { headers }),
+        fetch('/api/admin/event-settings', { headers }),
+        fetch('/api/admin/stats', { headers })
+      ];
+      
+      const [requestsRes, queueResponse, settingsRes, statsRes] = await Promise.all(requests);
+      queueRes = queueResponse;
+
+      // Check for authentication errors (but not Spotify-related 401s)
+      if (requestsRes.status === 401 || settingsRes.status === 401 || statsRes.status === 401) {
+        localStorage.removeItem('admin_token');
+        window.location.reload();
+        return;
+      }
+
+      // Handle requests
+      if (requestsRes.ok) {
+        const requestsData = await requestsRes.json();
+        setRequests(requestsData.requests || []);
+      }
+
+      // Handle Spotify queue with circuit breaker
+      if (queueRes && queueRes.ok) {
+        const queueData = await queueRes.json();
+        if (queueData.spotify_connected) {
+          setPlaybackState({
+            ...queueData,
+            timestamp: Date.now() // Add timestamp for real-time progress
+          });
+          // Reset failure count on success
+          if (spotifyFailureCount > 0) {
+            setSpotifyFailureCount(0);
+            setLastSpotifyFailure(0);
+          }
+        } else {
+          setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
+        }
+      } else if (queueRes && !shouldSkipSpotify) {
+        // Only increment failure count for actual failures, not circuit breaker skips
+        setSpotifyFailureCount(prev => prev + 1);
+        setLastSpotifyFailure(now);
+        setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
+      }
+
+      // Handle settings
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        setEventSettings(settingsData);
+      }
+
+      // Handle stats
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
+      setLoading(false);
+      setIsBackgroundRefreshing(false);
+    }
+  }, [isAuthenticated, spotifyFailureCount, lastSpotifyFailure]);
+
+  // Auto-refresh data when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchData(); // Initial fetch only
+  }, [isAuthenticated, fetchData]);
+
+  // Separate useEffect for polling to avoid recreating intervals
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    console.log('🔄 Setting up polling interval');
+    
+    // Auto-refresh every 30 seconds
+    let refreshCount = 0;
+    const interval = setInterval(() => {
+      console.log('⏰ Polling tick - hidden:', document.hidden, 'interacting:', isInteracting);
+      
+      // Silent refresh - don't show loading states
+      // Only refresh if the page is visible and user is not interacting
+      if (!document.hidden && !isInteracting) {
+        console.log('🔄 Running scheduled refresh');
+        fetchData(false); // false = no background indicator for automatic refreshes
+        
+        // Run cleanup every 4th refresh (every 2 minutes)
+        refreshCount++;
+        if (refreshCount % 4 === 0) {
+          // Could add cleanup logic here if needed
+        }
+      } else {
+        console.log('⏸️ Skipping refresh - page hidden or user interacting');
+      }
+    }, 30000); // 30 seconds
+    
+    return () => {
+      console.log('🧹 Cleaning up polling interval');
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, isInteracting, fetchData]);
+
+  // Action handlers
+  const handleApprove = async (id: string, playNext = false) => {
+    lockInteraction(3000);
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/approve/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ play_next: playNext }),
+      });
+      
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Error approving request:', error);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    lockInteraction(3000);
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/reject/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    lockInteraction(3000);
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/delete/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Error deleting request:', error);
+    }
+  };
+
+  const handlePlayAgain = async (id: string, playNext: boolean) => {
+    lockInteraction(3000);
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch(`/api/admin/play-again/${id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ play_next: playNext }),
+      });
+      
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Error playing request again:', error);
+    }
+  };
+
+  const handlePlaybackControl = async (action: 'play' | 'pause' | 'skip') => {
+    lockInteraction(3000);
+    const token = localStorage.getItem('admin_token');
+    try {
+      const endpoint = action === 'skip' ? 'skip' : action === 'play' ? 'resume' : 'pause';
+      const response = await fetch(`/api/admin/playback/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing playback:`, error);
+    }
+  };
+
+  const updateEventSettings = async (settings: Partial<EventSettings>) => {
+    const token = localStorage.getItem('admin_token');
+    try {
+      const response = await fetch('/api/admin/event-settings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
+      
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
+    }
+  };
+
+  return {
+    // Data
+    requests,
+    playbackState,
+    eventSettings,
+    stats,
+    realtimeProgress,
+    
+    // State
+    loading,
+    isBackgroundRefreshing,
+    isInteracting,
+    
+    // Actions
+    fetchData,
+    handleApprove,
+    handleReject,
+    handleDelete,
+    handlePlayAgain,
+    handlePlaybackControl,
+    updateEventSettings,
+    lockInteraction,
+  };
+};
