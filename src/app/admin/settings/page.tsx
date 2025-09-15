@@ -123,48 +123,47 @@ export default function SettingsPage() {
                 onChange={handleInputChange}
                 rows={3}
                 className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                placeholder="Enter welcome message..."
+                placeholder="Welcome! This is a welcome message."
               />
               <p className="text-gray-500 text-sm mt-1">
-                Primary message shown to users when requesting songs
+                Primary message shown on the display screen, and to users when requesting songs
               </p>
             </div>
 
-            {/* Secondary Message */}
-            <div className="mb-6">
-              <label htmlFor="secondary_message" className="block text-sm font-medium text-gray-300 mb-2">
-                Secondary Message
-              </label>
-              <textarea
-                id="secondary_message"
-                name="secondary_message"
-                value={formData.secondary_message}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                placeholder="Enter secondary message..."
-              />
-              <p className="text-gray-500 text-sm mt-1">
-                Additional information or instructions for users
-              </p>
-            </div>
-
-            {/* Tertiary Message */}
+            {/* Scrolling Messages */}
             <div>
-              <label htmlFor="tertiary_message" className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Scrolling Messages
               </label>
-              <textarea
-                id="tertiary_message"
-                name="tertiary_message"
-                value={formData.tertiary_message}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                placeholder="Enter display screen messages..."
-              />
+              
+              {/* First Scrolling Message */}
+              <div className="mb-4">
+                <textarea
+                  id="secondary_message"
+                  name="secondary_message"
+                  value={formData.secondary_message}
+                  onChange={handleInputChange}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  placeholder="Request your song now! Scan the QR code, or visit partyplaylist.co.uk"
+                />
+              </div>
+              
+              {/* Second Scrolling Message */}
+              <div className="mb-2">
+                <textarea
+                  id="tertiary_message"
+                  name="tertiary_message"
+                  value={formData.tertiary_message}
+                  onChange={handleInputChange}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  placeholder="Secondary message to be placed here!"
+                />
+              </div>
+              
               <p className="text-gray-500 text-sm mt-1">
-                Messages that scroll on the display screen (separate multiple messages with commas)
+                Additional information or instructions for users shown on the display screen
               </p>
             </div>
           </div>
