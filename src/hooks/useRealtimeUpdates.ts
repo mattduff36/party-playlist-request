@@ -43,6 +43,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
 
   // Try SSE first, fallback to polling if it fails
   const [useSSE, setUseSSE] = useState(true);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
 
   // SSE connection
   useEffect(() => {
@@ -68,6 +69,16 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
           console.log('SSE server acknowledged connection');
         } else if (data.type === 'error') {
           console.error('SSE server error:', data.message);
+        } else if (data.type === 'reconnect') {
+          console.log('🔄 SSE requesting reconnect:', data.message);
+          // Close current connection and trigger reconnect
+          eventSource.close();
+          setSseConnected(false);
+          // Trigger reconnect after a short delay
+          setTimeout(() => {
+            console.log('🔄 Reconnecting SSE...');
+            setReconnectTrigger(prev => prev + 1);
+          }, 2000);
         } else {
           console.log('📡 Received SSE data update');
           setSseData(data);
@@ -91,7 +102,7 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
       setSseConnected(false);
       console.log('❌ SSE connection closed');
     };
-  }, [useSSE]);
+  }, [useSSE, reconnectTrigger]);
 
   // Progress simulation
   const startProgressSimulation = useCallback((state: SpotifyState) => {

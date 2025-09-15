@@ -37,8 +37,11 @@ export async function GET(req: NextRequest) {
         // Send initial connection message
         controller.enqueue(`data: ${JSON.stringify({ type: 'connected', timestamp: Date.now() })}\n\n`);
 
-        // Set up periodic updates (every 5 seconds for production)
-        const interval = setInterval(async () => {
+        // Send periodic updates with shorter intervals to avoid Vercel timeout
+        let updateCount = 0;
+        const maxUpdates = 10; // Limit to 10 updates (50 seconds max)
+        
+        const sendUpdate = async () => {
           try {
             // Fetch latest admin data
             const { getAllRequests, getEventSettings } = await import('@/lib/db');
@@ -91,15 +94,27 @@ export async function GET(req: NextRequest) {
             };
 
             controller.enqueue(`data: ${JSON.stringify(updateData)}\n\n`);
+            updateCount++;
+            
+            // Schedule next update or close connection
+            if (updateCount < maxUpdates) {
+              setTimeout(sendUpdate, 3000); // 3 second intervals
+            } else {
+              // Send close signal and let client reconnect
+              controller.enqueue(`data: ${JSON.stringify({ type: 'reconnect', message: 'Connection refresh needed' })}\n\n`);
+              setTimeout(() => controller.close(), 1000);
+            }
           } catch (error) {
             console.error('SSE update error:', error);
             controller.enqueue(`data: ${JSON.stringify({ type: 'error', message: 'Update failed', timestamp: Date.now() })}\n\n`);
           }
-        }, 5000); // 5 second updates for production
+        };
+        
+        // Start sending updates
+        setTimeout(sendUpdate, 1000); // First update after 1 second
 
         // Cleanup on close
         req.signal.addEventListener('abort', () => {
-          clearInterval(interval);
           controller.close();
         });
       }
