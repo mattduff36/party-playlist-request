@@ -35,6 +35,15 @@ interface RequestResponse {
   };
 }
 
+interface EventSettings {
+  event_title: string;
+  welcome_message: string;
+  secondary_message: string;
+  tertiary_message: string;
+  show_qr_code: boolean;
+  display_refresh_interval: number;
+}
+
 const API_BASE = '/api';
 
 export default function HomePage() {
@@ -47,6 +56,33 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [nickname, setNickname] = useState('');
   const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
+
+  // Fetch event settings
+  const fetchEventSettings = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/display/current`);
+      if (response.data.event_settings) {
+        setEventSettings(response.data.event_settings);
+      }
+    } catch (error) {
+      console.error('Error fetching event settings:', error);
+      // Set default settings if fetch fails
+      setEventSettings({
+        event_title: 'Party DJ Requests',
+        welcome_message: 'Request your favorite songs and let\'s keep the party going!',
+        secondary_message: '',
+        tertiary_message: '',
+        show_qr_code: true,
+        display_refresh_interval: 20
+      });
+    }
+  };
+
+  // Fetch event settings on component mount
+  useEffect(() => {
+    fetchEventSettings();
+  }, []);
 
   // Search for tracks
   const searchTracks = async (query: string) => {
@@ -156,10 +192,10 @@ export default function HomePage() {
             <div className="h-16 w-16 text-yellow-400 text-6xl">🎵</div>
           </div>
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            🎉 Party DJ Requests
+            🎉 {eventSettings?.event_title || 'Party DJ Requests'}
           </h1>
           <p className="text-xl text-gray-300 mb-8">
-            Request your favorite songs and let&apos;s keep the party going!
+            {eventSettings?.welcome_message || 'Request your favorite songs and let\'s keep the party going!'}
           </p>
         </div>
 
