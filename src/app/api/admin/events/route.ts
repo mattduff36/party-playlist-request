@@ -1,11 +1,26 @@
 import { NextRequest } from 'next/server';
-import { authService } from '@/lib/auth';
 
 // Server-Sent Events endpoint for real-time updates (Vercel-compatible)
 export async function GET(req: NextRequest) {
   try {
-    // Verify admin authentication
-    await authService.requireAdminAuth(req);
+    // Get token from query params since EventSource doesn't support custom headers
+    const url = new URL(req.url);
+    const token = url.searchParams.get('token');
+    
+    if (!token) {
+      return new Response('No token provided', { status: 401 });
+    }
+    
+    // Verify the token manually
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      if (!decoded || decoded.username !== 'admin') {
+        return new Response('Invalid token', { status: 401 });
+      }
+    } catch (error) {
+      return new Response('Invalid token', { status: 401 });
+    }
 
     // Set up SSE headers
     const headers = new Headers({
@@ -69,14 +84,10 @@ export async function GET(req: NextRequest) {
             };
 
             const updateData = {
-              type: 'admin:update',
-              data: {
-                requests,
-                spotify_state: spotifyState,
-                event_settings: eventSettings,
-                stats
-              },
-              timestamp: Date.now()
+              requests,
+              spotify_state: spotifyState,
+              event_settings: eventSettings,
+              stats
             };
 
             controller.enqueue(`data: ${JSON.stringify(updateData)}\n\n`);

@@ -66,6 +66,8 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
         const data = JSON.parse(event.data);
         if (data.type === 'connected') {
           console.log('SSE server acknowledged connection');
+        } else if (data.type === 'error') {
+          console.error('SSE server error:', data.message);
         } else {
           console.log('📡 Received SSE data update');
           setSseData(data);
@@ -79,7 +81,9 @@ export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
       console.error('❌ SSE connection error, falling back to polling:', error);
       setSseConnected(false);
       setUseSSE(false); // Fallback to polling
-      eventSource.close();
+      if (eventSource.readyState !== EventSource.CLOSED) {
+        eventSource.close();
+      }
     };
 
     return () => {
