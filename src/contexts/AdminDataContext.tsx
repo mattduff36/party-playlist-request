@@ -89,7 +89,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     },
     onStatsUpdate: (data: any) => {
       console.log('📊 Admin: Stats updated via Pusher!', data);
-      setStats(data);
+      setStats(prev => {
+        // Only update if stats actually changed
+        if (JSON.stringify(prev) !== JSON.stringify(data)) {
+          console.log('📊 Admin: Stats actually changed, updating');
+          return data;
+        }
+        console.log('📊 Admin: Stats unchanged, skipping update');
+        return prev;
+      });
     }
   });
 
@@ -104,7 +112,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const data = await response.json();
-        setRequests(data);
+        setRequests(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(data)) {
+            return data;
+          }
+          return prev;
+        });
       }
     } catch (error) {
       console.error('Failed to fetch requests:', error);
@@ -122,7 +135,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const data = await response.json();
-        setPlaybackState({
+        const newPlaybackState = {
           spotify_connected: data.spotify_connected,
           is_playing: data.is_playing,
           track_name: data.current_track?.name,
@@ -131,6 +144,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           duration_ms: data.current_track?.duration_ms,
           progress_ms: data.current_track?.progress_ms,
           image_url: data.current_track?.image_url
+        };
+        
+        setPlaybackState(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(newPlaybackState)) {
+            return newPlaybackState;
+          }
+          return prev;
         });
       }
     } catch (error) {
@@ -149,7 +169,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const data = await response.json();
-        setEventSettings(data);
+        setEventSettings(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(data)) {
+            return data;
+          }
+          return prev;
+        });
       }
     } catch (error) {
       console.error('Failed to fetch event settings:', error);
@@ -167,7 +192,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        setStats(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(data)) {
+            return data;
+          }
+          return prev;
+        });
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);

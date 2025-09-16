@@ -3,7 +3,7 @@
 import { Play, Pause, SkipForward, Volume2, Music, Users, Clock } from 'lucide-react';
 import { useCallback } from 'react';
 import { useAdminData } from '@/contexts/AdminDataContext';
-import { useLiveProgress } from '../../../hooks/useLiveProgress';
+// Removed useLiveProgress - Pusher provides real-time updates
 
 export default function OverviewPage() {
   const {
@@ -22,8 +22,7 @@ export default function OverviewPage() {
     loading
   });
 
-  // Use live progress hook for smooth animation and real-time updates
-  const liveProgress = useLiveProgress(playbackState, 1000);
+  // No more live progress hook - Pusher provides real-time updates directly!
 
   const formatDuration = useCallback((ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
@@ -113,11 +112,11 @@ export default function OverviewPage() {
                   {playbackState.artist_name} • {playbackState.album_name}
                 </p>
                 <p className="text-gray-500 text-xs mt-1">
-                  <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
-                    {liveProgress.currentTime}
+                  <span>
+                    {formatDuration(playbackState?.progress_ms || 0)}
                   </span>
                   {' / '}
-                  {liveProgress.totalTime}
+                  {formatDuration(playbackState?.duration_ms || 0)}
                 </p>
               </div>
             </div>
@@ -125,16 +124,9 @@ export default function OverviewPage() {
             {/* Live Progress Bar */}
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div 
-                className={`h-2 rounded-full transition-all duration-75 ${
-                  liveProgress.isAnimating 
-                    ? 'bg-green-400 shadow-sm shadow-green-400/50' 
-                    : 'bg-green-500'
-                }`}
+                className="h-2 rounded-full bg-green-500 transition-all duration-200"
                 style={{ 
-                  width: `${liveProgress.progressPercentage}%`,
-                  transition: liveProgress.isAnimating 
-                    ? 'width 75ms linear, background-color 200ms ease' 
-                    : 'width 200ms ease, background-color 200ms ease'
+                  width: `${formatProgress(playbackState?.progress_ms || 0, playbackState?.duration_ms || 1)}%`
                 }}
               ></div>
             </div>
