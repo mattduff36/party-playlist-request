@@ -110,18 +110,22 @@ export default function DisplayPage() {
           const newAnimatingCards = new Set(animatingCards);
           
           newlyAddedSongs.forEach(song => {
+            console.log(`🎯 Adding animation for URI: ${song.uri}`);
             newAnimatingCards.add(song.uri);
             
             // Remove animation after it completes
             setTimeout(() => {
+              console.log(`⏰ Removing animation for URI: ${song.uri}`);
               setAnimatingCards(prev => {
                 const updated = new Set(prev);
                 updated.delete(song.uri);
+                console.log(`✅ Animation removed. Remaining animated cards:`, Array.from(updated));
                 return updated;
               });
             }, 1000); // 1 second animation duration
           });
           
+          console.log(`📝 Setting animating cards state:`, Array.from(newAnimatingCards));
           setAnimatingCards(newAnimatingCards);
         }
         
@@ -387,11 +391,16 @@ export default function DisplayPage() {
                   <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
                   <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
                     <div className="space-y-3 overflow-y-auto max-h-[calc(100%-4rem)]">
-                      {upcomingSongs.slice(0, 12).map((song, index) => (
+                      {upcomingSongs.slice(0, 12).map((song, index) => {
+                        const isAnimating = animatingCards.has(song.uri);
+                        if (isAnimating) {
+                          console.log(`🎨 Rendering animated card for: ${song.name} (${song.uri})`);
+                        }
+                        return (
                         <div 
                           key={song.uri} 
                           className={`flex items-center justify-between p-3 bg-white/10 rounded-lg transition-all duration-1000 ${
-                            animatingCards.has(song.uri) 
+                            isAnimating
                               ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
                               : ''
                           }`}
@@ -413,7 +422,8 @@ export default function DisplayPage() {
                             </div>
                           )}
             </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
