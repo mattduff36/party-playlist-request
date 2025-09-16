@@ -229,10 +229,40 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       if (queueRes && queueRes.ok) {
         const queueData = await queueRes.json();
         if (queueData.spotify_connected) {
-          setPlaybackState({
-            ...queueData,
-            timestamp: Date.now() // Add timestamp for real-time progress
+          // Transform queue data to match UI expectations
+          const transformedPlaybackState = {
+            // Basic playback info
+            is_playing: queueData.is_playing,
+            shuffle_state: queueData.shuffle_state,
+            repeat_state: queueData.repeat_state,
+            spotify_connected: queueData.spotify_connected,
+            device: queueData.device,
+            
+            // Current track info (flattened from current_track object)
+            track_name: queueData.current_track?.name || null,
+            artist_name: queueData.current_track?.artists?.[0] || null,
+            album_name: queueData.current_track?.album || null,
+            album_image_url: queueData.current_track?.image_url || null,
+            duration_ms: queueData.current_track?.duration_ms || 0,
+            progress_ms: queueData.current_track?.progress_ms || 0,
+            
+            // Queue info
+            queue: queueData.queue || [],
+            
+            // Metadata
+            timestamp: Date.now()
+          };
+          
+          console.log('🎵 Transformed playback state:', {
+            track_name: transformedPlaybackState.track_name,
+            artist_name: transformedPlaybackState.artist_name,
+            album_name: transformedPlaybackState.album_name,
+            has_album_art: !!transformedPlaybackState.album_image_url,
+            spotify_connected: transformedPlaybackState.spotify_connected
           });
+          
+          setPlaybackState(transformedPlaybackState);
+          
           // Reset failure count on success
           if (spotifyFailureCount > 0) {
             setSpotifyFailureCount(0);

@@ -69,6 +69,10 @@ export async function GET(req: NextRequest) {
               const isConnected = await spotifyService.isConnected();
               console.log(`SSE: Spotify connection status: ${isConnected}`);
               
+              // In development mode, always try to get Spotify data (using mock APIs)
+              const shouldTrySpotify = isConnected || process.env.NODE_ENV === 'development';
+              console.log(`SSE: Should try Spotify APIs: ${shouldTrySpotify} (connected: ${isConnected}, dev: ${process.env.NODE_ENV === 'development'})`);
+              
               // Debug: Get auth details for troubleshooting
               if (!isConnected) {
                 try {
@@ -86,7 +90,7 @@ export async function GET(req: NextRequest) {
                 }
               }
               
-              if (isConnected) {
+              if (shouldTrySpotify) {
                 const [currentPlayback, queue] = await Promise.all([
                   spotifyService.getCurrentPlayback().catch(e => {
                     console.log('SSE: Failed to get current playback:', e.message);

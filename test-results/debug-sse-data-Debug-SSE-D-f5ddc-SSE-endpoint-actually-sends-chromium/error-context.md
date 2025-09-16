@@ -61,38 +61,38 @@
             - heading "Now Playing" [level=2] [ref=e90]
             - generic [ref=e91]:
               - generic [ref=e92]:
-                - img [ref=e94]
-                - generic [ref=e98]:
-                  - heading "No track playing" [level=3] [ref=e99]
-                  - paragraph [ref=e100]: •
-                  - paragraph [ref=e101]: 0:00 / 0:00
-              - generic [ref=e103]:
-                - button [ref=e104]:
-                  - img [ref=e105]
-                - button [ref=e108]:
-                  - img [ref=e109]
-                - generic [ref=e111]:
-                  - img [ref=e112]
-                  - generic [ref=e116]: 0%
-              - paragraph [ref=e118]: Playing on
-          - generic [ref=e119]:
-            - generic [ref=e120]:
-              - heading "Coming Up Next" [level=2] [ref=e121]
-              - button "View All →" [ref=e122]
-            - generic [ref=e123]:
-              - generic [ref=e124]:
-                - img [ref=e126]
-                - generic [ref=e130]:
-                  - heading "Next Mock Song" [level=4] [ref=e131]
+                - img "Album art" [ref=e94]
+                - generic [ref=e95]:
+                  - heading "Mock Song Title" [level=3] [ref=e96]
+                  - paragraph [ref=e97]: Mock Artist • Mock Album
+                  - paragraph [ref=e98]: 0:51 / 3:00
+              - generic [ref=e101]:
+                - button [ref=e102]:
+                  - img [ref=e103]
+                - button [ref=e106]:
+                  - img [ref=e107]
+                - generic [ref=e109]:
+                  - img [ref=e110]
+                  - generic [ref=e114]: 0%
+              - paragraph [ref=e116]: Playing on
+          - generic [ref=e117]:
+            - generic [ref=e118]:
+              - heading "Coming Up Next" [level=2] [ref=e119]
+              - button "View All →" [ref=e120]
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - img [ref=e124]
+                - generic [ref=e128]:
+                  - heading "Next Mock Song" [level=4] [ref=e129]
                   - paragraph
-                - generic [ref=e132]: 3:20
-              - generic [ref=e133]:
-                - img [ref=e135]
-                - generic [ref=e139]:
-                  - heading "Third Mock Song" [level=4] [ref=e140]
+                - generic [ref=e130]: 3:20
+              - generic [ref=e131]:
+                - img [ref=e133]
+                - generic [ref=e137]:
+                  - heading "Third Mock Song" [level=4] [ref=e138]
                   - paragraph
-                - generic [ref=e141]: 2:40
-  - button "Open Next.js Dev Tools" [ref=e147] [cursor=pointer]:
-    - img [ref=e148] [cursor=pointer]
-  - alert [ref=e151]
+                - generic [ref=e139]: 2:40
+  - button "Open Next.js Dev Tools" [ref=e145] [cursor=pointer]:
+    - img [ref=e146] [cursor=pointer]
+  - alert [ref=e149]
 ```
