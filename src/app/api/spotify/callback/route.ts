@@ -75,6 +75,22 @@ export async function POST(req: NextRequest) {
       scope: tokenData.scope
     });
     
+    // CRITICAL: Check if tokens were actually saved to database
+    console.log('🔍 CRITICAL DEBUG: Checking if tokens were saved...');
+    try {
+      const { getSpotifyAuth } = await import('@/lib/db');
+      const savedAuth = await getSpotifyAuth();
+      console.log('🔍 Database check after token save:', {
+        authExists: !!savedAuth,
+        hasAccessToken: !!(savedAuth?.access_token),
+        hasRefreshToken: !!(savedAuth?.refresh_token),
+        expiresAt: savedAuth?.expires_at,
+        isExpired: savedAuth?.expires_at ? new Date(savedAuth.expires_at) < new Date() : 'no-expiry-date'
+      });
+    } catch (dbError) {
+      console.error('🚨 CRITICAL: Failed to check database after token save:', dbError);
+    }
+    
     // Verify tokens were saved by checking immediately
     try {
       const isNowConnected = await spotifyService.isConnected();
