@@ -94,13 +94,24 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('Attempting to exchange code for token...');
-    const tokenData = await spotifyService.exchangeCodeForToken(code, code_verifier);
-    console.log('Token exchange successful, token data:', {
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      expiresIn: tokenData.expires_in,
-      scope: tokenData.scope
-    });
+    let tokenData;
+    try {
+      tokenData = await spotifyService.exchangeCodeForToken(code, code_verifier);
+      console.log('✅ Token exchange successful, token data:', {
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        expiresIn: tokenData.expires_in,
+        scope: tokenData.scope
+      });
+    } catch (tokenError) {
+      console.error('❌ CRITICAL: Token exchange failed:', {
+        error: tokenError.message,
+        stack: tokenError.stack,
+        code: code?.substring(0, 10) + '...',
+        codeVerifier: code_verifier?.substring(0, 10) + '...'
+      });
+      throw tokenError; // Re-throw to be caught by outer catch
+    }
     
     // CRITICAL: Check if tokens were actually saved to database
     console.log('🔍 CRITICAL DEBUG: Checking if tokens were saved...');

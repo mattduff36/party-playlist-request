@@ -166,6 +166,11 @@ class SpotifyService {
       : `${this.authURL}/api/token`;     // Real Spotify endpoint
 
     console.log('🎯 Using token URL:', tokenUrl);
+    console.log('🌍 Environment:', {
+      NODE_ENV: process.env.NODE_ENV,
+      isProduction: process.env.NODE_ENV === 'production',
+      usingMock: process.env.NODE_ENV === 'development'
+    });
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
