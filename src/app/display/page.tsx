@@ -93,6 +93,33 @@ export default function DisplayPage() {
           return updated;
         });
       }, 1000);
+    },
+    onPlaybackUpdate: (data: any) => {
+      console.log('🎵 PUSHER: Playback update received!', data);
+      
+      // Update current track
+      if (data.current_track) {
+        setCurrentTrack({
+          name: data.current_track.name || '',
+          artists: data.current_track.artists?.map((a: any) => a.name) || [],
+          album: data.current_track.album?.name || '',
+          duration_ms: data.current_track.duration_ms || 0,
+          progress_ms: data.progress_ms || 0,
+          uri: data.current_track.uri || '',
+          image_url: data.current_track.album?.images?.[0]?.url
+        });
+      }
+      
+      // Update queue
+      if (data.queue) {
+        setUpcomingSongs(data.queue.map((track: any) => ({
+          name: track.name || '',
+          artists: track.artists?.map((a: any) => a.name) || [],
+          album: track.album?.name || '',
+          uri: track.uri || '',
+          requester_nickname: track.requester_nickname
+        })));
+      }
     }
   });
   
@@ -106,15 +133,15 @@ export default function DisplayPage() {
   
   const liveProgress = useLiveProgress(playbackState, 1000);
 
-  // 🔄 Simple polling for basic display data (current track, event settings)
+  // 🔄 Initial data load only (Pusher handles real-time updates)
   useEffect(() => {
-    const fetchDisplayData = async () => {
+    const fetchInitialData = async () => {
       try {
         const response = await fetch('/api/display/current');
         if (response.ok) {
           const data = await response.json();
           
-          // Update current track if available
+          // Initialize current track
           if (data.current_track) {
             setCurrentTrack({
               name: data.current_track.name || '',
@@ -127,29 +154,24 @@ export default function DisplayPage() {
             });
           }
           
-          // Update event settings
+          // Initialize event settings
           if (data.event_settings) {
             setEventSettings(data.event_settings);
           }
           
-          // Initialize upcoming songs from API (first load only)
-          if (data.upcoming_songs && upcomingSongs.length === 0) {
+          // Initialize upcoming songs
+          if (data.upcoming_songs) {
             setUpcomingSongs(data.upcoming_songs);
           }
         }
       } catch (error) {
-        console.error('Failed to fetch display data:', error);
+        console.error('Failed to fetch initial display data:', error);
       }
     };
 
-    // Initial fetch
-    fetchDisplayData();
-    
-    // Poll every 10 seconds for basic data (much less aggressive than before)
-    const interval = setInterval(fetchDisplayData, 10000);
-    
-    return () => clearInterval(interval);
-  }, [upcomingSongs.length]); // Only re-run if upcomingSongs is empty
+    // One-time initial fetch only - Pusher handles all updates after this!
+    fetchInitialData();
+  }, []); // Empty dependency array - run once only
 
   // Detect device type
   useEffect(() => {

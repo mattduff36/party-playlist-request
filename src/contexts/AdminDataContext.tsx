@@ -60,6 +60,8 @@ interface AdminDataContextType {
   connectionState: string;
   handlePlaybackControl: (action: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  updateEventSettings: (settings: Partial<EventSettings>) => Promise<void>;
+  handleSpotifyDisconnect: () => Promise<void>;
 }
 
 // Create the context
@@ -204,19 +206,78 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshPlaybackState]);
 
-  // Initial data load
-  useEffect(() => {
-    refreshData();
+  // Update event settings
+  const updateEventSettings = useCallback(async (settings: Partial<EventSettings>) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch('/api/admin/event-settings', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+      });
+      
+      if (response.ok) {
+        // Refresh event settings after update
+        await refreshEventSettings();
+      }
+    } catch (error) {
+      console.error('Failed to update event settings:', error);
+    }
+  }, [refreshEventSettings]);
+
+  // Handle Spotify disconnect
+  const handleSpotifyDisconnect = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch('/api/spotify/disconnect', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        // Refresh data after disconnect
+        await refreshData();
+      }
+    } catch (error) {
+      console.error('Failed to disconnect Spotify:', error);
+    }
   }, [refreshData]);
 
-  // Periodic refresh (much less aggressive than before)
+  // Initial data load and start Spotify watcher
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshPlaybackState(); // Only refresh playback state regularly
-    }, 5000); // Every 5 seconds
+    const initializeAdmin = async () => {
+      await refreshData();
+      
+      // Start Spotify watcher for real-time Pusher events
+      try {
+        const token = localStorage.getItem('admin_token');
+        if (token) {
+          await fetch('/api/admin/spotify-watcher', {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ action: 'start', interval: 2000 })
+          });
+          console.log('🎵 Spotify watcher started');
+        }
+      } catch (error) {
+        console.error('Failed to start Spotify watcher:', error);
+      }
+    };
 
-    return () => clearInterval(interval);
-  }, [refreshPlaybackState]);
+    initializeAdmin();
+  }, [refreshData]);
+
+  // No more periodic refresh - Pusher handles real-time updates!
 
   const value: AdminDataContextType = {
     requests,
@@ -227,7 +288,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     isConnected,
     connectionState,
     handlePlaybackControl,
-    refreshData
+    refreshData,
+    updateEventSettings,
+    handleSpotifyDisconnect
   };
 
   return (

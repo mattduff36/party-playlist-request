@@ -6,7 +6,7 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
-  const { eventSettings, updateEventSettings, loading } = useAdminData({ disablePolling: true });
+  const { eventSettings, loading, updateEventSettings } = useAdminData();
   const router = useRouter();
   
   const [formData, setFormData] = useState({

@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // Get admin data for Spotify connection status
-  const { playbackState, isWebSocketConnected, connectionType } = useAdminData();
+  const { playbackState, isConnected, connectionState } = useAdminData();
 
   // Check authentication on mount
   useEffect(() => {
@@ -305,20 +305,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 
                 {/* Connection Status */}
                 <div className="flex items-center space-x-2">
-                  {connectionType === 'websocket' ? (
+                  {isConnected ? (
                     <>
                       <Wifi className="w-4 h-4 text-green-400" />
-                      <span className="text-green-400 text-sm">WebSocket</span>
+                      <span className="text-green-400 text-sm">Pusher</span>
                     </>
-                  ) : connectionType === 'sse' ? (
+                  ) : connectionState === 'connecting' ? (
                     <>
-                      <Wifi className="w-4 h-4 text-blue-400" />
-                      <span className="text-blue-400 text-sm">SSE</span>
+                      <Wifi className="w-4 h-4 text-yellow-400" />
+                      <span className="text-yellow-400 text-sm">Connecting</span>
                     </>
                   ) : (
                     <>
-                      <WifiOff className="w-4 h-4 text-yellow-400" />
-                      <span className="text-yellow-400 text-sm">Polling</span>
+                      <WifiOff className="w-4 h-4 text-red-400" />
+                      <span className="text-red-400 text-sm">Disconnected</span>
                     </>
                   )}
                 </div>
