@@ -69,6 +69,23 @@ export async function GET(req: NextRequest) {
               const isConnected = await spotifyService.isConnected();
               console.log(`SSE: Spotify connection status: ${isConnected}`);
               
+              // Debug: Get auth details for troubleshooting
+              if (!isConnected) {
+                try {
+                  const { getSpotifyAuth } = await import('@/lib/db');
+                  const auth = await getSpotifyAuth();
+                  console.log('SSE: Auth debug:', {
+                    hasAuth: !!auth,
+                    hasAccessToken: !!(auth?.access_token),
+                    hasRefreshToken: !!(auth?.refresh_token),
+                    expiresAt: auth?.expires_at,
+                    isExpired: auth?.expires_at ? new Date(auth.expires_at) < new Date() : 'no-expiry-date'
+                  });
+                } catch (debugError) {
+                  console.log('SSE: Failed to get auth for debugging:', debugError.message);
+                }
+              }
+              
               if (isConnected) {
                 const [currentPlayback, queue] = await Promise.all([
                   spotifyService.getCurrentPlayback().catch(e => {

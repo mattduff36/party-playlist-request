@@ -68,7 +68,20 @@ export async function POST(req: NextRequest) {
 
     console.log('Attempting to exchange code for token...');
     const tokenData = await spotifyService.exchangeCodeForToken(code, code_verifier);
-    console.log('Token exchange successful');
+    console.log('Token exchange successful, token data:', {
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      expiresIn: tokenData.expires_in,
+      scope: tokenData.scope
+    });
+    
+    // Verify tokens were saved by checking immediately
+    try {
+      const isNowConnected = await spotifyService.isConnected();
+      console.log('Post-save connection check:', isNowConnected);
+    } catch (verifyError) {
+      console.log('Failed to verify connection after save:', verifyError.message);
+    }
     
     // Clean up OAuth session after successful token exchange
     if (state) {

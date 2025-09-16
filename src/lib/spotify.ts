@@ -189,6 +189,14 @@ class SpotifyService {
   private async saveTokens(tokenData: any) {
     const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
     
+    console.log('Saving Spotify tokens:', {
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      expiresIn: tokenData.expires_in,
+      expiresAt: expiresAt.toISOString(),
+      scope: tokenData.scope
+    });
+    
     await setSpotifyAuth({
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
@@ -197,6 +205,8 @@ class SpotifyService {
       token_type: tokenData.token_type || 'Bearer',
       updated_at: new Date().toISOString()
     });
+    
+    console.log('Spotify tokens saved successfully');
   }
 
   async getAccessToken(): Promise<string> {
