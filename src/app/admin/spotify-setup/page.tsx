@@ -138,6 +138,12 @@ export default function SpotifySetupPage() {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('admin_token');
+      console.log('🔐 Making callback request with token:', {
+        hasToken: !!token,
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 20) + '...'
+      });
+      
       const response = await fetch('/api/spotify/callback', {
         method: 'POST',
         headers: {
@@ -151,9 +157,16 @@ export default function SpotifySetupPage() {
         })
       });
 
+      console.log('🔍 Callback response status:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (response.ok) {
         const data = await response.json();
-        console.log('Spotify callback response:', data);
+        console.log('✅ Spotify callback SUCCESS response:', data);
         setSuccess('Spotify authentication successful! Redirecting back to admin panel...');
         setError(''); // Clear any errors
         // Connection status will be updated automatically via useAdminData SSE
@@ -171,8 +184,15 @@ export default function SpotifySetupPage() {
           router.push('/admin?spotify_connected=true');
         }, 2000);
       } else {
-        const errorData = await response.json();
-        setError(`Authentication failed: ${errorData.error || 'Unknown error'}`);
+        console.log('❌ Callback response NOT OK, status:', response.status);
+        try {
+          const errorData = await response.json();
+          console.log('❌ Callback ERROR response:', errorData);
+          setError(`Authentication failed: ${errorData.error || 'Unknown error'}`);
+        } catch (parseError) {
+          console.log('❌ Failed to parse error response:', parseError);
+          setError(`Authentication failed: HTTP ${response.status} ${response.statusText}`);
+        }
       }
     } catch (error: any) {
       console.error('Spotify callback error:', error);
