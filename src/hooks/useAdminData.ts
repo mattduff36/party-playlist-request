@@ -283,14 +283,19 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   }, [isAuthenticated, fetchData]);
 
   // Separate useEffect for polling to avoid recreating intervals
-  // Only use polling when real-time connection is not available
+  // Only use polling when real-time connection is not available OR when force polling is enabled
   useEffect(() => {
     if (!isAuthenticated || disablePolling) return;
     
-    // Skip polling if real-time connection is available
-    if (realtimeUpdates.isConnected) {
+    // Skip polling if real-time connection is available AND force polling is not enabled
+    if (realtimeUpdates.isConnected && !eventSettings?.force_polling) {
       console.log(`🔌 ${realtimeUpdates.connectionType} connected - skipping polling`);
       return;
+    }
+    
+    // If force polling is enabled, always use polling regardless of SSE connection
+    if (eventSettings?.force_polling && realtimeUpdates.isConnected) {
+      console.log(`🔄 Force polling enabled - using polling despite ${realtimeUpdates.connectionType} connection`);
     }
     
     // Get polling interval from settings (default to 15 seconds if not available)
