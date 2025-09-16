@@ -130,7 +130,8 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       
       if (realtimeUpdates.adminData.requests) {
         console.log('📋 Updating requests state with', realtimeUpdates.adminData.requests.length, 'requests');
-        setRequests(realtimeUpdates.adminData.requests);
+        // Force new array reference to trigger React re-render
+        setRequests([...realtimeUpdates.adminData.requests]);
       }
       
       if (realtimeUpdates.adminData.spotify_state) {
@@ -140,6 +141,7 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
           track_name: spotifyState.current_track?.name,
           artist_name: spotifyState.current_track?.artists?.[0]?.name
         });
+        // Force new object reference to trigger React re-render
         setPlaybackState({
           is_playing: spotifyState.is_playing,
           progress_ms: realtimeUpdates.currentProgress || spotifyState.progress_ms,
@@ -151,19 +153,21 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
           device_name: spotifyState.playback_state?.device?.name,
           volume_percent: spotifyState.playback_state?.device?.volume_percent,
           spotify_connected: true,
-          queue: spotifyState.queue || [],
+          queue: [...(spotifyState.queue || [])],
           timestamp: spotifyState.timestamp
         });
       }
       
       if (realtimeUpdates.adminData.event_settings) {
         console.log('⚙️ Updating event settings');
-        setEventSettings(realtimeUpdates.adminData.event_settings);
+        // Force new object reference to trigger React re-render
+        setEventSettings({...realtimeUpdates.adminData.event_settings});
       }
       
       if (realtimeUpdates.adminData.stats) {
         console.log('📈 Updating stats:', realtimeUpdates.adminData.stats);
-        setStats(realtimeUpdates.adminData.stats);
+        // Force new object reference to trigger React re-render
+        setStats({...realtimeUpdates.adminData.stats});
       }
     }
   }, [realtimeUpdates.isConnected, realtimeUpdates.adminData, realtimeUpdates.currentProgress, realtimeUpdates.connectionType]);

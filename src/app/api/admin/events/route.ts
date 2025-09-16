@@ -64,23 +64,43 @@ export async function GET(req: NextRequest) {
             let spotifyState = null;
             try {
               const spotifyService = new SpotifyService();
-              const [currentPlayback, queue] = await Promise.all([
-                spotifyService.getCurrentPlayback(),
-                spotifyService.getQueue()
-              ]);
               
-              if (currentPlayback && currentPlayback.item) {
-                spotifyState = {
-                  current_track: currentPlayback.item,
-                  queue: queue?.queue || [],
-                  playback_state: currentPlayback,
-                  is_playing: currentPlayback.is_playing,
-                  progress_ms: currentPlayback.progress_ms,
-                  timestamp: Date.now()
-                };
+              // Check if Spotify is connected first
+              const isConnected = await spotifyService.isConnected();
+              console.log(`SSE: Spotify connection status: ${isConnected}`);
+              
+              if (isConnected) {
+                const [currentPlayback, queue] = await Promise.all([
+                  spotifyService.getCurrentPlayback().catch(e => {
+                    console.log('SSE: Failed to get current playback:', e.message);
+                    return null;
+                  }),
+                  spotifyService.getQueue().catch(e => {
+                    console.log('SSE: Failed to get queue:', e.message);
+                    return null;
+                  })
+                ]);
+                
+                console.log(`SSE: Playback data - has item: ${!!currentPlayback?.item}, is_playing: ${currentPlayback?.is_playing}`);
+                
+                if (currentPlayback && currentPlayback.item) {
+                  spotifyState = {
+                    current_track: currentPlayback.item,
+                    queue: queue?.queue || [],
+                    playback_state: currentPlayback,
+                    is_playing: currentPlayback.is_playing,
+                    progress_ms: currentPlayback.progress_ms,
+                    timestamp: Date.now()
+                  };
+                  console.log(`SSE: Created Spotify state for track: ${currentPlayback.item.name}`);
+                } else {
+                  console.log('SSE: No current playback or track item');
+                }
+              } else {
+                console.log('SSE: Spotify not connected');
               }
             } catch (error) {
-              console.log('Spotify not available for SSE update');
+              console.log('SSE: Spotify error:', error.message);
             }
 
             // Calculate basic stats
