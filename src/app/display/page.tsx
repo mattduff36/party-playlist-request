@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
+import { useLiveProgress } from '@/hooks/useLiveProgress';
 
 interface CurrentTrack {
   name: string;
@@ -60,6 +61,16 @@ export default function DisplayPage() {
   
   // WebSocket for real-time updates
   const realtimeUpdates = useRealtimeUpdates();
+  
+  // Live progress for smooth animation
+  const playbackState = currentTrack ? {
+    progress_ms: currentTrack.progress_ms,
+    duration_ms: currentTrack.duration_ms,
+    is_playing: true, // Assume playing if we have a current track
+    spotify_connected: true
+  } : null;
+  
+  const liveProgress = useLiveProgress(playbackState, 1000);
 
   // Sync real-time Spotify data with display state
   useEffect(() => {
@@ -308,7 +319,31 @@ export default function DisplayPage() {
                       )}
                       <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
                       <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
-                      <p className="text-sm text-gray-400">{currentTrack.album}</p>
+                      <p className="text-sm text-gray-400 mb-3">{currentTrack.album}</p>
+                      
+                      {/* Live Progress Bar */}
+                      <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-75 ${
+                            liveProgress.isAnimating 
+                              ? 'bg-green-400 shadow-sm shadow-green-400/50' 
+                              : 'bg-green-500'
+                          }`}
+                          style={{ 
+                            width: `${liveProgress.progressPercentage}%`,
+                            transition: liveProgress.isAnimating 
+                              ? 'width 75ms linear, background-color 200ms ease' 
+                              : 'width 200ms ease, background-color 200ms ease'
+                          }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
+                          {liveProgress.currentTime}
+                        </span>
+                        {' / '}
+                        {liveProgress.totalTime}
+                      </p>
                   </div>
                 ) : (
                     <div className="text-center text-gray-400 text-lg">
@@ -478,7 +513,31 @@ export default function DisplayPage() {
                       )}
                       <h3 className="text-base font-bold mb-2 leading-tight">{currentTrack.name}</h3>
                       <p className="text-sm text-gray-300 mb-1">{currentTrack.artists.join(', ')}</p>
-                      <p className="text-xs text-gray-400">{currentTrack.album}</p>
+                      <p className="text-xs text-gray-400 mb-2">{currentTrack.album}</p>
+                      
+                      {/* Live Progress Bar */}
+                      <div className="w-full bg-gray-700 rounded-full h-1.5 mb-1">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all duration-75 ${
+                            liveProgress.isAnimating 
+                              ? 'bg-green-400 shadow-sm shadow-green-400/50' 
+                              : 'bg-green-500'
+                          }`}
+                          style={{ 
+                            width: `${liveProgress.progressPercentage}%`,
+                            transition: liveProgress.isAnimating 
+                              ? 'width 75ms linear, background-color 200ms ease' 
+                              : 'width 200ms ease, background-color 200ms ease'
+                          }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
+                          {liveProgress.currentTime}
+                        </span>
+                        {' / '}
+                        {liveProgress.totalTime}
+                      </p>
                     </div>
                   ) : (
                     <div className="text-center text-gray-400 text-sm">
@@ -626,7 +685,31 @@ export default function DisplayPage() {
                     />
                   )}
                   <h3 className="text-lg font-bold mb-2">{currentTrack.name}</h3>
-                  <p className="text-base text-gray-300">{currentTrack.artists.join(', ')}</p>
+                  <p className="text-base text-gray-300 mb-3">{currentTrack.artists.join(', ')}</p>
+                  
+                  {/* Live Progress Bar */}
+                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-75 ${
+                        liveProgress.isAnimating 
+                          ? 'bg-green-400 shadow-sm shadow-green-400/50' 
+                          : 'bg-green-500'
+                      }`}
+                      style={{ 
+                        width: `${liveProgress.progressPercentage}%`,
+                        transition: liveProgress.isAnimating 
+                          ? 'width 75ms linear, background-color 200ms ease' 
+                          : 'width 200ms ease, background-color 200ms ease'
+                      }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
+                      {liveProgress.currentTime}
+                    </span>
+                    {' / '}
+                    {liveProgress.totalTime}
+                  </p>
                   </div>
                 ) : (
                   <div className="text-center text-gray-400">No song playing</div>
@@ -844,7 +927,31 @@ export default function DisplayPage() {
                   />
                 )}
               <h3 className="text-lg font-bold mb-1">{currentTrack.name}</h3>
-              <p className="text-sm text-gray-300">{currentTrack.artists.join(', ')}</p>
+              <p className="text-sm text-gray-300 mb-3">{currentTrack.artists.join(', ')}</p>
+              
+              {/* Live Progress Bar */}
+              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-75 ${
+                    liveProgress.isAnimating 
+                      ? 'bg-green-400 shadow-sm shadow-green-400/50' 
+                      : 'bg-green-500'
+                  }`}
+                  style={{ 
+                    width: `${liveProgress.progressPercentage}%`,
+                    transition: liveProgress.isAnimating 
+                      ? 'width 75ms linear, background-color 200ms ease' 
+                      : 'width 200ms ease, background-color 200ms ease'
+                  }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-400">
+                <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
+                  {liveProgress.currentTime}
+                </span>
+                {' / '}
+                {liveProgress.totalTime}
+              </p>
             </div>
           ) : (
             <div className="text-center text-gray-400 text-sm">No song playing</div>

@@ -3,7 +3,7 @@
 import { Play, Pause, SkipForward, Volume2, Music, Users, Clock } from 'lucide-react';
 import { useCallback } from 'react';
 import { useAdminData } from '@/contexts/AdminDataContext';
-import { useNowPlayingProgress } from '../../../hooks/useNowPlayingProgress';
+import { useLiveProgress } from '../../../hooks/useLiveProgress';
 
 export default function OverviewPage() {
   const {
@@ -22,8 +22,8 @@ export default function OverviewPage() {
     loading
   });
 
-  // Use progress from playback state directly (no more infinite render loop from progress hook)
-  const nowPlayingProgress = playbackState?.progress_ms || 0;
+  // Use live progress hook for smooth animation and real-time updates
+  const liveProgress = useLiveProgress(playbackState, 1000);
 
   const formatDuration = useCallback((ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
@@ -113,21 +113,28 @@ export default function OverviewPage() {
                   {playbackState.artist_name} • {playbackState.album_name}
                 </p>
                 <p className="text-gray-500 text-xs mt-1">
-                  {formatProgress(nowPlayingProgress, playbackState.duration_ms)}
+                  <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
+                    {liveProgress.currentTime}
+                  </span>
+                  {' / '}
+                  {liveProgress.totalTime}
                 </p>
               </div>
             </div>
 
-            {/* Progress Bar */}
+            {/* Live Progress Bar */}
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div 
-                className="bg-green-500 h-2 rounded-full transition-all duration-100"
+                className={`h-2 rounded-full transition-all duration-75 ${
+                  liveProgress.isAnimating 
+                    ? 'bg-green-400 shadow-sm shadow-green-400/50' 
+                    : 'bg-green-500'
+                }`}
                 style={{ 
-                  width: `${Math.min(100, Math.max(0, 
-                    (nowPlayingProgress && playbackState.duration_ms && !isNaN(nowPlayingProgress) && !isNaN(playbackState.duration_ms)) 
-                      ? (nowPlayingProgress / playbackState.duration_ms) * 100 
-                      : 0
-                  ))}%` 
+                  width: `${liveProgress.progressPercentage}%`,
+                  transition: liveProgress.isAnimating 
+                    ? 'width 75ms linear, background-color 200ms ease' 
+                    : 'width 200ms ease, background-color 200ms ease'
                 }}
               ></div>
             </div>
