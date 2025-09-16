@@ -124,6 +124,40 @@ export async function GET(req: NextRequest) {
               console.log('SSE: Spotify error:', error.message);
             }
 
+            // FALLBACK: If no Spotify state but we have approved requests, create a mock queue
+            if (!spotifyState) {
+              try {
+                const { getRequestsByStatus } = await import('@/lib/db');
+                const approvedRequests = await getRequestsByStatus('approved', 10);
+                
+                if (approvedRequests.length > 0) {
+                  console.log(`🔄 SSE: Creating fallback queue from ${approvedRequests.length} approved requests`);
+                  
+                  // Create mock queue from approved requests
+                  const mockQueue = approvedRequests.map((req: any) => ({
+                    name: req.track_name,
+                    artists: [{ name: req.artist_name }],
+                    album: { name: req.album_name || 'Unknown Album' },
+                    uri: req.track_uri,
+                    requester_nickname: req.requester_nickname
+                  }));
+                  
+                  spotifyState = {
+                    current_track: null, // No current track in fallback mode
+                    queue: mockQueue,
+                    playback_state: null,
+                    is_playing: false,
+                    progress_ms: 0,
+                    timestamp: Date.now()
+                  };
+                  
+                  console.log(`✅ SSE: Created fallback Spotify state with ${mockQueue.length} queue items`);
+                }
+              } catch (fallbackError) {
+                console.log('SSE: Fallback queue creation failed:', fallbackError.message);
+              }
+            }
+
             // Calculate basic stats
             const stats = {
               total_requests: requests.length,
