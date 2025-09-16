@@ -75,6 +75,15 @@ export default function DisplayPage() {
 
   // Sync real-time Spotify data with display state
   useEffect(() => {
+    // Debug: Log what we're receiving from SSE
+    console.log('🔄 SSE Data received:', {
+      hasSpotifyState: !!realtimeUpdates.spotifyState,
+      hasCurrentTrack: !!(realtimeUpdates.spotifyState?.current_track),
+      hasQueue: !!(realtimeUpdates.spotifyState?.queue),
+      queueLength: realtimeUpdates.spotifyState?.queue?.length || 0,
+      currentUpcomingSongs: upcomingSongs.length
+    });
+    
     if (realtimeUpdates.spotifyState && realtimeUpdates.spotifyState.current_track) {
       const spotifyTrack = realtimeUpdates.spotifyState.current_track;
       setCurrentTrack({
@@ -97,6 +106,14 @@ export default function DisplayPage() {
           requester_nickname: track.requester_nickname
         }));
         
+        // Debug: Show what queue items we have
+        console.log('🎵 Queue items received:', queueItems.map(item => ({
+          name: item.name,
+          uri: item.uri,
+          hasRequester: !!item.requester_nickname,
+          requester: item.requester_nickname
+        })));
+        
         // Check for new approvals by comparing queue changes
         const currentQueueUris = upcomingSongs.map(song => song.uri);
         const newlyAddedSongs = queueItems.filter(song => 
@@ -105,6 +122,8 @@ export default function DisplayPage() {
         
         // Animate entire cards for newly added songs with requesters
         if (newlyAddedSongs.length > 0) {
+          // Force alert in production to see if this code is running
+          alert(`🎉 ANIMATION TRIGGERED! ${newlyAddedSongs.length} new songs: ${newlyAddedSongs.map(s => s.name + ' by ' + s.requester_nickname).join(', ')}`);
           console.log('🎉 New songs detected for animation:', newlyAddedSongs.map(s => `${s.name} by ${s.requester_nickname}`));
           
           const newAnimatingCards = new Set(animatingCards);
