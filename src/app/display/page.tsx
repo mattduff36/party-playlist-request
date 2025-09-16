@@ -58,10 +58,10 @@ export default function DisplayPage() {
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
-  const [celebratingRequest, setCelebratingRequest] = useState<{
+  const [recentApproval, setRecentApproval] = useState<{
     requester_name: string;
     track_name: string;
-    id: string;
+    timestamp: number;
   } | null>(null);
   
   // WebSocket for real-time updates
@@ -100,10 +100,33 @@ export default function DisplayPage() {
           uri: track.uri || '',
           requester_nickname: track.requester_nickname
         }));
+        
+        // Check for new approvals by comparing queue changes
+        const currentQueueUris = upcomingSongs.map(song => song.uri);
+        const newQueueUris = queueItems.map(song => song.uri);
+        const newlyAddedSongs = queueItems.filter(song => 
+          !currentQueueUris.includes(song.uri) && song.requester_nickname
+        );
+        
+        // If there's a newly added song with a requester, show celebration
+        if (newlyAddedSongs.length > 0 && !recentApproval) {
+          const newSong = newlyAddedSongs[0]; // Show celebration for the first new song
+          setRecentApproval({
+            requester_name: newSong.requester_nickname!,
+            track_name: newSong.name,
+            timestamp: Date.now()
+          });
+          
+          // Hide celebration after 3 seconds
+          setTimeout(() => {
+            setRecentApproval(null);
+          }, 3000);
+        }
+        
         setUpcomingSongs(queueItems);
       }
     }
-  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress]);
+  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress, upcomingSongs, recentApproval]);
 
   // Detect device type
   useEffect(() => {
@@ -178,32 +201,9 @@ export default function DisplayPage() {
         const response = await fetch('/api/notifications');
         if (response.ok) {
           const data = await response.json();
-          if (data.notifications && data.notifications.length > 0 && !celebratingRequest) {
-            const notification = data.notifications[0];
-            
-            // Only handle approval notifications with pop animation
-            if (notification.type === 'approval' && notification.requester_name && notification.track_name) {
-              setCelebratingRequest({
-                requester_name: notification.requester_name,
-                track_name: notification.track_name,
-                id: notification.id
-              });
-              
-              // Show celebration for 4 seconds, then mark as shown
-              setTimeout(async () => {
-                try {
-                  await fetch('/api/notifications', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ notificationId: notification.id })
-                  });
-                } catch (error) {
-                  console.error('Error marking notification as shown:', error);
-                }
-                setCelebratingRequest(null);
-              }, 4000);
-            } else {
-              // Mark non-approval notifications as shown immediately (we don't display them)
+          if (data.notifications && data.notifications.length > 0) {
+            // Mark all notifications as shown immediately since we handle approvals via queue changes
+            for (const notification of data.notifications) {
               try {
                 await fetch('/api/notifications', {
                   method: 'POST',
@@ -233,7 +233,7 @@ export default function DisplayPage() {
       fetchNotifications();
     }, pollingInterval);
     return () => clearInterval(interval);
-  }, [eventSettings?.display_polling_interval, eventSettings?.display_refresh_interval, celebratingRequest]);
+  }, [eventSettings?.display_polling_interval, eventSettings?.display_refresh_interval]);
 
   // Rotate messages
   useEffect(() => {
@@ -302,88 +302,46 @@ export default function DisplayPage() {
     </div>
   );
 
-  // Celebration Pop Animation Component
-  const CelebrationPopup = () => {
-    if (!celebratingRequest) return null;
+  // Professional Approval Notification
+  const ApprovalNotification = () => {
+    if (!recentApproval) return null;
 
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-        {/* Background overlay with subtle pulse */}
-        <div className="absolute inset-0 bg-black/20 animate-pulse" />
-        
-        {/* Main celebration card */}
-        <div className="relative">
-          {/* Animated background elements */}
-          <div className="absolute inset-0 -m-8">
-            {/* Rotating rings */}
-            <div className="absolute inset-0 border-4 border-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-spin opacity-30" 
-                 style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-2 border-2 border-gradient-to-r from-green-400 to-blue-500 rounded-full animate-spin opacity-40" 
-                 style={{ animationDuration: '2s', animationDirection: 'reverse' }} />
-            
-            {/* Pulsing particles */}
-            <div className="absolute top-4 left-4 w-3 h-3 bg-yellow-400 rounded-full animate-bounce opacity-80" 
-                 style={{ animationDelay: '0.1s' }} />
-            <div className="absolute top-8 right-6 w-2 h-2 bg-pink-400 rounded-full animate-bounce opacity-70" 
-                 style={{ animationDelay: '0.3s' }} />
-            <div className="absolute bottom-6 left-8 w-4 h-4 bg-green-400 rounded-full animate-bounce opacity-60" 
-                 style={{ animationDelay: '0.5s' }} />
-            <div className="absolute bottom-4 right-4 w-2 h-2 bg-blue-400 rounded-full animate-bounce opacity-80" 
-                 style={{ animationDelay: '0.2s' }} />
-            <div className="absolute top-1/2 left-2 w-3 h-3 bg-purple-400 rounded-full animate-bounce opacity-70" 
-                 style={{ animationDelay: '0.4s' }} />
-            <div className="absolute top-1/3 right-2 w-2 h-2 bg-orange-400 rounded-full animate-bounce opacity-60" 
-                 style={{ animationDelay: '0.6s' }} />
-          </div>
-
-          {/* Main celebration badge */}
-          <div className="relative bg-gradient-to-br from-purple-600 via-pink-600 to-red-500 p-1 rounded-3xl shadow-2xl transform animate-pulse">
-            <div className="bg-gradient-to-br from-purple-900/90 via-pink-900/90 to-red-900/90 backdrop-blur-sm rounded-3xl p-8 md:p-12 text-center max-w-lg mx-auto transform animate-bounce">
-              {/* Success icon */}
-              <div className="mb-6 transform animate-spin" style={{ animationDuration: '2s' }}>
-                <div className="w-20 h-20 mx-auto bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-                  <svg className="w-12 h-12 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Celebration text */}
-              <div className="space-y-4">
-                <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 animate-pulse">
-                  🎉 APPROVED! 🎉
-                </h2>
-                
-                <div className="space-y-2">
-                  <p className="text-xl md:text-2xl font-bold text-white animate-bounce" style={{ animationDelay: '0.1s' }}>
-                    {celebratingRequest.requester_name}
-                  </p>
-                  <p className="text-base md:text-lg text-gray-200 animate-bounce" style={{ animationDelay: '0.2s' }}>
-                    requested
-                  </p>
-                  <p className="text-lg md:text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-400 animate-bounce" style={{ animationDelay: '0.3s' }}>
-                    "{celebratingRequest.track_name}"
-                  </p>
-                </div>
-
-                <div className="flex justify-center space-x-2 mt-6">
-                  <span className="text-3xl animate-bounce" style={{ animationDelay: '0.1s' }}>🎵</span>
-                  <span className="text-3xl animate-bounce" style={{ animationDelay: '0.2s' }}>✨</span>
-                  <span className="text-3xl animate-bounce" style={{ animationDelay: '0.3s' }}>🎊</span>
-                  <span className="text-3xl animate-bounce" style={{ animationDelay: '0.4s' }}>🎉</span>
-                  <span className="text-3xl animate-bounce" style={{ animationDelay: '0.5s' }}>🎵</span>
-                </div>
+      <div className="fixed top-6 right-6 z-50 pointer-events-none">
+        <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg shadow-2xl border border-green-400/50 backdrop-blur-sm transform animate-in slide-in-from-right-full duration-300 max-w-sm">
+          <div className="p-4 flex items-center space-x-3">
+            {/* Success icon */}
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               </div>
             </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-white/90">Request Approved</div>
+              <div className="text-lg font-bold text-white truncate">
+                {recentApproval.requester_name}
+              </div>
+              <div className="text-sm text-white/80 truncate">
+                "{recentApproval.track_name}"
+              </div>
+            </div>
+            
+            {/* Celebration emoji */}
+            <div className="flex-shrink-0 text-2xl animate-bounce">
+              🎉
+            </div>
           </div>
-
-          {/* Expanding rings effect */}
-          <div className="absolute inset-0 -m-16">
-            <div className="absolute inset-0 border-2 border-purple-400 rounded-full animate-ping opacity-20" />
-            <div className="absolute inset-4 border-2 border-pink-400 rounded-full animate-ping opacity-30" 
-                 style={{ animationDelay: '0.5s' }} />
-            <div className="absolute inset-8 border-2 border-green-400 rounded-full animate-ping opacity-40" 
-                 style={{ animationDelay: '1s' }} />
+          
+          {/* Progress bar for timing */}
+          <div className="h-1 bg-white/20">
+            <div 
+              className="h-full bg-white/40 transition-all duration-[3000ms] ease-linear"
+              style={{ width: '0%', animation: 'progress 3s linear forwards' }}
+            />
           </div>
         </div>
       </div>
@@ -576,7 +534,7 @@ export default function DisplayPage() {
           </div>
         </div>
         <StatusDots />
-        <CelebrationPopup />
+        <ApprovalNotification />
       </div>
     );
   }
@@ -764,7 +722,7 @@ export default function DisplayPage() {
             </div>
           </div>
           <StatusDots />
-          <CelebrationPopup />
+          <ApprovalNotification />
         </div>
       );
     } else {
@@ -863,7 +821,7 @@ export default function DisplayPage() {
             </div>
           </div>
           <StatusDots />
-          <CelebrationPopup />
+          <ApprovalNotification />
         </div>
       </div>
     );
@@ -1008,7 +966,7 @@ export default function DisplayPage() {
           </div>
         </div>
         <StatusDots />
-        <CelebrationPopup />
+        <ApprovalNotification />
       </div>
     );
   } else {
@@ -1108,7 +1066,7 @@ export default function DisplayPage() {
           </div>
       </div>
       <StatusDots />
-      <CelebrationPopup />
+          <ApprovalNotification />
     </div>
   );
   }
