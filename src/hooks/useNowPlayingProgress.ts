@@ -78,15 +78,21 @@ export const useNowPlayingProgress = (
       if (response.ok) {
         const data = await response.json();
         if (data.spotify_connected && data.progress_ms !== undefined) {
-          // Update progress with fresh data from server
-          setProgress(data.progress_ms);
-          setLastFetchTime(now);
+          // Only update progress if it's significantly different
+          const currentProgress = progress;
+          const newProgress = data.progress_ms;
+          
+          // Only update if difference is more than 2 seconds to prevent micro-updates
+          if (Math.abs(newProgress - currentProgress) > 2000) {
+            setProgress(newProgress);
+            setLastFetchTime(now);
+          }
         }
       }
     } catch (error) {
       console.error('Error refreshing playback state:', error);
     }
-  }, [eventSettings?.now_playing_polling_interval, lastFetchTime]);
+  }, [eventSettings?.now_playing_polling_interval, lastFetchTime, progress]);
 
   // Set up periodic refresh
   useEffect(() => {

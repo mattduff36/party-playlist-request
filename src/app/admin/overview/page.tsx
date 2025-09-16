@@ -1,6 +1,7 @@
 'use client';
 
 import { Play, Pause, SkipForward, Volume2, Music, Users, Clock } from 'lucide-react';
+import { useCallback } from 'react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useNowPlayingProgress } from '../../../hooks/useNowPlayingProgress';
 
@@ -24,18 +25,18 @@ export default function OverviewPage() {
   // Use the specialized now playing progress hook
   const nowPlayingProgress = useNowPlayingProgress(playbackState, eventSettings);
 
-  const formatDuration = (ms: number) => {
+  const formatDuration = useCallback((ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  const formatProgress = (current: number, total: number) => {
+  const formatProgress = useCallback((current: number, total: number) => {
     const currentFormatted = formatDuration(current);
     const totalFormatted = formatDuration(total);
     return `${currentFormatted} / ${totalFormatted}`;
-  };
+  }, [formatDuration]);
 
   if (loading) {
     return (

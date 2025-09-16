@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 // Create a simple interaction lock hook inline since we removed the other file
 const useInteractionLock = () => {
   const [isInteracting, setIsInteracting] = useState(false);
@@ -159,9 +159,28 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     }
   }, []);
 
+  // Track the last processed data to prevent unnecessary updates
+  const lastProcessedDataRef = useRef<string>('');
+  
   // Sync real-time data with local state
   useEffect(() => {
     if (realtimeUpdates.isConnected && realtimeUpdates.adminData) {
+      // Create a hash of the current data to check if it's actually different
+      const currentDataHash = JSON.stringify({
+        requests: realtimeUpdates.adminData.requests,
+        spotify_state: realtimeUpdates.adminData.spotify_state,
+        event_settings: realtimeUpdates.adminData.event_settings,
+        stats: realtimeUpdates.adminData.stats,
+        currentProgress: realtimeUpdates.currentProgress
+      });
+      
+      // Skip processing if data hasn't actually changed
+      if (lastProcessedDataRef.current === currentDataHash) {
+        return;
+      }
+      
+      lastProcessedDataRef.current = currentDataHash;
+      
       console.log(`🔄 Syncing ${realtimeUpdates.connectionType} data to local state`);
       console.log('📊 SSE Data received:', {
         requests_count: realtimeUpdates.adminData.requests?.length || 0,
@@ -172,7 +191,6 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       
       if (realtimeUpdates.adminData.requests) {
         console.log('📋 Updating requests state with', realtimeUpdates.adminData.requests.length, 'requests');
-        // Force new array reference to trigger React re-render
         setRequests([...realtimeUpdates.adminData.requests]);
       }
       
@@ -183,7 +201,6 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
           track_name: spotifyState.current_track?.name,
           artist_name: spotifyState.current_track?.artists?.[0]?.name
         });
-        // Force new object reference to trigger React re-render
         setPlaybackState({
           is_playing: spotifyState.is_playing,
           progress_ms: realtimeUpdates.currentProgress || spotifyState.progress_ms,
@@ -201,18 +218,22 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       } else {
         // If SSE data doesn't have spotify_state, ensure we show disconnected status
         console.log('🎵 No Spotify state in SSE data - setting disconnected status');
-        setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
+        setPlaybackState(prev => {
+          // Only update if the spotify_connected status actually changed
+          if (prev && prev.spotify_connected !== false) {
+            return { ...prev, spotify_connected: false };
+          }
+          return prev;
+        });
       }
       
       if (realtimeUpdates.adminData.event_settings) {
         console.log('⚙️ Updating event settings');
-        // Force new object reference to trigger React re-render
         setEventSettings({...realtimeUpdates.adminData.event_settings});
       }
       
       if (realtimeUpdates.adminData.stats) {
         console.log('📈 Updating stats:', realtimeUpdates.adminData.stats);
-        // Force new object reference to trigger React re-render
         setStats({...realtimeUpdates.adminData.stats});
       }
     }
