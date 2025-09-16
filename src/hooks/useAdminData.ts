@@ -452,6 +452,15 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
 
   const updateEventSettings = async (settings: Partial<EventSettings>) => {
     const token = localStorage.getItem('admin_token');
+    
+    console.log('📤 Sending settings to API:', {
+      settings,
+      force_polling: settings.force_polling,
+      auto_approve: settings.auto_approve,
+      request_limit: settings.request_limit,
+      stringified: JSON.stringify(settings)
+    });
+    
     try {
       const response = await fetch('/api/admin/event-settings', {
         method: 'POST',

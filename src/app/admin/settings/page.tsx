@@ -58,11 +58,19 @@ export default function SettingsPage() {
     setSaving(true);
     setSaveMessage('');
 
+    console.log('🔧 Settings form submission:', {
+      formData,
+      force_polling: formData.force_polling,
+      auto_approve: formData.auto_approve,
+      request_limit: formData.request_limit
+    });
+
     try {
       await updateEventSettings(formData);
       setSaveMessage('Settings saved successfully!');
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
+      console.error('❌ Settings save error:', error);
       setSaveMessage('Error saving settings. Please try again.');
       setTimeout(() => setSaveMessage(''), 3000);
     } finally {
