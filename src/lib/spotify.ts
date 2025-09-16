@@ -154,7 +154,9 @@ class SpotifyService {
       hasCode: !!code, 
       hasCodeVerifier: !!codeVerifier,
       clientId: this.clientId ? 'SET' : 'MISSING',
-      redirectUri: this.redirectUri
+      redirectUri: this.redirectUri,
+      codeLength: code?.length,
+      codeVerifierLength: codeVerifier?.length
     });
 
     const response = await fetch(`${this.authURL}/api/token`, {
@@ -175,7 +177,17 @@ class SpotifyService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Spotify token exchange failed:', response.status, errorText);
+      console.error('Spotify token exchange failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+        requestDetails: {
+          clientId: this.clientId,
+          redirectUri: this.redirectUri,
+          codeLength: code?.length,
+          codeVerifierLength: codeVerifier?.length
+        }
+      });
       throw new Error(`Failed to exchange code for token: ${response.status} ${errorText}`);
     }
 
