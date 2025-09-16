@@ -34,8 +34,19 @@ export async function POST(req: NextRequest) {
       secondary_message,
       tertiary_message,
       show_qr_code,
-      display_refresh_interval
+      display_refresh_interval,
+      request_limit,
+      auto_approve,
+      force_polling
     } = body;
+    
+    console.log('📝 Updating event settings:', {
+      event_title,
+      request_limit,
+      auto_approve,
+      force_polling,
+      hasOtherFields: !!(dj_name || venue_info || welcome_message)
+    });
     
     const updatedSettings = await updateEventSettings({
       event_title,
@@ -45,7 +56,10 @@ export async function POST(req: NextRequest) {
       secondary_message,
       tertiary_message,
       show_qr_code,
-      display_refresh_interval
+      display_refresh_interval,
+      request_limit,
+      auto_approve,
+      force_polling
     });
     
     return NextResponse.json({

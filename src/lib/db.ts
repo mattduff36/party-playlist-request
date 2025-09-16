@@ -66,6 +66,10 @@ export interface EventSettings {
   display_polling_interval: number;
   now_playing_polling_interval: number;
   sse_update_interval: number;
+  // Admin settings
+  request_limit: number;
+  auto_approve: boolean;
+  force_polling: boolean;
   updated_at: string;
 }
 
@@ -202,6 +206,28 @@ export async function initializeDatabase() {
       console.log('✅ Polling interval columns added to event_settings');
     } catch (migrationError) {
       console.log('ℹ️ Polling interval columns migration already applied or not needed');
+    }
+
+    // Migration: Add admin settings columns
+    try {
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS request_limit INTEGER DEFAULT 10;
+      `);
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS auto_approve BOOLEAN DEFAULT FALSE;
+      `);
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS force_polling BOOLEAN DEFAULT FALSE;
+      `);
+      
+      console.log('✅ Admin settings columns added to event_settings');
+    } catch (migrationError) {
+      console.log('ℹ️ Admin settings columns migration already applied or not needed');
     }
 
     await client.query(`
