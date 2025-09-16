@@ -23,7 +23,8 @@ A modern web application that allows party guests to request songs via a public 
 - **OAuth2 PKCE Flow**: Secure Spotify authentication
 - **Rate Limiting**: Prevents abuse and spam
 - **Modern UI**: Responsive design with Tailwind CSS
-- **Real-time Updates**: Admin panel refreshes automatically
+- **Real-time Updates**: Pusher-powered instant updates across all devices
+- **Live Animations**: Request approval triggers immediate visual feedback
 - **Database Logging**: All requests stored with full audit trail
 
 ## 🏗️ Architecture
@@ -99,6 +100,16 @@ ADMIN_PASSWORD=your-admin-password
 
 # Database (PostgreSQL - get from Vercel Dashboard -> Storage -> Postgres)
 DATABASE_URL=postgres://username:password@host:port/database
+
+# Pusher (Real-time updates) - Get from https://pusher.com/channels
+PUSHER_APP_ID=your-pusher-app-id
+PUSHER_KEY=your-pusher-key
+PUSHER_SECRET=your-pusher-secret
+PUSHER_CLUSTER=your-pusher-cluster
+
+# Public Pusher (Client-side)
+NEXT_PUBLIC_PUSHER_KEY=your-pusher-key
+NEXT_PUBLIC_PUSHER_CLUSTER=your-pusher-cluster
 ```
 
 ### 4. Start Development Server
@@ -195,14 +206,18 @@ npm run dev:debug    # Start dev server with Node.js debugger
 - **Fresh Start**: If authentication issues occur, create a new Spotify app with fresh credentials and update your environment variables
 
 ### Recent Updates
+- **Sept 2025**: 🚀 **MAJOR ARCHITECTURE UPGRADE** - Replaced SSE with Pusher for reliable real-time updates
+  - **Pusher Integration**: Rock-solid real-time communication (no more connection drops!)
+  - **Instant Animations**: Request approvals trigger immediate visual feedback on display screen
+  - **Simplified Architecture**: Eliminated complex SSE/polling fallback system
+  - **Better Performance**: No more server-side state management or function timeouts
+  - **Cross-Device Reliability**: Consistent real-time updates on all devices
 - **Sept 2025**: 🚨 **CRITICAL PERFORMANCE FIX** - Resolved infinite render loop causing endless API calls in production
   - Eliminated useRealtimeProgress hook that was updating every 100ms
   - Optimized state management to prevent unnecessary re-renders
   - Performance improved from 18+ renders/second to 0 renders/second
-  - Enhanced SSE connection stability and memory usage
 - **2024**: Created new testing Spotify Web App to resolve potential API rate limiting issues
 - Updated Vercel environment variables with new client ID and secret
-- Fresh deployment triggered to refresh authentication tokens
 
 ## 🐛 Troubleshooting
 
@@ -225,6 +240,16 @@ npm run dev:debug    # Start dev server with Node.js debugger
 4. **Requests not appearing**:
    - Check rate limiting (wait 30 seconds between requests)
    - Verify API endpoints are accessible
+
+5. **Real-time updates not working**:
+   - Check Pusher connection status (green dot in display screen)
+   - Verify Pusher environment variables are set correctly
+   - Ensure NEXT_PUBLIC_PUSHER_KEY and NEXT_PUBLIC_PUSHER_CLUSTER are set
+
+6. **Animations not triggering**:
+   - Verify Pusher is connected (green pulsing dot on display screen)
+   - Check browser console for Pusher connection logs
+   - Ensure request has a requester nickname (animations only for named requests)
 
 ## 📄 Documentation
 
