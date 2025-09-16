@@ -265,7 +265,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ action: 'start', interval: 2000 })
+            body: JSON.stringify({ action: 'start', interval: 5000 })
           });
           console.log('🎵 Spotify watcher started');
         }
@@ -292,7 +292,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     updateEventSettings,
     handleSpotifyDisconnect
   };
-
+  
   return (
     <AdminDataContext.Provider value={value}>
       {children}

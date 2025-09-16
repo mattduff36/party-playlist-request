@@ -1,0 +1,71 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [active]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - navigation [ref=e7]:
+            - button "previous" [disabled] [ref=e8]:
+              - img "previous" [ref=e9]
+            - generic [ref=e11]:
+              - generic [ref=e12]: 1/
+              - generic [ref=e13]: "1"
+            - button "next" [disabled] [ref=e14]:
+              - img "next" [ref=e15]
+          - img
+        - generic [ref=e17]:
+          - link "Next.js 15.5.2 (stale) Webpack" [ref=e18] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+            - img [ref=e19] [cursor=pointer]
+            - generic "There is a newer version (15.5.3) available, upgrade recommended!" [ref=e21] [cursor=pointer]: Next.js 15.5.2 (stale)
+            - generic [ref=e22] [cursor=pointer]: Webpack
+          - img
+      - generic [ref=e23]:
+        - dialog "Runtime Error" [ref=e24]:
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e29]:
+                - generic [ref=e31]: Runtime Error
+                - generic [ref=e32]:
+                  - button "Copy Error Info" [ref=e33] [cursor=pointer]:
+                    - img [ref=e34] [cursor=pointer]
+                  - button "No related documentation found" [disabled] [ref=e36]:
+                    - img [ref=e37]
+                  - link "Learn more about enabling Node.js inspector for server code with Chrome DevTools" [ref=e39] [cursor=pointer]:
+                    - /url: https://nextjs.org/docs/app/building-your-application/configuring/debugging#server-side-code
+                    - img [ref=e40] [cursor=pointer]
+              - paragraph [ref=e49]: You must pass your app key when you instantiate Pusher.
+            - generic [ref=e52]:
+              - paragraph [ref=e53]:
+                - text: Call Stack
+                - generic [ref=e54]: "55"
+              - button "Show 55 ignore-listed frame(s)" [ref=e55] [cursor=pointer]:
+                - text: Show 55 ignore-listed frame(s)
+                - img [ref=e56] [cursor=pointer]
+          - generic [ref=e58]:
+            - generic [ref=e59]: "1"
+            - generic [ref=e60]: "2"
+        - contentinfo [ref=e61]:
+          - region "Error feedback" [ref=e62]:
+            - paragraph [ref=e63]:
+              - link "Was this helpful?" [ref=e64] [cursor=pointer]:
+                - /url: https://nextjs.org/telemetry#error-feedback
+            - button "Mark as helpful" [ref=e65] [cursor=pointer]:
+              - img [ref=e66] [cursor=pointer]
+            - button "Mark as not helpful" [ref=e69] [cursor=pointer]:
+              - img [ref=e70] [cursor=pointer]
+    - generic [ref=e76] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e77] [cursor=pointer]:
+        - img [ref=e78] [cursor=pointer]
+      - generic [ref=e81] [cursor=pointer]:
+        - button "Open issues overlay" [ref=e82] [cursor=pointer]:
+          - generic [ref=e83] [cursor=pointer]:
+            - generic [ref=e84] [cursor=pointer]: "0"
+            - generic [ref=e85] [cursor=pointer]: "1"
+          - generic [ref=e86] [cursor=pointer]: Issue
+        - button "Collapse issues badge" [ref=e87] [cursor=pointer]:
+          - img [ref=e88] [cursor=pointer]
+  - 'heading "Application error: a client-side exception has occurred while loading localhost (see the browser console for more information)." [level=2] [ref=e92]'
+```
