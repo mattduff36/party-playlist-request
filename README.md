@@ -80,6 +80,8 @@ cp .env.local.example .env.local
 
 3. Note your **Client ID** and **Client Secret**
 
+> **⚠️ Important**: If you encounter API rate limiting or authentication issues during development, create a separate Spotify app for testing/production to avoid conflicts with development API usage. Update your environment variables with the new credentials and redeploy to refresh the authentication tokens.
+
 ### 3. Environment Configuration
 
 Edit `.env.local` with your settings:
@@ -184,6 +186,19 @@ npm run clean        # Clean build cache
 npm run dev:debug    # Start dev server with Node.js debugger
 ```
 
+## 🧪 Testing & Production Notes
+
+### Spotify App Management
+- **Development**: Use one Spotify app for local development and testing
+- **Production**: Create a separate Spotify app for production deployment
+- **Rate Limiting**: Heavy API usage during development can trigger Spotify's rate limiting
+- **Fresh Start**: If authentication issues occur, create a new Spotify app with fresh credentials and update your environment variables
+
+### Recent Updates
+- **2024**: Created new testing Spotify Web App to resolve potential API rate limiting issues
+- Updated Vercel environment variables with new client ID and secret
+- Fresh deployment triggered to refresh authentication tokens
+
 ## 🐛 Troubleshooting
 
 ### Common Issues
@@ -196,6 +211,7 @@ npm run dev:debug    # Start dev server with Node.js debugger
    - Check your Client ID and Client Secret
    - Verify redirect URI matches exactly
    - Ensure your Spotify app is not in development mode restrictions
+   - If issues persist, create a new Spotify app with fresh credentials
 
 3. **Search not working**:
    - Verify Spotify authentication is complete
