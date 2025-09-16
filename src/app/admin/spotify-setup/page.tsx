@@ -6,12 +6,14 @@ import { useAdminData } from '@/hooks/useAdminData';
 
 export default function SpotifySetupPage() {
   const router = useRouter();
-  const { handleSpotifyDisconnect } = useAdminData();
+  const { handleSpotifyDisconnect, playbackState, stats, loading } = useAdminData();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+  
+  // Use the shared data source for connection status
+  const isConnected = playbackState?.spotify_connected || stats?.spotify_connected || false;
+  const isCheckingStatus = loading;
 
   // Check for admin token and initialize
   useEffect(() => {
@@ -58,15 +60,13 @@ export default function SpotifySetupPage() {
 
   const checkSpotifyConnection = async (authToken: string) => {
     try {
-      setIsCheckingStatus(true);
+      // Just trigger a data refresh - the connection status will come from useAdminData
       const response = await fetch('/api/admin/stats', {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       
       if (response.ok) {
         const data = await response.json();
-        setIsConnected(data.spotify_connected || false);
-        
         // Clear any previous error messages if we successfully got status
         if (data.spotify_connected) {
           setError(''); // Clear errors when successfully connected
@@ -79,8 +79,6 @@ export default function SpotifySetupPage() {
     } catch (error) {
       console.error('Error checking Spotify connection:', error);
       setError(`Failed to check Spotify connection status: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsCheckingStatus(false);
     }
   };
 
@@ -268,7 +266,6 @@ export default function SpotifySetupPage() {
       if (response.ok) {
         const responseData = await response.json();
         console.log('✅ Disconnect successful:', responseData);
-        setIsConnected(false);
         setSuccess('Spotify disconnected successfully');
         
         // Update the admin data immediately to reflect disconnected state
