@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAdminData } from '@/hooks/useAdminData';
 
 export default function SpotifySetupPage() {
   const router = useRouter();
+  const { handleSpotifyDisconnect } = useAdminData();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -268,6 +270,14 @@ export default function SpotifySetupPage() {
         console.log('✅ Disconnect successful:', responseData);
         setIsConnected(false);
         setSuccess('Spotify disconnected successfully');
+        
+        // Update the admin data immediately to reflect disconnected state
+        handleSpotifyDisconnect();
+        
+        // Force refresh the connection status to update the admin layout
+        setTimeout(() => {
+          refreshStatus();
+        }, 500);
       } else {
         // Check if response has content before trying to parse JSON
         const contentType = response.headers.get('content-type');

@@ -156,6 +156,10 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
           queue: [...(spotifyState.queue || [])],
           timestamp: spotifyState.timestamp
         });
+      } else {
+        // If SSE data doesn't have spotify_state, ensure we show disconnected status
+        console.log('🎵 No Spotify state in SSE data - setting disconnected status');
+        setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
       }
       
       if (realtimeUpdates.adminData.event_settings) {
@@ -241,6 +245,11 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
         // Only increment failure count for actual failures, not circuit breaker skips
         setSpotifyFailureCount(prev => prev + 1);
         setLastSpotifyFailure(now);
+        setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
+      }
+
+      // If no Spotify state from SSE and no queue data, ensure playback state reflects disconnected status
+      if (!realtimeUpdates.adminData?.spotify_state && (!queueRes || !queueRes.ok)) {
         setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
       }
 
@@ -387,6 +396,11 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     }
   };
 
+  const handleSpotifyDisconnect = async () => {
+    // Clear playback state immediately when Spotify is disconnected
+    setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
+  };
+
   const handlePlayAgain = async (id: string, playNext: boolean) => {
     lockInteraction(3000);
     const token = localStorage.getItem('admin_token');
@@ -484,6 +498,7 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     handlePlayAgain,
     handlePlaybackControl,
     updateEventSettings,
+    handleSpotifyDisconnect,
     lockInteraction,
   };
 };
