@@ -18,7 +18,7 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
   const safeRequestsData = requestsData || [];
   
   console.log('📋 RequestsTab component rendering with', safeRequestsData.length, 'requests');
-  console.log('📋 RequestsTab requests data:', safeRequestsData.map(r => ({ id: r.id, status: r.status, track_name: r.track_name })));
+  console.log('📋 RequestsTab requests data:', safeRequestsData.length > 0 ? safeRequestsData.map(r => ({ id: r.id, status: r.status, track_name: r.track_name })) : 'No requests available');
   
   const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
   const [allRequests, setAllRequests] = useState<any[]>([]);
@@ -28,16 +28,19 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
     console.log('📋 RequestsTab: Filter changed to:', filterStatus);
     console.log('📋 RequestsTab: Processing', safeRequestsData.length, 'requests from props');
     
+    // Ensure we always work with an array
+    const workingData = Array.isArray(safeRequestsData) ? safeRequestsData : [];
+    
     // Filter the requests data based on selected filter
-    let filteredRequests = safeRequestsData;
+    let filteredRequests = workingData;
     if (filterStatus !== 'all') {
-      filteredRequests = safeRequestsData.filter(req => req.status === filterStatus);
+      filteredRequests = workingData.filter(req => req.status === filterStatus);
     }
     
     // Sort requests when showing all: Pending > Approved > Rejected > Played
     if (filterStatus === 'all') {
       const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
-      filteredRequests = [...safeRequestsData].sort((a: any, b: any) => {
+      filteredRequests = [...workingData].sort((a: any, b: any) => {
         const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
         const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
         if (aOrder !== bOrder) return aOrder - bOrder;
@@ -83,11 +86,11 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
           onChange={(e) => setFilterStatus(e.target.value as any)}
           className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
         >
-          <option value="all">All Requests ({safeRequestsData.length})</option>
-          <option value="pending">Pending ({safeRequestsData.filter(r => r.status === 'pending').length})</option>
-          <option value="approved">Approved ({safeRequestsData.filter(r => r.status === 'approved').length})</option>
-          <option value="rejected">Rejected ({safeRequestsData.filter(r => r.status === 'rejected').length})</option>
-          <option value="played">Played ({safeRequestsData.filter(r => r.status === 'played').length})</option>
+          <option value="all">All Requests ({Array.isArray(safeRequestsData) ? safeRequestsData.length : 0})</option>
+          <option value="pending">Pending ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'pending').length : 0})</option>
+          <option value="approved">Approved ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'approved').length : 0})</option>
+          <option value="rejected">Rejected ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'rejected').length : 0})</option>
+          <option value="played">Played ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'played').length : 0})</option>
         </select>
       </div>
 
