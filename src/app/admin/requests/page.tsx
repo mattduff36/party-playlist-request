@@ -14,19 +14,19 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
   onDelete: (id: string) => void,
   onPlayAgain: (id: string, playNext: boolean) => void
 }) => {
-  console.log('📋 RequestsTab component rendering with', requestsData?.length || 0, 'requests');
-  console.log('📋 RequestsTab requests data:', requestsData?.map(r => ({ id: r.id, status: r.status, track_name: r.track_name })) || []);
+  // Ensure requestsData is always an array FIRST
+  const safeRequestsData = requestsData || [];
+  
+  console.log('📋 RequestsTab component rendering with', safeRequestsData.length, 'requests');
+  console.log('📋 RequestsTab requests data:', safeRequestsData.map(r => ({ id: r.id, status: r.status, track_name: r.track_name })));
   
   const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
   const [allRequests, setAllRequests] = useState<any[]>([]);
 
-  // Ensure requestsData is always an array
-  const safeRequestsData = requestsData || [];
-
   // Filter and sort the passed requests data
   useEffect(() => {
     console.log('📋 RequestsTab: Filter changed to:', filterStatus);
-    console.log('📋 RequestsTab: Processing', requestsData?.length || 0, 'requests from props');
+    console.log('📋 RequestsTab: Processing', safeRequestsData.length, 'requests from props');
     
     // Filter the requests data based on selected filter
     let filteredRequests = safeRequestsData;
