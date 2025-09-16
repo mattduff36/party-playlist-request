@@ -239,7 +239,7 @@ export default function DisplayPage() {
 
   // Determine what to show in the scrolling message area
   const displayContent = showingNotification && currentNotification 
-    ? currentNotification.message 
+    ? messages.join(' • ') + ' • ' + currentNotification.message + ' • ' + messages.join(' • ')
     : messages.join(' • ') + ' • ' + messages.join(' • ');
   
   const messageTextColor = showingNotification && currentNotification?.type === 'approval' 
