@@ -62,6 +62,10 @@ interface AdminDataContextType {
   refreshData: () => Promise<void>;
   updateEventSettings: (settings: Partial<EventSettings>) => Promise<void>;
   handleSpotifyDisconnect: () => Promise<void>;
+  handleApprove: (id: string) => Promise<void>;
+  handleReject: (id: string) => Promise<void>;
+  handleDelete: (id: string) => Promise<void>;
+  handlePlayAgain: (id: string) => Promise<void>;
 }
 
 // Create the context
@@ -309,6 +313,83 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   // No more periodic refresh - Pusher handles real-time updates!
 
+  // Request management methods
+  const handleApprove = useCallback(async (id: string) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/approve/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await refreshRequests();
+        await refreshStats();
+      }
+    } catch (error) {
+      console.error('Failed to approve request:', error);
+    }
+  }, [refreshRequests, refreshStats]);
+
+  const handleReject = useCallback(async (id: string) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/reject/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await refreshRequests();
+        await refreshStats();
+      }
+    } catch (error) {
+      console.error('Failed to reject request:', error);
+    }
+  }, [refreshRequests, refreshStats]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/delete/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await refreshRequests();
+        await refreshStats();
+      }
+    } catch (error) {
+      console.error('Failed to delete request:', error);
+    }
+  }, [refreshRequests, refreshStats]);
+
+  const handlePlayAgain = useCallback(async (id: string) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/play-again/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await refreshRequests();
+        await refreshStats();
+      }
+    } catch (error) {
+      console.error('Failed to play again:', error);
+    }
+  }, [refreshRequests, refreshStats]);
+
   const value: AdminDataContextType = {
     requests,
     playbackState,
@@ -320,7 +401,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     handlePlaybackControl,
     refreshData,
     updateEventSettings,
-    handleSpotifyDisconnect
+    handleSpotifyDisconnect,
+    handleApprove,
+    handleReject,
+    handleDelete,
+    handlePlayAgain
   };
   
   return (

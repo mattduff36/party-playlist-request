@@ -1,0 +1,80 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - heading "DJ Admin" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "Overview" [ref=e9]:
+            - generic [ref=e10]:
+              - img [ref=e11]
+              - text: Overview
+          - button "Song Requests" [ref=e14]:
+            - generic [ref=e15]:
+              - img [ref=e16]
+              - text: Song Requests
+          - button "Spotify" [ref=e20]:
+            - generic [ref=e21]:
+              - img [ref=e22]
+              - text: Spotify
+          - button "Settings" [ref=e24]:
+            - generic [ref=e25]:
+              - img [ref=e26]
+              - text: Settings
+        - generic [ref=e30]:
+          - link "Display Screen" [ref=e31] [cursor=pointer]:
+            - /url: /display
+            - img [ref=e32] [cursor=pointer]
+            - text: Display Screen
+          - button "Logout" [ref=e34]:
+            - img [ref=e35]
+            - text: Logout
+    - generic [ref=e40]:
+      - generic [ref=e42]:
+        - heading "Overview" [level=2] [ref=e44]
+        - generic [ref=e46]:
+          - generic [ref=e49]: Spotify
+          - generic [ref=e50]:
+            - img [ref=e51]
+            - generic [ref=e55]: Pusher
+      - main [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - generic [ref=e60]:
+              - img [ref=e61]
+              - generic [ref=e65]:
+                - paragraph [ref=e66]: Total Requests
+                - paragraph [ref=e67]: "0"
+            - generic [ref=e69]:
+              - img [ref=e70]
+              - generic [ref=e73]:
+                - paragraph [ref=e74]: Pending
+                - paragraph [ref=e75]: "0"
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - generic [ref=e83]:
+                - paragraph [ref=e84]: Unique Requesters
+                - paragraph [ref=e85]: "0"
+          - generic [ref=e86]:
+            - heading "Now Playing" [level=2] [ref=e87]
+            - generic [ref=e88]:
+              - img [ref=e89]
+              - heading "Connect to Spotify" [level=3] [ref=e93]
+              - paragraph [ref=e94]: Connect your Spotify account to see what's playing and control playback.
+              - link "Connect Spotify" [ref=e95] [cursor=pointer]:
+                - /url: /admin/spotify-setup
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - heading "Coming Up Next" [level=2] [ref=e98]
+              - button "View All →" [ref=e99]
+            - generic [ref=e100]:
+              - img [ref=e101]
+              - paragraph [ref=e105]: Connect to Spotify to see upcoming songs
+              - link "Connect Spotify" [ref=e106] [cursor=pointer]:
+                - /url: /admin/spotify-setup
+  - button "Open Next.js Dev Tools" [ref=e112] [cursor=pointer]:
+    - img [ref=e113] [cursor=pointer]
+  - alert [ref=e116]
+```

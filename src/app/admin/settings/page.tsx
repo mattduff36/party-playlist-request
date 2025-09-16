@@ -16,7 +16,7 @@ export default function SettingsPage() {
     tertiary_message: '',
     request_limit: 10,
     auto_approve: false,
-    force_polling: false,
+    // Removed force_polling - using Pusher now
   });
   
   const [saving, setSaving] = useState(false);
@@ -32,7 +32,7 @@ export default function SettingsPage() {
         tertiary_message: eventSettings.tertiary_message || '',
         request_limit: eventSettings.request_limit || 10,
         auto_approve: eventSettings.auto_approve || false,
-        force_polling: eventSettings.force_polling || false,
+        // Removed force_polling - using Pusher now
       });
     }
   }, [eventSettings]);
@@ -198,12 +198,18 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* Polling Intervals */}
+          {/* Real-time System Status */}
           <div className="bg-gray-700 rounded-lg p-4">
-            <h4 className="text-white font-medium mb-4">⏱️ Polling Intervals</h4>
-            <p className="text-gray-400 text-sm mb-4">
-              Configure how often different parts of the system refresh when real-time updates are not available (fallback mode)
-            </p>
+            <h4 className="text-white font-medium mb-4">⚡ Real-time System (Pusher)</h4>
+            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                <div>
+                  <p className="text-green-400 font-medium">Pusher WebSocket Active</p>
+                  <p className="text-gray-400 text-sm">All updates are instant - no polling needed!</p>
+                </div>
+              </div>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Admin Page Polling */}

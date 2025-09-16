@@ -33,11 +33,7 @@ interface EventSettings {
   tertiary_message: string;
   show_qr_code: boolean;
   display_refresh_interval: number;
-  // Polling intervals (in seconds)
-  admin_polling_interval?: number;
-  display_polling_interval?: number;
-  now_playing_polling_interval?: number;
-  sse_update_interval?: number;
+  // Legacy polling settings (no longer used - Pusher handles real-time updates)
 }
 
 interface Notification {
@@ -269,16 +265,8 @@ export default function DisplayPage() {
     fetchDisplayData();
     fetchNotifications();
     
-    // Set up polling based on display polling interval
-    const pollingInterval = (eventSettings?.display_polling_interval || eventSettings?.display_refresh_interval || 20) * 1000;
-    console.log(`🔄 Display page polling interval: ${pollingInterval/1000}s`);
-    
-    const interval = setInterval(() => {
-      fetchDisplayData();
-      fetchNotifications();
-    }, pollingInterval);
-    return () => clearInterval(interval);
-  }, [eventSettings?.display_polling_interval, eventSettings?.display_refresh_interval]);
+    // No more polling - Pusher handles real-time updates!
+  }, []); // Only run once
 
   // Rotate messages
   useEffect(() => {
