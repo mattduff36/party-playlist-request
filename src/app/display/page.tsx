@@ -58,11 +58,7 @@ export default function DisplayPage() {
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
-  const [recentApproval, setRecentApproval] = useState<{
-    requester_name: string;
-    track_name: string;
-    timestamp: number;
-  } | null>(null);
+  const [animatingBadges, setAnimatingBadges] = useState<Set<string>>(new Set());
   
   // WebSocket for real-time updates
   const realtimeUpdates = useRealtimeUpdates();
@@ -103,30 +99,34 @@ export default function DisplayPage() {
         
         // Check for new approvals by comparing queue changes
         const currentQueueUris = upcomingSongs.map(song => song.uri);
-        const newQueueUris = queueItems.map(song => song.uri);
         const newlyAddedSongs = queueItems.filter(song => 
           !currentQueueUris.includes(song.uri) && song.requester_nickname
         );
         
-        // If there's a newly added song with a requester, show celebration
-        if (newlyAddedSongs.length > 0 && !recentApproval) {
-          const newSong = newlyAddedSongs[0]; // Show celebration for the first new song
-          setRecentApproval({
-            requester_name: newSong.requester_nickname!,
-            track_name: newSong.name,
-            timestamp: Date.now()
+        // Animate badges for newly added songs
+        if (newlyAddedSongs.length > 0) {
+          const newAnimatingBadges = new Set(animatingBadges);
+          
+          newlyAddedSongs.forEach(song => {
+            newAnimatingBadges.add(song.uri);
+            
+            // Remove animation after balloon pop completes
+            setTimeout(() => {
+              setAnimatingBadges(prev => {
+                const updated = new Set(prev);
+                updated.delete(song.uri);
+                return updated;
+              });
+            }, 2000); // 2 second animation duration
           });
           
-          // Hide celebration after 3 seconds
-          setTimeout(() => {
-            setRecentApproval(null);
-          }, 3000);
+          setAnimatingBadges(newAnimatingBadges);
         }
         
         setUpcomingSongs(queueItems);
       }
     }
-  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress, upcomingSongs, recentApproval]);
+  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress, upcomingSongs, animatingBadges]);
 
   // Detect device type
   useEffect(() => {
@@ -302,51 +302,6 @@ export default function DisplayPage() {
     </div>
   );
 
-  // Professional Approval Notification
-  const ApprovalNotification = () => {
-    if (!recentApproval) return null;
-
-    return (
-      <div className="fixed top-6 right-6 z-50 pointer-events-none">
-        <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg shadow-2xl border border-green-400/50 backdrop-blur-sm transform animate-in slide-in-from-right-full duration-300 max-w-sm">
-          <div className="p-4 flex items-center space-x-3">
-            {/* Success icon */}
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white/90">Request Approved</div>
-              <div className="text-lg font-bold text-white truncate">
-                {recentApproval.requester_name}
-              </div>
-              <div className="text-sm text-white/80 truncate">
-                "{recentApproval.track_name}"
-              </div>
-            </div>
-            
-            {/* Celebration emoji */}
-            <div className="flex-shrink-0 text-2xl animate-bounce">
-              🎉
-            </div>
-          </div>
-          
-          {/* Progress bar for timing */}
-          <div className="h-1 bg-white/20">
-            <div 
-              className="h-full bg-white/40 transition-all duration-[3000ms] ease-linear"
-              style={{ width: '0%', animation: 'progress 3s linear forwards' }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // TV Layout (Large screens)
   if (deviceType === 'tv') {
@@ -443,11 +398,15 @@ export default function DisplayPage() {
                       </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-3">
-                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                              <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg transition-all duration-200 ${
+                                animatingBadges.has(song.uri) 
+                                  ? 'animate-balloon-pop' 
+                                  : ''
+                              }`}>
                                 {song.requester_nickname}
-                  </div>
-                </div>
-              )}
+                              </div>
+                            </div>
+                          )}
             </div>
                       ))}
                     </div>
@@ -534,7 +493,6 @@ export default function DisplayPage() {
           </div>
         </div>
         <StatusDots />
-        <ApprovalNotification />
       </div>
     );
   }
@@ -633,7 +591,11 @@ export default function DisplayPage() {
                           </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-2">
-                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                              <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold transition-all duration-200 ${
+                                animatingBadges.has(song.uri) 
+                                  ? 'animate-balloon-pop' 
+                                  : ''
+                              }`}>
                                 {song.requester_nickname}
                               </div>
                             </div>
@@ -722,7 +684,6 @@ export default function DisplayPage() {
             </div>
           </div>
           <StatusDots />
-          <ApprovalNotification />
         </div>
       );
     } else {
@@ -794,7 +755,11 @@ export default function DisplayPage() {
                       </div>
                       {song.requester_nickname && (
                         <div className="flex-shrink-0 ml-3">
-                          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                          <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold transition-all duration-200 ${
+                            animatingBadges.has(song.uri) 
+                              ? 'animate-balloon-pop' 
+                              : ''
+                          }`}>
                             {song.requester_nickname}
                           </div>
                         </div>
@@ -821,7 +786,6 @@ export default function DisplayPage() {
             </div>
           </div>
           <StatusDots />
-          <ApprovalNotification />
         </div>
       </div>
     );
@@ -897,7 +861,11 @@ export default function DisplayPage() {
                         </div>
                         {song.requester_nickname && (
                           <div className="flex-shrink-0 ml-1">
-                            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1 py-0.5 rounded-full text-xs font-bold">
+                            <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1 py-0.5 rounded-full text-xs font-bold transition-all duration-200 ${
+                              animatingBadges.has(song.uri) 
+                                ? 'animate-balloon-pop' 
+                                : ''
+                            }`}>
                               {song.requester_nickname}
                             </div>
                           </div>
@@ -966,7 +934,6 @@ export default function DisplayPage() {
           </div>
         </div>
         <StatusDots />
-        <ApprovalNotification />
       </div>
     );
   } else {
@@ -1038,7 +1005,11 @@ export default function DisplayPage() {
                     </div>
                     {song.requester_nickname && (
                       <div className="flex-shrink-0 ml-2">
-                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                        <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold transition-all duration-200 ${
+                          animatingBadges.has(song.uri) 
+                            ? 'animate-balloon-pop' 
+                            : ''
+                        }`}>
                           {song.requester_nickname}
                         </div>
           </div>
@@ -1066,7 +1037,6 @@ export default function DisplayPage() {
           </div>
       </div>
       <StatusDots />
-          <ApprovalNotification />
     </div>
   );
   }
