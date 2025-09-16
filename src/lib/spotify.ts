@@ -156,10 +156,18 @@ class SpotifyService {
       clientId: this.clientId ? 'SET' : 'MISSING',
       redirectUri: this.redirectUri,
       codeLength: code?.length,
-      codeVerifierLength: codeVerifier?.length
+      codeVerifierLength: codeVerifier?.length,
+      isLocalDev: process.env.NODE_ENV === 'development'
     });
 
-    const response = await fetch(`${this.authURL}/api/token`, {
+    // Use mock endpoint for local development
+    const tokenUrl = process.env.NODE_ENV === 'development' 
+      ? '/api/debug/mock-spotify-token'  // Local mock endpoint
+      : `${this.authURL}/api/token`;     // Real Spotify endpoint
+
+    console.log('🎯 Using token URL:', tokenUrl);
+
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
