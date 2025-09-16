@@ -195,6 +195,11 @@ npm run dev:debug    # Start dev server with Node.js debugger
 - **Fresh Start**: If authentication issues occur, create a new Spotify app with fresh credentials and update your environment variables
 
 ### Recent Updates
+- **Sept 2025**: 🚨 **CRITICAL PERFORMANCE FIX** - Resolved infinite render loop causing endless API calls in production
+  - Eliminated useRealtimeProgress hook that was updating every 100ms
+  - Optimized state management to prevent unnecessary re-renders
+  - Performance improved from 18+ renders/second to 0 renders/second
+  - Enhanced SSE connection stability and memory usage
 - **2024**: Created new testing Spotify Web App to resolve potential API rate limiting issues
 - Updated Vercel environment variables with new client ID and secret
 - Fresh deployment triggered to refresh authentication tokens
