@@ -16,6 +16,12 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   const [connectionState, setConnectionState] = useState<string>('initializing');
   const pusherRef = useRef<any>(null);
   const channelRef = useRef<Channel | null>(null);
+  const optionsRef = useRef(options);
+
+  // Update options ref when they change
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options.onRequestApproved, options.onRequestRejected, options.onPlaybackUpdate, options.onStatsUpdate]);
 
   useEffect(() => {
     // Create Pusher client
@@ -51,36 +57,36 @@ export const usePusher = (options: UsePusherOptions = {}) => {
     const channel = pusher.subscribe(CHANNELS.PARTY_PLAYLIST);
     channelRef.current = channel;
 
-    // Bind event listeners
-    if (options.onRequestApproved) {
-      channel.bind(EVENTS.REQUEST_APPROVED, (data: RequestApprovedEvent) => {
-        console.log('🎉 Pusher: Request approved!', data);
-        options.onRequestApproved!(data);
-      });
-    }
+    // Bind event listeners using stable references
+    channel.bind(EVENTS.REQUEST_APPROVED, (data: RequestApprovedEvent) => {
+      console.log('🎉 Pusher: Request approved!', data);
+      if (optionsRef.current.onRequestApproved) {
+        optionsRef.current.onRequestApproved(data);
+      }
+    });
 
-    if (options.onRequestRejected) {
-      channel.bind(EVENTS.REQUEST_REJECTED, (data: RequestRejectedEvent) => {
-        console.log('❌ Pusher: Request rejected', data);
-        options.onRequestRejected!(data);
-      });
-    }
+    channel.bind(EVENTS.REQUEST_REJECTED, (data: RequestRejectedEvent) => {
+      console.log('❌ Pusher: Request rejected', data);
+      if (optionsRef.current.onRequestRejected) {
+        optionsRef.current.onRequestRejected(data);
+      }
+    });
 
-    if (options.onPlaybackUpdate) {
-      channel.bind(EVENTS.PLAYBACK_UPDATE, (data: any) => {
-        console.log('🎵 Pusher: Playback update', data);
-        options.onPlaybackUpdate!(data);
-      });
-    }
+    channel.bind(EVENTS.PLAYBACK_UPDATE, (data: any) => {
+      console.log('🎵 Pusher: Playback update', data);
+      if (optionsRef.current.onPlaybackUpdate) {
+        optionsRef.current.onPlaybackUpdate(data);
+      }
+    });
 
-    // Subscribe to admin updates if stats callback provided
-    if (options.onStatsUpdate) {
-      const adminChannel = pusher.subscribe(CHANNELS.ADMIN_UPDATES);
-      adminChannel.bind(EVENTS.STATS_UPDATE, (data: any) => {
-        console.log('📊 Pusher: Stats update', data);
-        options.onStatsUpdate!(data);
-      });
-    }
+    // Subscribe to admin updates for stats
+    const adminChannel = pusher.subscribe(CHANNELS.ADMIN_UPDATES);
+    adminChannel.bind(EVENTS.STATS_UPDATE, (data: any) => {
+      console.log('📊 Pusher: Stats update', data);
+      if (optionsRef.current.onStatsUpdate) {
+        optionsRef.current.onStatsUpdate(data);
+      }
+    });
 
     // Cleanup
     return () => {
@@ -88,12 +94,10 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       if (channelRef.current) {
         pusher.unsubscribe(CHANNELS.PARTY_PLAYLIST);
       }
-      if (options.onStatsUpdate) {
-        pusher.unsubscribe(CHANNELS.ADMIN_UPDATES);
-      }
+      pusher.unsubscribe(CHANNELS.ADMIN_UPDATES);
       pusher.disconnect();
     };
-  }, [options.onRequestApproved, options.onRequestRejected, options.onPlaybackUpdate, options.onStatsUpdate]);
+  }, []); // Empty dependency array - only run once!
 
   return {
     isConnected,
