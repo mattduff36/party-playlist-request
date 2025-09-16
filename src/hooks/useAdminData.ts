@@ -121,13 +121,25 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   useEffect(() => {
     if (realtimeUpdates.isConnected && realtimeUpdates.adminData) {
       console.log(`🔄 Syncing ${realtimeUpdates.connectionType} data to local state`);
+      console.log('📊 SSE Data received:', {
+        requests_count: realtimeUpdates.adminData.requests?.length || 0,
+        has_spotify_state: !!realtimeUpdates.adminData.spotify_state,
+        has_event_settings: !!realtimeUpdates.adminData.event_settings,
+        has_stats: !!realtimeUpdates.adminData.stats
+      });
       
       if (realtimeUpdates.adminData.requests) {
+        console.log('📋 Updating requests state with', realtimeUpdates.adminData.requests.length, 'requests');
         setRequests(realtimeUpdates.adminData.requests);
       }
       
       if (realtimeUpdates.adminData.spotify_state) {
         const spotifyState = realtimeUpdates.adminData.spotify_state;
+        console.log('🎵 Updating playback state:', {
+          is_playing: spotifyState.is_playing,
+          track_name: spotifyState.current_track?.name,
+          artist_name: spotifyState.current_track?.artists?.[0]?.name
+        });
         setPlaybackState({
           is_playing: spotifyState.is_playing,
           progress_ms: realtimeUpdates.currentProgress || spotifyState.progress_ms,
@@ -145,10 +157,12 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
       }
       
       if (realtimeUpdates.adminData.event_settings) {
+        console.log('⚙️ Updating event settings');
         setEventSettings(realtimeUpdates.adminData.event_settings);
       }
       
       if (realtimeUpdates.adminData.stats) {
+        console.log('📈 Updating stats:', realtimeUpdates.adminData.stats);
         setStats(realtimeUpdates.adminData.stats);
       }
     }

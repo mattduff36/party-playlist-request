@@ -13,6 +13,14 @@ export default function OverviewPage() {
     loading
   } = useAdminData();
 
+  console.log('📊 OverviewPage rendering with:', {
+    playbackState_connected: playbackState?.spotify_connected,
+    playbackState_track: playbackState?.track_name,
+    stats_total: stats?.total_requests,
+    stats_pending: stats?.pending_requests,
+    loading
+  });
+
   // Use the specialized now playing progress hook
   const nowPlayingProgress = useNowPlayingProgress(playbackState, eventSettings);
 

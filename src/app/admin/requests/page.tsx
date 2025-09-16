@@ -15,6 +15,7 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
   onPlayAgain: (id: string, playNext: boolean) => void
 }) => {
   console.log('📋 RequestsTab component rendering with', requestsData.length, 'requests');
+  console.log('📋 RequestsTab requests data:', requestsData.map(r => ({ id: r.id, status: r.status, track_name: r.track_name })));
   const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
   const [allRequests, setAllRequests] = useState<any[]>([]);
 
