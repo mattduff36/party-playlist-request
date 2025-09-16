@@ -269,21 +269,45 @@ class SpotifyService {
       throw new Error('No refresh token provided');
     }
 
+    console.log('🔄 Refreshing Spotify access token...', {
+      hasRefreshToken: !!refreshToken,
+      clientId: this.clientId ? 'SET' : 'MISSING',
+      authURL: this.authURL,
+      environment: process.env.NODE_ENV
+    });
+
+    // Use mock endpoint for local development
+    const tokenUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000/api/debug/mock-spotify-token'  // Local mock endpoint
+      : `${this.authURL}/api/token`;     // Real Spotify endpoint
+
+    console.log('🎯 Using token refresh URL:', tokenUrl);
+
     // Add timeout to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     try {
-      const response = await fetch(`${this.authURL}/api/token`, {
+      const requestBody = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: this.clientId
+      });
+
+      console.log('📤 Token refresh request:', {
+        url: tokenUrl,
+        grant_type: 'refresh_token',
+        hasRefreshToken: !!refreshToken,
+        clientId: this.clientId,
+        bodyString: requestBody.toString()
+      });
+
+      const response = await fetch(tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken,
-          client_id: this.clientId
-        }),
+        body: requestBody,
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -327,6 +351,12 @@ class SpotifyService {
     const requestId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
     console.log(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint} (retries left: ${retries})`);
+    
+    // Use mock endpoints for local development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🧪 [${requestId}] Using mock Spotify API for development`);
+      return this.makeMockRequest(method, endpoint, data, requestId);
+    }
     
     let accessToken: string;
     try {
@@ -557,6 +587,166 @@ class SpotifyService {
       console.error('Error getting album art:', error);
       return null;
     }
+  }
+
+  // Mock request handler for local development
+  private async makeMockRequest(method: string, endpoint: string, data?: any, requestId?: string): Promise<any> {
+    console.log(`🧪 [${requestId}] Mock Spotify API: ${method} ${endpoint}`);
+    
+    // Mock different endpoints
+    if (endpoint === '/me/player') {
+      // Mock current playback
+      return {
+        device: {
+          id: 'mock_device_id',
+          is_active: true,
+          is_private_session: false,
+          is_restricted: false,
+          name: 'Mock Device',
+          type: 'Computer',
+          volume_percent: 75
+        },
+        repeat_state: 'off',
+        shuffle_state: false,
+        context: null,
+        timestamp: Date.now(),
+        progress_ms: 45000,
+        is_playing: true,
+        item: {
+          album: {
+            album_type: 'album',
+            artists: [{ name: 'Mock Artist', id: 'mock_artist_id' }],
+            id: 'mock_album_id',
+            images: [
+              {
+                height: 640,
+                url: 'https://via.placeholder.com/640x640/1DB954/FFFFFF?text=Mock+Album',
+                width: 640
+              },
+              {
+                height: 300,
+                url: 'https://via.placeholder.com/300x300/1DB954/FFFFFF?text=Mock+Album',
+                width: 300
+              }
+            ],
+            name: 'Mock Album',
+            release_date: '2024-01-01',
+            total_tracks: 12
+          },
+          artists: [{ name: 'Mock Artist', id: 'mock_artist_id' }],
+          duration_ms: 180000,
+          explicit: false,
+          id: 'mock_track_id',
+          name: 'Mock Song Title',
+          popularity: 75,
+          preview_url: null,
+          track_number: 1,
+          type: 'track',
+          uri: 'spotify:track:mock_track_id'
+        },
+        currently_playing_type: 'track'
+      };
+    }
+    
+    if (endpoint === '/me/player/queue') {
+      // Mock queue
+      return {
+        currently_playing: {
+          id: 'mock_track_id',
+          name: 'Mock Song Title',
+          artists: [{ name: 'Mock Artist' }],
+          album: { name: 'Mock Album' },
+          duration_ms: 180000
+        },
+        queue: [
+          {
+            id: 'mock_track_2',
+            name: 'Next Mock Song',
+            artists: [{ name: 'Another Mock Artist' }],
+            album: { name: 'Another Mock Album' },
+            duration_ms: 200000
+          },
+          {
+            id: 'mock_track_3',
+            name: 'Third Mock Song',
+            artists: [{ name: 'Third Mock Artist' }],
+            album: { name: 'Third Mock Album' },
+            duration_ms: 160000
+          }
+        ]
+      };
+    }
+    
+    if (endpoint.startsWith('/me/player/') && method === 'POST') {
+      // Mock playback control (play, pause, skip, etc.)
+      console.log(`🧪 [${requestId}] Mock playback control: ${endpoint}`);
+      return null; // Spotify returns 204 No Content for these
+    }
+    
+    if (endpoint.startsWith('/me/player/') && method === 'PUT') {
+      // Mock playback control (play, pause)
+      console.log(`🧪 [${requestId}] Mock playback control: ${endpoint}`);
+      return null; // Spotify returns 204 No Content for these
+    }
+    
+    if (endpoint.startsWith('/tracks/')) {
+      // Mock track details
+      const trackId = endpoint.split('/')[2];
+      return {
+        album: {
+          album_type: 'album',
+          artists: [{ name: 'Mock Artist', id: 'mock_artist_id' }],
+          id: 'mock_album_id',
+          images: [
+            {
+              height: 640,
+              url: 'https://via.placeholder.com/640x640/1DB954/FFFFFF?text=Mock+Track',
+              width: 640
+            }
+          ],
+          name: 'Mock Album',
+          release_date: '2024-01-01'
+        },
+        artists: [{ name: 'Mock Artist', id: 'mock_artist_id' }],
+        duration_ms: 180000,
+        explicit: false,
+        id: trackId,
+        name: 'Mock Track Name',
+        popularity: 75,
+        preview_url: null,
+        track_number: 1,
+        type: 'track',
+        uri: `spotify:track:${trackId}`
+      };
+    }
+    
+    if (endpoint.startsWith('/search')) {
+      // Mock search results
+      return {
+        tracks: {
+          items: [
+            {
+              album: {
+                images: [{ url: 'https://via.placeholder.com/300x300/1DB954/FFFFFF?text=Search+Result' }],
+                name: 'Mock Search Album'
+              },
+              artists: [{ name: 'Mock Search Artist' }],
+              duration_ms: 180000,
+              explicit: false,
+              external_urls: { spotify: 'https://open.spotify.com/track/mock_search_id' },
+              id: 'mock_search_id',
+              name: 'Mock Search Result',
+              preview_url: null,
+              uri: 'spotify:track:mock_search_id'
+            }
+          ]
+        }
+      };
+    }
+    
+    // Default mock response
+    console.log(`🧪 [${requestId}] No specific mock for ${endpoint}, returning null`);
+    return null;
   }
 
   // Legacy methods removed - using modern approach with isConnected() and admin/stats endpoint

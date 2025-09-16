@@ -1,0 +1,98 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - heading "DJ Admin" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "Overview" [ref=e9]:
+            - generic [ref=e10]:
+              - img [ref=e11]
+              - text: Overview
+          - button "Song Requests" [ref=e14]:
+            - generic [ref=e15]:
+              - img [ref=e16]
+              - text: Song Requests
+          - button "Spotify" [ref=e20]:
+            - generic [ref=e21]:
+              - img [ref=e22]
+              - text: Spotify
+          - button "Settings" [ref=e24]:
+            - generic [ref=e25]:
+              - img [ref=e26]
+              - text: Settings
+        - generic [ref=e30]:
+          - link "Display Screen" [ref=e31] [cursor=pointer]:
+            - /url: /display
+            - img [ref=e32] [cursor=pointer]
+            - text: Display Screen
+          - button "Logout" [ref=e34]:
+            - img [ref=e35]
+            - text: Logout
+    - generic [ref=e40]:
+      - generic [ref=e42]:
+        - heading "Overview" [level=2] [ref=e44]
+        - generic [ref=e46]:
+          - generic [ref=e49]: Spotify
+          - generic [ref=e50]:
+            - img [ref=e51]
+            - generic [ref=e58]: Polling
+      - main [ref=e59]:
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e63]:
+              - img [ref=e64]
+              - generic [ref=e68]:
+                - paragraph [ref=e69]: Total Requests
+                - paragraph [ref=e70]: "11"
+            - generic [ref=e72]:
+              - img [ref=e73]
+              - generic [ref=e76]:
+                - paragraph [ref=e77]: Pending
+                - paragraph [ref=e78]: "1"
+            - generic [ref=e80]:
+              - img [ref=e81]
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: Unique Requesters
+                - paragraph [ref=e88]: "0"
+          - generic [ref=e89]:
+            - heading "Now Playing" [level=2] [ref=e90]
+            - generic [ref=e91]:
+              - generic [ref=e92]:
+                - img [ref=e94]
+                - generic [ref=e98]:
+                  - heading "No track playing" [level=3] [ref=e99]
+                  - paragraph [ref=e100]: •
+                  - paragraph [ref=e101]: 0:00 / 0:00
+              - generic [ref=e103]:
+                - button [ref=e104]:
+                  - img [ref=e105]
+                - button [ref=e108]:
+                  - img [ref=e109]
+                - generic [ref=e111]:
+                  - img [ref=e112]
+                  - generic [ref=e116]: 0%
+              - paragraph [ref=e118]: Playing on
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - heading "Coming Up Next" [level=2] [ref=e121]
+              - button "View All →" [ref=e122]
+            - generic [ref=e123]:
+              - generic [ref=e124]:
+                - img [ref=e126]
+                - generic [ref=e130]:
+                  - heading "Next Mock Song" [level=4] [ref=e131]
+                  - paragraph
+                - generic [ref=e132]: 3:20
+              - generic [ref=e133]:
+                - img [ref=e135]
+                - generic [ref=e139]:
+                  - heading "Third Mock Song" [level=4] [ref=e140]
+                  - paragraph
+                - generic [ref=e141]: 2:40
+  - button "Open Next.js Dev Tools" [ref=e147] [cursor=pointer]:
+    - img [ref=e148] [cursor=pointer]
+  - alert [ref=e151]
+```
