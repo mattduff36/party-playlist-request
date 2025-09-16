@@ -83,18 +83,6 @@ class AuthService {
   }
 
   async requireAdminAuth(req: NextRequest): Promise<AdminPayload> {
-    // In development mode, allow bypass with special dev token
-    if (process.env.NODE_ENV === 'development') {
-      const authHeader = req.headers.get('authorization');
-      if (authHeader === 'Bearer dev-test') {
-        return {
-          adminId: 'dev-admin',
-          username: 'dev-admin',
-          type: 'admin'
-        };
-      }
-    }
-
     const token = this.extractTokenFromRequest(req);
     
     if (!token) {
