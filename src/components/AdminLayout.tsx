@@ -16,7 +16,7 @@ import {
   Wifi,
   WifiOff
 } from 'lucide-react';
-import { useAdminData } from '@/hooks/useAdminData';
+import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface AdminLayoutProps {
   children: React.ReactNode;

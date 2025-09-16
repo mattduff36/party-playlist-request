@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Play, Pause, SkipForward, Volume2, Music, RefreshCw, GripVertical } from 'lucide-react';
-import { useAdminData } from '../../../hooks/useAdminData';
+import { useAdminData } from '@/contexts/AdminDataContext';
 
 export default function SpotifyPage() {
   const {

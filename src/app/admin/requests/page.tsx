@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminData } from '../../../hooks/useAdminData';
+import { useAdminData } from '@/contexts/AdminDataContext';
 
 // Import the external RequestsTab component we created earlier
 import { useState, useEffect } from 'react';

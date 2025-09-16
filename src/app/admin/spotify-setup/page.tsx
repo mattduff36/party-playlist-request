@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAdminData } from '@/hooks/useAdminData';
+import { useAdminData } from '@/contexts/AdminDataContext';
 
 export default function SpotifySetupPage() {
   const router = useRouter();
@@ -156,7 +156,7 @@ export default function SpotifySetupPage() {
         console.log('Spotify callback response:', data);
         setSuccess('Spotify authentication successful! Redirecting back to admin panel...');
         setError(''); // Clear any errors
-        setIsConnected(true);
+        // Connection status will be updated automatically via useAdminData SSE
         
         // Clean up localStorage
         localStorage.removeItem('spotify_code_verifier');

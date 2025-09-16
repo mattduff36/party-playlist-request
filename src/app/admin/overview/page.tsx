@@ -1,7 +1,7 @@
 'use client';
 
 import { Play, Pause, SkipForward, Volume2, Music, Users, Clock } from 'lucide-react';
-import { useAdminData } from '../../../hooks/useAdminData';
+import { useAdminData } from '@/contexts/AdminDataContext';
 import { useNowPlayingProgress } from '../../../hooks/useNowPlayingProgress';
 
 export default function OverviewPage() {

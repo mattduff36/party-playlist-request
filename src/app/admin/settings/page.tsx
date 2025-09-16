@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Save, RefreshCw, Music } from 'lucide-react';
-import { useAdminData } from '../../../hooks/useAdminData';
+import { useAdminData } from '@/contexts/AdminDataContext';
 import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
