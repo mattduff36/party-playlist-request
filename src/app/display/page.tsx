@@ -58,7 +58,7 @@ export default function DisplayPage() {
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
-  const [animatingBadges, setAnimatingBadges] = useState<Set<string>>(new Set());
+  const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
   
   // WebSocket for real-time updates
   const realtimeUpdates = useRealtimeUpdates();
@@ -103,30 +103,32 @@ export default function DisplayPage() {
           !currentQueueUris.includes(song.uri) && song.requester_nickname
         );
         
-        // Animate badges for newly added songs
+        // Animate entire cards for newly added songs with requesters
         if (newlyAddedSongs.length > 0) {
-          const newAnimatingBadges = new Set(animatingBadges);
+          console.log('🎉 New songs detected for animation:', newlyAddedSongs.map(s => `${s.name} by ${s.requester_nickname}`));
+          
+          const newAnimatingCards = new Set(animatingCards);
           
           newlyAddedSongs.forEach(song => {
-            newAnimatingBadges.add(song.uri);
+            newAnimatingCards.add(song.uri);
             
-            // Remove animation after balloon pop completes
+            // Remove animation after it completes
             setTimeout(() => {
-              setAnimatingBadges(prev => {
+              setAnimatingCards(prev => {
                 const updated = new Set(prev);
                 updated.delete(song.uri);
                 return updated;
               });
-            }, 2000); // 2 second animation duration
+            }, 1000); // 1 second animation duration
           });
           
-          setAnimatingBadges(newAnimatingBadges);
+          setAnimatingCards(newAnimatingCards);
         }
         
         setUpcomingSongs(queueItems);
       }
     }
-  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress, upcomingSongs, animatingBadges]);
+  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress, upcomingSongs, animatingCards]);
 
   // Detect device type
   useEffect(() => {
@@ -386,7 +388,14 @@ export default function DisplayPage() {
                   <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
                     <div className="space-y-3 overflow-y-auto max-h-[calc(100%-4rem)]">
                       {upcomingSongs.slice(0, 12).map((song, index) => (
-                        <div key={song.uri} className="flex items-center justify-between p-3 bg-white/10 rounded-lg">
+                        <div 
+                          key={song.uri} 
+                          className={`flex items-center justify-between p-3 bg-white/10 rounded-lg transition-all duration-1000 ${
+                            animatingCards.has(song.uri) 
+                              ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                              : ''
+                          }`}
+                        >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <div className="text-xl font-bold text-purple-300 flex-shrink-0 w-8">
                           {index + 1}
@@ -398,11 +407,7 @@ export default function DisplayPage() {
                       </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-3">
-                              <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg transition-all duration-200 ${
-                                animatingBadges.has(song.uri) 
-                                  ? 'animate-balloon-pop' 
-                                  : ''
-                              }`}>
+                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
                                 {song.requester_nickname}
                               </div>
                             </div>
@@ -584,18 +589,21 @@ export default function DisplayPage() {
                     <h2 className="text-xl font-semibold mb-4 text-center">🎶 Upcoming songs</h2>
                     <div className="space-y-2 overflow-y-auto h-full">
                       {upcomingSongs.slice(0, 10).map((song, index) => (
-                        <div key={song.uri} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
+                        <div 
+                          key={song.uri} 
+                          className={`flex items-center justify-between p-2 bg-white/5 rounded-lg transition-all duration-1000 ${
+                            animatingCards.has(song.uri) 
+                              ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                              : ''
+                          }`}
+                        >
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold truncate text-sm">{index + 1}. {song.name}</div>
                             <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
                           </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-2">
-                              <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold transition-all duration-200 ${
-                                animatingBadges.has(song.uri) 
-                                  ? 'animate-balloon-pop' 
-                                  : ''
-                              }`}>
+                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
                                 {song.requester_nickname}
                               </div>
                             </div>
@@ -748,24 +756,27 @@ export default function DisplayPage() {
               {upcomingSongs.length > 0 ? (
                 <div className="space-y-2 overflow-y-auto h-full">
                   {upcomingSongs.slice(0, 12).map((song, index) => (
-                    <div key={song.uri} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                    <div 
+                      key={song.uri} 
+                      className={`flex items-center justify-between p-3 bg-white/5 rounded-lg transition-all duration-1000 ${
+                        animatingCards.has(song.uri) 
+                          ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                          : ''
+                      }`}
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold truncate">{index + 1}. {song.name}</div>
                         <div className="text-sm text-gray-300 truncate">{song.artists.join(', ')}</div>
                       </div>
                       {song.requester_nickname && (
                         <div className="flex-shrink-0 ml-3">
-                          <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold transition-all duration-200 ${
-                            animatingBadges.has(song.uri) 
-                              ? 'animate-balloon-pop' 
-                              : ''
-                          }`}>
+                          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold">
                             {song.requester_nickname}
                           </div>
                         </div>
                       )}
-                      </div>
-                    ))}
+                    </div>
+                  ))}
                   </div>
               ) : (
                 <div className="flex items-center justify-center h-full">
@@ -854,18 +865,21 @@ export default function DisplayPage() {
                   <h2 className="text-sm font-semibold mb-2 text-center">🎶 Upcoming songs</h2>
                   <div className="space-y-1 overflow-y-auto h-full">
                     {upcomingSongs.slice(0, 8).map((song, index) => (
-                      <div key={song.uri} className="flex items-center justify-between p-1 bg-white/5 rounded">
+                      <div 
+                        key={song.uri} 
+                        className={`flex items-center justify-between p-1 bg-white/5 rounded transition-all duration-1000 ${
+                          animatingCards.has(song.uri) 
+                            ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                            : ''
+                        }`}
+                      >
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold truncate text-xs">{index + 1}. {song.name}</div>
                           <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
                         </div>
                         {song.requester_nickname && (
                           <div className="flex-shrink-0 ml-1">
-                            <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1 py-0.5 rounded-full text-xs font-bold transition-all duration-200 ${
-                              animatingBadges.has(song.uri) 
-                                ? 'animate-balloon-pop' 
-                                : ''
-                            }`}>
+                            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1 py-0.5 rounded-full text-xs font-bold">
                               {song.requester_nickname}
                             </div>
                           </div>
@@ -998,24 +1012,27 @@ export default function DisplayPage() {
             {upcomingSongs.length > 0 ? (
               <div className="space-y-2 overflow-y-auto h-full">
                 {upcomingSongs.slice(0, 8).map((song, index) => (
-                  <div key={song.uri} className="flex items-center justify-between p-2 bg-white/5 rounded text-xs">
+                  <div 
+                    key={song.uri} 
+                    className={`flex items-center justify-between p-2 bg-white/5 rounded text-xs transition-all duration-1000 ${
+                      animatingCards.has(song.uri) 
+                        ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                        : ''
+                    }`}
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{index + 1}. {song.name}</div>
                       <div className="text-gray-300 truncate">{song.artists.join(', ')}</div>
                     </div>
                     {song.requester_nickname && (
                       <div className="flex-shrink-0 ml-2">
-                        <div className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold transition-all duration-200 ${
-                          animatingBadges.has(song.uri) 
-                            ? 'animate-balloon-pop' 
-                            : ''
-                        }`}>
+                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
                           {song.requester_nickname}
                         </div>
-          </div>
-        )}
-                </div>
-              ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
             ) : (
               <div className="flex items-center justify-center h-full">
