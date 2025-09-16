@@ -246,6 +246,34 @@ export default function DisplayPage() {
     ? 'text-green-400' 
     : 'text-white';
 
+  // Connection status for display dots
+  const spotifyConnected = realtimeUpdates.spotifyState?.current_track || currentTrack;
+  const connectionType = realtimeUpdates.connectionType;
+
+  // Status dots component
+  const StatusDots = () => (
+    <div className="fixed bottom-4 left-4 flex space-x-2 z-50">
+      {/* Spotify Status Dot */}
+      <div 
+        className={`w-3 h-3 rounded-full ${spotifyConnected ? 'bg-green-500' : 'bg-red-500'} opacity-60`}
+        title={spotifyConnected ? 'Spotify Connected' : 'Spotify Disconnected'}
+      />
+      {/* Connection Type Dot */}
+      <div 
+        className={`w-3 h-3 rounded-full opacity-60 ${
+          connectionType === 'sse' ? 'bg-blue-500' : 
+          connectionType === 'websocket' ? 'bg-blue-400' : 
+          'bg-orange-500'
+        }`}
+        title={
+          connectionType === 'sse' ? 'SSE Connected' :
+          connectionType === 'websocket' ? 'WebSocket Connected' :
+          'Polling Mode'
+        }
+      />
+    </div>
+  );
+
   // TV Layout (Large screens)
   if (deviceType === 'tv') {
     return (
@@ -407,6 +435,7 @@ export default function DisplayPage() {
             </div>
           </div>
         </div>
+        <StatusDots />
       </div>
     );
   }
@@ -569,6 +598,7 @@ export default function DisplayPage() {
               </div>
             </div>
           </div>
+          <StatusDots />
         </div>
       );
     } else {
@@ -642,6 +672,7 @@ export default function DisplayPage() {
               </div>
             </div>
           </div>
+          <StatusDots />
         </div>
       </div>
     );
@@ -785,6 +816,7 @@ export default function DisplayPage() {
             </div>
           </div>
         </div>
+        <StatusDots />
       </div>
     );
   } else {
@@ -859,6 +891,7 @@ export default function DisplayPage() {
             </div>
           </div>
       </div>
+      <StatusDots />
     </div>
   );
   }
