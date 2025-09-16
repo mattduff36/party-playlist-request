@@ -1,0 +1,67 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - heading "Overview" [level=1] [ref=e6]
+        - generic [ref=e7]:
+          - link "Display Screen" [ref=e8] [cursor=pointer]:
+            - /url: /display
+            - img [ref=e9] [cursor=pointer]
+            - generic [ref=e11] [cursor=pointer]: Display Screen
+          - button [ref=e12]:
+            - img [ref=e13]
+      - main [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e22]:
+              - img [ref=e23]
+              - generic [ref=e27]:
+                - paragraph [ref=e28]: Total Requests
+                - paragraph [ref=e29]: "11"
+            - generic [ref=e31]:
+              - img [ref=e32]
+              - generic [ref=e35]:
+                - paragraph [ref=e36]: Pending
+                - paragraph [ref=e37]: "1"
+            - generic [ref=e39]:
+              - img [ref=e40]
+              - generic [ref=e45]:
+                - paragraph [ref=e46]: Unique Requesters
+                - paragraph [ref=e47]: "5"
+          - generic [ref=e48]:
+            - heading "Now Playing" [level=2] [ref=e49]
+            - generic [ref=e50]:
+              - img [ref=e51]
+              - heading "Connect to Spotify" [level=3] [ref=e55]
+              - paragraph [ref=e56]: Connect your Spotify account to see what's playing and control playback.
+              - link "Connect Spotify" [ref=e57] [cursor=pointer]:
+                - /url: /admin/spotify-setup
+          - generic [ref=e58]:
+            - generic [ref=e59]:
+              - heading "Coming Up Next" [level=2] [ref=e60]
+              - button "View All →" [ref=e61]
+            - generic [ref=e62]:
+              - img [ref=e63]
+              - paragraph [ref=e67]: Connect to Spotify to see upcoming songs
+              - link "Connect Spotify" [ref=e68] [cursor=pointer]:
+                - /url: /admin/spotify-setup
+    - generic [ref=e70]:
+      - button "Overview" [ref=e71]:
+        - img [ref=e72]
+        - generic [ref=e75]: Overview
+      - button "Song" [ref=e76]:
+        - img [ref=e77]
+        - generic [ref=e81]: Song
+      - button "Spotify" [ref=e82]:
+        - img [ref=e83]
+        - generic [ref=e85]: Spotify
+      - button "Settings" [ref=e86]:
+        - img [ref=e87]
+        - generic [ref=e90]: Settings
+  - button "Open Next.js Dev Tools" [ref=e96] [cursor=pointer]:
+    - img [ref=e97] [cursor=pointer]
+  - alert [ref=e100]
+```

@@ -65,7 +65,7 @@
                 - generic [ref=e95]:
                   - heading "Mock Song Title" [level=3] [ref=e96]
                   - paragraph [ref=e97]: Mock Artist • Mock Album
-                  - paragraph [ref=e98]: 0:57 / 3:00
+                  - paragraph [ref=e98]: 0:51 / 3:00
               - generic [ref=e101]:
                 - button [ref=e102]:
                   - img [ref=e103]

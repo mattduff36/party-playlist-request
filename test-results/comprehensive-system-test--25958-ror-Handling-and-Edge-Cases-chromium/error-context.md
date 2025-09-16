@@ -46,12 +46,12 @@
               - img [ref=e64]
               - generic [ref=e68]:
                 - paragraph [ref=e69]: Total Requests
-                - paragraph [ref=e70]: "11"
+                - paragraph [ref=e70]: "0"
             - generic [ref=e72]:
               - img [ref=e73]
               - generic [ref=e76]:
                 - paragraph [ref=e77]: Pending
-                - paragraph [ref=e78]: "1"
+                - paragraph [ref=e78]: "0"
             - generic [ref=e80]:
               - img [ref=e81]
               - generic [ref=e86]:
@@ -60,39 +60,21 @@
           - generic [ref=e89]:
             - heading "Now Playing" [level=2] [ref=e90]
             - generic [ref=e91]:
-              - generic [ref=e92]:
-                - img [ref=e94]
-                - generic [ref=e98]:
-                  - heading "No track playing" [level=3] [ref=e99]
-                  - paragraph [ref=e100]: •
-                  - paragraph [ref=e101]: 0:00 / 0:00
-              - generic [ref=e103]:
-                - button [ref=e104]:
-                  - img [ref=e105]
-                - button [ref=e108]:
-                  - img [ref=e109]
-                - generic [ref=e111]:
-                  - img [ref=e112]
-                  - generic [ref=e116]: 0%
-              - paragraph [ref=e118]: Playing on
-          - generic [ref=e119]:
-            - generic [ref=e120]:
-              - heading "Coming Up Next" [level=2] [ref=e121]
-              - button "View All →" [ref=e122]
-            - generic [ref=e123]:
-              - generic [ref=e124]:
-                - img [ref=e126]
-                - generic [ref=e130]:
-                  - heading "Next Mock Song" [level=4] [ref=e131]
-                  - paragraph
-                - generic [ref=e132]: 3:20
-              - generic [ref=e133]:
-                - img [ref=e135]
-                - generic [ref=e139]:
-                  - heading "Third Mock Song" [level=4] [ref=e140]
-                  - paragraph
-                - generic [ref=e141]: 2:40
-  - button "Open Next.js Dev Tools" [ref=e147] [cursor=pointer]:
-    - img [ref=e148] [cursor=pointer]
-  - alert [ref=e151]
+              - img [ref=e92]
+              - heading "Connect to Spotify" [level=3] [ref=e96]
+              - paragraph [ref=e97]: Connect your Spotify account to see what's playing and control playback.
+              - link "Connect Spotify" [ref=e98] [cursor=pointer]:
+                - /url: /admin/spotify-setup
+          - generic [ref=e99]:
+            - generic [ref=e100]:
+              - heading "Coming Up Next" [level=2] [ref=e101]
+              - button "View All →" [ref=e102]
+            - generic [ref=e103]:
+              - img [ref=e104]
+              - paragraph [ref=e108]: Connect to Spotify to see upcoming songs
+              - link "Connect Spotify" [ref=e109] [cursor=pointer]:
+                - /url: /admin/spotify-setup
+  - button "Open Next.js Dev Tools" [ref=e115] [cursor=pointer]:
+    - img [ref=e116] [cursor=pointer]
+  - alert [ref=e119]: DJ Admin
 ```

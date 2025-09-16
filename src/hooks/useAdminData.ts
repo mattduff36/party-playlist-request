@@ -114,8 +114,50 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   const realtimeUpdates = useRealtimeUpdates(eventSettings?.force_polling);
   const realtimeProgress = useRealtimeProgress(playbackState);
 
-  // Check if user is authenticated
-  const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('admin_token');
+  // Check if user is authenticated - make it reactive
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Check authentication on mount and when localStorage changes
+  const checkAuth = useCallback(() => {
+    const hasWindow = typeof window !== 'undefined';
+    const token = hasWindow ? localStorage.getItem('admin_token') : null;
+    const authenticated = !!(hasWindow && token);
+    
+    setIsAuthenticated(prev => {
+      // Only update if the value actually changed
+      if (prev !== authenticated) {
+        console.log('🔐 Authentication state changed:', { isAuthenticated: authenticated });
+        return authenticated;
+      }
+      return prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    
+    // Initial check
+    checkAuth();
+    
+    // Listen for storage changes (when token is added/removed)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'admin_token') {
+        console.log('🔐 Admin token changed in localStorage, rechecking auth...');
+        checkAuth();
+      }
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+      
+      // Check less frequently to avoid excessive re-renders
+      const interval = setInterval(checkAuth, 5000);
+      
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        clearInterval(interval);
+      };
+    }
+  }, []);
 
   // Sync real-time data with local state
   useEffect(() => {

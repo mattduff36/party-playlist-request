@@ -1,0 +1,42 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - heading "Spotify" [level=1] [ref=e6]
+        - generic [ref=e7]:
+          - link "Display Screen" [ref=e8] [cursor=pointer]:
+            - /url: /display
+            - img [ref=e9] [cursor=pointer]
+            - generic [ref=e11] [cursor=pointer]: Display Screen
+          - button [ref=e12]:
+            - img [ref=e13]
+      - main [ref=e18]:
+        - generic [ref=e21]:
+          - img [ref=e22]
+          - heading "Spotify Not Connected" [level=2] [ref=e26]
+          - paragraph [ref=e27]: Connect your Spotify account to control playback and manage the queue.
+          - paragraph [ref=e28]: Having connection issues? Try resetting your Spotify connection first.
+          - generic [ref=e29]:
+            - link "Connect Spotify" [ref=e30] [cursor=pointer]:
+              - /url: /admin/spotify-setup
+            - button "Reset Connection" [ref=e31]
+    - generic [ref=e33]:
+      - button "Overview" [ref=e34]:
+        - img [ref=e35]
+        - generic [ref=e38]: Overview
+      - button "Song" [ref=e39]:
+        - img [ref=e40]
+        - generic [ref=e44]: Song
+      - button "Spotify" [ref=e45]:
+        - img [ref=e46]
+        - generic [ref=e48]: Spotify
+      - button "Settings" [ref=e49]:
+        - img [ref=e50]
+        - generic [ref=e53]: Settings
+  - button "Open Next.js Dev Tools" [ref=e59] [cursor=pointer]:
+    - img [ref=e60] [cursor=pointer]
+  - alert [ref=e63]: Party DJ Request System
+```

@@ -49,7 +49,7 @@ export const useNowPlayingProgress = (
       } else {
         setProgress(Math.max(0, newProgress));
       }
-    }, 100); // Update every 100ms for smooth progress
+    }, 1000); // Update every 1 second for reasonable progress
 
     return () => clearInterval(interval);
   }, [playbackState?.is_playing, playbackState?.timestamp, playbackState?.progress_ms, playbackState?.duration_ms]);

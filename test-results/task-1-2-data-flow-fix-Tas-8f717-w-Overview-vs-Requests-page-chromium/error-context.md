@@ -65,7 +65,7 @@
                 - generic [ref=e95]:
                   - heading "Mock Song Title" [level=3] [ref=e96]
                   - paragraph [ref=e97]: Mock Artist • Mock Album
-                  - paragraph [ref=e98]: 0:57 / 3:00
+                  - paragraph [ref=e98]: 0:48 / 3:00
               - generic [ref=e101]:
                 - button [ref=e102]:
                   - img [ref=e103]
@@ -94,5 +94,5 @@
                 - generic [ref=e139]: 2:40
   - button "Open Next.js Dev Tools" [ref=e145] [cursor=pointer]:
     - img [ref=e146] [cursor=pointer]
-  - alert [ref=e149]
+  - alert [ref=e149]: DJ Admin
 ```
