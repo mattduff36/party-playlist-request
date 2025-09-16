@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - heading "Party Event Title!" [level=1] [ref=e5]
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - heading "🎵 Now Playing" [level=2] [ref=e9]
+          - generic [ref=e10]:
+            - img "Album Art" [ref=e11]
+            - heading "Mock Song Title" [level=3] [ref=e12]
+            - paragraph [ref=e13]: Mock Artist
+            - paragraph [ref=e14]: Mock Album
+            - paragraph [ref=e17]:
+              - generic [ref=e18]: 0:45
+              - text: / 3:00
+        - generic [ref=e19]:
+          - img "QR Code" [ref=e20]
+          - paragraph [ref=e21]: Request your song now!
+      - generic [ref=e23]:
+        - heading "🎶 Up Next" [level=2] [ref=e24]
+        - generic [ref=e25]:
+          - generic [ref=e27]:
+            - generic [ref=e28]: "1"
+            - generic [ref=e29]:
+              - heading "Next Mock Song" [level=4] [ref=e30]
+              - paragraph [ref=e31]: Another Mock Artist
+          - generic [ref=e33]:
+            - generic [ref=e34]: "2"
+            - generic [ref=e35]:
+              - heading "Third Mock Song" [level=4] [ref=e36]
+              - paragraph [ref=e37]: Third Mock Artist
+      - generic [ref=e39]:
+        - heading "🏆 Top Requesters!" [level=2] [ref=e40]
+        - generic [ref=e41]:
+          - generic [ref=e43]:
+            - generic [ref=e44]: 🥇
+            - generic [ref=e45]:
+              - generic [ref=e46]: Sarah M.
+              - generic [ref=e47]: 12 requests
+          - generic [ref=e49]:
+            - generic [ref=e50]: 🥈
+            - generic [ref=e51]:
+              - generic [ref=e52]: Mike R.
+              - generic [ref=e53]: 8 requests
+          - generic [ref=e55]:
+            - generic [ref=e56]: 🥉
+            - generic [ref=e57]:
+              - generic [ref=e58]: Alex K.
+              - generic [ref=e59]: 6 requests
+          - generic [ref=e61]:
+            - generic [ref=e62]: "4."
+            - generic [ref=e63]:
+              - generic [ref=e64]: Emma L.
+              - generic [ref=e65]: 4 requests
+          - generic [ref=e67]:
+            - generic [ref=e68]: "5."
+            - generic [ref=e69]:
+              - generic [ref=e70]: Chris P.
+              - generic [ref=e71]: 3 requests
+    - generic [ref=e73]:
+      - generic [ref=e74]: 📢
+      - generic [ref=e76]: Welcome! This is a welcome message. • Request your song now! Scan the QR code, or visit partyplaylist.co.uk • Secondary message to be placed here! • Welcome! This is a welcome message. • Request your song now! Scan the QR code, or visit partyplaylist.co.uk • Secondary message to be placed here!
+  - generic [ref=e84] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e85] [cursor=pointer]:
+      - img [ref=e86] [cursor=pointer]
+    - generic [ref=e89] [cursor=pointer]:
+      - button "Open issues overlay" [ref=e90] [cursor=pointer]:
+        - generic [ref=e91] [cursor=pointer]:
+          - generic [ref=e92] [cursor=pointer]: "0"
+          - generic [ref=e93] [cursor=pointer]: "1"
+        - generic [ref=e94] [cursor=pointer]: Issue
+      - button "Collapse issues badge" [ref=e95] [cursor=pointer]:
+        - img [ref=e96] [cursor=pointer]
+  - alert [ref=e98]
+```
