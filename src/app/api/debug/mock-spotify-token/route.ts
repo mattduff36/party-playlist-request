@@ -3,7 +3,24 @@ import { NextRequest, NextResponse } from 'next/server';
 // Mock Spotify token endpoint for local testing
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    // Handle both JSON and form-urlencoded data
+    const contentType = req.headers.get('content-type');
+    let body;
+    
+    if (contentType?.includes('application/x-www-form-urlencoded')) {
+      const formData = await req.text();
+      const params = new URLSearchParams(formData);
+      body = {
+        grant_type: params.get('grant_type'),
+        code: params.get('code'),
+        redirect_uri: params.get('redirect_uri'),
+        client_id: params.get('client_id'),
+        code_verifier: params.get('code_verifier')
+      };
+    } else {
+      body = await req.json();
+    }
+    
     const { grant_type, code, redirect_uri, client_id, code_verifier } = body;
     
     console.log('🧪 MOCK Spotify Token Exchange:', {

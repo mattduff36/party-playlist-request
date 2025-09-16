@@ -162,7 +162,7 @@ class SpotifyService {
 
     // Use mock endpoint for local development
     const tokenUrl = process.env.NODE_ENV === 'development' 
-      ? '/api/debug/mock-spotify-token'  // Local mock endpoint
+      ? 'http://localhost:3000/api/debug/mock-spotify-token'  // Local mock endpoint (absolute URL)
       : `${this.authURL}/api/token`;     // Real Spotify endpoint
 
     console.log('🎯 Using token URL:', tokenUrl);
