@@ -172,7 +172,7 @@ export default function OverviewPage() {
               Connect your Spotify account to see what's playing and control playback.
             </p>
             <a
-              href="/api/spotify/auth"
+              href="/admin/spotify-setup"
               className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
             >
               Connect Spotify
@@ -222,7 +222,7 @@ export default function OverviewPage() {
             </p>
             {!playbackState?.spotify_connected && (
               <a
-                href="/api/spotify/auth"
+                href="/admin/spotify-setup"
                 className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors mt-4"
               >
                 Connect Spotify

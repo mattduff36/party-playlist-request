@@ -81,7 +81,7 @@ export default function SpotifyPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
-                href="/api/spotify/auth"
+                href="/admin/spotify-setup"
                 className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
               >
                 Connect Spotify
