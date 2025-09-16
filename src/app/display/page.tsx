@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
-import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
+import { usePusher } from '@/hooks/usePusher';
 import { useLiveProgress } from '@/hooks/useLiveProgress';
+import { RequestApprovedEvent } from '@/lib/pusher';
 
 interface CurrentTrack {
   name: string;
@@ -60,8 +61,40 @@ export default function DisplayPage() {
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
   
-  // WebSocket for real-time updates
-  const realtimeUpdates = useRealtimeUpdates();
+  // 🚀 PUSHER: Real-time updates with animation triggers
+  const { isConnected, connectionState } = usePusher({
+    onRequestApproved: (data: RequestApprovedEvent) => {
+      console.log('🎉 PUSHER: Request approved!', data);
+      
+      // Add new song to queue
+      const newSong: QueueItem = {
+        name: data.track_name,
+        artists: [data.artist_name],
+        album: data.album_name,
+        uri: data.track_uri,
+        requester_nickname: data.requester_nickname
+      };
+      
+      // Add to upcoming songs
+      setUpcomingSongs(prev => [...prev, newSong]);
+      
+      // 🎯 TRIGGER ANIMATION immediately!
+      setAnimatingCards(prev => new Set([...prev, data.track_uri]));
+      
+      // Show alert for testing
+      alert(`🎉 ANIMATION TRIGGERED! New song: ${data.track_name} by ${data.requester_nickname}`);
+      
+      // Remove animation after 1 second
+      setTimeout(() => {
+        setAnimatingCards(prev => {
+          const updated = new Set(prev);
+          updated.delete(data.track_uri);
+          console.log('✅ Animation completed for:', data.track_name);
+          return updated;
+        });
+      }, 1000);
+    }
+  });
   
   // Live progress for smooth animation
   const playbackState = currentTrack ? {
@@ -73,85 +106,50 @@ export default function DisplayPage() {
   
   const liveProgress = useLiveProgress(playbackState, 1000);
 
-  // Sync real-time Spotify data with display state
+  // 🔄 Simple polling for basic display data (current track, event settings)
   useEffect(() => {
-    // Debug: Log what we're receiving from SSE
-    console.log('🔄 SSE Data received:', {
-      hasSpotifyState: !!realtimeUpdates.spotifyState,
-      hasCurrentTrack: !!(realtimeUpdates.spotifyState?.current_track),
-      hasQueue: !!(realtimeUpdates.spotifyState?.queue),
-      queueLength: realtimeUpdates.spotifyState?.queue?.length || 0,
-      currentUpcomingSongs: upcomingSongs.length
-    });
-    
-    if (realtimeUpdates.spotifyState && realtimeUpdates.spotifyState.current_track) {
-      const spotifyTrack = realtimeUpdates.spotifyState.current_track;
-      setCurrentTrack({
-        name: spotifyTrack.name || '',
-        artists: spotifyTrack.artists?.map((a: any) => a.name) || [],
-        album: spotifyTrack.album?.name || '',
-        duration_ms: spotifyTrack.duration_ms || 0,
-        progress_ms: realtimeUpdates.currentProgress || spotifyTrack.progress_ms || 0,
-        uri: spotifyTrack.uri || '',
-        image_url: spotifyTrack.album?.images?.[0]?.url
-      });
-      
-      // Update upcoming songs from queue
-      if (realtimeUpdates.spotifyState.queue) {
-        const queueItems = realtimeUpdates.spotifyState.queue.map((track: any) => ({
-          name: track.name || '',
-          artists: track.artists?.map((a: any) => a.name) || [],
-          album: track.album?.name || '',
-          uri: track.uri || '',
-          requester_nickname: track.requester_nickname
-        }));
-        
-        // Debug: Show what queue items we have
-        console.log('🎵 Queue items received:', queueItems.map(item => ({
-          name: item.name,
-          uri: item.uri,
-          hasRequester: !!item.requester_nickname,
-          requester: item.requester_nickname
-        })));
-        
-        // Check for new approvals by comparing queue changes
-        const currentQueueUris = upcomingSongs.map(song => song.uri);
-        const newlyAddedSongs = queueItems.filter(song => 
-          !currentQueueUris.includes(song.uri) && song.requester_nickname
-        );
-        
-        // Animate entire cards for newly added songs with requesters
-        if (newlyAddedSongs.length > 0) {
-          // Force alert in production to see if this code is running
-          alert(`🎉 ANIMATION TRIGGERED! ${newlyAddedSongs.length} new songs: ${newlyAddedSongs.map(s => s.name + ' by ' + s.requester_nickname).join(', ')}`);
-          console.log('🎉 New songs detected for animation:', newlyAddedSongs.map(s => `${s.name} by ${s.requester_nickname}`));
+    const fetchDisplayData = async () => {
+      try {
+        const response = await fetch('/api/display/current');
+        if (response.ok) {
+          const data = await response.json();
           
-          const newAnimatingCards = new Set(animatingCards);
+          // Update current track if available
+          if (data.current_track) {
+            setCurrentTrack({
+              name: data.current_track.name || '',
+              artists: data.current_track.artists || [],
+              album: data.current_track.album || '',
+              duration_ms: data.current_track.duration_ms || 0,
+              progress_ms: data.current_track.progress_ms || 0,
+              uri: data.current_track.uri || '',
+              image_url: data.current_track.image_url
+            });
+          }
           
-          newlyAddedSongs.forEach(song => {
-            console.log(`🎯 Adding animation for URI: ${song.uri}`);
-            newAnimatingCards.add(song.uri);
-            
-            // Remove animation after it completes
-            setTimeout(() => {
-              console.log(`⏰ Removing animation for URI: ${song.uri}`);
-              setAnimatingCards(prev => {
-                const updated = new Set(prev);
-                updated.delete(song.uri);
-                console.log(`✅ Animation removed. Remaining animated cards:`, Array.from(updated));
-                return updated;
-              });
-            }, 1000); // 1 second animation duration
-          });
+          // Update event settings
+          if (data.event_settings) {
+            setEventSettings(data.event_settings);
+          }
           
-          console.log(`📝 Setting animating cards state:`, Array.from(newAnimatingCards));
-          setAnimatingCards(newAnimatingCards);
+          // Initialize upcoming songs from API (first load only)
+          if (data.upcoming_songs && upcomingSongs.length === 0) {
+            setUpcomingSongs(data.upcoming_songs);
+          }
         }
-        
-        setUpcomingSongs(queueItems);
+      } catch (error) {
+        console.error('Failed to fetch display data:', error);
       }
-    }
-  }, [realtimeUpdates.spotifyState, realtimeUpdates.currentProgress, upcomingSongs, animatingCards]);
+    };
+
+    // Initial fetch
+    fetchDisplayData();
+    
+    // Poll every 10 seconds for basic data (much less aggressive than before)
+    const interval = setInterval(fetchDisplayData, 10000);
+    
+    return () => clearInterval(interval);
+  }, [upcomingSongs.length]); // Only re-run if upcomingSongs is empty
 
   // Detect device type
   useEffect(() => {
@@ -300,29 +298,22 @@ export default function DisplayPage() {
   const messageTextColor = 'text-white';
 
   // Connection status for display dots
-  const spotifyConnected = realtimeUpdates.spotifyState?.current_track || currentTrack;
-  const connectionType = realtimeUpdates.connectionType;
+  const spotifyConnected = !!currentTrack;
 
   // Status dots component
   const StatusDots = () => (
     <div className="fixed bottom-4 left-4 flex space-x-2 z-50">
+      {/* Pusher Status Dot */}
+      <div 
+        className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'} opacity-60`}
+        title={`Pusher: ${connectionState}`}
+      />
       {/* Spotify Status Dot */}
       <div 
-        className={`w-3 h-3 rounded-full ${spotifyConnected ? 'bg-green-500' : 'bg-red-500'} opacity-60`}
-        title={spotifyConnected ? 'Spotify Connected' : 'Spotify Disconnected'}
-      />
-      {/* Connection Type Dot */}
-      <div 
         className={`w-3 h-3 rounded-full opacity-60 ${
-          connectionType === 'sse' ? 'bg-blue-500' : 
-          connectionType === 'websocket' ? 'bg-blue-400' : 
-          'bg-orange-500'
+          spotifyConnected ? 'bg-green-400' : 'bg-gray-500'
         }`}
-        title={
-          connectionType === 'sse' ? 'SSE Connected' :
-          connectionType === 'websocket' ? 'WebSocket Connected' :
-          'Polling Mode'
-        }
+        title={spotifyConnected ? 'Spotify Connected' : 'No Current Track'}
       />
     </div>
   );

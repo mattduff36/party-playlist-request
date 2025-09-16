@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { getRequest, updateRequest, getSetting, createNotification } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
+import { triggerRequestApproved } from '@/lib/pusher';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -74,6 +75,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         requester_name: request.requester_nickname,
         track_name: request.track_name
       });
+
+      // 🚀 PUSHER: Trigger real-time event for approved request
+      try {
+        await triggerRequestApproved({
+          id: request.id,
+          track_name: request.track_name,
+          artist_name: request.artist_name,
+          album_name: request.album_name || 'Unknown Album',
+          track_uri: request.track_uri,
+          requester_nickname: request.requester_nickname || 'Anonymous',
+          approved_at: new Date().toISOString(),
+          approved_by: admin.username
+        });
+        console.log(`🎉 Pusher event sent for approved request: ${request.track_name}`);
+      } catch (pusherError) {
+        console.error('❌ Failed to send Pusher event:', pusherError);
+        // Don't fail the request if Pusher fails
+      }
     }
 
     return NextResponse.json({
