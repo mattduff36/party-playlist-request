@@ -111,7 +111,7 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
   const [lastSpotifyFailure, setLastSpotifyFailure] = useState(0);
 
   const { isInteracting, lockInteraction } = useInteractionLock();
-  const realtimeUpdates = useRealtimeUpdates();
+  const realtimeUpdates = useRealtimeUpdates(eventSettings?.force_polling);
   const realtimeProgress = useRealtimeProgress(playbackState);
 
   // Check if user is authenticated
@@ -295,7 +295,8 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     
     // Get polling interval from settings (default to 15 seconds if not available)
     const pollingInterval = (eventSettings?.admin_polling_interval || 15) * 1000; // Convert to milliseconds
-    console.log(`🔄 Setting up polling interval: ${pollingInterval/1000}s (real-time not available)`);
+    const reason = eventSettings?.force_polling ? 'force polling enabled' : 'real-time not available';
+    console.log(`🔄 Setting up polling interval: ${pollingInterval/1000}s (${reason})`);
     
     let refreshCount = 0;
     const interval = setInterval(() => {

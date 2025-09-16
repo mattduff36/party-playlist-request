@@ -34,16 +34,27 @@ interface UseRealtimeUpdatesReturn {
   currentProgress: number;
 }
 
-export function useRealtimeUpdates(): UseRealtimeUpdatesReturn {
+export function useRealtimeUpdates(forcePolling?: boolean): UseRealtimeUpdatesReturn {
   const [sseData, setSseData] = useState<AdminData | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Try SSE first, fallback to polling if it fails
-  const [useSSE, setUseSSE] = useState(true);
+  // Try SSE first, fallback to polling if it fails (unless force polling is enabled)
+  const [useSSE, setUseSSE] = useState(!forcePolling);
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
+
+  // Update SSE state when forcePolling setting changes
+  useEffect(() => {
+    if (forcePolling && useSSE) {
+      console.log('🔄 Force polling enabled - switching from SSE to polling');
+      setUseSSE(false);
+    } else if (!forcePolling && !useSSE && !sseConnected) {
+      console.log('🔄 Force polling disabled - attempting to reconnect SSE');
+      setUseSSE(true);
+    }
+  }, [forcePolling, useSSE, sseConnected]);
 
   // SSE connection
   useEffect(() => {

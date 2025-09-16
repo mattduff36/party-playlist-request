@@ -16,6 +16,7 @@ export default function SettingsPage() {
     tertiary_message: '',
     request_limit: 10,
     auto_approve: false,
+    force_polling: false,
   });
   
   const [saving, setSaving] = useState(false);
@@ -31,6 +32,7 @@ export default function SettingsPage() {
         tertiary_message: eventSettings.tertiary_message || '',
         request_limit: eventSettings.request_limit || 10,
         auto_approve: eventSettings.auto_approve || false,
+        force_polling: eventSettings.force_polling || false,
       });
     }
   }, [eventSettings]);
@@ -300,6 +302,24 @@ export default function SettingsPage() {
           </div>
           <p className="text-gray-500 text-sm">
             When enabled, all song requests will be automatically approved and added to the queue
+          </p>
+
+          {/* Force Polling */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="force_polling"
+              name="force_polling"
+              checked={formData.force_polling}
+              onChange={handleCheckboxChange}
+              className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+            />
+            <label htmlFor="force_polling" className="ml-3 text-sm font-medium text-gray-300">
+              Force Polling Mode (Disable SSE)
+            </label>
+          </div>
+          <p className="text-gray-500 text-sm">
+            When enabled, uses polling instead of Server-Sent Events for real-time updates. Enable this if you're experiencing connection issues.
           </p>
 
           {/* Save Button */}
