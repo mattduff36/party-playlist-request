@@ -13,37 +13,7 @@ const useInteractionLock = () => {
   return { isInteracting, lockInteraction };
 };
 
-// Create a simple progress hook inline
-const useRealtimeProgress = (playbackState: PlaybackState | null) => {
-  const [progress, setProgress] = useState(0);
-  
-  useEffect(() => {
-    if (!playbackState?.is_playing || !playbackState.timestamp) {
-      setProgress(playbackState?.progress_ms || 0);
-      return;
-    }
-    
-    const startTime = Date.now();
-    const initialProgress = playbackState.progress_ms;
-    
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = initialProgress + elapsed;
-      const maxProgress = playbackState.duration_ms;
-      
-      if (newProgress >= maxProgress) {
-        setProgress(maxProgress);
-        clearInterval(interval);
-      } else {
-        setProgress(Math.max(0, newProgress));
-      }
-    }, 100);
-    
-    return () => clearInterval(interval);
-  }, [playbackState?.is_playing, playbackState?.timestamp, playbackState?.progress_ms, playbackState?.duration_ms]);
-  
-  return progress;
-};
+// REMOVED: useRealtimeProgress hook - it was causing infinite renders by updating every 100ms
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface Request {
@@ -112,7 +82,7 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
 
   const { isInteracting, lockInteraction } = useInteractionLock();
   const realtimeUpdates = useRealtimeUpdates(eventSettings?.force_polling);
-  const realtimeProgress = useRealtimeProgress(playbackState);
+  // REMOVED: const realtimeProgress = useRealtimeProgress(playbackState); - This was causing infinite renders!
 
   // Check if user is authenticated - make it reactive
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -586,7 +556,6 @@ export const useAdminData = (options: { disablePolling?: boolean } = {}) => {
     playbackState,
     eventSettings,
     stats,
-    realtimeProgress,
     
     // State
     loading,

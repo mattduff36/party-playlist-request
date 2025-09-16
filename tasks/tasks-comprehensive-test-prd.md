@@ -38,6 +38,37 @@
 
 ## Tasks
 
+- [ ] 0.0 **🚨 CRITICAL: Fix Infinite Render Loop in Production SSE** ⚠️ BLOCKING
+  - [ ] 0.1 **Investigate Root Cause of Endless Re-renders**
+    - [ ] Analyze production logs showing hundreds of identical renders
+    - [ ] Identify exact useEffect dependencies causing loops
+    - [ ] Document state thrashing between spotify_connected true/false
+    - [ ] Map the complete render cycle causing performance issues
+  - [ ] 0.2 **Implement Comprehensive Fix**
+    - [ ] Fix state thrashing in useAdminData setPlaybackState
+    - [ ] Add data change detection to prevent identical SSE updates
+    - [ ] Optimize useEffect dependencies to break render loops
+    - [ ] Implement proper memoization in Overview component
+    - [ ] Add progress update throttling in useNowPlayingProgress
+  - [ ] 0.3 **Local Testing and Validation**
+    - [ ] Create test to reproduce infinite render loop locally
+    - [ ] Verify fix prevents excessive re-renders in development
+    - [ ] Test SSE connection with mock data for render frequency
+    - [ ] Validate memory usage remains stable over time
+    - [ ] Confirm no performance degradation in other components
+  - [ ] 0.4 **Production Testing and Confirmation**
+    - [ ] Deploy fix to production environment
+    - [ ] Monitor production logs for render frequency reduction
+    - [ ] Confirm spotify_connected state no longer thrashes
+    - [ ] Validate SSE updates process efficiently without loops
+    - [ ] Test with real Spotify data in production for 30+ minutes
+  - [ ] 0.5 **Final Verification and Sign-off**
+    - [ ] Document before/after performance metrics
+    - [ ] Confirm user experience is smooth without lag
+    - [ ] Verify all admin panel functionality still works correctly
+    - [ ] Get explicit confirmation that issue is 100% resolved
+    - [ ] Only then proceed with remaining tasks
+
 - [x] 1.0 **Fix Core UI Display Issues** ✅ COMPLETED
   - [x] 1.1 **Investigate Missing Now Playing Section** ✅ COMPLETED
     - [x] Check conditional rendering logic in `src/app/admin/overview/page.tsx`

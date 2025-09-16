@@ -22,8 +22,8 @@ export default function OverviewPage() {
     loading
   });
 
-  // Use the specialized now playing progress hook
-  const nowPlayingProgress = useNowPlayingProgress(playbackState, eventSettings);
+  // Use progress from playback state directly (no more infinite render loop from progress hook)
+  const nowPlayingProgress = playbackState?.progress_ms || 0;
 
   const formatDuration = useCallback((ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
