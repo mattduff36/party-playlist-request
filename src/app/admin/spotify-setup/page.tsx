@@ -251,6 +251,8 @@ export default function SpotifySetupPage() {
     
     try {
       const token = localStorage.getItem('admin_token');
+      console.log('🔌 Attempting to disconnect Spotify...');
+      
       const response = await fetch('/api/spotify/disconnect', {
         method: 'POST',
         headers: {
@@ -259,12 +261,25 @@ export default function SpotifySetupPage() {
         },
       });
       
+      console.log('🔌 Disconnect response status:', response.status);
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Disconnect successful:', responseData);
         setIsConnected(false);
         setSuccess('Spotify disconnected successfully');
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to disconnect Spotify');
+        // Check if response has content before trying to parse JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          setError(errorData.error || 'Failed to disconnect Spotify');
+        } else {
+          // Handle non-JSON responses
+          const errorText = await response.text();
+          console.error('Non-JSON error response:', errorText);
+          setError(`Failed to disconnect Spotify: ${response.status} ${response.statusText}`);
+        }
         setSuccess(''); // Clear success message on error
       }
     } catch (error: any) {
