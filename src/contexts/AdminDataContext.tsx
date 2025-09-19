@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { usePusher } from '@/hooks/usePusher';
-import { RequestApprovedEvent, RequestRejectedEvent } from '@/lib/pusher';
+import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent } from '@/lib/pusher';
 
 // Types (simplified from the old useAdminData)
 export interface Request {
@@ -27,6 +27,7 @@ export interface PlaybackState {
   duration_ms?: number;
   progress_ms?: number;
   image_url?: string;
+  queue?: any[];
 }
 
 export interface EventSettings {
@@ -62,8 +63,8 @@ interface AdminDataContextType {
   refreshData: () => Promise<void>;
   updateEventSettings: (settings: Partial<EventSettings>) => Promise<void>;
   handleSpotifyDisconnect: () => Promise<void>;
-  handleApprove: (id: string) => Promise<void>;
-  handleReject: (id: string) => Promise<void>;
+  handleApprove: (id: string, playNext?: boolean) => Promise<void>;
+  handleReject: (id: string, reason?: string) => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
   handlePlayAgain: (id: string) => Promise<void>;
 }
@@ -91,6 +92,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       // Refresh requests to show the update
       refreshRequests();
     },
+    onRequestSubmitted: (data: RequestSubmittedEvent) => {
+      console.log('📝 Admin: New request submitted via Pusher!', data);
+      // Refresh requests to show the new pending request
+      refreshRequests();
+    },
     onStatsUpdate: (data: any) => {
       console.log('📊 Admin: Stats updated via Pusher!', data);
       setStats(prev => {
@@ -116,9 +122,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const data = await response.json();
+        const requestsArray = data.requests || data; // Handle both formats
         setRequests(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(data)) {
-            return data;
+          if (JSON.stringify(prev) !== JSON.stringify(requestsArray)) {
+            return requestsArray;
           }
           return prev;
         });
@@ -147,7 +154,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           album_name: data.current_track?.album,
           duration_ms: data.current_track?.duration_ms,
           progress_ms: data.current_track?.progress_ms,
-          image_url: data.current_track?.image_url
+          image_url: data.current_track?.image_url,
+          queue: data.queue || []
         };
         
         setPlaybackState(prev => {
@@ -267,20 +275,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Handle Spotify disconnect
   const handleSpotifyDisconnect = useCallback(async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
-      const response = await fetch('/api/spotify/disconnect', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Immediately update state to reflect disconnected status
+      setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
+      setStats(prev => prev ? { ...prev, spotify_connected: false } : prev);
       
-      if (response.ok) {
-        // Refresh data after disconnect
-        await refreshData();
-      }
+      // Refresh all data to ensure consistency
+      await refreshData();
     } catch (error) {
-      console.error('Failed to disconnect Spotify:', error);
+      console.error('Failed to refresh data after disconnect:', error);
     }
   }, [refreshData]);
 
@@ -314,38 +316,60 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // No more periodic refresh - Pusher handles real-time updates!
 
   // Request management methods
-  const handleApprove = useCallback(async (id: string) => {
+  const handleApprove = useCallback(async (id: string, playNext: boolean = false) => {
     try {
       const token = localStorage.getItem('admin_token');
       if (!token) return;
 
       const response = await fetch(`/api/admin/approve/${id}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          add_to_queue: true,
+          add_to_playlist: true,
+          play_next: playNext
+        })
       });
       
       if (response.ok) {
+        console.log(`✅ Request ${id} approved successfully`);
         await refreshRequests();
         await refreshStats();
+      } else {
+        const error = await response.text();
+        console.error('Failed to approve request:', error);
       }
     } catch (error) {
       console.error('Failed to approve request:', error);
     }
   }, [refreshRequests, refreshStats]);
 
-  const handleReject = useCallback(async (id: string) => {
+  const handleReject = useCallback(async (id: string, reason?: string) => {
     try {
       const token = localStorage.getItem('admin_token');
       if (!token) return;
 
       const response = await fetch(`/api/admin/reject/${id}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: reason || 'Rejected by admin'
+        })
       });
       
       if (response.ok) {
+        console.log(`❌ Request ${id} rejected successfully`);
         await refreshRequests();
         await refreshStats();
+      } else {
+        const error = await response.text();
+        console.error('Failed to reject request:', error);
       }
     } catch (error) {
       console.error('Failed to reject request:', error);

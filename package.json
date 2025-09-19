@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:https": "node server.js",
+    "dev:https": "node server-https.js",
+    "dev:https:real": "cross-env FORCE_REAL_SPOTIFY=true node server-https.js",
     "generate-certs": "node generate-certs.js",
     "build": "next build",
     "start": "next start",
@@ -51,7 +52,9 @@
     "cross-env": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
+    "https-localhost": "^4.7.1",
     "playwright": "^1.55.0",
+    "selfsigned": "^3.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

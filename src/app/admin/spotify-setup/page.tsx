@@ -12,7 +12,8 @@ export default function SpotifySetupPage() {
   const [success, setSuccess] = useState('');
   
   // Use the shared data source for connection status
-  const isConnected = playbackState?.spotify_connected || stats?.spotify_connected || false;
+  // Prioritize stats over playbackState for connection status (more reliable)
+  const isConnected = stats?.spotify_connected ?? playbackState?.spotify_connected ?? false;
   const isCheckingStatus = loading;
 
   // Check for admin token and initialize
@@ -289,12 +290,23 @@ export default function SpotifySetupPage() {
         setSuccess('Spotify disconnected successfully');
         
         // Update the admin data immediately to reflect disconnected state
-        handleSpotifyDisconnect();
+        await handleSpotifyDisconnect();
         
         // Force refresh the connection status to update the admin layout
         setTimeout(() => {
           refreshStatus();
-        }, 500);
+        }, 1500);
+        
+        // Clear success message after 3 seconds and force another refresh
+        setTimeout(() => {
+          setSuccess('');
+          refreshStatus();
+        }, 3000);
+        
+        // Force one more refresh after 5 seconds to ensure UI is updated
+        setTimeout(() => {
+          refreshStatus();
+        }, 5000);
       } else {
         // Check if response has content before trying to parse JSON
         const contentType = response.headers.get('content-type');

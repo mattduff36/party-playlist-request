@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // Get admin data for Spotify connection status
-  const { playbackState, isConnected, connectionState } = useAdminData();
+  const { playbackState, stats, isConnected, connectionState } = useAdminData();
 
   // Check authentication on mount
   useEffect(() => {
@@ -134,6 +134,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <Icon className="w-5 h-5 mr-3" />
                     {item.label}
                   </div>
+                  {item.id === 'requests' && stats?.pending_requests > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {stats.pending_requests}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -174,7 +179,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <button
               key={item.id}
               onClick={() => router.push(item.href)}
-              className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-[60px] ${
+              className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-[60px] relative ${
                 isActive
                   ? 'text-purple-400'
                   : 'text-gray-400 hover:text-gray-300'
@@ -182,6 +187,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             >
               <Icon className="w-6 h-6 mb-1" />
               <span className="text-xs truncate">{item.label.split(' ')[0]}</span>
+              {item.id === 'requests' && stats?.pending_requests > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full min-w-[18px]">
+                  {stats.pending_requests}
+                </span>
+              )}
             </button>
           );
         })}
@@ -290,7 +300,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <div className="hidden md:flex items-center space-x-4">
                 {/* Spotify Connection Status */}
                 <div className="flex items-center space-x-2">
-                  {playbackState?.spotify_connected ? (
+                  {(stats?.spotify_connected ?? playbackState?.spotify_connected ?? false) ? (
                     <>
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <span className="text-green-400 text-sm">Spotify</span>

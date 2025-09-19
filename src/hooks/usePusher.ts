@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createPusherClient, CHANNELS, EVENTS, RequestApprovedEvent, RequestRejectedEvent } from '@/lib/pusher';
+import { createPusherClient, CHANNELS, EVENTS, RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent } from '@/lib/pusher';
 import type { Channel } from 'pusher-js';
 
 interface UsePusherOptions {
   onRequestApproved?: (data: RequestApprovedEvent) => void;
   onRequestRejected?: (data: RequestRejectedEvent) => void;
+  onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
   onPlaybackUpdate?: (data: any) => void;
   onStatsUpdate?: (data: any) => void;
 }
@@ -21,7 +22,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onPlaybackUpdate, options.onStatsUpdate]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onPlaybackUpdate, options.onStatsUpdate]);
 
   useEffect(() => {
     // Create Pusher client
@@ -69,6 +70,13 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('❌ Pusher: Request rejected', data);
       if (optionsRef.current.onRequestRejected) {
         optionsRef.current.onRequestRejected(data);
+      }
+    });
+
+    channel.bind(EVENTS.REQUEST_SUBMITTED, (data: RequestSubmittedEvent) => {
+      console.log('📝 Pusher: New request submitted!', data);
+      if (optionsRef.current.onRequestSubmitted) {
+        optionsRef.current.onRequestSubmitted(data);
       }
     });
 

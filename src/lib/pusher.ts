@@ -39,6 +39,16 @@ export interface RequestRejectedEvent {
   rejected_by: string;
 }
 
+export interface RequestSubmittedEvent {
+  id: string;
+  track_name: string;
+  artist_name: string;
+  album_name: string;
+  track_uri: string;
+  requester_nickname: string;
+  submitted_at: string;
+}
+
 export interface PlaybackUpdateEvent {
   current_track: any;
   queue: any[];
@@ -57,6 +67,7 @@ export const CHANNELS = {
 export const EVENTS = {
   REQUEST_APPROVED: 'request-approved',
   REQUEST_REJECTED: 'request-rejected',
+  REQUEST_SUBMITTED: 'request-submitted',
   PLAYBACK_UPDATE: 'playback-update',
   STATS_UPDATE: 'stats-update',
   QUEUE_UPDATE: 'queue-update',
@@ -89,8 +100,41 @@ export const triggerRequestRejected = async (data: RequestRejectedEvent) => {
   await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_REJECTED, data);
 };
 
+export const triggerRequestSubmitted = async (data: RequestSubmittedEvent) => {
+  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_SUBMITTED, data);
+};
+
 export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.PLAYBACK_UPDATE, data);
+  // Reduce payload size to avoid Pusher 10KB limit
+  const compactData = {
+    current_track: data.current_track ? {
+      id: data.current_track.id,
+      name: data.current_track.name?.substring(0, 100) || '',
+      artists: data.current_track.artists?.slice(0, 2).map((a: any) => ({ name: a.name?.substring(0, 50) || '' })) || [],
+      album: data.current_track.album ? {
+        name: data.current_track.album.name?.substring(0, 100) || '',
+        images: data.current_track.album.images?.slice(0, 1).map((img: any) => ({
+          url: img.url,
+          width: img.width,
+          height: img.height
+        })) || [] // Only keep first image with minimal data
+      } : null,
+      uri: data.current_track.uri,
+      duration_ms: data.current_track.duration_ms
+    } : null,
+    queue: data.queue?.slice(0, 10).map((track: any) => ({ // Limit to 10 tracks to stay under 10KB
+      id: track.id,
+      name: track.name?.substring(0, 100) || '', // Truncate long names
+      artists: track.artists?.slice(0, 2).map((a: any) => ({ name: a.name?.substring(0, 50) || '' })) || [],
+      uri: track.uri,
+      requester_nickname: track.requester_nickname?.substring(0, 30) || null
+    })) || [],
+    is_playing: data.is_playing,
+    progress_ms: data.progress_ms,
+    timestamp: data.timestamp
+  };
+  
+  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.PLAYBACK_UPDATE, compactData);
 };
 
 export const triggerStatsUpdate = async (stats: any) => {

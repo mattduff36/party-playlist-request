@@ -51,6 +51,13 @@ interface EventSettings {
 
 const API_BASE = '/api';
 
+// Helper function to format duration
+const formatDuration = (ms: number): string => {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -102,7 +109,21 @@ export default function HomePage() {
         params: { q: query.trim(), limit: 20 },
         timeout: 15000 // 15 second timeout for search
       });
-      setSearchResults(response.data.tracks);
+      
+      // Transform Spotify API response to match our Track interface
+      const transformedTracks = response.data.tracks.map((spotifyTrack: any) => ({
+        id: spotifyTrack.id,
+        uri: spotifyTrack.uri,
+        name: spotifyTrack.name,
+        artists: spotifyTrack.artists.map((artist: any) => artist.name),
+        album: spotifyTrack.album.name,
+        duration_ms: spotifyTrack.duration_ms,
+        explicit: spotifyTrack.explicit,
+        preview_url: spotifyTrack.preview_url,
+        image: spotifyTrack.album.images?.[0]?.url
+      }));
+      
+      setSearchResults(transformedTracks);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -128,14 +149,19 @@ export default function HomePage() {
     setRequestStatus('idle');
 
     try {
-      const requestData: any = {
-        requester_nickname: nickname || undefined
-      };
+      const requestData: any = {};
+
+      // Only include nickname if it's provided
+      if (nickname && nickname.trim()) {
+        requestData.requester_nickname = nickname.trim();
+      }
 
       if (track) {
         requestData.track_uri = track.uri;
       } else if (url) {
         requestData.track_url = url;
+      } else {
+        throw new Error('No track or URL provided');
       }
 
       const response = await axios.post<RequestResponse>(`${API_BASE}/request`, requestData, {

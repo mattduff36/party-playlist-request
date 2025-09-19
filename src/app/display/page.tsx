@@ -46,6 +46,14 @@ interface Notification {
   shown: boolean;
 }
 
+interface RequestItem {
+  id: string;
+  track_name: string;
+  artist_name: string;
+  requester_nickname?: string;
+  created_at: string;
+}
+
 export default function DisplayPage() {
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
@@ -56,6 +64,8 @@ export default function DisplayPage() {
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
+  const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
+  const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
   
   // 🚀 PUSHER: Real-time updates with animation triggers
   const { isConnected, connectionState } = usePusher({
@@ -74,11 +84,21 @@ export default function DisplayPage() {
       // Add to upcoming songs
       setUpcomingSongs(prev => [...prev, newSong]);
       
+      // Add to approved requests list
+      const newRequest: RequestItem = {
+        id: data.id,
+        track_name: data.track_name,
+        artist_name: data.artist_name,
+        requester_nickname: data.requester_nickname,
+        created_at: new Date().toISOString()
+      };
+      setApprovedRequests(prev => [newRequest, ...prev].slice(0, 10)); // Keep only latest 10
+      
       // 🎯 TRIGGER ANIMATION immediately!
       setAnimatingCards(prev => new Set([...prev, data.track_uri]));
       
-      // Show alert for testing
-      alert(`🎉 ANIMATION TRIGGERED! New song: ${data.track_name} by ${data.requester_nickname}`);
+      // Animation triggered (removed alert for production)
+      console.log(`🎉 ANIMATION TRIGGERED! New song: ${data.track_name} by ${data.requester_nickname}`);
       
       // Remove animation after 1 second
       setTimeout(() => {
@@ -95,7 +115,7 @@ export default function DisplayPage() {
       
       // Update current track
       if (data.current_track) {
-        setCurrentTrack({
+        const newTrack = {
           name: data.current_track.name || '',
           artists: data.current_track.artists?.map((a: any) => a.name) || [],
           album: data.current_track.album?.name || '',
@@ -103,7 +123,25 @@ export default function DisplayPage() {
           progress_ms: data.progress_ms || 0,
           uri: data.current_track.uri || '',
           image_url: data.current_track.album?.images?.[0]?.url
+        };
+        
+        // Check if this track was in approved requests and move it to recently played
+        setApprovedRequests(prev => {
+          const matchingRequest = prev.find(req => 
+            req.track_name === newTrack.name && req.artist_name === newTrack.artists.join(', ')
+          );
+          
+          if (matchingRequest) {
+            // Move to recently played
+            setRecentlyPlayedRequests(prevPlayed => [matchingRequest, ...prevPlayed].slice(0, 10));
+            // Remove from approved
+            return prev.filter(req => req.id !== matchingRequest.id);
+          }
+          
+          return prev;
         });
+        
+        setCurrentTrack(newTrack);
       }
       
       // Update queue
@@ -133,9 +171,13 @@ export default function DisplayPage() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const response = await fetch('/api/display/current');
-        if (response.ok) {
-          const data = await response.json();
+        const [displayResponse, requestsResponse] = await Promise.all([
+          fetch('/api/display/current'),
+          fetch('/api/display/requests')
+        ]);
+        
+        if (displayResponse.ok) {
+          const data = await displayResponse.json();
           
           // Initialize current track
           if (data.current_track) {
@@ -159,6 +201,12 @@ export default function DisplayPage() {
           if (data.upcoming_songs) {
             setUpcomingSongs(data.upcoming_songs);
           }
+        }
+        
+        if (requestsResponse.ok) {
+          const requestsData = await requestsResponse.json();
+          setApprovedRequests(requestsData.approved_requests || []);
+          setRecentlyPlayedRequests(requestsData.recently_played_requests || []);
         }
       } catch (error) {
         console.error('Failed to fetch initial display data:', error);
@@ -365,29 +413,6 @@ export default function DisplayPage() {
                       <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
                       <p className="text-sm text-gray-400 mb-3">{currentTrack.album}</p>
                       
-                      {/* Live Progress Bar */}
-                      <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                        <div 
-                          className={`h-2 rounded-full transition-all duration-75 ${
-                            liveProgress.isAnimating 
-                              ? 'bg-green-400 shadow-sm shadow-green-400/50' 
-                              : 'bg-green-500'
-                          }`}
-                          style={{ 
-                            width: `${liveProgress.progressPercentage}%`,
-                            transition: liveProgress.isAnimating 
-                              ? 'width 75ms linear, background-color 200ms ease' 
-                              : 'width 200ms ease, background-color 200ms ease'
-                          }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
-                          {liveProgress.currentTime}
-                        </span>
-                        {' / '}
-                        {liveProgress.totalTime}
-                      </p>
                   </div>
                 ) : (
                     <div className="text-center text-gray-400 text-lg">
@@ -418,10 +443,10 @@ export default function DisplayPage() {
                         }
                         return (
                         <div 
-                          key={song.uri} 
+                          key={`${song.uri || 'unknown'}-${index}`} 
                           className={`flex items-center justify-between p-3 bg-white/10 rounded-lg transition-all duration-1000 ${
                             isAnimating
-                              ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                              ? 'bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25' 
                               : ''
                           }`}
                         >
@@ -455,62 +480,53 @@ export default function DisplayPage() {
               )}
               </div>
 
-              {/* Top Requesters */}
+              {/* Requests Section */}
               <div className="col-span-1">
                 <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
-                  <h2 className="text-3xl font-semibold mb-6 text-center">🏆 Top Requesters!</h2>
-                  <div className="space-y-4">
-                    {/* Placeholder top requesters */}
-                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg border border-yellow-500/30">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">🥇</div>
-                        <div>
-                          <div className="text-lg font-bold text-yellow-300">Sarah M.</div>
-                          <div className="text-sm text-gray-300">12 requests</div>
-                        </div>
+                  {approvedRequests.length > 0 ? (
+                    <>
+                      <h2 className="text-3xl font-semibold mb-6 text-center">🎵 Requests on the way for...</h2>
+                      <div className="space-y-4 max-h-80 overflow-hidden">
+                        {approvedRequests.slice(0, 6).map((request, index) => (
+                          <div key={`${request.id}-${index}`} className="p-3 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-lg border border-green-500/30">
+                            <div className="flex items-center space-x-3">
+                              <div className="text-2xl">🎶</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-lg font-bold text-green-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
+                                <div className="text-sm text-gray-300 truncate">{request.track_name}</div>
+                                <div className="text-xs text-green-400 truncate">{request.artist_name}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-400/20 to-gray-500/20 rounded-lg border border-gray-400/30">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">🥈</div>
-                        <div>
-                          <div className="text-lg font-bold text-gray-300">Mike R.</div>
-                          <div className="text-sm text-gray-300">8 requests</div>
-                        </div>
+                    </>
+                  ) : recentlyPlayedRequests.length > 0 ? (
+                    <>
+                      <h2 className="text-3xl font-semibold mb-6 text-center">🎵 Recently played requests for...</h2>
+                      <div className="space-y-4 max-h-80 overflow-hidden">
+                        {recentlyPlayedRequests.slice(0, 6).map((request, index) => (
+                          <div key={`${request.id}-${index}`} className="p-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
+                            <div className="flex items-center space-x-3">
+                              <div className="text-2xl">✅</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-lg font-bold text-purple-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
+                                <div className="text-sm text-gray-300 truncate">{request.track_name}</div>
+                                <div className="text-xs text-purple-400 truncate">{request.artist_name}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded-lg border border-amber-600/30">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">🥉</div>
-                        <div>
-                          <div className="text-lg font-bold text-amber-300">Alex K.</div>
-                          <div className="text-sm text-gray-300">6 requests</div>
-                        </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-3xl font-semibold mb-6 text-center">🎵 No requests yet!</h2>
+                      <div className="text-center text-gray-400">
+                        <p className="text-lg">Scan the QR code to make the first request!</p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-lg font-bold text-purple-300 w-8">4.</div>
-                        <div>
-                          <div className="text-base font-semibold">Emma L.</div>
-                          <div className="text-sm text-gray-300">4 requests</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-lg font-bold text-purple-300 w-8">5.</div>
-                        <div>
-                          <div className="text-base font-semibold">Chris P.</div>
-                          <div className="text-sm text-gray-300">3 requests</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -572,29 +588,6 @@ export default function DisplayPage() {
                       <p className="text-sm text-gray-300 mb-1">{currentTrack.artists.join(', ')}</p>
                       <p className="text-xs text-gray-400 mb-2">{currentTrack.album}</p>
                       
-                      {/* Live Progress Bar */}
-                      <div className="w-full bg-gray-700 rounded-full h-1.5 mb-1">
-                        <div 
-                          className={`h-1.5 rounded-full transition-all duration-75 ${
-                            liveProgress.isAnimating 
-                              ? 'bg-green-400 shadow-sm shadow-green-400/50' 
-                              : 'bg-green-500'
-                          }`}
-                          style={{ 
-                            width: `${liveProgress.progressPercentage}%`,
-                            transition: liveProgress.isAnimating 
-                              ? 'width 75ms linear, background-color 200ms ease' 
-                              : 'width 200ms ease, background-color 200ms ease'
-                          }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
-                          {liveProgress.currentTime}
-                        </span>
-                        {' / '}
-                        {liveProgress.totalTime}
-                      </p>
                     </div>
                   ) : (
                     <div className="text-center text-gray-400 text-sm">
@@ -620,10 +613,10 @@ export default function DisplayPage() {
                     <div className="space-y-2 overflow-y-auto h-full">
                       {upcomingSongs.slice(0, 10).map((song, index) => (
                         <div 
-                          key={song.uri} 
+                          key={`${song.uri || 'unknown'}-${index}`} 
                           className={`flex items-center justify-between p-2 bg-white/5 rounded-lg transition-all duration-1000 ${
                             animatingCards.has(song.uri) 
-                              ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                              ? 'bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25' 
                               : ''
                           }`}
                         >
@@ -649,62 +642,53 @@ export default function DisplayPage() {
                 )}
               </div>
 
-              {/* Top Requesters */}
+              {/* Requests Section */}
               <div className="col-span-1">
                 <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full">
-                  <h2 className="text-lg font-semibold mb-4 text-center">🏆 Top Requesters!</h2>
-                  <div className="space-y-2">
-                    {/* Placeholder top requesters */}
-                    <div className="flex items-center justify-between p-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg border border-yellow-500/30">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-base">🥇</div>
-                        <div>
-                          <div className="text-sm font-bold text-yellow-300">Sarah M.</div>
-                          <div className="text-xs text-gray-300">12 requests</div>
-                        </div>
+                  {approvedRequests.length > 0 ? (
+                    <>
+                      <h2 className="text-lg font-semibold mb-4 text-center">🎵 Requests on the way for...</h2>
+                      <div className="space-y-2 max-h-64 overflow-hidden">
+                        {approvedRequests.slice(0, 8).map((request, index) => (
+                          <div key={`${request.id}-${index}`} className="p-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-lg border border-green-500/30">
+                            <div className="flex items-center space-x-2">
+                              <div className="text-base">🎶</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-green-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
+                                <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
+                                <div className="text-xs text-green-400 truncate">{request.artist_name}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gradient-to-r from-gray-400/20 to-gray-500/20 rounded-lg border border-gray-400/30">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-base">🥈</div>
-                        <div>
-                          <div className="text-sm font-bold text-gray-300">Mike R.</div>
-                          <div className="text-xs text-gray-300">8 requests</div>
-                        </div>
+                    </>
+                  ) : recentlyPlayedRequests.length > 0 ? (
+                    <>
+                      <h2 className="text-lg font-semibold mb-4 text-center">🎵 Recently played requests for...</h2>
+                      <div className="space-y-2 max-h-64 overflow-hidden">
+                        {recentlyPlayedRequests.slice(0, 8).map((request, index) => (
+                          <div key={`${request.id}-${index}`} className="p-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
+                            <div className="flex items-center space-x-2">
+                              <div className="text-base">✅</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-purple-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
+                                <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
+                                <div className="text-xs text-purple-400 truncate">{request.artist_name}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded-lg border border-amber-600/30">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-base">🥉</div>
-                        <div>
-                          <div className="text-sm font-bold text-amber-300">Alex K.</div>
-                          <div className="text-xs text-gray-300">6 requests</div>
-                        </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-lg font-semibold mb-4 text-center">🎵 No requests yet!</h2>
+                      <div className="text-center text-gray-400">
+                        <p className="text-sm">Scan the QR code to make the first request!</p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm font-bold text-purple-300 w-6">4.</div>
-                        <div>
-                          <div className="text-xs font-semibold">Emma L.</div>
-                          <div className="text-xs text-gray-300">4 requests</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm font-bold text-purple-300 w-6">5.</div>
-                        <div>
-                          <div className="text-xs font-semibold">Chris P.</div>
-                          <div className="text-xs text-gray-300">3 requests</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -751,29 +735,6 @@ export default function DisplayPage() {
                   <h3 className="text-lg font-bold mb-2">{currentTrack.name}</h3>
                   <p className="text-base text-gray-300 mb-3">{currentTrack.artists.join(', ')}</p>
                   
-                  {/* Live Progress Bar */}
-                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                    <div 
-                      className={`h-2 rounded-full transition-all duration-75 ${
-                        liveProgress.isAnimating 
-                          ? 'bg-green-400 shadow-sm shadow-green-400/50' 
-                          : 'bg-green-500'
-                      }`}
-                      style={{ 
-                        width: `${liveProgress.progressPercentage}%`,
-                        transition: liveProgress.isAnimating 
-                          ? 'width 75ms linear, background-color 200ms ease' 
-                          : 'width 200ms ease, background-color 200ms ease'
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
-                      {liveProgress.currentTime}
-                    </span>
-                    {' / '}
-                    {liveProgress.totalTime}
-                  </p>
                   </div>
                 ) : (
                   <div className="text-center text-gray-400">No song playing</div>
@@ -787,10 +748,10 @@ export default function DisplayPage() {
                 <div className="space-y-2 overflow-y-auto h-full">
                   {upcomingSongs.slice(0, 12).map((song, index) => (
                     <div 
-                      key={song.uri} 
+                      key={`${song.uri || 'unknown'}-${index}`} 
                       className={`flex items-center justify-between p-3 bg-white/5 rounded-lg transition-all duration-1000 ${
                         animatingCards.has(song.uri) 
-                          ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                          ? 'bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25' 
                           : ''
                       }`}
                     >
@@ -896,10 +857,10 @@ export default function DisplayPage() {
                   <div className="space-y-1 overflow-y-auto h-full">
                     {upcomingSongs.slice(0, 8).map((song, index) => (
                       <div 
-                        key={song.uri} 
+                        key={`${song.uri || 'unknown'}-${index}`} 
                         className={`flex items-center justify-between p-1 bg-white/5 rounded transition-all duration-1000 ${
                           animatingCards.has(song.uri) 
-                            ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                            ? 'bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25' 
                             : ''
                         }`}
                       >
@@ -925,42 +886,53 @@ export default function DisplayPage() {
               )}
             </div>
 
-            {/* Top Requesters */}
+            {/* Requests Section */}
             <div className="col-span-1">
               <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full">
-                <h2 className="text-xs font-semibold mb-2 text-center">🏆 Top Requesters!</h2>
-                <div className="space-y-1">
-                  {/* Placeholder top requesters */}
-                  <div className="flex items-center justify-between p-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded border border-yellow-500/30">
-                    <div className="flex items-center space-x-1">
-                      <div className="text-xs">🥇</div>
-                      <div>
-                        <div className="text-xs font-bold text-yellow-300">Sarah M.</div>
-                        <div className="text-xs text-gray-300">12 requests</div>
-                      </div>
+                {approvedRequests.length > 0 ? (
+                  <>
+                    <h2 className="text-xs font-semibold mb-2 text-center">🎵 Requests on the way for...</h2>
+                    <div className="space-y-1 max-h-32 overflow-hidden">
+                      {approvedRequests.slice(0, 5).map((request, index) => (
+                        <div key={request.id} className="p-1 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded border border-green-500/30">
+                          <div className="flex items-center space-x-1">
+                            <div className="text-xs">🎶</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-green-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
+                              <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
+                              <div className="text-xs text-green-400 truncate">{request.artist_name}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-1 bg-gradient-to-r from-gray-400/20 to-gray-500/20 rounded border border-gray-400/30">
-                    <div className="flex items-center space-x-1">
-                      <div className="text-xs">🥈</div>
-                      <div>
-                        <div className="text-xs font-bold text-gray-300">Mike R.</div>
-                        <div className="text-xs text-gray-300">8 requests</div>
-                      </div>
+                  </>
+                ) : recentlyPlayedRequests.length > 0 ? (
+                  <>
+                    <h2 className="text-xs font-semibold mb-2 text-center">🎵 Recently played requests for...</h2>
+                    <div className="space-y-1 max-h-32 overflow-hidden">
+                      {recentlyPlayedRequests.slice(0, 5).map((request, index) => (
+                        <div key={request.id} className="p-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded border border-purple-500/30">
+                          <div className="flex items-center space-x-1">
+                            <div className="text-xs">✅</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-purple-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
+                              <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
+                              <div className="text-xs text-purple-400 truncate">{request.artist_name}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-1 bg-gradient-to-r from-amber-600/20 to-amber-700/20 rounded border border-amber-600/30">
-                    <div className="flex items-center space-x-1">
-                      <div className="text-xs">🥉</div>
-                      <div>
-                        <div className="text-xs font-bold text-amber-300">Alex K.</div>
-                        <div className="text-xs text-gray-300">6 requests</div>
-                      </div>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xs font-semibold mb-2 text-center">🎵 No requests yet!</h2>
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-gray-400 text-center text-xs">Waiting for song requests...</p>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1007,29 +979,6 @@ export default function DisplayPage() {
               <h3 className="text-lg font-bold mb-1">{currentTrack.name}</h3>
               <p className="text-sm text-gray-300 mb-3">{currentTrack.artists.join(', ')}</p>
               
-              {/* Live Progress Bar */}
-              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-75 ${
-                    liveProgress.isAnimating 
-                      ? 'bg-green-400 shadow-sm shadow-green-400/50' 
-                      : 'bg-green-500'
-                  }`}
-                  style={{ 
-                    width: `${liveProgress.progressPercentage}%`,
-                    transition: liveProgress.isAnimating 
-                      ? 'width 75ms linear, background-color 200ms ease' 
-                      : 'width 200ms ease, background-color 200ms ease'
-                  }}
-                ></div>
-              </div>
-              <p className="text-xs text-gray-400">
-                <span className={liveProgress.isAnimating ? 'text-green-400' : ''}>
-                  {liveProgress.currentTime}
-                </span>
-                {' / '}
-                {liveProgress.totalTime}
-              </p>
             </div>
           ) : (
             <div className="text-center text-gray-400 text-sm">No song playing</div>
@@ -1043,10 +992,10 @@ export default function DisplayPage() {
               <div className="space-y-2 overflow-y-auto h-full">
                 {upcomingSongs.slice(0, 8).map((song, index) => (
                   <div 
-                    key={song.uri} 
+                    key={`${song.uri || 'unknown'}-${index}`} 
                     className={`flex items-center justify-between p-2 bg-white/5 rounded text-xs transition-all duration-1000 ${
                       animatingCards.has(song.uri) 
-                        ? 'animate-pulse bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25 scale-105' 
+                        ? 'bg-green-500/20 border border-green-400/50 shadow-lg shadow-green-400/25' 
                         : ''
                     }`}
                   >

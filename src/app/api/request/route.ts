@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
+import { triggerRequestSubmitted } from '@/lib/pusher';
 
 // Rate limiting storage
 const rateLimitMap = new Map<string, { count: number; resetTime: number; lastRequest: number }>();
@@ -20,9 +21,9 @@ function isRateLimited(ip: string): { limited: boolean; message?: string } {
     return { limited: true, message: 'Maximum 10 requests per hour exceeded. Please try again later.' };
   }
 
-  // Check 30-second cooldown
-  if (now - current.lastRequest < 30 * 1000) {
-    return { limited: true, message: 'Please wait 30 seconds before making another request.' };
+  // Check 5-second cooldown (reduced for testing)
+  if (now - current.lastRequest < 5 * 1000) {
+    return { limited: true, message: 'Please wait 5 seconds before making another request.' };
   }
 
   current.count++;
@@ -84,7 +85,9 @@ export async function POST(req: NextRequest) {
     console.log(`🎵 [${requestId}] Getting track info from Spotify...`);
     let trackInfo;
     try {
-      trackInfo = await spotifyService.getTrack(trackUri);
+      // Extract track ID from URI (spotify:track:ID -> ID)
+      const trackId = trackUri.replace('spotify:track:', '');
+      trackInfo = await spotifyService.getTrack(trackId);
       console.log(`✅ [${requestId}] Track info retrieved (${Date.now() - startTime}ms)`);
     } catch (error) {
       console.log(`❌ [${requestId}] Failed to get track info (${Date.now() - startTime}ms):`, error);
@@ -111,8 +114,8 @@ export async function POST(req: NextRequest) {
     const newRequest = await createRequest({
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
-      artist_name: trackInfo.artists.join(', '),
-      album_name: trackInfo.album,
+      artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+      album_name: trackInfo.album?.name || 'Unknown Album',
       duration_ms: trackInfo.duration_ms,
       requester_ip_hash: ipHash,
       requester_nickname: requester_nickname || undefined,
@@ -121,6 +124,23 @@ export async function POST(req: NextRequest) {
       spotify_added_to_playlist: false
     });
     console.log(`✅ [${requestId}] Request created successfully (${Date.now() - startTime}ms total)`);
+
+    // 🚀 PUSHER: Trigger real-time event for new request submission
+    try {
+      await triggerRequestSubmitted({
+        id: newRequest.id,
+        track_name: trackInfo.name,
+        artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+        album_name: trackInfo.album?.name || 'Unknown Album',
+        track_uri: trackInfo.uri,
+        requester_nickname: requester_nickname || 'Anonymous',
+        submitted_at: new Date().toISOString()
+      });
+      console.log(`🎉 Pusher event sent for new request: ${trackInfo.name}`);
+    } catch (pusherError) {
+      console.error('❌ Failed to send Pusher event for new request:', pusherError);
+      // Don't fail the request if Pusher fails
+    }
 
     return NextResponse.json({
       success: true,

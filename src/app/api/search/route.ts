@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
 
     const searchLimit = Math.min(limit || 20, 50);
     
-    const tracks = await spotifyService.searchTracks(query.trim(), searchLimit);
+    const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit);
+    
+    // Extract tracks from Spotify API response
+    const tracks = searchResult?.tracks?.items || [];
     
     return NextResponse.json({
       tracks: tracks,

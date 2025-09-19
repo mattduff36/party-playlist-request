@@ -160,6 +160,7 @@ class SpotifyService {
       redirectUri: this.redirectUri,
       codeLength: code?.length,
       codeVerifierLength: codeVerifier?.length,
+      isLocalDev: process.env.NODE_ENV === 'development'
     });
 
     // Always use real Spotify endpoint
@@ -446,3 +447,4 @@ class SpotifyService {
 }
 
 export const spotifyService = new SpotifyService();
+

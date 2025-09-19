@@ -24,12 +24,12 @@ export async function GET(req: NextRequest) {
       console.log(`❌ [${requestId}] Token check failed: ${(tokenError as Error).message} (${Date.now() - tokenCheckStart}ms)`);
     }
     
-    // In development mode, always try to get Spotify data (using mock APIs)
-    const shouldTrySpotify = hasTokens || process.env.NODE_ENV === 'development';
-    console.log(`🔍 [${requestId}] Should try Spotify APIs: ${shouldTrySpotify} (has_tokens: ${hasTokens}, dev: ${process.env.NODE_ENV === 'development'})`);
+    // Always try to get Spotify data if we have tokens
+    const shouldTrySpotify = hasTokens;
+    console.log(`🔍 [${requestId}] Should try Spotify APIs: ${shouldTrySpotify} (has_tokens: ${hasTokens})`);
     
     if (!shouldTrySpotify) {
-      console.log(`⚠️ [${requestId}] No Spotify tokens available and not in development, returning empty response`);
+      console.log(`⚠️ [${requestId}] No Spotify tokens available, returning empty response`);
       return NextResponse.json({
         current_track: null,
         queue: [],
