@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { usePusher } from '@/hooks/usePusher';
 import { useLiveProgress } from '@/hooks/useLiveProgress';
-import { RequestApprovedEvent } from '@/lib/pusher';
+import { RequestApprovedEvent, RequestDeletedEvent } from '@/lib/pusher';
 
 interface CurrentTrack {
   name: string;
@@ -112,6 +112,11 @@ export default function DisplayPage() {
       // Note: Queue updates are handled by onPlaybackUpdate callback
       // This callback only handles the "Requests on the way" animation
       console.log('✅ Request approved animation completed, queue updates handled by onPlaybackUpdate');
+    },
+    onRequestDeleted: (data: RequestDeletedEvent) => {
+      console.log('🗑️ PUSHER: Request deleted!', data);
+      // Remove from approved requests list if it exists there
+      setApprovedRequests(prev => prev.filter(req => req.id !== data.id));
     },
     onPlaybackUpdate: (data: any) => {
       console.log('🎵 PUSHER: Playback update received!', data);
@@ -461,6 +466,24 @@ export default function DisplayPage() {
     
     // No more polling - Pusher handles real-time updates!
   }, []); // Only run once
+
+  // Fallback polling when Pusher is not connected
+  useEffect(() => {
+    if (isConnected) {
+      console.log('✅ Pusher connected, using real-time updates');
+      return; // Pusher is working, no need for polling
+    }
+
+    console.log('⚠️ Pusher not connected, falling back to polling');
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling for updates (Pusher fallback)');
+      fetchDisplayData();
+    }, 3000); // Poll every 3 seconds when Pusher is down
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [isConnected]); // Re-run when Pusher connection state changes
 
   // Rotate messages
   useEffect(() => {
