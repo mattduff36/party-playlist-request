@@ -61,6 +61,17 @@ export default function DisplayPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
+  
+  // Get the appropriate song limit based on device type and orientation
+  const getUpNextLimit = () => {
+    if (deviceType === 'tv') return 12;
+    if (deviceType === 'tablet') {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      return isLandscape ? 10 : 12;
+    }
+    if (deviceType === 'mobile') return 8;
+    return 10; // fallback
+  };
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
@@ -141,16 +152,21 @@ export default function DisplayPage() {
         setCurrentTrack(newTrack);
       }
       
-      // Update queue
+      // Update queue - respect current display limit to prevent layout issues
       if (data.queue) {
-        console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks');
-        setUpcomingSongs(data.queue.map((track: any) => ({
+        const currentLimit = getUpNextLimit();
+        console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks, limiting to', currentLimit, 'for', deviceType);
+        
+        const processedQueue = data.queue.map((track: any) => ({
           name: track.name || '',
           artists: Array.isArray(track.artists) ? track.artists : [],
           album: track.album?.name || track.album || '',
           uri: track.uri || '',
           requester_nickname: track.requester_nickname
-        })));
+        }));
+        
+        // Only show the number of songs that fit the current screen size
+        setUpcomingSongs(processedQueue.slice(0, currentLimit));
       }
     }
   });
@@ -195,9 +211,11 @@ export default function DisplayPage() {
             setEventSettings(data.event_settings);
           }
           
-          // Initialize upcoming songs
+          // Initialize upcoming songs - respect display limit
           if (data.upcoming_songs) {
-            setUpcomingSongs(data.upcoming_songs);
+            const currentLimit = getUpNextLimit();
+            console.log('📱 Initial load: Limiting upcoming songs to', currentLimit, 'for', deviceType);
+            setUpcomingSongs(data.upcoming_songs.slice(0, currentLimit));
           }
         }
         
@@ -215,23 +233,31 @@ export default function DisplayPage() {
     fetchInitialData();
   }, []); // Empty dependency array - run once only
 
-  // Detect device type
+  // Detect device type and re-limit songs when device changes
   useEffect(() => {
     const detectDevice = () => {
       const width = window.innerWidth;
-      if (width >= 1200) {
-        setDeviceType('tv');
-      } else if (width >= 768) {
-        setDeviceType('tablet');
-      } else {
-        setDeviceType('mobile');
+      const height = window.innerHeight;
+      
+      const newDeviceType = width >= 1200 ? 'tv' : width >= 768 ? 'tablet' : 'mobile';
+      
+      if (newDeviceType !== deviceType) {
+        setDeviceType(newDeviceType);
+        
+        // Re-limit upcoming songs when device type changes
+        setUpcomingSongs(prev => {
+          const newLimit = newDeviceType === 'tv' ? 12 : 
+                          newDeviceType === 'tablet' ? (width > height ? 10 : 12) : 8;
+          console.log('📱 Device type changed to', newDeviceType, ', re-limiting to', newLimit, 'songs');
+          return prev.slice(0, newLimit);
+        });
       }
     };
 
     detectDevice();
     window.addEventListener('resize', detectDevice);
     return () => window.removeEventListener('resize', detectDevice);
-  }, []);
+  }, [deviceType]);
 
   // Generate QR code
   useEffect(() => {
@@ -277,7 +303,8 @@ export default function DisplayPage() {
           const data = await response.json();
           setEventSettings(data.event_settings);
           setCurrentTrack(data.current_track);
-          setUpcomingSongs(data.upcoming_songs || []);
+          const currentLimit = getUpNextLimit();
+          setUpcomingSongs((data.upcoming_songs || []).slice(0, currentLimit));
         }
       } catch (error) {
         console.error('Error fetching display data:', error);
