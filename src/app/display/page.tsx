@@ -77,7 +77,11 @@ export default function DisplayPage() {
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
       
-      // Add new song to queue
+      // Instead of manually adding to local state, fetch fresh data from API
+      // This ensures we get the correct queue order from Spotify
+      fetchDisplayData();
+      
+      // Also add to approved requests list for the "Requests on the way" section
       const newSong: QueueItem = {
         name: data.track_name,
         artists: [data.artist_name],
@@ -85,9 +89,6 @@ export default function DisplayPage() {
         uri: data.track_uri,
         requester_nickname: data.requester_nickname
       };
-      
-      // Add to upcoming songs
-      setUpcomingSongs(prev => [...prev, newSong]);
       
       // Add to approved requests list
       const newRequest: RequestItem = {

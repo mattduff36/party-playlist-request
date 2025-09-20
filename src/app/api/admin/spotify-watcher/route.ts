@@ -165,6 +165,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (action === 'check') {
+      // Trigger an immediate check for changes
+      console.log('🔄 Manual Spotify watcher check triggered');
+      await watchSpotifyChanges();
+      return NextResponse.json({
+        success: true,
+        message: 'Manual check completed'
+      });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
   } catch (error) {
