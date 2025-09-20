@@ -68,7 +68,6 @@ export default function HomePage() {
   const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [nickname, setNickname] = useState('');
-  const [spotifyUrl, setSpotifyUrl] = useState('');
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
   const [partyActive, setPartyActive] = useState(true); // Default to true to avoid flash
 
@@ -117,10 +116,21 @@ export default function HomePage() {
     fetchPartyStatus();
   }, []);
 
-  // Search for tracks
+  // Check if query is a Spotify URL
+  const isSpotifyUrl = (query: string): boolean => {
+    return query.includes('open.spotify.com/track/') || query.includes('spotify:track:');
+  };
+
+  // Search for tracks or handle Spotify URL
   const searchTracks = async (query: string) => {
     if (query.trim().length < 2) {
       setSearchResults([]);
+      return;
+    }
+
+    // If it's a Spotify URL, submit directly
+    if (isSpotifyUrl(query)) {
+      submitRequest(undefined, query);
       return;
     }
 
@@ -205,12 +215,11 @@ export default function HomePage() {
         // setSelectedTrack(null);
         setSearchQuery('');
         setSearchResults([]);
-        setSpotifyUrl('');
         
-        // Auto-hide success message after 5 seconds
+        // Auto-hide success message after 1 second
         setTimeout(() => {
           setRequestStatus('idle');
-        }, 5000);
+        }, 1000);
       }
     } catch (error: any) {
       console.error('Request submission error:', error);
@@ -231,6 +240,11 @@ export default function HomePage() {
       }
       
       setStatusMessage(errorMessage);
+      
+      // Auto-hide error message after 3 seconds
+      setTimeout(() => {
+        setRequestStatus('idle');
+      }, 3000);
     } finally {
       setIsSubmitting(false);
     }
@@ -281,20 +295,25 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Status Messages - Pop-up Style */}
+        {/* Status Messages - Centered Pop-up */}
         {requestStatus === 'success' && (
-          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4 notification-popup">
-            <div className="bg-green-500 text-white p-4 rounded-lg shadow-2xl border-2 border-green-400 flex items-center notification-glow">
-              <span className="text-2xl mr-3">✅</span>
-              <span className="font-medium">{statusMessage}</span>
+          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <div className="bg-green-500 text-white px-8 py-6 rounded-2xl shadow-2xl border-4 border-green-400 max-w-md mx-4 transform animate-bounce">
+              <div className="flex items-center justify-center">
+                <span className="text-4xl mr-4">✅</span>
+                <span className="text-xl font-bold text-center">{statusMessage}</span>
+              </div>
             </div>
           </div>
         )}
 
         {requestStatus === 'error' && (
-          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4 notification-popup">
-            <div className="bg-red-500 text-white p-4 rounded-lg shadow-2xl border-2 border-red-400 notification-glow">
-              <span className="font-medium">{statusMessage}</span>
+          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <div className="bg-red-500 text-white px-8 py-6 rounded-2xl shadow-2xl border-4 border-red-400 max-w-md mx-4 transform animate-pulse">
+              <div className="flex items-center justify-center">
+                <span className="text-4xl mr-4">❌</span>
+                <span className="text-xl font-bold text-center">{statusMessage}</span>
+              </div>
             </div>
           </div>
         )}
@@ -331,7 +350,7 @@ export default function HomePage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={nickname.trim() ? "Search by song title, artist, or album..." : "Enter your name first..."}
+                  placeholder={nickname.trim() ? "Search by song title, artist, album, or paste Spotify link..." : "Enter your name first..."}
                   className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                   disabled={!nickname.trim()}
                 />
@@ -397,52 +416,15 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Spotify Link Section - Below Hero */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-md rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">🎵 Advanced: Paste Spotify Link</h2>
-            <p className="text-gray-300 mb-4 text-sm">
-              For power users: paste a direct Spotify track link
-            </p>
-            
-            <div className="space-y-4">
-              <input
-                type="url"
-                value={spotifyUrl}
-                onChange={(e) => setSpotifyUrl(e.target.value)}
-                placeholder="https://open.spotify.com/track/..."
-                className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-              />
-              
-              <button
-                onClick={() => submitRequest(undefined, spotifyUrl)}
-                disabled={isSubmitting || !spotifyUrl.trim() || !nickname.trim()}
-                className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Submitting...
-                  </div>
-                ) : (
-                  'Submit Request'
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="mt-8 text-center text-gray-300">
-            <p className="mb-2">
-              💡 <strong>Tip:</strong> Search for songs above or paste Spotify links here
-            </p>
-            <p className="text-sm">
-              Your requests will be reviewed by the DJ before being added to the queue
-            </p>
-          </div>
+        {/* Instructions */}
+        <div className="text-center text-gray-300 px-4 pb-8">
+          <p className="mb-2">
+            💡 <strong>Tip:</strong> Search for songs by title, artist, or paste Spotify links directly
+          </p>
+          <p className="text-sm">
+            Your requests will be reviewed by the DJ before being added to the queue
+          </p>
         </div>
-      </div>
     </div>
   );
 }
