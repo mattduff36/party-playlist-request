@@ -216,9 +216,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   // Get current tab from pathname
   const getCurrentTab = () => {
-    if (pathname.includes('/requests')) return 'requests';
-    if (pathname.includes('/spotify')) return 'spotify';
-    if (pathname.includes('/settings')) return 'settings';
+    if (pathname?.includes('/requests')) return 'requests';
+    if (pathname?.includes('/spotify')) return 'spotify';
+    if (pathname?.includes('/settings')) return 'settings';
     return 'overview';
   };
 
@@ -258,7 +258,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <Icon className="w-5 h-5 mr-3" />
                     {item.label}
                   </div>
-                  {item.id === 'requests' && stats?.pending_requests > 0 && (
+                  {item.id === 'requests' && stats?.pending_requests && stats.pending_requests > 0 && (
                     <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
                       {stats.pending_requests}
                     </span>
@@ -311,7 +311,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             >
               <Icon className="w-6 h-6 mb-1" />
               <span className="text-xs truncate">{item.label.split(' ')[0]}</span>
-              {item.id === 'requests' && stats?.pending_requests > 0 && (
+              {item.id === 'requests' && stats?.pending_requests && stats.pending_requests > 0 && (
                 <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full min-w-[18px]">
                   {stats.pending_requests}
                 </span>

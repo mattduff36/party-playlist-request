@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       ]);
       
       if (queueData?.queue) {
-        upcomingSongs = queueData.queue.slice(0, 5).map((item: any) => {
+        upcomingSongs = queueData.queue.map((item: any) => {
           // Use album art from the queue response instead of making additional API calls
           const albumImages = item.album?.images || [];
           const imageUrl = albumImages.length > 0 ? 

@@ -69,6 +69,13 @@ export default function DisplayPage() {
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
   const [displayEnabled, setDisplayEnabled] = useState(true);
   
+  // Message system state
+  const [currentMessage, setCurrentMessage] = useState<{
+    text: string;
+    duration: number | null;
+    created_at: string;
+  } | null>(null);
+  
   // 🚀 PUSHER: Real-time updates with animation triggers
   const { isConnected, connectionState } = usePusher({
     onPageControlToggle: (data: any) => {
@@ -148,7 +155,9 @@ export default function DisplayPage() {
         
         const processedQueue = data.queue.map((track: any) => ({
           name: track.name || '',
-          artists: Array.isArray(track.artists) ? track.artists : [],
+          artists: Array.isArray(track.artists) 
+            ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name)
+            : [],
           album: track.album?.name || track.album || '',
           uri: track.uri || '',
           requester_nickname: track.requester_nickname
@@ -156,6 +165,18 @@ export default function DisplayPage() {
         
         setUpcomingSongs(processedQueue);
       }
+    },
+    onMessageUpdate: (data: any) => {
+      console.log('💬 PUSHER: Message updated!', data);
+      setCurrentMessage({
+        text: data.message_text,
+        duration: data.message_duration,
+        created_at: data.message_created_at
+      });
+    },
+    onMessageCleared: (data: any) => {
+      console.log('💬 PUSHER: Message cleared!', data);
+      setCurrentMessage(null);
     }
   });
   
@@ -168,6 +189,67 @@ export default function DisplayPage() {
   } : null;
   
   const liveProgress = useLiveProgress(playbackState, 1000);
+
+  // Calculate dynamic font size based on message length and device type
+  // Ensures ALL text fits in container without resizing, minimum 0.1rem
+  // Maximizes use of available vertical and horizontal space
+  const getMessageFontSize = (messageLength: number, deviceType: 'tv' | 'tablet' | 'mobile') => {
+    const containerDimensions = {
+      tv: { width: 400, height: 300 },      // Approximate container dimensions for TV layout
+      tablet: { width: 300, height: 200 }, // Approximate container dimensions for tablet layout  
+      mobile: { width: 250, height: 150 }  // Approximate container dimensions for mobile layout
+    };
+    
+    const maxSizes = {
+      tv: 4.0,      // Maximum font size in rem for TV (increased)
+      tablet: 3.0,  // Maximum font size in rem for tablet (increased)
+      mobile: 2.0   // Maximum font size in rem for mobile (increased)
+    };
+    
+    const { width: containerWidth, height: containerHeight } = containerDimensions[deviceType];
+    const maxSize = maxSizes[deviceType];
+    const minSize = 0.1; // Minimum font size in rem as requested
+    
+    // Account for padding (20% margin on each side)
+    const availableWidth = containerWidth * 0.8;
+    const availableHeight = containerHeight * 0.8;
+    
+    // Average character width is roughly 0.6em, line height is 1.2em
+    const avgCharWidth = 0.6;
+    const lineHeightMultiplier = 1.2;
+    
+    // Binary search for optimal font size that uses maximum space
+    let minFontSize = minSize;
+    let maxFontSize = maxSize;
+    let optimalFontSize = minSize;
+    
+    for (let i = 0; i < 20; i++) { // 20 iterations for precision
+      const testFontSize = (minFontSize + maxFontSize) / 2;
+      const testFontSizePx = testFontSize * 16; // Convert rem to px
+      
+      // Calculate how many characters fit per line at this font size
+      const charsPerLine = Math.floor(availableWidth / (testFontSizePx * avgCharWidth));
+      
+      // Calculate how many lines we need
+      const requiredLines = Math.ceil(messageLength / charsPerLine);
+      
+      // Calculate total height needed
+      const totalHeight = requiredLines * testFontSizePx * lineHeightMultiplier;
+      
+      // Check if it fits within available height
+      if (totalHeight <= availableHeight && charsPerLine > 0) {
+        optimalFontSize = testFontSize;
+        minFontSize = testFontSize; // Try larger
+      } else {
+        maxFontSize = testFontSize; // Too big, try smaller
+      }
+    }
+    
+    // Ensure we don't exceed bounds
+    optimalFontSize = Math.max(minSize, Math.min(maxSize, optimalFontSize));
+    
+    return `${optimalFontSize}rem`;
+  };
 
   // 🔄 Initial data load only (Pusher handles real-time updates)
   useEffect(() => {
@@ -211,6 +293,19 @@ export default function DisplayPage() {
           setApprovedRequests(requestsData.approved_requests || []);
           setRecentlyPlayedRequests(requestsData.recently_played_requests || []);
         }
+
+        // Fetch current message
+        const messageResponse = await fetch('/api/admin/message');
+        if (messageResponse.ok) {
+          const messageData = await messageResponse.json();
+          if (messageData.message_text && !messageData.expired) {
+            setCurrentMessage({
+              text: messageData.message_text,
+              duration: messageData.message_duration,
+              created_at: messageData.message_created_at
+            });
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch initial display data:', error);
       }
@@ -238,6 +333,35 @@ export default function DisplayPage() {
     window.addEventListener('resize', detectDevice);
     return () => window.removeEventListener('resize', detectDevice);
   }, [deviceType]);
+
+  // Auto-expire messages based on duration
+  useEffect(() => {
+    if (!currentMessage || !currentMessage.duration || !currentMessage.created_at) {
+      return;
+    }
+
+    const createdAt = new Date(currentMessage.created_at);
+    const expiresAt = new Date(createdAt.getTime() + (currentMessage.duration * 1000));
+    const now = new Date();
+    
+    // If already expired, clear immediately
+    if (now >= expiresAt) {
+      console.log('💬 Message expired immediately, clearing...');
+      setCurrentMessage(null);
+      return;
+    }
+
+    // Set timeout for future expiration
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+    console.log(`💬 Message will expire in ${Math.round(timeUntilExpiry / 1000)} seconds`);
+    
+    const timeoutId = setTimeout(() => {
+      console.log('💬 Message expired, clearing...');
+      setCurrentMessage(null);
+    }, timeUntilExpiry);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentMessage]);
 
   // Generate QR code
   useEffect(() => {
@@ -393,7 +517,7 @@ export default function DisplayPage() {
     eventSettings.tertiary_message
   ].filter(msg => msg.trim() !== '');
 
-  const currentMessage = messages[currentMessageIndex] || eventSettings.welcome_message;
+  const currentScrollingMessage = messages[currentMessageIndex] || eventSettings.welcome_message;
 
   // Determine what to show in the scrolling message area (no more approval notifications in scrolling text)
   const displayContent = messages.join(' • ') + ' • ' + messages.join(' • ');
@@ -524,53 +648,33 @@ export default function DisplayPage() {
                 )}
               </div>
 
-              {/* Requests Section */}
+              {/* Messages Section */}
               <div className="col-span-1">
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
-                  {approvedRequests.length > 0 ? (
-                    <>
-                      <h2 className="text-3xl font-semibold mb-6 text-center">🎵 Requests on the way for...</h2>
-                      <div className="space-y-4 max-h-80 overflow-hidden">
-                        {approvedRequests.slice(0, 6).map((request, index) => (
-                          <div key={`${request.id}-${index}`} className="p-3 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-lg border border-green-500/30">
-                            <div className="flex items-center space-x-3">
-                              <div className="text-2xl">🎶</div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-lg font-bold text-green-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
-                                <div className="text-sm text-gray-300 truncate">{request.track_name}</div>
-                                <div className="text-xs text-green-400 truncate">{request.artist_name}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex flex-col">
+                  <h2 className="text-3xl font-semibold mb-6 text-center">💬 Messages</h2>
+                  
+                  <div className="flex-1 flex items-center justify-center">
+                    {currentMessage ? (
+                      <div className="text-center px-4 overflow-hidden">
+                        <p 
+                          className="text-white font-medium leading-tight break-words overflow-wrap-anywhere hyphens-auto"
+                          style={{ 
+                            fontSize: getMessageFontSize(currentMessage.text.length, 'tv'),
+                            lineHeight: '1.2',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word'
+                          }}
+                        >
+                          {currentMessage.text}
+                        </p>
                       </div>
-                    </>
-                  ) : recentlyPlayedRequests.length > 0 ? (
-                    <>
-                      <h2 className="text-3xl font-semibold mb-6 text-center">🎵 Recently played requests for...</h2>
-                      <div className="space-y-4 max-h-80 overflow-hidden">
-                        {recentlyPlayedRequests.slice(0, 6).map((request, index) => (
-                          <div key={`${request.id}-${index}`} className="p-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
-                            <div className="flex items-center space-x-3">
-                              <div className="text-2xl">✅</div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-lg font-bold text-purple-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
-                                <div className="text-sm text-gray-300 truncate">{request.track_name}</div>
-                                <div className="text-xs text-purple-400 truncate">{request.artist_name}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="text-3xl font-semibold mb-6 text-center">🎵 No requests yet!</h2>
+                    ) : (
                       <div className="text-center text-gray-400">
-                        <p className="text-lg">Scan the QR code to make the first request!</p>
+                        <div className="text-4xl mb-4">💬</div>
+                        <p className="text-xl">No messages</p>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -678,8 +782,6 @@ export default function DisplayPage() {
                         </div>
                       ))}
                     </div>
-                    {/* Fade-out gradient overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-2xl"></div>
                   </div>
                 ) : (
                   <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0 items-center justify-center">
@@ -688,53 +790,33 @@ export default function DisplayPage() {
                 )}
               </div>
 
-              {/* Requests Section */}
+              {/* Messages Section */}
               <div className="col-span-1">
-                <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full">
-                  {approvedRequests.length > 0 ? (
-                    <>
-                      <h2 className="text-lg font-semibold mb-4 text-center">🎵 Requests on the way for...</h2>
-                      <div className="space-y-2 max-h-64 overflow-hidden">
-                        {approvedRequests.slice(0, 8).map((request, index) => (
-                          <div key={`${request.id}-${index}`} className="p-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-lg border border-green-500/30">
-                            <div className="flex items-center space-x-2">
-                              <div className="text-base">🎶</div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-green-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
-                                <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
-                                <div className="text-xs text-green-400 truncate">{request.artist_name}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full flex flex-col">
+                  <h2 className="text-lg font-semibold mb-4 text-center">💬 Messages</h2>
+                  
+                  <div className="flex-1 flex items-center justify-center">
+                    {currentMessage ? (
+                      <div className="text-center px-3 overflow-hidden">
+                        <p 
+                          className="text-white font-medium leading-tight break-words overflow-wrap-anywhere hyphens-auto"
+                          style={{ 
+                            fontSize: getMessageFontSize(currentMessage.text.length, 'tablet'),
+                            lineHeight: '1.2',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word'
+                          }}
+                        >
+                          {currentMessage.text}
+                        </p>
                       </div>
-                    </>
-                  ) : recentlyPlayedRequests.length > 0 ? (
-                    <>
-                      <h2 className="text-lg font-semibold mb-4 text-center">🎵 Recently played requests for...</h2>
-                      <div className="space-y-2 max-h-64 overflow-hidden">
-                        {recentlyPlayedRequests.slice(0, 8).map((request, index) => (
-                          <div key={`${request.id}-${index}`} className="p-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
-                            <div className="flex items-center space-x-2">
-                              <div className="text-base">✅</div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-purple-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
-                                <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
-                                <div className="text-xs text-purple-400 truncate">{request.artist_name}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="text-lg font-semibold mb-4 text-center">🎵 No requests yet!</h2>
+                    ) : (
                       <div className="text-center text-gray-400">
-                        <p className="text-sm">Scan the QR code to make the first request!</p>
+                        <div className="text-2xl mb-2">💬</div>
+                        <p className="text-sm">No messages</p>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -791,6 +873,7 @@ export default function DisplayPage() {
             <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 min-h-0 overflow-hidden mb-4 relative">
               <h2 className="text-xl font-semibold mb-3">🎶 Up Next</h2>
               {upcomingSongs.length > 0 ? (
+                <>
                 <div className="space-y-2 overflow-y-auto h-full scrollbar-hide">
                   {upcomingSongs.map((song, index) => (
                     <div 
@@ -815,8 +898,7 @@ export default function DisplayPage() {
                     </div>
                   ))}
                   </div>
-                  {/* Fade-out gradient overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-xl"></div>
+                </>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-400 text-center">No upcoming songs in queue</p>
@@ -926,8 +1008,6 @@ export default function DisplayPage() {
                       </div>
                     ))}
                   </div>
-                  {/* Fade-out gradient overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-lg"></div>
                 </div>
               ) : (
                 <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full flex items-center justify-center">
@@ -936,53 +1016,33 @@ export default function DisplayPage() {
               )}
             </div>
 
-            {/* Requests Section */}
+            {/* Messages Section */}
             <div className="col-span-1">
-              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full">
-                {approvedRequests.length > 0 ? (
-                  <>
-                    <h2 className="text-xs font-semibold mb-2 text-center">🎵 Requests on the way for...</h2>
-                    <div className="space-y-1 max-h-32 overflow-hidden">
-                      {approvedRequests.slice(0, 5).map((request, index) => (
-                        <div key={request.id} className="p-1 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded border border-green-500/30">
-                          <div className="flex items-center space-x-1">
-                            <div className="text-xs">🎶</div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-bold text-green-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
-                              <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
-                              <div className="text-xs text-green-400 truncate">{request.artist_name}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full flex flex-col">
+                <h2 className="text-xs font-semibold mb-2 text-center">💬 Messages</h2>
+                
+                <div className="flex-1 flex items-center justify-center">
+                  {currentMessage ? (
+                    <div className="text-center px-2 overflow-hidden">
+                      <p 
+                        className="text-white font-medium leading-tight break-words overflow-wrap-anywhere hyphens-auto"
+                        style={{ 
+                          fontSize: getMessageFontSize(currentMessage.text.length, 'mobile'),
+                          lineHeight: '1.1',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word'
+                        }}
+                      >
+                        {currentMessage.text}
+                      </p>
                     </div>
-                  </>
-                ) : recentlyPlayedRequests.length > 0 ? (
-                  <>
-                    <h2 className="text-xs font-semibold mb-2 text-center">🎵 Recently played requests for...</h2>
-                    <div className="space-y-1 max-h-32 overflow-hidden">
-                      {recentlyPlayedRequests.slice(0, 5).map((request, index) => (
-                        <div key={request.id} className="p-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded border border-purple-500/30">
-                          <div className="flex items-center space-x-1">
-                            <div className="text-xs">✅</div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-bold text-purple-300 truncate">{request.requester_nickname || 'Anonymous'}</div>
-                              <div className="text-xs text-gray-300 truncate">{request.track_name}</div>
-                              <div className="text-xs text-purple-400 truncate">{request.artist_name}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                  ) : (
+                    <div className="text-center text-gray-400">
+                      <div className="text-sm mb-1">💬</div>
+                      <p className="text-xs">No messages</p>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-xs font-semibold mb-2 text-center">🎵 No requests yet!</h2>
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-gray-400 text-center text-xs">Waiting for song requests...</p>
-                    </div>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1039,6 +1099,7 @@ export default function DisplayPage() {
           <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden mb-3 relative">
             <h2 className="text-base font-semibold mb-2">🎶 Up Next</h2>
             {upcomingSongs.length > 0 ? (
+              <>
               <div className="space-y-2 overflow-y-auto h-full scrollbar-hide">
                 {upcomingSongs.map((song, index) => (
                   <div 
@@ -1063,8 +1124,7 @@ export default function DisplayPage() {
                   </div>
                 ))}
             </div>
-            {/* Fade-out gradient overlay */}
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-lg"></div>
+            </>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-400 text-center text-sm">No upcoming songs in queue</p>

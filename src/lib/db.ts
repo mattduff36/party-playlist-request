@@ -73,6 +73,10 @@ export interface EventSettings {
   // Page control settings
   requests_page_enabled: boolean;
   display_page_enabled: boolean;
+  // Message system
+  message_text: string | null;
+  message_duration: number | null;
+  message_created_at: Date | null;
   updated_at: string;
 }
 
@@ -248,6 +252,34 @@ export async function initializeDatabase() {
       console.log('✅ Page control columns added to event_settings');
     } catch (migrationError) {
       console.log('ℹ️ Page control columns migration already applied or not needed');
+    }
+
+    // Migration: Add message system columns to event_settings
+    try {
+      console.log('🔧 Starting message system migration...');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS message_text TEXT DEFAULT NULL;
+      `);
+      console.log('✅ message_text column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS message_duration INTEGER DEFAULT NULL;
+      `);
+      console.log('✅ message_duration column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS message_created_at TIMESTAMP DEFAULT NULL;
+      `);
+      console.log('✅ message_created_at column added');
+      
+      console.log('✅ Message system columns migration completed successfully');
+    } catch (migrationError) {
+      console.error('❌ Message system columns migration failed:', migrationError);
+      console.log('ℹ️ This might be expected if columns already exist');
     }
 
     await client.query(`

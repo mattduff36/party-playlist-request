@@ -3,17 +3,20 @@ import PusherClient from 'pusher-js';
 
 // Server-side Pusher instance
 export const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.PUSHER_CLUSTER!,
+  appId: process.env.PUSHER_APP_ID || 'fallback-app-id',
+  key: process.env.PUSHER_KEY || 'fallback-key',
+  secret: process.env.PUSHER_SECRET || 'fallback-secret',
+  cluster: process.env.PUSHER_CLUSTER || 'us2',
   useTLS: true,
 });
 
 // Client-side Pusher instance (for browser)
 export const createPusherClient = () => {
-  return new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+  const key = process.env.NEXT_PUBLIC_PUSHER_KEY || 'fallback-key';
+  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'us2';
+  
+  return new PusherClient(key, {
+    cluster: cluster,
     forceTLS: true,
   });
 };

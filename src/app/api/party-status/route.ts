@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       // This is a simple check - you might want to implement a more sophisticated
       // session-based check depending on your requirements
       const testAdmin = await getAdmin('admin'); // Check if default admin exists
-      adminExists = testAdmin && testAdmin.is_active;
+      adminExists = testAdmin ? testAdmin.is_active : false;
     } catch (error) {
       adminExists = false;
     }

@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('❌ Admin login error:', error);
     console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
     });
     return NextResponse.json({ 
       error: 'Invalid credentials' 

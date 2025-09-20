@@ -18,7 +18,7 @@ export default function OverviewPage() {
 
   // Simple live progress without render loops
   const [liveProgress, setLiveProgress] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Clear any existing interval

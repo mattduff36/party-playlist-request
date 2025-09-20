@@ -4,9 +4,10 @@ interface SwipeToDeleteProps {
   children: ReactNode;
   onDelete: () => void;
   disabled?: boolean;
+  className?: string;
 }
 
-export default function SwipeToDelete({ children, onDelete, disabled = false }: SwipeToDeleteProps) {
+export default function SwipeToDelete({ children, onDelete, disabled = false, className }: SwipeToDeleteProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
@@ -61,7 +62,7 @@ export default function SwipeToDelete({ children, onDelete, disabled = false }: 
       ref={wrapperRef}
       className={`transition-all duration-200 ${
         isDeleting ? 'opacity-0 transform translate-x-full' : 'opacity-100 transform translate-x-0'
-      }`}
+      } ${className || ''}`}
     >
       {children}
     </div>

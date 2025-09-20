@@ -12,7 +12,7 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .next node_modules/.cache",
+    "clean": "rimraf .next node_modules/.cache",
     "dev:debug": "NODE_OPTIONS='--inspect' next dev --turbopack",
     "test:local": "node test-local.js",
     "test:auth": "npm run dev & echo 'Testing authentication flow at http://localhost:3000/admin'"
@@ -54,6 +54,7 @@
     "eslint-config-next": "15.5.2",
     "https-localhost": "^4.7.1",
     "playwright": "^1.55.0",
+    "rimraf": "^6.0.1",
     "selfsigned": "^3.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"

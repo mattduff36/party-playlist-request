@@ -4,15 +4,17 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 
 // Import the external RequestsTab component we created earlier
 import { useState, useEffect } from 'react';
-import { Music, CheckCircle, XCircle, PlayCircle, Trash2 } from 'lucide-react';
+import { Music, CheckCircle, XCircle, PlayCircle, Trash2, Shuffle } from 'lucide-react';
 import SwipeToDelete from '../../../components/SwipeToDelete';
 
-const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain }: { 
+const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain, onAddRandomSong, isAddingRandomSong }: { 
   requestsData: any[], 
   onApprove: (id: string, playNext?: boolean) => void,
   onReject: (id: string) => void,
   onDelete: (id: string) => void,
-  onPlayAgain: (id: string, playNext: boolean) => void
+  onPlayAgain: (id: string, playNext: boolean) => void,
+  onAddRandomSong: () => void,
+  isAddingRandomSong?: boolean
 }) => {
   // Ensure requestsData is always an array FIRST
   const safeRequestsData = requestsData || [];
@@ -90,17 +92,34 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-2xl font-bold text-white">Song Requests</h2>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as any)}
-          className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
-        >
-          <option value="all">All Requests ({Array.isArray(safeRequestsData) ? safeRequestsData.length : 0})</option>
-          <option value="pending">Pending ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'pending').length : 0})</option>
-          <option value="approved">Approved ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'approved').length : 0})</option>
-          <option value="rejected">Rejected ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'rejected').length : 0})</option>
-          <option value="played">Played ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'played').length : 0})</option>
-        </select>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as any)}
+            className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+          >
+            <option value="all">All Requests ({Array.isArray(safeRequestsData) ? safeRequestsData.length : 0})</option>
+            <option value="pending">Pending ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'pending').length : 0})</option>
+            <option value="approved">Approved ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'approved').length : 0})</option>
+            <option value="rejected">Rejected ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'rejected').length : 0})</option>
+            <option value="played">Played ({Array.isArray(safeRequestsData) ? safeRequestsData.filter(r => r.status === 'played').length : 0})</option>
+          </select>
+          <button
+            onClick={onAddRandomSong}
+            disabled={isAddingRandomSong}
+            className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-auto ${
+              isAddingRandomSong 
+                ? 'bg-purple-400 cursor-not-allowed' 
+                : 'bg-purple-600 hover:bg-purple-700'
+            }`}
+            title="Add Random Song"
+          >
+            <Shuffle className={`w-4 h-4 ${isAddingRandomSong ? 'animate-spin' : ''}`} />
+            <span className="whitespace-nowrap">
+              {isAddingRandomSong ? 'Adding...' : 'Random Song'}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -291,8 +310,46 @@ export default function RequestsPage() {
     handleReject,
     handleDelete,
     handlePlayAgain,
-    loading
+    loading,
+    refreshData
   } = useAdminData();
+
+  const [isAddingRandomSong, setIsAddingRandomSong] = useState(false);
+
+  const handleAddRandomSong = async () => {
+    if (isAddingRandomSong) return;
+    
+    setIsAddingRandomSong(true);
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        console.error('No admin token found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/add-random-song', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Random song added:', result.request.track.name);
+        
+        // No need to refresh manually - Pusher event will update the list automatically
+      } else {
+        const error = await response.text();
+        console.error('❌ Failed to add random song:', error);
+      }
+    } catch (error) {
+      console.error('❌ Error adding random song:', error);
+    } finally {
+      setIsAddingRandomSong(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -314,6 +371,8 @@ export default function RequestsPage() {
       onReject={handleReject}
       onDelete={handleDelete}
       onPlayAgain={handlePlayAgain}
+      onAddRandomSong={handleAddRandomSong}
+      isAddingRandomSong={isAddingRandomSong}
     />
   );
 }

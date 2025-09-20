@@ -11,6 +11,8 @@ interface UsePusherOptions {
   onPlaybackUpdate?: (data: any) => void;
   onStatsUpdate?: (data: any) => void;
   onPageControlToggle?: (data: any) => void;
+  onMessageUpdate?: (data: any) => void;
+  onMessageCleared?: (data: any) => void;
 }
 
 export const usePusher = (options: UsePusherOptions = {}) => {
@@ -23,7 +25,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared]);
 
   useEffect(() => {
     // Create Pusher client
@@ -92,6 +94,20 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('🎛️ Pusher: Page control toggle', data);
       if (optionsRef.current.onPageControlToggle) {
         optionsRef.current.onPageControlToggle(data);
+      }
+    });
+
+    channel.bind('message-update', (data: any) => {
+      console.log('💬 Pusher: Message update', data);
+      if (optionsRef.current.onMessageUpdate) {
+        optionsRef.current.onMessageUpdate(data);
+      }
+    });
+
+    channel.bind('message-cleared', (data: any) => {
+      console.log('💬 Pusher: Message cleared', data);
+      if (optionsRef.current.onMessageCleared) {
+        optionsRef.current.onMessageCleared(data);
       }
     });
 
