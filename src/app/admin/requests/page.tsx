@@ -136,7 +136,7 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
             <SwipeToDelete
               key={request.id}
               onDelete={() => onDelete(request.id)}
-              className="md:pointer-events-none" // Disable swipe on desktop
+              className="" // Remove pointer-events-none that was blocking button clicks
             >
               <div className={`p-4 rounded-lg border transition-colors ${
                 request.status === 'pending' ? 'bg-yellow-400/5 border-yellow-400/20' :
