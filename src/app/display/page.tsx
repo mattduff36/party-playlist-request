@@ -62,16 +62,6 @@ export default function DisplayPage() {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
   
-  // Get the appropriate song limit based on device type and orientation
-  const getUpNextLimit = () => {
-    if (deviceType === 'tv') return 12;
-    if (deviceType === 'tablet') {
-      const isLandscape = window.innerWidth > window.innerHeight;
-      return isLandscape ? 10 : 12;
-    }
-    if (deviceType === 'mobile') return 8;
-    return 10; // fallback
-  };
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
@@ -152,10 +142,9 @@ export default function DisplayPage() {
         setCurrentTrack(newTrack);
       }
       
-      // Update queue - respect current display limit to prevent layout issues
+      // Update queue - show all songs with hidden scrollbar and fade-out gradient
       if (data.queue) {
-        const currentLimit = getUpNextLimit();
-        console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks, limiting to', currentLimit, 'for', deviceType);
+        console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks');
         
         const processedQueue = data.queue.map((track: any) => ({
           name: track.name || '',
@@ -165,8 +154,7 @@ export default function DisplayPage() {
           requester_nickname: track.requester_nickname
         }));
         
-        // Only show the number of songs that fit the current screen size
-        setUpcomingSongs(processedQueue.slice(0, currentLimit));
+        setUpcomingSongs(processedQueue);
       }
     }
   });
@@ -211,11 +199,10 @@ export default function DisplayPage() {
             setEventSettings(data.event_settings);
           }
           
-          // Initialize upcoming songs - respect display limit
+          // Initialize upcoming songs
           if (data.upcoming_songs) {
-            const currentLimit = getUpNextLimit();
-            console.log('📱 Initial load: Limiting upcoming songs to', currentLimit, 'for', deviceType);
-            setUpcomingSongs(data.upcoming_songs.slice(0, currentLimit));
+            console.log('📱 Initial load: Loading', data.upcoming_songs.length, 'upcoming songs');
+            setUpcomingSongs(data.upcoming_songs);
           }
         }
         
@@ -243,14 +230,7 @@ export default function DisplayPage() {
       
       if (newDeviceType !== deviceType) {
         setDeviceType(newDeviceType);
-        
-        // Re-limit upcoming songs when device type changes
-        setUpcomingSongs(prev => {
-          const newLimit = newDeviceType === 'tv' ? 12 : 
-                          newDeviceType === 'tablet' ? (width > height ? 10 : 12) : 8;
-          console.log('📱 Device type changed to', newDeviceType, ', re-limiting to', newLimit, 'songs');
-          return prev.slice(0, newLimit);
-        });
+        console.log('📱 Device type changed to', newDeviceType);
       }
     };
 
@@ -303,8 +283,7 @@ export default function DisplayPage() {
           const data = await response.json();
           setEventSettings(data.event_settings);
           setCurrentTrack(data.current_track);
-          const currentLimit = getUpNextLimit();
-          setUpcomingSongs((data.upcoming_songs || []).slice(0, currentLimit));
+          setUpcomingSongs(data.upcoming_songs || []);
         }
       } catch (error) {
         console.error('Error fetching display data:', error);
@@ -498,10 +477,10 @@ export default function DisplayPage() {
               {/* Up Next - Longer Section */}
               <div className="col-span-2 flex flex-col min-h-0">
                 {upcomingSongs.length > 0 ? (
-                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col h-full min-h-0">
+                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col h-full min-h-0 relative">
                   <h2 className="text-3xl font-semibold mb-6 text-center flex-shrink-0">🎶 Up Next</h2>
-                    <div className="space-y-3 overflow-y-auto flex-1 min-h-0" data-up-next-container>
-                      {upcomingSongs.slice(0, 12).map((song, index) => {
+                    <div className="space-y-3 overflow-y-auto flex-1 min-h-0 scrollbar-hide relative" data-up-next-container>
+                      {upcomingSongs.map((song, index) => {
                         const isAnimating = animatingCards.has(song.uri);
                         if (isAnimating) {
                           console.log(`🎨 Rendering animated card for: ${song.name} (${song.uri})`);
@@ -673,10 +652,10 @@ export default function DisplayPage() {
               {/* Up Next - Longer Section */}
               <div className="col-span-2 flex flex-col min-h-0">
                 {upcomingSongs.length > 0 ? (
-                  <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0">
+                  <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0 relative">
                     <h2 className="text-xl font-semibold mb-4 text-center flex-shrink-0">🎶 Upcoming songs</h2>
-                    <div className="space-y-2 overflow-y-auto flex-1 min-h-0" data-up-next-container>
-                      {upcomingSongs.slice(0, 10).map((song, index) => (
+                    <div className="space-y-2 overflow-y-auto flex-1 min-h-0 scrollbar-hide" data-up-next-container>
+                      {upcomingSongs.map((song, index) => (
                         <div 
                           key={`${song.uri || 'unknown'}-${index}`} 
                           className={`flex items-center justify-between p-2 bg-white/5 rounded-lg transition-all duration-1000 ${
@@ -699,6 +678,8 @@ export default function DisplayPage() {
                         </div>
                       ))}
                     </div>
+                    {/* Fade-out gradient overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-2xl"></div>
                   </div>
                 ) : (
                   <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0 items-center justify-center">
@@ -807,11 +788,11 @@ export default function DisplayPage() {
               </div>
 
               {/* Up Next */}
-            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 min-h-0 overflow-hidden mb-4">
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 min-h-0 overflow-hidden mb-4 relative">
               <h2 className="text-xl font-semibold mb-3">🎶 Up Next</h2>
               {upcomingSongs.length > 0 ? (
-                <div className="space-y-2 overflow-y-auto h-full">
-                  {upcomingSongs.slice(0, 12).map((song, index) => (
+                <div className="space-y-2 overflow-y-auto h-full scrollbar-hide">
+                  {upcomingSongs.map((song, index) => (
                     <div 
                       key={`${song.uri || 'unknown'}-${index}`} 
                       className={`flex items-center justify-between p-3 bg-white/5 rounded-lg transition-all duration-1000 ${
@@ -834,6 +815,8 @@ export default function DisplayPage() {
                     </div>
                   ))}
                   </div>
+                  {/* Fade-out gradient overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-xl"></div>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-400 text-center">No upcoming songs in queue</p>
@@ -917,10 +900,10 @@ export default function DisplayPage() {
             {/* Up Next - Longer Section */}
             <div className="col-span-2">
               {upcomingSongs.length > 0 ? (
-                <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full">
+                <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full relative">
                   <h2 className="text-sm font-semibold mb-2 text-center">🎶 Upcoming songs</h2>
-                  <div className="space-y-1 overflow-y-auto h-full">
-                    {upcomingSongs.slice(0, 8).map((song, index) => (
+                  <div className="space-y-1 overflow-y-auto h-full scrollbar-hide">
+                    {upcomingSongs.map((song, index) => (
                       <div 
                         key={`${song.uri || 'unknown'}-${index}`} 
                         className={`flex items-center justify-between p-1 bg-white/5 rounded transition-all duration-1000 ${
@@ -943,6 +926,8 @@ export default function DisplayPage() {
                       </div>
                     ))}
                   </div>
+                  {/* Fade-out gradient overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-lg"></div>
                 </div>
               ) : (
                 <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full flex items-center justify-center">
@@ -1051,11 +1036,11 @@ export default function DisplayPage() {
         </div>
 
           {/* Up Next */}
-          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden mb-3">
+          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-1 min-h-0 overflow-hidden mb-3 relative">
             <h2 className="text-base font-semibold mb-2">🎶 Up Next</h2>
             {upcomingSongs.length > 0 ? (
-              <div className="space-y-2 overflow-y-auto h-full">
-                {upcomingSongs.slice(0, 8).map((song, index) => (
+              <div className="space-y-2 overflow-y-auto h-full scrollbar-hide">
+                {upcomingSongs.map((song, index) => (
                   <div 
                     key={`${song.uri || 'unknown'}-${index}`} 
                     className={`flex items-center justify-between p-2 bg-white/5 rounded text-xs transition-all duration-1000 ${
@@ -1078,6 +1063,8 @@ export default function DisplayPage() {
                   </div>
                 ))}
             </div>
+            {/* Fade-out gradient overlay */}
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/30 to-transparent pointer-events-none rounded-b-lg"></div>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-400 text-center text-sm">No upcoming songs in queue</p>
