@@ -101,19 +101,9 @@ export default function DisplayPage() {
         });
       }, 1000);
       
-      // Fetch fresh queue data after a delay to ensure Spotify has updated
-      setTimeout(() => {
-        console.log('🔄 Fetching fresh queue data after approval...');
-        fetchDisplayData();
-        
-        // Force layout recalculation to prevent scroll issues
-        setTimeout(() => {
-          const upNextContainer = document.querySelector('[data-up-next-container]');
-          if (upNextContainer) {
-            upNextContainer.scrollTop = upNextContainer.scrollTop; // Force reflow
-          }
-        }, 100);
-      }, 2000); // Wait 2 seconds for Spotify to update
+      // Note: Queue updates are handled by onPlaybackUpdate callback
+      // This callback only handles the "Requests on the way" animation
+      console.log('✅ Request approved animation completed, queue updates handled by onPlaybackUpdate');
     },
     onPlaybackUpdate: (data: any) => {
       console.log('🎵 PUSHER: Playback update received!', data);
@@ -122,7 +112,9 @@ export default function DisplayPage() {
       if (data.current_track) {
         const newTrack = {
           name: data.current_track.name || '',
-          artists: data.current_track.artists?.map((a: any) => a.name) || [],
+          artists: Array.isArray(data.current_track.artists) 
+            ? data.current_track.artists.map((a: any) => typeof a === 'string' ? a : a.name)
+            : [],
           album: data.current_track.album?.name || '',
           duration_ms: data.current_track.duration_ms || 0,
           progress_ms: data.progress_ms || 0,
@@ -151,10 +143,11 @@ export default function DisplayPage() {
       
       // Update queue
       if (data.queue) {
+        console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks');
         setUpcomingSongs(data.queue.map((track: any) => ({
           name: track.name || '',
-          artists: track.artists?.map((a: any) => a.name) || [],
-          album: track.album?.name || '',
+          artists: Array.isArray(track.artists) ? track.artists : [],
+          album: track.album?.name || track.album || '',
           uri: track.uri || '',
           requester_nickname: track.requester_nickname
         })));
