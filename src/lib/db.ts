@@ -10,6 +10,7 @@ export interface Request {
   duration_ms: number;
   requester_ip_hash: string;
   requester_nickname?: string;
+  user_session_id?: string; // For tracking user notifications
   status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
   created_at: string;
   approved_at?: string;
@@ -112,6 +113,7 @@ export async function initializeDatabase() {
         duration_ms INTEGER NOT NULL,
         requester_ip_hash TEXT NOT NULL,
         requester_nickname TEXT,
+        user_session_id TEXT,
         status TEXT NOT NULL DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         approved_at TIMESTAMP,
@@ -282,6 +284,22 @@ export async function initializeDatabase() {
       console.log('ℹ️ This might be expected if columns already exist');
     }
 
+    // Migration: Add user_session_id column to requests for notification tracking
+    try {
+      console.log('🔧 Starting user session tracking migration...');
+      
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS user_session_id TEXT DEFAULT NULL;
+      `);
+      console.log('✅ user_session_id column added to requests table');
+      
+      console.log('✅ User session tracking migration completed successfully');
+    } catch (migrationError) {
+      console.error('❌ User session tracking migration failed:', migrationError);
+      console.log('ℹ️ This might be expected if column already exists');
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS oauth_sessions (
         state TEXT PRIMARY KEY,
@@ -334,14 +352,14 @@ export async function createRequest(request: Omit<Request, 'id' | 'created_at'>)
   const result = await client.query(`
     INSERT INTO requests (
       id, track_uri, track_name, artist_name, album_name, 
-      duration_ms, requester_ip_hash, requester_nickname, 
+      duration_ms, requester_ip_hash, requester_nickname, user_session_id,
       status, spotify_added_to_queue, spotify_added_to_playlist
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     RETURNING *
   `, [
     id, request.track_uri, request.track_name, request.artist_name, 
     request.album_name, request.duration_ms, request.requester_ip_hash, 
-    request.requester_nickname, request.status, false, false
+    request.requester_nickname, request.user_session_id, request.status, false, false
   ]);
 
   return result.rows[0];

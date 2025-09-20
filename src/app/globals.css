@@ -73,6 +73,22 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* Slide in from right animation for notifications */
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
 /* Hide scrollbars while keeping scroll functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */

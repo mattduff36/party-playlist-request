@@ -85,6 +85,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           album_name: request.album_name || 'Unknown Album',
           track_uri: request.track_uri,
           requester_nickname: request.requester_nickname || 'Anonymous',
+          user_session_id: request.user_session_id || undefined,
+          play_next: play_next,
           approved_at: new Date().toISOString(),
           approved_by: admin.username
         });

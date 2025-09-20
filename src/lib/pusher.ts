@@ -29,6 +29,8 @@ export interface RequestApprovedEvent {
   album_name: string;
   track_uri: string;
   requester_nickname: string;
+  user_session_id?: string; // For user notification tracking
+  play_next?: boolean; // Whether this was added as "play next"
   approved_at: string;
   approved_by: string;
 }

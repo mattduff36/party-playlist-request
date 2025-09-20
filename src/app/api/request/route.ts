@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { track_uri, track_url, requester_nickname } = body;
+    const { track_uri, track_url, requester_nickname, user_session_id } = body;
     
     if (!track_uri && !track_url) {
       return NextResponse.json({ 
@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
       duration_ms: trackInfo.duration_ms,
       requester_ip_hash: ipHash,
       requester_nickname: requester_nickname || undefined,
+      user_session_id: user_session_id || undefined,
       status: 'pending',
       spotify_added_to_queue: false,
       spotify_added_to_playlist: false

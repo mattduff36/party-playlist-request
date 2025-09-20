@@ -70,12 +70,57 @@ export default function HomePage() {
   const [nickname, setNickname] = useState('');
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
   const [partyActive, setPartyActive] = useState(true); // Default to true to avoid flash
+  
+  // User session and notification states
+  const [userSessionId] = useState(() => {
+    // Generate unique session ID for this user
+    return `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  });
+  const [userRequests, setUserRequests] = useState<Set<string>>(new Set());
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    type: 'approved' | 'play_next';
+    trackName: string;
+    artistName: string;
+    timestamp: number;
+  }>>([]);
 
-  // Listen for page control changes via Pusher
+  // Listen for page control changes and request updates via Pusher
   usePusher({
     onPageControlToggle: (data: any) => {
       console.log('🔄 Page control changed via Pusher:', data);
       fetchPartyStatus();
+    },
+    onRequestApproved: (data: any) => {
+      console.log('🎉 Request approved via Pusher:', data);
+      
+      // Check if this request belongs to the current user
+      if (data.user_session_id === userSessionId || userRequests.has(data.id)) {
+        console.log('✅ This is our request! Adding notification...');
+        
+        // Add notification for the user
+        const notification = {
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          type: data.play_next ? 'play_next' : 'approved' as 'approved' | 'play_next',
+          trackName: data.track_name,
+          artistName: data.artist_name,
+          timestamp: Date.now()
+        };
+        
+        setNotifications(prev => [...prev, notification]);
+        
+        // Auto-remove notification after 5 seconds
+        setTimeout(() => {
+          setNotifications(prev => prev.filter(n => n.id !== notification.id));
+        }, 5000);
+        
+        // Remove from user requests set since it's been processed
+        setUserRequests(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(data.id);
+          return newSet;
+        });
+      }
     }
   });
 
@@ -193,6 +238,9 @@ export default function HomePage() {
 
       // Include nickname (now required)
       requestData.requester_nickname = nickname.trim();
+      
+      // Include user session ID for notification tracking
+      requestData.user_session_id = userSessionId;
 
       if (track) {
         requestData.track_uri = track.uri;
@@ -212,6 +260,13 @@ export default function HomePage() {
       if (response.data.success) {
         setRequestStatus('success');
         setStatusMessage(response.data.message);
+        
+        // Track this request for notifications
+        if (response.data.request?.id) {
+          setUserRequests(prev => new Set([...prev, response.data.request!.id]));
+          console.log(`📝 Tracking request ${response.data.request.id} for user ${userSessionId}`);
+        }
+        
         // setSelectedTrack(null);
         setSearchQuery('');
         setSearchResults([]);
@@ -288,7 +343,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative">
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header - Less Prominent */}
@@ -434,6 +489,54 @@ export default function HomePage() {
             Your requests will be reviewed by the DJ before being added to the queue
           </p>
         </div>
+      
+      {/* Notification Toasts */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`
+              transform transition-all duration-500 ease-in-out
+              bg-gradient-to-r ${
+                notification.type === 'play_next' 
+                  ? 'from-green-500 to-emerald-600' 
+                  : 'from-blue-500 to-purple-600'
+              }
+              text-white px-6 py-4 rounded-lg shadow-lg max-w-sm
+              animate-slide-in-right
+            `}
+          >
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                {notification.type === 'play_next' ? (
+                  <div className="w-6 h-6 text-2xl">⚡</div>
+                ) : (
+                  <div className="w-6 h-6 text-2xl">✅</div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">
+                  {notification.type === 'play_next' ? 'Playing Next!' : 'Request Approved!'}
+                </div>
+                <div className="text-sm opacity-90 truncate">
+                  {notification.trackName}
+                </div>
+                <div className="text-xs opacity-75 truncate">
+                  by {notification.artistName}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setNotifications(prev => prev.filter(n => n.id !== notification.id));
+                }}
+                className="flex-shrink-0 text-white/70 hover:text-white transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
