@@ -44,12 +44,20 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain 
         const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
         const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
         if (aOrder !== bOrder) return aOrder - bOrder;
-        // Within same status, sort by created_at (newest first for pending, oldest first for others)
+        // Within same status, sort by appropriate timestamp
         if (a.status === 'pending') {
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); // oldest first for pending
+        } else if (a.status === 'approved') {
+          // For approved requests, sort by approved_at (oldest first) to match queue order
+          return new Date(a.approved_at || a.created_at).getTime() - new Date(b.approved_at || b.created_at).getTime();
         } else {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest first for others
         }
+      });
+    } else if (filterStatus === 'approved') {
+      // When showing only approved requests, sort by approved_at (oldest first) to match queue order
+      filteredRequests = [...filteredRequests].sort((a: any, b: any) => {
+        return new Date(a.approved_at || a.created_at).getTime() - new Date(b.approved_at || b.created_at).getTime();
       });
     }
     
