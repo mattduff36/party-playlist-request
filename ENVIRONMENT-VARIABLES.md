@@ -15,12 +15,17 @@ ADMIN_PASSWORD=your-secure-admin-password-here
 SPOTIFY_CLIENT_ID=your-spotify-client-id-from-developer-dashboard
 SPOTIFY_CLIENT_SECRET=your-spotify-client-secret-from-developer-dashboard
 SPOTIFY_REDIRECT_URI=https://your-backend-url.railway.app/api/spotify/callback
+PUSHER_APP_ID=your-pusher-app-id
+PUSHER_KEY=your-pusher-key
+PUSHER_SECRET=your-pusher-secret
+PUSHER_CLUSTER=us2
 ```
 
 ### **⚠️ Important Notes:**
 - Replace `your-vercel-app` with your actual Vercel app name
 - Replace `your-backend-url` with your actual backend URL
 - Use your real Spotify credentials from the developer dashboard
+- Get Pusher credentials from https://pusher.com (free tier available)
 - Generate a secure JWT_SECRET (use a random string generator)
 - Choose a secure admin password
 
@@ -33,6 +38,8 @@ Add this in your Vercel project settings → Environment Variables:
 
 ```env
 NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app/api
+NEXT_PUBLIC_PUSHER_KEY=your-pusher-key
+NEXT_PUBLIC_PUSHER_CLUSTER=us2
 ```
 
 ### **⚠️ Important Notes:**
@@ -62,6 +69,10 @@ NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app/api
 | `SPOTIFY_CLIENT_ID` | `your-spotify-client-id` |
 | `SPOTIFY_CLIENT_SECRET` | `your-spotify-client-secret` |
 | `SPOTIFY_REDIRECT_URI` | `https://your-backend-url.railway.app/api/spotify/callback` |
+| `PUSHER_APP_ID` | `your-pusher-app-id` |
+| `PUSHER_KEY` | `your-pusher-key` |
+| `PUSHER_SECRET` | `your-pusher-secret` |
+| `PUSHER_CLUSTER` | `us2` |
 
 ### **2. Frontend Variables (Vercel)**
 
@@ -72,6 +83,8 @@ NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app/api
 | Variable | Value | Environment |
 |----------|-------|-------------|
 | `NEXT_PUBLIC_API_URL` | `https://your-backend-url.railway.app/api` | Production, Preview, Development |
+| `NEXT_PUBLIC_PUSHER_KEY` | `your-pusher-key` | Production, Preview, Development |
+| `NEXT_PUBLIC_PUSHER_CLUSTER` | `us2` | Production, Preview, Development |
 
 ---
 
@@ -93,6 +106,12 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 - Never commit these to Git
 - Keep them secure and don't share
 - Regenerate if compromised
+
+### **Pusher Credentials**
+- Sign up at https://pusher.com (free tier available)
+- Create a new app in your Pusher dashboard
+- Copy the App ID, Key, Secret, and Cluster from your app settings
+- Use the same Key and Cluster for both backend and frontend
 
 ---
 
