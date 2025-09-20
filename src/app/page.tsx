@@ -259,7 +259,7 @@ export default function HomePage() {
   // Show "party starting soon" only if manually disabled by admin
   if (!partyActive) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
         <div className="text-center px-4">
           <div className="flex justify-center mb-6">
             <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
@@ -274,6 +274,15 @@ export default function HomePage() {
             Check back in a few minutes!
           </p>
         </div>
+        
+        {/* Very faint admin link for beta testing - bottom right corner */}
+        <a 
+          href="/admin" 
+          className="absolute bottom-4 right-4 text-gray-700 hover:text-gray-500 text-xs opacity-20 hover:opacity-40 transition-opacity duration-300"
+          title="Admin Access (Beta Testing)"
+        >
+          admin
+        </a>
       </div>
     );
   }
