@@ -337,7 +337,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // No more periodic refresh - Pusher handles real-time updates!
 
   // Request management methods
-  const handleApprove = useCallback(async (id: string, playNext: boolean = false) => {
+  const handleApprove = useCallback(async (id: string, playNext?: boolean) => {
     try {
       const token = localStorage.getItem('admin_token');
       if (!token) {
@@ -356,7 +356,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           add_to_queue: true,
           add_to_playlist: true,
-          play_next: playNext
+          play_next: playNext || false
         })
       });
       
@@ -435,7 +435,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshRequests, refreshStats]);
 
-  const handlePlayAgain = useCallback(async (id: string, playNext: boolean = false) => {
+  const handlePlayAgain = useCallback(async (id: string, playNext?: boolean) => {
     try {
       const token = localStorage.getItem('admin_token');
       if (!token) {
@@ -452,7 +452,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          play_next: playNext
+          play_next: playNext || false
         })
       });
       

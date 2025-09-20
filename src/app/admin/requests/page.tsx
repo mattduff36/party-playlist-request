@@ -12,7 +12,7 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
   onApprove: (id: string, playNext?: boolean) => void,
   onReject: (id: string) => void,
   onDelete: (id: string) => void,
-  onPlayAgain: (id: string, playNext: boolean) => void,
+  onPlayAgain: (id: string, playNext?: boolean) => void,
   onAddRandomSong: () => void,
   isAddingRandomSong?: boolean
 }) => {
@@ -174,7 +174,10 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-2 flex-shrink-0">
                       <button
-                        onClick={() => onApprove(request.id, true)}
+                        onClick={() => {
+                          console.log('🎵 Play Next button clicked for request:', request.id);
+                          onApprove(request.id, true);
+                        }}
                         className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
                         title="Play Next"
                       >
@@ -182,7 +185,10 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                         <span className="hidden lg:inline ml-1 text-white text-xs">Play Next</span>
                       </button>
                       <button
-                        onClick={() => onApprove(request.id)}
+                        onClick={() => {
+                          console.log('✅ Accept button clicked for request:', request.id);
+                          onApprove(request.id);
+                        }}
                         className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
                         title="Accept"
                       >
@@ -190,7 +196,10 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                         <span className="hidden lg:inline ml-1 text-white text-xs">Accept</span>
                       </button>
                       <button
-                        onClick={() => onReject(request.id)}
+                        onClick={() => {
+                          console.log('❌ Reject button clicked for request:', request.id);
+                          onReject(request.id);
+                        }}
                         className="flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
                         title="Reject"
                       >
@@ -199,7 +208,10 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                       </button>
                       {/* Delete button - hidden on mobile, replaced with swipe gesture */}
                       <button
-                        onClick={() => onDelete(request.id)}
+                        onClick={() => {
+                          console.log('🗑️ Delete button clicked for request:', request.id);
+                          onDelete(request.id);
+                        }}
                         className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-red-400 transition-colors min-h-[36px] min-w-[36px] rounded hover:bg-gray-700"
                         title="Delete Request"
                       >
@@ -285,7 +297,10 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                       )}
                       {/* Delete button - hidden on mobile, replaced with swipe gesture */}
                       <button
-                        onClick={() => onDelete(request.id)}
+                        onClick={() => {
+                          console.log('🗑️ Delete button clicked for request:', request.id);
+                          onDelete(request.id);
+                        }}
                         className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-red-400 transition-colors min-h-[36px] min-w-[36px] rounded hover:bg-gray-700"
                         title="Delete Request"
                       >
@@ -313,6 +328,15 @@ export default function RequestsPage() {
     loading,
     refreshData
   } = useAdminData();
+
+  // Debug: Log the functions to make sure they exist
+  console.log('🔍 RequestsPage: Functions available:', {
+    hasHandleApprove: typeof handleApprove === 'function',
+    hasHandleReject: typeof handleReject === 'function',
+    hasHandleDelete: typeof handleDelete === 'function',
+    hasHandlePlayAgain: typeof handlePlayAgain === 'function',
+    requestsCount: requests?.length || 0
+  });
 
   const [isAddingRandomSong, setIsAddingRandomSong] = useState(false);
 
