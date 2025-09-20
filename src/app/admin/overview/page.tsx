@@ -225,10 +225,10 @@ export default function OverviewPage() {
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <div className="w-10 h-10 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {track.album?.images?.[0]?.url ? (
+                      {track.image_url ? (
                         <img 
-                          src={track.album.images[0].url} 
-                          alt={track.album?.name || 'Album'}
+                          src={track.image_url} 
+                          alt={track.album || 'Album'}
                           className="w-full h-full object-cover rounded-lg"
                         />
                       ) : (
@@ -240,7 +240,7 @@ export default function OverviewPage() {
                         {index + 1}. {track.name}
                       </div>
                       <div className="text-xs text-gray-300 truncate">
-                        {track.artists?.map((a: any) => a.name).join(', ')}
+                        {Array.isArray(track.artists) ? track.artists.join(', ') : (track.artists || 'Unknown Artist')}
                       </div>
                     </div>
                   </div>
@@ -274,18 +274,6 @@ export default function OverviewPage() {
               ))}
             </div>
             
-            {/* Spotify API Limitation Notice */}
-            <div className="mt-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <div className="w-4 h-4 text-amber-400 mt-0.5">ℹ️</div>
-                <div>
-                  <p className="text-amber-200 text-xs font-medium">Queue Reordering</p>
-                  <p className="text-amber-300/80 text-xs mt-1">
-                    Queue reordering is temporarily disabled. Feature will be re-enabled in a future update.
-                  </p>
-                </div>
-              </div>
-            </div>
           </>
         ) : (
           <div className="text-center py-8">
