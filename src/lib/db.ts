@@ -70,6 +70,9 @@ export interface EventSettings {
   request_limit: number;
   auto_approve: boolean;
   force_polling: boolean;
+  // Page control settings
+  requests_page_enabled: boolean;
+  display_page_enabled: boolean;
   updated_at: string;
 }
 
@@ -230,6 +233,23 @@ export async function initializeDatabase() {
       console.log('ℹ️ Admin settings columns migration already applied or not needed');
     }
 
+    // Migration: Add page control columns to event_settings
+    try {
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS requests_page_enabled BOOLEAN DEFAULT FALSE;
+      `);
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS display_page_enabled BOOLEAN DEFAULT FALSE;
+      `);
+      
+      console.log('✅ Page control columns added to event_settings');
+    } catch (migrationError) {
+      console.log('ℹ️ Page control columns migration already applied or not needed');
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS oauth_sessions (
         state TEXT PRIMARY KEY,
@@ -319,8 +339,18 @@ export async function updateRequest(id: string, updates: Partial<Request>): Prom
 
 export async function getRequestsByStatus(status: string, limit = 50, offset = 0): Promise<Request[]> {
   const client = getPool();
+  
+  // For approved requests, order by approved_at ASC (oldest approved first - play order)
+  // For other statuses, order by created_at DESC (newest first)
+  let orderBy = 'created_at DESC';
+  if (status === 'approved') {
+    orderBy = 'approved_at ASC';
+  } else if (status === 'played') {
+    orderBy = 'approved_at DESC'; // Most recently played first
+  }
+  
   const result = await client.query(
-    'SELECT * FROM requests WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+    `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
     [status, limit, offset]
   );
   return result.rows;

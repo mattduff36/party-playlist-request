@@ -43,3 +43,32 @@ body {
   from { width: 0%; }
   to { width: 100%; }
 }
+
+/* Pop-up notification animations */
+@keyframes slideInFromTop {
+  0% {
+    transform: translate(-50%, -100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.6);
+  }
+}
+
+.notification-popup {
+  animation: slideInFromTop 0.5s ease-out;
+}
+
+.notification-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}

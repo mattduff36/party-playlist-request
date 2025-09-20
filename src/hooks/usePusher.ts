@@ -10,6 +10,7 @@ interface UsePusherOptions {
   onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
   onPlaybackUpdate?: (data: any) => void;
   onStatsUpdate?: (data: any) => void;
+  onPageControlToggle?: (data: any) => void;
 }
 
 export const usePusher = (options: UsePusherOptions = {}) => {
@@ -22,7 +23,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onPlaybackUpdate, options.onStatsUpdate]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle]);
 
   useEffect(() => {
     // Create Pusher client
@@ -84,6 +85,13 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('🎵 Pusher: Playback update', data);
       if (optionsRef.current.onPlaybackUpdate) {
         optionsRef.current.onPlaybackUpdate(data);
+      }
+    });
+
+    channel.bind(EVENTS.PAGE_CONTROL_TOGGLE, (data: any) => {
+      console.log('🎛️ Pusher: Page control toggle', data);
+      if (optionsRef.current.onPageControlToggle) {
+        optionsRef.current.onPageControlToggle(data);
       }
     });
 

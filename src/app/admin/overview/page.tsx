@@ -1,9 +1,9 @@
 'use client';
 
-import { Play, Pause, SkipForward, Volume2, Music, Users, Clock } from 'lucide-react';
+import { Play, Pause, SkipForward, Volume2, Music, Users, Clock, ChevronUp, ChevronDown } from 'lucide-react';
 import { useCallback } from 'react';
 import { useAdminData } from '@/contexts/AdminDataContext';
-// Removed useLiveProgress - Pusher provides real-time updates
+import { useLiveProgress } from '@/hooks/useLiveProgress';
 
 export default function OverviewPage() {
   const {
@@ -11,6 +11,7 @@ export default function OverviewPage() {
     stats,
     eventSettings,
     handlePlaybackControl,
+    handleQueueReorder,
     loading
   } = useAdminData();
 
@@ -22,7 +23,8 @@ export default function OverviewPage() {
     loading
   });
 
-  // No more live progress hook - Pusher provides real-time updates directly!
+  // Live progress for smooth progress bar animation
+  const { currentProgress, currentTime, totalTime, progressPercentage } = useLiveProgress(playbackState);
 
   const formatDuration = useCallback((ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
@@ -30,12 +32,6 @@ export default function OverviewPage() {
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }, []);
-
-  const formatProgress = useCallback((current: number, total: number) => {
-    const currentFormatted = formatDuration(current);
-    const totalFormatted = formatDuration(total);
-    return `${currentFormatted} / ${totalFormatted}`;
-  }, [formatDuration]);
 
   if (loading) {
     return (
@@ -51,7 +47,7 @@ export default function OverviewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-gray-800 rounded-lg p-4 md:p-6">
@@ -92,15 +88,15 @@ export default function OverviewPage() {
         {playbackState?.spotify_connected ? (
           <div className="space-y-4">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                {playbackState.album_image_url ? (
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg">
+                {playbackState.image_url ? (
                   <img 
-                    src={playbackState.album_image_url} 
+                    src={playbackState.image_url} 
                     alt="Album art" 
-                    className="w-full h-full object-cover rounded-lg"
+                    className="w-full h-full object-cover rounded-xl"
                   />
                 ) : (
-                  <Music className="w-8 h-8 text-gray-400" />
+                  <Music className="w-10 h-10 text-gray-400" />
                 )}
               </div>
               
@@ -113,54 +109,54 @@ export default function OverviewPage() {
                 </p>
                 <p className="text-gray-500 text-xs mt-1">
                   <span>
-                    {formatDuration(playbackState?.progress_ms || 0)}
+                    {currentTime}
                   </span>
                   {' / '}
-                  {formatDuration(playbackState?.duration_ms || 0)}
+                  {totalTime}
                 </p>
               </div>
             </div>
 
             {/* Live Progress Bar */}
-            <div className="w-full bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-gray-700 rounded-full h-2 shadow-inner">
               <div 
-                className="h-2 rounded-full bg-green-500 transition-all duration-200"
+                className="h-2 rounded-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-200 shadow-sm"
                 style={{ 
-                  width: `${formatProgress(playbackState?.progress_ms || 0, playbackState?.duration_ms || 1)}%`
+                  width: `${progressPercentage}%`
                 }}
               ></div>
             </div>
 
             {/* Playback Controls */}
-            <div className="flex items-center justify-center space-x-4">
+            <div className="flex items-center justify-center space-x-6">
               <button
                 onClick={() => handlePlaybackControl(playbackState.is_playing ? 'pause' : 'play')}
-                className="flex items-center justify-center w-12 h-12 bg-green-600 hover:bg-green-700 rounded-full transition-colors"
+                className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 {playbackState.is_playing ? (
-                  <Pause className="w-6 h-6 text-white" />
+                  <Pause className="w-7 h-7 text-white" />
                 ) : (
-                  <Play className="w-6 h-6 text-white ml-1" />
+                  <Play className="w-7 h-7 text-white ml-1" />
                 )}
               </button>
               
               <button
                 onClick={() => handlePlaybackControl('skip')}
-                className="flex items-center justify-center w-12 h-12 bg-gray-600 hover:bg-gray-700 rounded-full transition-colors"
+                className="flex items-center justify-center w-12 h-12 bg-gray-600 hover:bg-gray-500 rounded-full transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 <SkipForward className="w-6 h-6 text-white" />
               </button>
               
-              <div className="flex items-center space-x-2 text-gray-400">
-                <Volume2 className="w-5 h-5" />
-                <span className="text-sm">{playbackState.volume_percent || 0}%</span>
+              <div className="flex items-center space-x-2 text-gray-300 bg-gray-700/50 px-3 py-2 rounded-full">
+                <Volume2 className="w-4 h-4" />
+                <span className="text-sm font-medium">{playbackState.volume_percent || 0}%</span>
               </div>
             </div>
 
             {/* Device Info */}
             <div className="text-center">
               <p className="text-gray-400 text-sm">
-                Playing on <span className="text-green-400">{playbackState.device_name}</span>
+                Playing on <span className="text-green-400 font-medium">{playbackState.device_name}</span>
               </p>
             </div>
           </div>
@@ -181,36 +177,87 @@ export default function OverviewPage() {
         )}
       </div>
 
-      {/* Coming Up Next */}
-      <div className="bg-gray-800 rounded-lg p-4 md:p-6">
+      {/* Up Next */}
+      <div className="bg-gray-800 rounded-lg p-4 md:p-6 flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg md:text-xl font-semibold text-white">Coming Up Next</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-white">🎶 Up Next</h2>
           <button className="text-purple-400 hover:text-purple-300 text-sm transition-colors">
             View All →
           </button>
         </div>
         
         {playbackState?.spotify_connected && playbackState.queue && playbackState.queue.length > 0 ? (
-          <div className="space-y-3">
-            {playbackState.queue.slice(0, 3).map((track: any, index: number) => (
-              <div key={index} className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gray-600 rounded flex items-center justify-center flex-shrink-0">
-                  <Music className="w-5 h-5 text-gray-400" />
+          <>
+            <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
+              {playbackState.queue.map((track: any, index: number) => (
+                <div 
+                  key={`${track.uri || 'unknown'}-${index}`}
+                  className="flex items-center justify-between p-3 bg-gray-700/50 hover:bg-gray-700/70 rounded-lg transition-all duration-200"
+                >
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {track.album?.images?.[0]?.url ? (
+                        <img 
+                          src={track.album.images[0].url} 
+                          alt={track.album?.name || 'Album'}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <Music className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-white text-sm truncate">
+                        {index + 1}. {track.name}
+                      </div>
+                      <div className="text-xs text-gray-300 truncate">
+                        {track.artists?.map((a: any) => a.name).join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3 flex-shrink-0">
+                    {track.requester_nickname && (
+                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                        {track.requester_nickname}
+                      </div>
+                    )}
+                    <span className="text-gray-400 text-xs">
+                      {formatDuration(track.duration_ms || 0)}
+                    </span>
+                    <div className="flex flex-col space-y-1">
+                    <button
+                      disabled={true}
+                      className="p-1 rounded transition-colors text-gray-600 cursor-not-allowed"
+                      title="Queue reordering temporarily disabled"
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      disabled={true}
+                      className="p-1 rounded transition-colors text-gray-600 cursor-not-allowed"
+                      title="Queue reordering temporarily disabled"
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-white text-sm font-medium truncate">
-                    {track.name}
-                  </h4>
-                  <p className="text-gray-400 text-xs truncate">
-                    {track.artists?.map((a: any) => a.name).join(', ')}
+              ))}
+            </div>
+            
+            {/* Spotify API Limitation Notice */}
+            <div className="mt-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <div className="w-4 h-4 text-amber-400 mt-0.5">ℹ️</div>
+                <div>
+                  <p className="text-amber-200 text-xs font-medium">Queue Reordering</p>
+                  <p className="text-amber-300/80 text-xs mt-1">
+                    Queue reordering is temporarily disabled. Feature will be re-enabled in a future update.
                   </p>
                 </div>
-                <span className="text-gray-500 text-xs">
-                  {formatDuration(track.duration_ms || 0)}
-                </span>
               </div>
-            ))}
-          </div>
+            </div>
+          </>
         ) : (
           <div className="text-center py-8">
             <Music className="w-12 h-12 text-gray-400 mx-auto mb-4" />

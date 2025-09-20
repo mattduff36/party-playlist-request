@@ -14,7 +14,10 @@ import {
   RefreshCw,
   Monitor,
   Wifi,
-  WifiOff
+  WifiOff,
+  Home,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 
@@ -29,18 +32,102 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [pageControls, setPageControls] = useState({
+    requests_page_enabled: false,
+    display_page_enabled: false
+  });
+  const [togglingPage, setTogglingPage] = useState<string | null>(null);
   
   // Get admin data for Spotify connection status
   const { playbackState, stats, isConnected, connectionState } = useAdminData();
 
-  // Check authentication on mount
+  // Check authentication on mount and fetch page controls
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
     if (token) {
       setIsAuthenticated(true);
+      fetchPageControls();
     }
     setLoading(false);
   }, []);
+
+  // Fetch page controls
+  const fetchPageControls = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        console.log('No admin token found for page controls');
+        return;
+      }
+
+      const response = await fetch('/api/admin/page-controls', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Page controls fetched:', data);
+        setPageControls(data);
+      } else {
+        console.error('Failed to fetch page controls:', response.status, await response.text());
+      }
+    } catch (error) {
+      console.error('Error fetching page controls:', error);
+    }
+  };
+
+  // Toggle page control
+  const togglePageControl = async (page: 'requests' | 'display') => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      console.error('No admin token found for page control toggle');
+      return;
+    }
+
+    setTogglingPage(page);
+    
+    try {
+      const newValue = page === 'requests' 
+        ? !pageControls.requests_page_enabled 
+        : !pageControls.display_page_enabled;
+
+      const requestBody = {
+        [`${page}_page_enabled`]: newValue
+      };
+      
+      console.log(`Toggling ${page} page to:`, newValue, 'Request body:', requestBody);
+
+      const response = await fetch('/api/admin/page-controls', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Toggle response:', responseData);
+        setPageControls(prev => ({
+          ...prev,
+          [`${page}_page_enabled`]: newValue
+        }));
+        
+        // Pusher will handle cross-device communication automatically
+        console.log('✅ Page control toggled successfully, Pusher event sent to all devices');
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to toggle page control:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('Error toggling page control:', error);
+    } finally {
+      setTogglingPage(null);
+    }
+  };
 
   // Login function
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -72,6 +159,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         localStorage.setItem('admin_token', data.token);
         setIsAuthenticated(true);
         setLoginError('');
+        // Fetch page controls after successful login
+        fetchPageControls();
       } else {
         const errorData = await response.json();
         setLoginError(errorData.error || 'Login failed');
@@ -84,7 +173,42 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   // Logout function
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const token = localStorage.getItem('admin_token');
+    
+    // Disable both screens when logging out for security
+    if (token) {
+      try {
+        console.log('🔒 Disabling all screens on logout...');
+        
+        const response = await fetch('/api/admin/page-controls', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            requests_page_enabled: false,
+            display_page_enabled: false
+          })
+        });
+
+        if (response.ok) {
+          console.log('✅ All screens disabled on logout');
+          // Update local state to reflect the change
+          setPageControls({
+            requests_page_enabled: false,
+            display_page_enabled: false
+          });
+        } else {
+          console.error('Failed to disable screens on logout:', response.status);
+        }
+      } catch (error) {
+        console.error('Error disabling screens on logout:', error);
+      }
+    }
+    
+    // Clear authentication and redirect
     localStorage.removeItem('admin_token');
     setIsAuthenticated(false);
     router.push('/admin/overview');
@@ -296,6 +420,51 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </h2>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Quick Page Controls - Desktop Only */}
+              <div className="hidden md:flex items-center space-x-2">
+                {/* Requests Page Toggle */}
+                <button
+                  onClick={() => togglePageControl('requests')}
+                  disabled={togglingPage === 'requests'}
+                  className={`flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    pageControls.requests_page_enabled
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  } ${togglingPage === 'requests' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={`${pageControls.requests_page_enabled ? 'Disable' : 'Enable'} requests page`}
+                >
+                  {togglingPage === 'requests' ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : pageControls.requests_page_enabled ? (
+                    <Home className="w-3 h-3" />
+                  ) : (
+                    <EyeOff className="w-3 h-3" />
+                  )}
+                  <span>Requests</span>
+                </button>
+
+                {/* Display Page Toggle */}
+                <button
+                  onClick={() => togglePageControl('display')}
+                  disabled={togglingPage === 'display'}
+                  className={`flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    pageControls.display_page_enabled
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  } ${togglingPage === 'display' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={`${pageControls.display_page_enabled ? 'Disable' : 'Enable'} display page`}
+                >
+                  {togglingPage === 'display' ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : pageControls.display_page_enabled ? (
+                    <Monitor className="w-3 h-3" />
+                  ) : (
+                    <EyeOff className="w-3 h-3" />
+                  )}
+                  <span>Display</span>
+                </button>
+              </div>
+
               {/* Connection Status Indicators */}
               <div className="hidden md:flex items-center space-x-4">
                 {/* Spotify Connection Status */}

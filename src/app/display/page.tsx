@@ -66,9 +66,14 @@ export default function DisplayPage() {
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
+  const [displayEnabled, setDisplayEnabled] = useState(true);
   
   // 🚀 PUSHER: Real-time updates with animation triggers
   const { isConnected, connectionState } = usePusher({
+    onPageControlToggle: (data: any) => {
+      console.log('🔄 Display page control changed via Pusher:', data);
+      checkDisplayStatus();
+    },
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
       
@@ -256,6 +261,20 @@ export default function DisplayPage() {
     generateQR();
   }, []);
 
+  // Check if display page is enabled
+  const checkDisplayStatus = async () => {
+    try {
+      const response = await fetch('/api/party-status');
+      if (response.ok) {
+        const data = await response.json();
+        setDisplayEnabled(data.display_page_enabled);
+      }
+    } catch (error) {
+      console.error('Error checking display status:', error);
+      setDisplayEnabled(false);
+    }
+  };
+
   // Fetch all display data
   useEffect(() => {
     const fetchDisplayData = async () => {
@@ -310,8 +329,12 @@ export default function DisplayPage() {
       }
     };
 
+    checkDisplayStatus();
     fetchDisplayData();
     fetchNotifications();
+    
+    // No need for manual listeners - Pusher handles this automatically
+    // The usePusher hook above already listens for page control changes
     
     // No more polling - Pusher handles real-time updates!
   }, []); // Only run once
@@ -339,6 +362,28 @@ export default function DisplayPage() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-2xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show "display disabled" message if manually disabled by admin
+  if (!displayEnabled) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center px-4">
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+            🎉 Display Temporarily Disabled
+          </h1>
+          <p className="text-2xl text-gray-300 mb-4">
+            The DJ has temporarily disabled the display screen
+          </p>
+          <p className="text-lg text-gray-400">
+            Check back in a few minutes!
+          </p>
+        </div>
       </div>
     );
   }

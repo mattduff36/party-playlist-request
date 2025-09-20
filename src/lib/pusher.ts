@@ -71,6 +71,7 @@ export const EVENTS = {
   PLAYBACK_UPDATE: 'playback-update',
   STATS_UPDATE: 'stats-update',
   QUEUE_UPDATE: 'queue-update',
+  PAGE_CONTROL_TOGGLE: 'page-control-toggle',
 } as const;
 
 // Helper function to trigger events

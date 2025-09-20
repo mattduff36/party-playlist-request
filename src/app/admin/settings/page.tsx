@@ -16,7 +16,9 @@ export default function SettingsPage() {
     tertiary_message: '',
     request_limit: 10,
     auto_approve: false,
-    // Removed force_polling - using Pusher now
+    force_polling: false,
+    requests_page_enabled: false,
+    display_page_enabled: false,
   });
   
   const [saving, setSaving] = useState(false);
@@ -32,7 +34,9 @@ export default function SettingsPage() {
         tertiary_message: eventSettings.tertiary_message || '',
         request_limit: eventSettings.request_limit || 10,
         auto_approve: eventSettings.auto_approve || false,
-        // Removed force_polling - using Pusher now
+        force_polling: eventSettings.force_polling || false,
+        requests_page_enabled: eventSettings.requests_page_enabled ?? false,
+        display_page_enabled: eventSettings.display_page_enabled ?? false,
       });
     }
   }, [eventSettings]);
@@ -317,6 +321,54 @@ export default function SettingsPage() {
           <p className="text-gray-500 text-sm">
             When enabled, all song requests will be automatically approved and added to the queue
           </p>
+
+          {/* Page Control Settings */}
+          <div className="border-t border-gray-700 pt-6">
+            <h3 className="text-lg font-semibold text-white mb-4">🎛️ Page Controls</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Manually control which pages are accessible to users. When disabled, users will see a "party starting soon" message.
+            </p>
+            
+            <div className="space-y-4">
+              {/* Requests Page Control */}
+              <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                <div>
+                  <h4 className="text-white font-medium">Song Request Page</h4>
+                  <p className="text-gray-400 text-sm">Allow users to submit song requests</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="requests_page_enabled"
+                    name="requests_page_enabled"
+                    checked={formData.requests_page_enabled}
+                    onChange={handleCheckboxChange}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {/* Display Page Control */}
+              <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                <div>
+                  <h4 className="text-white font-medium">Display Screen</h4>
+                  <p className="text-gray-400 text-sm">Show the public display screen with current songs</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="display_page_enabled"
+                    name="display_page_enabled"
+                    checked={formData.display_page_enabled}
+                    onChange={handleCheckboxChange}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
 
           {/* Force Polling */}
           <div className="flex items-center">

@@ -27,6 +27,8 @@ export interface PlaybackState {
   duration_ms?: number;
   progress_ms?: number;
   image_url?: string;
+  device_name?: string;
+  volume_percent?: number;
   queue?: any[];
 }
 
@@ -67,6 +69,7 @@ interface AdminDataContextType {
   handleReject: (id: string, reason?: string) => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
   handlePlayAgain: (id: string) => Promise<void>;
+  handleQueueReorder: (fromIndex: number, toIndex: number) => Promise<void>;
 }
 
 // Create the context
@@ -146,6 +149,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 AdminDataContext: Raw queue details response:', {
+          spotify_connected: data.spotify_connected,
+          has_current_track: !!data.current_track,
+          queue_length: data.queue?.length || 0,
+          debug: data.debug
+        });
+        
         const newPlaybackState = {
           spotify_connected: data.spotify_connected,
           is_playing: data.is_playing,
@@ -155,11 +165,18 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           duration_ms: data.current_track?.duration_ms,
           progress_ms: data.current_track?.progress_ms,
           image_url: data.current_track?.image_url,
+          device_name: data.device?.name,
+          volume_percent: data.device?.volume_percent,
           queue: data.queue || []
         };
         
         setPlaybackState(prev => {
           if (JSON.stringify(prev) !== JSON.stringify(newPlaybackState)) {
+            console.log('🎵 AdminDataContext: Updating playback state:', {
+              spotify_connected: newPlaybackState.spotify_connected,
+              track_name: newPlaybackState.track_name,
+              is_playing: newPlaybackState.is_playing
+            });
             return newPlaybackState;
           }
           return prev;
@@ -414,6 +431,56 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshRequests, refreshStats]);
 
+  const handleQueueReorder = useCallback(async (fromIndex: number, toIndex: number) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) return;
+
+      // Optimistically update the local queue for immediate UI feedback
+      setPlaybackState(prev => {
+        if (!prev?.queue) return prev;
+        
+        const newQueue = [...prev.queue];
+        const [movedItem] = newQueue.splice(fromIndex, 1);
+        newQueue.splice(toIndex, 0, movedItem);
+        
+        return {
+          ...prev,
+          queue: newQueue
+        };
+      });
+
+      const response = await fetch('/api/admin/queue/reorder', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fromIndex, toIndex })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Queue reorder requested:', result.message);
+        if (result.limitation) {
+          console.warn('⚠️ Limitation:', result.limitation);
+        }
+        if (result.spotify_unavailable) {
+          console.warn('⚠️ Spotify API unavailable, UI-only reorder applied');
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to reorder queue:', response.status, errorText);
+        // Revert the optimistic update on failure
+        await refreshPlaybackState();
+      }
+    } catch (error) {
+      console.error('Error reordering queue:', error);
+      // Revert the optimistic update on error
+      await refreshPlaybackState();
+    }
+  }, [refreshPlaybackState]);
+
   const value: AdminDataContextType = {
     requests,
     playbackState,
@@ -429,7 +496,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     handleApprove,
     handleReject,
     handleDelete,
-    handlePlayAgain
+    handlePlayAgain,
+    handleQueueReorder
   };
   
   return (

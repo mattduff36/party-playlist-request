@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 // Using simple icons instead of heroicons for now
 import axios from 'axios';
+import { usePusher } from '@/hooks/usePusher';
 
 interface Track {
   id: string;
@@ -69,8 +70,17 @@ export default function HomePage() {
   const [nickname, setNickname] = useState('');
   const [spotifyUrl, setSpotifyUrl] = useState('');
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
+  const [partyActive, setPartyActive] = useState(true); // Default to true to avoid flash
 
-  // Fetch event settings
+  // Listen for page control changes via Pusher
+  usePusher({
+    onPageControlToggle: (data: any) => {
+      console.log('🔄 Page control changed via Pusher:', data);
+      fetchPartyStatus();
+    }
+  });
+
+  // Fetch event settings and party status
   const fetchEventSettings = async () => {
     try {
       const response = await axios.get(`${API_BASE}/display/current`);
@@ -91,9 +101,20 @@ export default function HomePage() {
     }
   };
 
-  // Fetch event settings on component mount
+  const fetchPartyStatus = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/party-status`);
+      setPartyActive(response.data.party_active);
+    } catch (error) {
+      console.error('Error fetching party status:', error);
+      setPartyActive(false);
+    }
+  };
+
+  // Fetch event settings and party status on component mount
   useEffect(() => {
     fetchEventSettings();
+    fetchPartyStatus();
   }, []);
 
   // Search for tracks
@@ -132,29 +153,36 @@ export default function HomePage() {
     }
   };
 
-  // Debounced search
+  // Debounced search - only if name is entered
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchQuery) {
+      if (searchQuery && nickname.trim()) {
         searchTracks(searchQuery);
+      } else {
+        setSearchResults([]);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, nickname]);
 
   // Submit request
   const submitRequest = async (track?: Track, url?: string) => {
+    // Validate required fields
+    if (!nickname || !nickname.trim()) {
+      setRequestStatus('error');
+      setStatusMessage('Please enter your name before making a request.');
+      return;
+    }
+
     setIsSubmitting(true);
     setRequestStatus('idle');
 
     try {
       const requestData: any = {};
 
-      // Only include nickname if it's provided
-      if (nickname && nickname.trim()) {
-        requestData.requester_nickname = nickname.trim();
-      }
+      // Include nickname (now required)
+      requestData.requester_nickname = nickname.trim();
 
       if (track) {
         requestData.track_uri = track.uri;
@@ -214,130 +242,169 @@ export default function HomePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Show "party starting soon" only if manually disabled by admin
+  if (!partyActive) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center px-4">
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+            🎉 Requests Temporarily Disabled
+          </h1>
+          <p className="text-2xl text-gray-300 mb-4">
+            The DJ has temporarily disabled song requests
+          </p>
+          <p className="text-lg text-gray-400">
+            Check back in a few minutes!
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="h-16 w-16 text-yellow-400 text-6xl">🎵</div>
+      {/* Hero Section */}
+      <div className="min-h-screen flex flex-col">
+        {/* Header - Less Prominent */}
+        <div className="text-center pt-6 pb-2">
+          <div className="flex justify-center mb-2">
+            <div className="h-12 w-12 text-yellow-400 text-4xl">🎵</div>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            🎉 {eventSettings?.event_title || 'Party DJ Requests'}
+          <h1 className="text-2xl md:text-3xl font-semibold text-white mb-2">
+            {eventSettings?.event_title || 'Party DJ Requests'}
           </h1>
-          <p className="text-xl text-gray-300 mb-8">
+          <p className="text-sm text-gray-400 mb-4">
             {eventSettings?.welcome_message || 'Request your favorite songs and let\'s keep the party going!'}
           </p>
         </div>
 
-        {/* Status Messages */}
+        {/* Status Messages - Pop-up Style */}
         {requestStatus === 'success' && (
-          <div className="max-w-2xl mx-auto mb-6">
-            <div className="bg-green-500 text-white p-4 rounded-lg flex items-center">
-              <span className="text-2xl mr-2">✅</span>
-              <span>{statusMessage}</span>
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4 notification-popup">
+            <div className="bg-green-500 text-white p-4 rounded-lg shadow-2xl border-2 border-green-400 flex items-center notification-glow">
+              <span className="text-2xl mr-3">✅</span>
+              <span className="font-medium">{statusMessage}</span>
             </div>
           </div>
         )}
 
         {requestStatus === 'error' && (
-          <div className="max-w-2xl mx-auto mb-6">
-            <div className="bg-red-500 text-white p-4 rounded-lg">
-              {statusMessage}
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4 notification-popup">
+            <div className="bg-red-500 text-white p-4 rounded-lg shadow-2xl border-2 border-red-400 notification-glow">
+              <span className="font-medium">{statusMessage}</span>
             </div>
           </div>
         )}
 
-        <div className="max-w-2xl mx-auto">
-          {/* Nickname Input */}
-          <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 mb-6">
-            <label className="block text-white text-sm font-medium mb-2">
-              Your Name (Optional)
-            </label>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Enter your name..."
-              className="w-full px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-            />
-          </div>
-
-          {/* Search Section */}
-          <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 mb-6">
-            <h2 className="text-2xl font-bold text-white mb-4">🔍 Search for Songs</h2>
-            
-            <div className="relative mb-4">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+        {/* Hero Section Content - Centered */}
+        <div className="flex-1 flex items-center justify-center px-4 py-8">
+          <div className="max-w-xl w-full space-y-6">
+            {/* Name Input - Styled like other boxes */}
+            <div className="bg-white/10 backdrop-blur-md rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-white mb-4">👤 Your Name</h2>
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by song title, artist, or album..."
-                className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Enter your name..."
+                className="w-full px-4 py-3 text-lg bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                required
               />
             </div>
 
-            {isSearching && (
+            {/* Search Section - Disabled until name is entered */}
+            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-6 transition-opacity ${!nickname.trim() ? 'opacity-50 pointer-events-none' : ''}`}>
+              <h2 className="text-2xl font-bold text-white mb-4">🔍 Search for Songs</h2>
+              
+              {!nickname.trim() && (
+                <div className="text-center py-4 mb-4">
+                  <p className="text-gray-300 text-sm">Please enter your name first to search for songs</p>
+                </div>
+              )}
+              
+              <div className="relative mb-4">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={nickname.trim() ? "Search by song title, artist, or album..." : "Enter your name first..."}
+                  className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  disabled={!nickname.trim()}
+                />
+              </div>
+
+            {isSearching && nickname.trim() && (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
                 <p className="text-gray-300 mt-2">Searching...</p>
               </div>
             )}
 
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {searchResults.map((track) => (
-                  <div
-                    key={track.id}
-                    className="bg-white/20 rounded-lg p-4 hover:bg-white/30 transition-colors cursor-pointer"
-                    onClick={() => {/* setSelectedTrack(track) */}}
-                  >
-                    <div className="flex items-center space-x-4">
-                      {track.image && (
-                        <img
-                          src={track.image}
-                          alt={track.album}
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-medium truncate">
-                          {track.name}
-                          {track.explicit && (
-                            <span className="ml-2 text-xs bg-red-500 text-white px-2 py-1 rounded">
-                              EXPLICIT
-                            </span>
-                          )}
-                        </h3>
-                        <p className="text-gray-300 text-sm truncate">
-                          {track.artists.join(', ')} • {track.album}
-                        </p>
-                        <p className="text-gray-400 text-xs">
-                          {formatDuration(track.duration_ms)}
-                        </p>
+              {/* Search Results */}
+              {searchResults.length > 0 && nickname.trim() && (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {searchResults.map((track) => (
+                    <div
+                      key={track.id}
+                      className="bg-white/20 rounded-lg p-4 hover:bg-white/30 transition-colors cursor-pointer"
+                      onClick={() => {/* setSelectedTrack(track) */}}
+                    >
+                      <div className="flex items-center space-x-4">
+                        {track.image && (
+                          <img
+                            src={track.image}
+                            alt={track.album}
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-white font-medium truncate">
+                            {track.name}
+                            {track.explicit && (
+                              <span className="ml-2 text-xs bg-red-500 text-white px-2 py-1 rounded">
+                                EXPLICIT
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-gray-300 text-sm truncate">
+                            {track.artists.join(', ')} • {track.album}
+                          </p>
+                          <p className="text-gray-400 text-xs">
+                            {formatDuration(track.duration_ms)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            submitRequest(track);
+                          }}
+                          disabled={isSubmitting || !nickname.trim()}
+                          className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          Request
+                        </button>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          submitRequest(track);
-                        }}
-                        disabled={isSubmitting}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        Request
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Spotify URL Section */}
+      {/* Spotify Link Section - Below Hero */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">🎵 Or Paste Spotify Link</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">🎵 Advanced: Paste Spotify Link</h2>
+            <p className="text-gray-300 mb-4 text-sm">
+              For power users: paste a direct Spotify track link
+            </p>
             
             <div className="space-y-4">
               <input
@@ -350,7 +417,7 @@ export default function HomePage() {
               
               <button
                 onClick={() => submitRequest(undefined, spotifyUrl)}
-                disabled={isSubmitting || !spotifyUrl.trim()}
+                disabled={isSubmitting || !spotifyUrl.trim() || !nickname.trim()}
                 className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition-colors"
               >
                 {isSubmitting ? (
@@ -368,7 +435,7 @@ export default function HomePage() {
           {/* Instructions */}
           <div className="mt-8 text-center text-gray-300">
             <p className="mb-2">
-              💡 <strong>Tip:</strong> Search for songs or paste Spotify links
+              💡 <strong>Tip:</strong> Search for songs above or paste Spotify links here
             </p>
             <p className="text-sm">
               Your requests will be reviewed by the DJ before being added to the queue
