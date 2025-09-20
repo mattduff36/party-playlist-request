@@ -5,7 +5,6 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 // Import the external RequestsTab component we created earlier
 import { useState, useEffect } from 'react';
 import { Music, CheckCircle, XCircle, PlayCircle, Trash2, Shuffle } from 'lucide-react';
-import SwipeToDelete from '../../../components/SwipeToDelete';
 
 const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain, onAddRandomSong, isAddingRandomSong }: { 
   requestsData: any[], 
@@ -133,12 +132,9 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
           </div>
         ) : (
           allRequests.map((request) => (
-            <SwipeToDelete
+            <div 
               key={request.id}
-              onDelete={() => onDelete(request.id)}
-              className="" // Remove pointer-events-none that was blocking button clicks
-            >
-              <div className={`p-4 rounded-lg border transition-colors ${
+              className={`p-4 rounded-lg border transition-colors ${
                 request.status === 'pending' ? 'bg-yellow-400/5 border-yellow-400/20' :
                 request.status === 'approved' ? 'bg-green-400/5 border-green-400/20' :
                 request.status === 'rejected' ? 'bg-red-400/5 border-red-400/20' :
@@ -310,7 +306,6 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                   </div>
                 )}
               </div>
-            </SwipeToDelete>
           ))
         )}
       </div>
