@@ -3,6 +3,7 @@ import { authService } from '@/lib/auth';
 import { spotifyService } from '@/lib/spotify';
 import { triggerPlaybackUpdate, triggerStatsUpdate } from '@/lib/pusher';
 import { getAllRequests } from '@/lib/db';
+import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 
 // Store last known state to detect changes (excluding progress_ms which changes constantly)
 let lastPlaybackState: any = null;
@@ -32,8 +33,8 @@ const watchSpotifyChanges = async () => {
   try {
     console.log('🎵 Spotify watcher: Checking for changes...');
     
-    // Check if Spotify is connected and tokens are valid
-    const isConnected = await spotifyService.isConnectedAndValid();
+    // Check if Spotify is connected using centralized status
+    const isConnected = await getSpotifyConnectionStatus();
     
     let currentPlayback = null;
     let queue = null;

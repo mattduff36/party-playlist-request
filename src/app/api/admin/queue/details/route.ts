@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { spotifyService } from '@/lib/spotify';
+import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
@@ -13,23 +14,23 @@ export async function GET(req: NextRequest) {
     await authService.requireAdminAuth(req);
     console.log(`✅ [${requestId}] Admin auth verified (${Date.now() - authStart}ms)`);
     
-    // Check if we have valid Spotify tokens first
-    console.log(`🔍 [${requestId}] Checking Spotify token validity...`);
-    const tokenCheckStart = Date.now();
-    let hasValidTokens = false;
+    // Check if we have valid Spotify connection using centralized status
+    console.log(`🔍 [${requestId}] Checking Spotify connection status...`);
+    const statusCheckStart = Date.now();
+    let hasValidConnection = false;
     try {
-      hasValidTokens = await spotifyService.isConnectedAndValid();
-      console.log(`🔍 [${requestId}] Token validity check result: ${hasValidTokens} (${Date.now() - tokenCheckStart}ms)`);
-    } catch (tokenError) {
-      console.log(`❌ [${requestId}] Token validity check failed: ${(tokenError as Error).message} (${Date.now() - tokenCheckStart}ms)`);
+      hasValidConnection = await getSpotifyConnectionStatus();
+      console.log(`🔍 [${requestId}] Connection status result: ${hasValidConnection} (${Date.now() - statusCheckStart}ms)`);
+    } catch (statusError) {
+      console.log(`❌ [${requestId}] Connection status check failed: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
     }
     
-    // Only try to get Spotify data if we have valid tokens
-    const shouldTrySpotify = hasValidTokens;
-    console.log(`🔍 [${requestId}] Should try Spotify APIs: ${shouldTrySpotify} (has_valid_tokens: ${hasValidTokens})`);
+    // Only try to get Spotify data if we have valid connection
+    const shouldTrySpotify = hasValidConnection;
+    console.log(`🔍 [${requestId}] Should try Spotify APIs: ${shouldTrySpotify} (has_valid_connection: ${hasValidConnection})`);
     
     if (!shouldTrySpotify) {
-      console.log(`⚠️ [${requestId}] No valid Spotify tokens available, returning empty response`);
+      console.log(`⚠️ [${requestId}] No valid Spotify connection available, returning empty response`);
       return NextResponse.json({
         current_track: null,
         queue: [],
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
         spotify_connected: false,
         debug: {
           request_id: requestId,
-          has_valid_tokens: false,
+          has_valid_connection: false,
           total_duration: Date.now() - startTime
         }
       });
@@ -162,7 +163,7 @@ export async function GET(req: NextRequest) {
       spotify_connected: spotifyConnected,
       debug: {
         request_id: requestId,
-        has_valid_tokens: hasValidTokens,
+        has_valid_connection: hasValidConnection,
         spotify_errors: spotifyErrors,
         total_duration: Date.now() - startTime,
         timestamp: new Date().toISOString()

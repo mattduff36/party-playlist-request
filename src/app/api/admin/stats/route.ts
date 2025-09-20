@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { getRequestsCount, getAllRequests } from '@/lib/db';
-import { spotifyService } from '@/lib/spotify';
+import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.request_count - a.request_count)
       .slice(0, 10);
 
-    const spotifyConnected = await spotifyService.isConnectedAndValid();
+    const spotifyConnected = await getSpotifyConnectionStatus();
 
     return NextResponse.json({
       total_requests: counts.total,
