@@ -105,6 +105,14 @@ export default function DisplayPage() {
       setTimeout(() => {
         console.log('🔄 Fetching fresh queue data after approval...');
         fetchDisplayData();
+        
+        // Force layout recalculation to prevent scroll issues
+        setTimeout(() => {
+          const upNextContainer = document.querySelector('[data-up-next-container]');
+          if (upNextContainer) {
+            upNextContainer.scrollTop = upNextContainer.scrollTop; // Force reflow
+          }
+        }, 100);
       }, 2000); // Wait 2 seconds for Spotify to update
     },
     onPlaybackUpdate: (data: any) => {
@@ -468,11 +476,11 @@ export default function DisplayPage() {
               </div>
 
               {/* Up Next - Longer Section */}
-              <div className="col-span-2">
+              <div className="col-span-2 flex flex-col min-h-0">
                 {upcomingSongs.length > 0 ? (
-                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full">
-                  <h2 className="text-3xl font-semibold mb-6 text-center">🎶 Up Next</h2>
-                    <div className="space-y-3 overflow-y-auto max-h-[calc(100%-4rem)]">
+                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col h-full min-h-0">
+                  <h2 className="text-3xl font-semibold mb-6 text-center flex-shrink-0">🎶 Up Next</h2>
+                    <div className="space-y-3 overflow-y-auto flex-1 min-h-0" data-up-next-container>
                       {upcomingSongs.slice(0, 12).map((song, index) => {
                         const isAnimating = animatingCards.has(song.uri);
                         if (isAnimating) {
@@ -509,12 +517,12 @@ export default function DisplayPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex items-center justify-center">
+                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col h-full min-h-0 items-center justify-center">
                     <div className="text-center text-gray-400 text-xl">
                       No upcoming songs in queue
                     </div>
-                </div>
-              )}
+                  </div>
+                )}
               </div>
 
               {/* Requests Section */}
@@ -643,11 +651,11 @@ export default function DisplayPage() {
               </div>
 
               {/* Up Next - Longer Section */}
-              <div className="col-span-2">
+              <div className="col-span-2 flex flex-col min-h-0">
                 {upcomingSongs.length > 0 ? (
-                  <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full">
-                    <h2 className="text-xl font-semibold mb-4 text-center">🎶 Upcoming songs</h2>
-                    <div className="space-y-2 overflow-y-auto h-full">
+                  <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0">
+                    <h2 className="text-xl font-semibold mb-4 text-center flex-shrink-0">🎶 Upcoming songs</h2>
+                    <div className="space-y-2 overflow-y-auto flex-1 min-h-0" data-up-next-container>
                       {upcomingSongs.slice(0, 10).map((song, index) => (
                         <div 
                           key={`${song.uri || 'unknown'}-${index}`} 
@@ -673,7 +681,7 @@ export default function DisplayPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full flex items-center justify-center">
+                  <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0 items-center justify-center">
                     <p className="text-gray-400 text-center text-base">No upcoming songs in queue</p>
                   </div>
                 )}
