@@ -1,9 +1,8 @@
 'use client';
 
 import { Play, Pause, SkipForward, Volume2, Music, Users, Clock, ChevronUp, ChevronDown } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useAdminData } from '@/contexts/AdminDataContext';
-import { useLiveProgress } from '@/hooks/useLiveProgress';
 
 export default function OverviewPage() {
   const {
@@ -15,16 +14,46 @@ export default function OverviewPage() {
     loading
   } = useAdminData();
 
-  console.log('📊 OverviewPage rendering with:', {
-    playbackState_connected: playbackState?.spotify_connected,
-    playbackState_track: playbackState?.track_name,
-    stats_total: stats?.total_requests,
-    stats_pending: stats?.pending_requests,
-    loading
-  });
+  // Debug logging removed to prevent console spam
 
-  // Live progress for smooth progress bar animation
-  const { currentProgress, currentTime, totalTime, progressPercentage } = useLiveProgress(playbackState);
+  // Simple live progress without render loops
+  const [liveProgress, setLiveProgress] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    if (playbackState?.is_playing && playbackState.spotify_connected) {
+      // Set initial progress
+      setLiveProgress(playbackState.progress_ms || 0);
+      
+      // Update progress every second
+      intervalRef.current = setInterval(() => {
+        setLiveProgress(prev => {
+          const newProgress = prev + 1000; // Add 1 second
+          const maxProgress = playbackState.duration_ms || 0;
+          return newProgress >= maxProgress ? maxProgress : newProgress;
+        });
+      }, 1000);
+    } else {
+      // Not playing, use static progress
+      setLiveProgress(playbackState?.progress_ms || 0);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [playbackState?.progress_ms, playbackState?.is_playing, playbackState?.spotify_connected, playbackState?.duration_ms]);
+
+  // Calculate progress values
+  const progressPercentage = playbackState?.duration_ms 
+    ? Math.min(100, Math.max(0, (liveProgress / playbackState.duration_ms) * 100))
+    : 0;
 
   const formatDuration = useCallback((ms: number) => {
     if (!ms || isNaN(ms) || ms < 0) return '0:00';
@@ -109,10 +138,10 @@ export default function OverviewPage() {
                 </p>
                 <p className="text-gray-500 text-xs mt-1">
                   <span>
-                    {currentTime}
+                    {formatDuration(liveProgress)}
                   </span>
                   {' / '}
-                  {totalTime}
+                  {formatDuration(playbackState?.duration_ms || 0)}
                 </p>
               </div>
             </div>
