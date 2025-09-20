@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.request_count - a.request_count)
       .slice(0, 10);
 
-    const spotifyConnected = await spotifyService.isConnected();
+    const spotifyConnected = await spotifyService.isConnectedAndValid();
 
     return NextResponse.json({
       total_requests: counts.total,

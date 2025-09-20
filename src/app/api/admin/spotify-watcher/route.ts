@@ -32,65 +32,62 @@ const watchSpotifyChanges = async () => {
   try {
     console.log('🎵 Spotify watcher: Checking for changes...');
     
-    // Check if Spotify is connected
-    const isConnected = await spotifyService.isConnected();
-    if (!isConnected) {
-      console.log('🎵 Spotify watcher: Not connected, skipping...');
-      return;
-    }
-
-    // Get current playback and queue
-    const [currentPlayback, queue] = await Promise.all([
-      spotifyService.getCurrentPlayback().catch(() => null),
-      spotifyService.getQueue().catch(() => null)
-    ]);
-
-    // Create current state snapshot
-    const currentState = {
-      playback: currentPlayback,
-      queue: queue?.queue || []
-    };
-
-    // Check if anything meaningful changed (excluding progress_ms)
-    const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
-    const normalizedLastPlayback = normalizePlaybackForComparison(lastPlaybackState);
+    // Check if Spotify is connected and tokens are valid
+    const isConnected = await spotifyService.isConnectedAndValid();
     
-    const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
-    const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(lastQueueState);
+    let currentPlayback = null;
+    let queue = null;
+    
+    if (isConnected) {
+      // Get current playback and queue only if connected
+      [currentPlayback, queue] = await Promise.all([
+        spotifyService.getCurrentPlayback().catch(() => null),
+        spotifyService.getQueue().catch(() => null)
+      ]);
 
-    if (playbackChanged || queueChanged) {
-      console.log('🎵 Spotify watcher: MEANINGFUL changes detected, triggering Pusher event');
-      console.log('🔍 Playback changed:', playbackChanged);
-      console.log('🔍 Queue changed:', queueChanged);
+      // Check if anything meaningful changed (excluding progress_ms)
+      const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
+      const normalizedLastPlayback = normalizePlaybackForComparison(lastPlaybackState);
       
-      // Get approved requests to match with queue items
-      const approvedRequests = await getAllRequests().then(requests => 
-        requests.filter(r => r.status === 'approved')
-      );
+      const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
+      const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(lastQueueState);
 
-      // Enhance queue items with requester information
-      const enhancedQueue = (queue?.queue || []).map((track: any) => {
-        const matchingRequest = approvedRequests.find(req => req.track_uri === track.uri);
-        return {
-          ...track,
-          requester_nickname: matchingRequest?.requester_nickname || null
-        };
-      });
+      if (playbackChanged || queueChanged) {
+        console.log('🎵 Spotify watcher: MEANINGFUL changes detected, triggering Pusher event');
+        console.log('🔍 Playback changed:', playbackChanged);
+        console.log('🔍 Queue changed:', queueChanged);
+        
+        // Get approved requests to match with queue items
+        const approvedRequests = await getAllRequests().then(requests => 
+          requests.filter(r => r.status === 'approved')
+        );
 
-      // Trigger Pusher event with enhanced data
-      await triggerPlaybackUpdate({
-        current_track: currentPlayback?.item || null,
-        queue: enhancedQueue,
-        is_playing: currentPlayback?.is_playing || false,
-        progress_ms: currentPlayback?.progress_ms || 0,
-        timestamp: Date.now()
-      });
+        // Enhance queue items with requester information
+        const enhancedQueue = (queue?.queue || []).map((track: any) => {
+          const matchingRequest = approvedRequests.find(req => req.track_uri === track.uri);
+          return {
+            ...track,
+            requester_nickname: matchingRequest?.requester_nickname || null
+          };
+        });
 
-      // Update stored state
-      lastPlaybackState = currentPlayback;
-      lastQueueState = queue?.queue;
+        // Trigger Pusher event with enhanced data
+        await triggerPlaybackUpdate({
+          current_track: currentPlayback?.item || null,
+          queue: enhancedQueue,
+          is_playing: currentPlayback?.is_playing || false,
+          progress_ms: currentPlayback?.progress_ms || 0,
+          timestamp: Date.now()
+        });
+
+        // Update stored state
+        lastPlaybackState = currentPlayback;
+        lastQueueState = queue?.queue;
+      } else {
+        console.log('🎵 Spotify watcher: No meaningful changes, skipping Pusher event');
+      }
     } else {
-      console.log('🎵 Spotify watcher: No meaningful changes, skipping Pusher event');
+      console.log('🎵 Spotify watcher: Not connected or tokens invalid, skipping playback checks');
     }
 
     // Update stats only every 30 seconds (not every 2 seconds!)
