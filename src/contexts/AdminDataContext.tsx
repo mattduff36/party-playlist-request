@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { usePusher } from '@/hooks/usePusher';
-import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent } from '@/lib/pusher';
+import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
 import { markSpotifyDisconnected } from '@/lib/spotify-status-client';
 
 // Types (simplified from the old useAdminData)
@@ -93,6 +93,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     },
     onRequestRejected: (data: RequestRejectedEvent) => {
       console.log('❌ Admin: Request rejected via Pusher!', data);
+      // Refresh requests to show the update
+      refreshRequests();
+    },
+    onRequestDeleted: (data: RequestDeletedEvent) => {
+      console.log('🗑️ Admin: Request deleted via Pusher!', data);
       // Refresh requests to show the update
       refreshRequests();
     },

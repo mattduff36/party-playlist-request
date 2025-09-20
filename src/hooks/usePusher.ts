@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createPusherClient, CHANNELS, EVENTS, RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent } from '@/lib/pusher';
+import { createPusherClient, CHANNELS, EVENTS, RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
 import type { Channel } from 'pusher-js';
 
 interface UsePusherOptions {
   onRequestApproved?: (data: RequestApprovedEvent) => void;
   onRequestRejected?: (data: RequestRejectedEvent) => void;
   onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
+  onRequestDeleted?: (data: RequestDeletedEvent) => void;
   onPlaybackUpdate?: (data: any) => void;
   onStatsUpdate?: (data: any) => void;
   onPageControlToggle?: (data: any) => void;
@@ -25,7 +26,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared]);
 
   useEffect(() => {
     // Create Pusher client
@@ -80,6 +81,13 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('📝 Pusher: New request submitted!', data);
       if (optionsRef.current.onRequestSubmitted) {
         optionsRef.current.onRequestSubmitted(data);
+      }
+    });
+
+    channel.bind(EVENTS.REQUEST_DELETED, (data: RequestDeletedEvent) => {
+      console.log('🗑️ Pusher: Request deleted!', data);
+      if (optionsRef.current.onRequestDeleted) {
+        optionsRef.current.onRequestDeleted(data);
       }
     });
 

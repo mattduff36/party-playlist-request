@@ -42,6 +42,14 @@ export interface RequestRejectedEvent {
   rejected_by: string;
 }
 
+export interface RequestDeletedEvent {
+  id: string;
+  track_name: string;
+  artist_name: string;
+  status: string;
+  deleted_at: string;
+}
+
 export interface RequestSubmittedEvent {
   id: string;
   track_name: string;
@@ -71,6 +79,7 @@ export const EVENTS = {
   REQUEST_APPROVED: 'request-approved',
   REQUEST_REJECTED: 'request-rejected',
   REQUEST_SUBMITTED: 'request-submitted',
+  REQUEST_DELETED: 'request-deleted',
   PLAYBACK_UPDATE: 'playback-update',
   STATS_UPDATE: 'stats-update',
   QUEUE_UPDATE: 'queue-update',
@@ -102,6 +111,10 @@ export const triggerRequestApproved = async (data: RequestApprovedEvent) => {
 
 export const triggerRequestRejected = async (data: RequestRejectedEvent) => {
   await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_REJECTED, data);
+};
+
+export const triggerRequestDeleted = async (data: RequestDeletedEvent) => {
+  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_DELETED, data);
 };
 
 export const triggerRequestSubmitted = async (data: RequestSubmittedEvent) => {

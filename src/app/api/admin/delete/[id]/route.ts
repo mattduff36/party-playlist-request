@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { getPool } from '@/lib/db';
+import { triggerRequestDeleted } from '@/lib/pusher';
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,6 +23,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
     
     const deletedRequest = result.rows[0];
+    
+    // 🚀 PUSHER: Trigger real-time event for deleted request
+    try {
+      await triggerRequestDeleted({
+        id: deletedRequest.id,
+        track_name: deletedRequest.track_name,
+        artist_name: deletedRequest.artist_name,
+        status: deletedRequest.status,
+        deleted_at: new Date().toISOString()
+      });
+      console.log(`🗑️ Pusher event sent for deleted request: ${deletedRequest.track_name}`);
+    } catch (pusherError) {
+      console.error('❌ Failed to send Pusher event:', pusherError);
+      // Don't fail the request if Pusher fails
+    }
     
     return NextResponse.json({
       success: true,
