@@ -251,9 +251,9 @@ export default function DisplayPage() {
     return `${optimalFontSize}rem`;
   };
 
-  // 🔄 Initial data load only (Pusher handles real-time updates)
+  // 🔄 Initial data load and fallback polling for production
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchDisplayData = async () => {
       try {
         const [displayResponse, requestsResponse] = await Promise.all([
           fetch('/api/display/current'),
@@ -263,7 +263,7 @@ export default function DisplayPage() {
         if (displayResponse.ok) {
           const data = await displayResponse.json();
           
-          // Initialize current track
+          // Update current track
           if (data.current_track) {
             setCurrentTrack({
               name: data.current_track.name || '',
@@ -276,14 +276,13 @@ export default function DisplayPage() {
             });
           }
           
-          // Initialize event settings
+          // Update event settings
           if (data.event_settings) {
             setEventSettings(data.event_settings);
           }
           
-          // Initialize upcoming songs
+          // Update upcoming songs
           if (data.upcoming_songs) {
-            console.log('📱 Initial load: Loading', data.upcoming_songs.length, 'upcoming songs');
             setUpcomingSongs(data.upcoming_songs);
           }
         }
@@ -307,12 +306,21 @@ export default function DisplayPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch initial display data:', error);
+        console.error('Failed to fetch display data:', error);
       }
     };
 
-    // One-time initial fetch only - Pusher handles all updates after this!
-    fetchInitialData();
+    // Initial fetch
+    fetchDisplayData();
+
+    // 🔄 FALLBACK POLLING: If Pusher isn't working (production issue), poll every 10 seconds
+    // This ensures display page updates even if Spotify watcher isn't running
+    const fallbackInterval = setInterval(() => {
+      console.log('🔄 Fallback polling: Refreshing display data...');
+      fetchDisplayData();
+    }, 10000); // Poll every 10 seconds as fallback
+
+    return () => clearInterval(fallbackInterval);
   }, []); // Empty dependency array - run once only
 
   // Detect device type and re-limit songs when device changes
