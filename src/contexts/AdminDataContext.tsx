@@ -88,23 +88,27 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const { isConnected, connectionState } = usePusher({
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 Admin: Request approved via Pusher!', data);
-      // Refresh requests to show the update
+      // Refresh requests and stats to show the update
       refreshRequests();
+      refreshStats();
     },
     onRequestRejected: (data: RequestRejectedEvent) => {
       console.log('❌ Admin: Request rejected via Pusher!', data);
-      // Refresh requests to show the update
+      // Refresh requests and stats to show the update
       refreshRequests();
+      refreshStats();
     },
     onRequestDeleted: (data: RequestDeletedEvent) => {
       console.log('🗑️ Admin: Request deleted via Pusher!', data);
-      // Refresh requests to show the update
+      // Refresh requests and stats to show the update
       refreshRequests();
+      refreshStats();
     },
     onRequestSubmitted: (data: RequestSubmittedEvent) => {
       console.log('📝 Admin: New request submitted via Pusher!', data);
-      // Refresh requests to show the new pending request
+      // Refresh requests and stats to show the new pending request
       refreshRequests();
+      refreshStats();
     },
     onStatsUpdate: (data: any) => {
       console.log('📊 Admin: Stats updated via Pusher!', data);
