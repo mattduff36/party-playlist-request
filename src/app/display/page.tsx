@@ -77,20 +77,7 @@ export default function DisplayPage() {
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
       
-      // Instead of manually adding to local state, fetch fresh data from API
-      // This ensures we get the correct queue order from Spotify
-      fetchDisplayData();
-      
-      // Also add to approved requests list for the "Requests on the way" section
-      const newSong: QueueItem = {
-        name: data.track_name,
-        artists: [data.artist_name],
-        album: data.album_name,
-        uri: data.track_uri,
-        requester_nickname: data.requester_nickname
-      };
-      
-      // Add to approved requests list
+      // Add to approved requests list immediately for the "Requests on the way" section
       const newRequest: RequestItem = {
         id: data.id,
         track_name: data.track_name,
@@ -100,10 +87,8 @@ export default function DisplayPage() {
       };
       setApprovedRequests(prev => [newRequest, ...prev].slice(0, 10)); // Keep only latest 10
       
-      // 🎯 TRIGGER ANIMATION immediately!
+      // Trigger animation immediately
       setAnimatingCards(prev => new Set([...prev, data.track_uri]));
-      
-      // Animation triggered (removed alert for production)
       console.log(`🎉 ANIMATION TRIGGERED! New song: ${data.track_name} by ${data.requester_nickname}`);
       
       // Remove animation after 1 second
@@ -115,6 +100,12 @@ export default function DisplayPage() {
           return updated;
         });
       }, 1000);
+      
+      // Fetch fresh queue data after a delay to ensure Spotify has updated
+      setTimeout(() => {
+        console.log('🔄 Fetching fresh queue data after approval...');
+        fetchDisplayData();
+      }, 2000); // Wait 2 seconds for Spotify to update
     },
     onPlaybackUpdate: (data: any) => {
       console.log('🎵 PUSHER: Playback update received!', data);

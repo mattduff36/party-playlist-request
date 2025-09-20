@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
-import { getRequest, updateRequest, getSetting, createNotification, getAllRequests } from '@/lib/db';
+import { getRequest, updateRequest, getSetting, createNotification } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
-import { triggerRequestApproved, triggerPlaybackUpdate } from '@/lib/pusher';
+import { triggerRequestApproved } from '@/lib/pusher';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -89,53 +89,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           approved_by: admin.username
         });
         console.log(`🎉 Pusher event sent for approved request: ${request.track_name}`);
-        
-        // Also trigger a playback update to refresh the queue on display page
-        try {
-          console.log('🔄 Fetching updated queue after approval...');
-          
-          // Give Spotify a moment to update, then fetch fresh queue data
-          setTimeout(async () => {
-            try {
-              const [currentPlayback, queue] = await Promise.all([
-                spotifyService.getCurrentPlayback().catch(() => null),
-                spotifyService.getQueue().catch(() => null)
-              ]);
-
-              if (queue?.queue) {
-                // Get approved requests to match with queue items
-                const approvedRequests = await getAllRequests().then(requests => 
-                  requests.filter(r => r.status === 'approved')
-                );
-
-                // Enhance queue items with requester information
-                const enhancedQueue = queue.queue.map((track: any) => {
-                  const matchingRequest = approvedRequests.find(req => req.track_uri === track.uri);
-                  return {
-                    ...track,
-                    requester_nickname: matchingRequest?.requester_nickname || null
-                  };
-                });
-
-                // Trigger playback update with fresh queue data
-                await triggerPlaybackUpdate({
-                  current_track: currentPlayback?.item || null,
-                  queue: enhancedQueue,
-                  is_playing: currentPlayback?.is_playing || false,
-                  progress_ms: currentPlayback?.progress_ms || 0,
-                  timestamp: Date.now()
-                });
-                
-                console.log('✅ Playback update sent with fresh queue data');
-              }
-            } catch (error) {
-              console.error('Failed to send playback update after approval:', error);
-            }
-          }, 1500); // Wait 1.5 seconds for Spotify to update
-          
-        } catch (error) {
-          console.error('Failed to setup playback update:', error);
-        }
         
       } catch (pusherError) {
         console.error('❌ Failed to send Pusher event:', pusherError);
