@@ -69,7 +69,7 @@ interface AdminDataContextType {
   handleApprove: (id: string, playNext?: boolean) => Promise<void>;
   handleReject: (id: string, reason?: string) => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
-  handlePlayAgain: (id: string) => Promise<void>;
+  handlePlayAgain: (id: string, playNext?: boolean) => Promise<void>;
   handleQueueReorder: (fromIndex: number, toIndex: number) => Promise<void>;
 }
 
@@ -340,8 +340,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const handleApprove = useCallback(async (id: string, playNext: boolean = false) => {
     try {
       const token = localStorage.getItem('admin_token');
-      if (!token) return;
+      if (!token) {
+        console.error('❌ No admin token found for approve request');
+        return;
+      }
 
+      console.log(`🎵 Approving request ${id} (play_next: ${playNext})`);
+      
       const response = await fetch(`/api/admin/approve/${id}`, {
         method: 'POST',
         headers: { 
@@ -356,22 +361,27 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       
       if (response.ok) {
-        console.log(`✅ Request ${id} approved successfully`);
+        console.log(`✅ Request ${id} approved successfully (play_next: ${playNext})`);
         await refreshRequests();
         await refreshStats();
       } else {
         const error = await response.text();
-        console.error('Failed to approve request:', error);
+        console.error(`❌ Failed to approve request ${id}:`, response.status, error);
       }
     } catch (error) {
-      console.error('Failed to approve request:', error);
+      console.error(`❌ Error approving request ${id}:`, error);
     }
   }, [refreshRequests, refreshStats]);
 
   const handleReject = useCallback(async (id: string, reason?: string) => {
     try {
       const token = localStorage.getItem('admin_token');
-      if (!token) return;
+      if (!token) {
+        console.error('❌ No admin token found for reject request');
+        return;
+      }
+
+      console.log(`🚫 Rejecting request ${id}`);
 
       const response = await fetch(`/api/admin/reject/${id}`, {
         method: 'POST',
@@ -385,22 +395,27 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       
       if (response.ok) {
-        console.log(`❌ Request ${id} rejected successfully`);
+        console.log(`✅ Request ${id} rejected successfully`);
         await refreshRequests();
         await refreshStats();
       } else {
         const error = await response.text();
-        console.error('Failed to reject request:', error);
+        console.error(`❌ Failed to reject request ${id}:`, response.status, error);
       }
     } catch (error) {
-      console.error('Failed to reject request:', error);
+      console.error(`❌ Error rejecting request ${id}:`, error);
     }
   }, [refreshRequests, refreshStats]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       const token = localStorage.getItem('admin_token');
-      if (!token) return;
+      if (!token) {
+        console.error('❌ No admin token found for delete request');
+        return;
+      }
+
+      console.log(`🗑️ Deleting request ${id}`);
 
       const response = await fetch(`/api/admin/delete/${id}`, {
         method: 'DELETE',
@@ -408,30 +423,49 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       
       if (response.ok) {
+        console.log(`✅ Request ${id} deleted successfully`);
         await refreshRequests();
         await refreshStats();
+      } else {
+        const error = await response.text();
+        console.error(`❌ Failed to delete request ${id}:`, response.status, error);
       }
     } catch (error) {
-      console.error('Failed to delete request:', error);
+      console.error(`❌ Error deleting request ${id}:`, error);
     }
   }, [refreshRequests, refreshStats]);
 
-  const handlePlayAgain = useCallback(async (id: string) => {
+  const handlePlayAgain = useCallback(async (id: string, playNext: boolean = false) => {
     try {
       const token = localStorage.getItem('admin_token');
-      if (!token) return;
+      if (!token) {
+        console.error('❌ No admin token found for play again request');
+        return;
+      }
+
+      console.log(`🔄 Playing request ${id} again (play_next: ${playNext})`);
 
       const response = await fetch(`/api/admin/play-again/${id}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          play_next: playNext
+        })
       });
       
       if (response.ok) {
+        console.log(`✅ Request ${id} played again successfully (play_next: ${playNext})`);
         await refreshRequests();
         await refreshStats();
+      } else {
+        const error = await response.text();
+        console.error(`❌ Failed to play again request ${id}:`, response.status, error);
       }
     } catch (error) {
-      console.error('Failed to play again:', error);
+      console.error(`❌ Error playing again request ${id}:`, error);
     }
   }, [refreshRequests, refreshStats]);
 
