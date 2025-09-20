@@ -283,14 +283,14 @@ export default function HomePage() {
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header - Less Prominent */}
-        <div className="text-center pt-6 pb-2">
+        <div className="text-center pt-4 pb-1">
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 text-yellow-400 text-4xl">🎵</div>
           </div>
           <h1 className="text-2xl md:text-3xl font-semibold text-white mb-2">
             {eventSettings?.event_title || 'Party DJ Requests'}
           </h1>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm text-gray-400 mb-2">
             {eventSettings?.welcome_message || 'Request your favorite songs and let\'s keep the party going!'}
           </p>
         </div>
@@ -318,8 +318,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Hero Section Content - Centered */}
-        <div className="flex-1 flex items-center justify-center px-4 py-8">
+        {/* Hero Section Content - Positioned Higher */}
+        <div className="flex-1 flex items-start justify-center px-4 py-8 pt-16">
           <div className="max-w-xl w-full space-y-6">
             {/* Name Input - Styled like other boxes */}
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6">
