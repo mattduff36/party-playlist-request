@@ -85,6 +85,18 @@ export default function HomePage() {
     timestamp: number;
   }>>([]);
 
+  // Handle clicking anywhere to dismiss notifications
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      if (notifications.length > 0) {
+        setNotifications([]);
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, [notifications.length]);
+
   // Listen for page control changes and request updates via Pusher
   usePusher({
     onPageControlToggle: (data: any) => {
@@ -109,10 +121,7 @@ export default function HomePage() {
         
         setNotifications(prev => [...prev, notification]);
         
-        // Auto-remove notification after 5 seconds
-        setTimeout(() => {
-          setNotifications(prev => prev.filter(n => n.id !== notification.id));
-        }, 5000);
+        // Note: Notifications now stay until user clicks anywhere on screen
         
         // Remove from user requests set since it's been processed
         setUserRequests(prev => {
@@ -491,7 +500,7 @@ export default function HomePage() {
         </div>
       
       {/* Notification Toasts */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
+      <div className="fixed top-6 right-6 z-50 space-y-3">
         {notifications.map((notification) => (
           <div
             key={notification.id}
@@ -502,37 +511,32 @@ export default function HomePage() {
                   ? 'from-green-500 to-emerald-600' 
                   : 'from-blue-500 to-purple-600'
               }
-              text-white px-6 py-4 rounded-lg shadow-lg max-w-sm
-              animate-slide-in-right
+              text-white px-8 py-6 rounded-xl shadow-2xl max-w-md min-w-[320px]
+              animate-slide-in-right border-2 border-white/20
             `}
           >
-            <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-4">
               <div className="flex-shrink-0">
                 {notification.type === 'play_next' ? (
-                  <div className="w-6 h-6 text-2xl">⚡</div>
+                  <div className="w-10 h-10 text-4xl flex items-center justify-center">⚡</div>
                 ) : (
-                  <div className="w-6 h-6 text-2xl">✅</div>
+                  <div className="w-10 h-10 text-4xl flex items-center justify-center">✅</div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm">
+                <div className="font-bold text-lg mb-1">
                   {notification.type === 'play_next' ? 'Playing Next!' : 'Request Approved!'}
                 </div>
-                <div className="text-sm opacity-90 truncate">
+                <div className="text-base opacity-95 font-medium truncate">
                   {notification.trackName}
                 </div>
-                <div className="text-xs opacity-75 truncate">
+                <div className="text-sm opacity-80 truncate">
                   by {notification.artistName}
                 </div>
+                <div className="text-xs opacity-60 mt-2">
+                  Click anywhere to dismiss
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  setNotifications(prev => prev.filter(n => n.id !== notification.id));
-                }}
-                className="flex-shrink-0 text-white/70 hover:text-white transition-colors"
-              >
-                ×
-              </button>
             </div>
           </div>
         ))}
