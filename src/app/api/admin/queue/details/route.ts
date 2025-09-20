@@ -20,32 +20,26 @@ export async function GET(req: NextRequest) {
     let hasValidConnection = false;
     try {
       hasValidConnection = await getSpotifyConnectionStatus();
-      console.log(`🔍 [${requestId}] Connection status result: ${hasValidConnection} (${Date.now() - statusCheckStart}ms)`);
+      console.log(`🔍 [${requestId}] Centralized status result: ${hasValidConnection} (${Date.now() - statusCheckStart}ms)`);
     } catch (statusError) {
-      console.log(`❌ [${requestId}] Connection status check failed: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
+      console.log(`❌ [${requestId}] Centralized status check failed: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
     }
     
-    // Only try to get Spotify data if we have valid connection
-    const shouldTrySpotify = hasValidConnection;
-    console.log(`🔍 [${requestId}] Should try Spotify APIs: ${shouldTrySpotify} (has_valid_connection: ${hasValidConnection})`);
-    
-    if (!shouldTrySpotify) {
-      console.log(`⚠️ [${requestId}] No valid Spotify connection available, returning empty response`);
-      return NextResponse.json({
-        current_track: null,
-        queue: [],
-        device: null,
-        is_playing: false,
-        shuffle_state: false,
-        repeat_state: 'off',
-        spotify_connected: false,
-        debug: {
-          request_id: requestId,
-          has_valid_connection: false,
-          total_duration: Date.now() - startTime
-        }
-      });
+    // TEMPORARY DEBUG: Also check the old way to compare
+    try {
+      const directCheck = await spotifyService.isConnectedAndValid();
+      console.log(`🔍 [${requestId}] Direct isConnectedAndValid result: ${directCheck}`);
+      
+      if (hasValidConnection !== directCheck) {
+        console.log(`⚠️ [${requestId}] MISMATCH! Centralized: ${hasValidConnection}, Direct: ${directCheck}`);
+      }
+    } catch (directError) {
+      console.log(`❌ [${requestId}] Direct check failed: ${(directError as Error).message}`);
     }
+    
+    // TEMPORARY FIX: Always try Spotify APIs since they're working in the logs
+    // TODO: Fix centralized status system later
+    console.log(`🔍 [${requestId}] Attempting Spotify API calls (bypassing centralized check temporarily)`);
     
     // Get both current playback and queue - let Spotify API calls handle their own auth
     console.log(`🎵 [${requestId}] Fetching Spotify playback and queue data...`);
@@ -53,8 +47,10 @@ export async function GET(req: NextRequest) {
     
     let playbackState = null;
     let queueData = null;
-    let spotifyConnected = true; // Assume connected, let API calls determine if not
     let spotifyErrors = [];
+    
+    // TEMPORARY: Determine connection based on successful API calls
+    let spotifyConnected = true; // Will be set to false if API calls fail
     
     // Try getCurrentPlayback first
     console.log(`🎵 [${requestId}] Calling getCurrentPlayback()...`);
