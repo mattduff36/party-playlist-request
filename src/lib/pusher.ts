@@ -70,6 +70,26 @@ export interface PlaybackUpdateEvent {
   timestamp: number;
 }
 
+export interface TokenExpiredEvent {
+  reason: 'expired' | 'invalid' | 'revoked';
+  message: string;
+  timestamp: number;
+}
+
+export interface AdminLoginEvent {
+  admin_id: string;
+  username: string;
+  login_time: string;
+  message: string;
+}
+
+export interface AdminLogoutEvent {
+  admin_id?: string;
+  username?: string;
+  logout_time: string;
+  message: string;
+}
+
 // Pusher channels
 export const CHANNELS = {
   PARTY_PLAYLIST: 'party-playlist',
@@ -86,6 +106,9 @@ export const EVENTS = {
   STATS_UPDATE: 'stats-update',
   QUEUE_UPDATE: 'queue-update',
   PAGE_CONTROL_TOGGLE: 'page-control-toggle',
+  TOKEN_EXPIRED: 'token-expired',
+  ADMIN_LOGIN: 'admin-login',
+  ADMIN_LOGOUT: 'admin-logout',
 } as const;
 
 // Helper function to trigger events
@@ -158,4 +181,16 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent) => {
 
 export const triggerStatsUpdate = async (stats: any) => {
   await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.STATS_UPDATE, stats);
+};
+
+export const triggerTokenExpired = async (data: TokenExpiredEvent) => {
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.TOKEN_EXPIRED, data);
+};
+
+export const triggerAdminLogin = async (data: AdminLoginEvent) => {
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGIN, data);
+};
+
+export const triggerAdminLogout = async (data: AdminLogoutEvent) => {
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGOUT, data);
 };

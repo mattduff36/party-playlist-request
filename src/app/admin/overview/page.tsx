@@ -11,8 +11,25 @@ export default function OverviewPage() {
     eventSettings,
     handlePlaybackControl,
     handleQueueReorder,
-    loading
+    loading,
+    refreshPlaybackState
   } = useAdminData();
+
+  // Add delay for Spotify connection detection on fresh page loads
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  useEffect(() => {
+    // Add a 2-second delay on initial load to allow Spotify connection to be detected
+    const timer = setTimeout(() => {
+      setInitialLoadComplete(true);
+      // Refresh playback state after delay to get updated Spotify connection status
+      if (refreshPlaybackState) {
+        refreshPlaybackState();
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [refreshPlaybackState]);
 
   // Debug logging removed to prevent console spam
 
@@ -114,7 +131,15 @@ export default function OverviewPage() {
       <div className="bg-gray-800 rounded-lg p-4 md:p-6">
         <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Now Playing</h2>
         
-        {playbackState?.spotify_connected ? (
+        {!initialLoadComplete ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-300 mb-2">Checking Spotify Connection...</h3>
+            <p className="text-gray-500">
+              Please wait while we verify your Spotify connection.
+            </p>
+          </div>
+        ) : playbackState?.spotify_connected ? (
           <div className="space-y-4">
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg">
@@ -215,7 +240,12 @@ export default function OverviewPage() {
           </button>
         </div>
         
-        {playbackState?.spotify_connected && playbackState.queue && playbackState.queue.length > 0 ? (
+        {!initialLoadComplete ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading queue...</p>
+          </div>
+        ) : playbackState?.spotify_connected && playbackState.queue && playbackState.queue.length > 0 ? (
           <>
             <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
               {playbackState.queue.map((track: any, index: number) => (

@@ -43,12 +43,51 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   // Check authentication on mount and fetch page controls
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (token) {
-      setIsAuthenticated(true);
-      fetchPageControls();
-    }
-    setLoading(false);
+    const checkAuth = async () => {
+      const token = localStorage.getItem('admin_token');
+      if (token) {
+        try {
+          // Validate token with backend
+          const response = await fetch('/api/admin/page-controls', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (response.ok) {
+            setIsAuthenticated(true);
+            const data = await response.json();
+            setPageControls(data);
+          } else {
+            // Token is invalid/expired
+            console.log('Token validation failed, clearing token');
+            localStorage.removeItem('admin_token');
+            setIsAuthenticated(false);
+            
+            // Trigger token expiration event
+            try {
+              await fetch('/api/admin/token-expired', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  reason: 'expired',
+                  message: 'Admin token has expired. Please log in again.'
+                })
+              });
+            } catch (pusherError) {
+              console.error('Failed to trigger token expiration event:', pusherError);
+            }
+          }
+        } catch (error) {
+          console.error('Error validating token:', error);
+          localStorage.removeItem('admin_token');
+          setIsAuthenticated(false);
+        }
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   // Fetch page controls
@@ -206,6 +245,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       } catch (error) {
         console.error('Error disabling screens on logout:', error);
       }
+    }
+    
+    // Trigger logout Pusher event before clearing token
+    try {
+      await fetch('/api/admin/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      console.log('📡 Logout event triggered');
+    } catch (error) {
+      console.error('Failed to trigger logout event:', error);
+      // Don't fail logout if Pusher fails
     }
     
     // Clear authentication and redirect

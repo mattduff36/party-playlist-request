@@ -84,6 +84,26 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper function to handle token expiration
+  const handleTokenExpiration = useCallback(async (reason: string = 'expired') => {
+    console.log('Token expired, clearing token and notifying all devices');
+    localStorage.removeItem('admin_token');
+    
+    // Trigger Pusher event to notify all devices
+    try {
+      await fetch('/api/admin/token-expired', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason,
+          message: 'Admin token has expired. Please log in again.'
+        })
+      });
+    } catch (pusherError) {
+      console.error('Failed to trigger token expiration event:', pusherError);
+    }
+  }, []);
+
   // 🚀 PUSHER: Real-time updates
   const { isConnected, connectionState } = usePusher({
     onRequestApproved: (data: RequestApprovedEvent) => {
@@ -121,6 +141,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         console.log('📊 Admin: Stats unchanged, skipping update');
         return prev;
       });
+    },
+    onTokenExpired: (data: any) => {
+      console.log('🔒 Admin: Token expired via Pusher!', data);
+      // Clear the token and trigger logout on all devices
+      localStorage.removeItem('admin_token');
+      // The AdminLayout will handle the UI logout
     }
   });
 
@@ -142,11 +168,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           }
           return prev;
         });
+      } else if (response.status === 401) {
+        // Token expired
+        console.log('Token expired during requests fetch');
+        await handleTokenExpiration('expired');
       }
     } catch (error) {
       console.error('Failed to fetch requests:', error);
     }
-  }, []);
+  }, [handleTokenExpiration]);
 
   // Fetch playback state
   const refreshPlaybackState = useCallback(async () => {
@@ -191,11 +221,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           }
           return prev;
         });
+      } else if (response.status === 401) {
+        // Token expired
+        console.log('Token expired during playback state fetch');
+        await handleTokenExpiration('expired');
       }
     } catch (error) {
       console.error('Failed to fetch playback state:', error);
     }
-  }, []);
+  }, [handleTokenExpiration]);
 
   // Fetch event settings
   const refreshEventSettings = useCallback(async () => {
@@ -214,11 +248,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           }
           return prev;
         });
+      } else if (response.status === 401) {
+        // Token expired
+        console.log('Token expired during event settings fetch');
+        await handleTokenExpiration('expired');
       }
     } catch (error) {
       console.error('Failed to fetch event settings:', error);
     }
-  }, []);
+  }, [handleTokenExpiration]);
 
   // Fetch stats
   const refreshStats = useCallback(async () => {
@@ -237,11 +275,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           }
           return prev;
         });
+      } else if (response.status === 401) {
+        // Token expired
+        console.log('Token expired during stats fetch');
+        await handleTokenExpiration('expired');
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     }
-  }, []);
+  }, [handleTokenExpiration]);
 
   // Refresh all data
   const refreshData = useCallback(async () => {

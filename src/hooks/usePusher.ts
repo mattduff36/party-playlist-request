@@ -14,6 +14,9 @@ interface UsePusherOptions {
   onPageControlToggle?: (data: any) => void;
   onMessageUpdate?: (data: any) => void;
   onMessageCleared?: (data: any) => void;
+  onTokenExpired?: (data: any) => void;
+  onAdminLogin?: (data: any) => void;
+  onAdminLogout?: (data: any) => void;
 }
 
 export const usePusher = (options: UsePusherOptions = {}) => {
@@ -26,7 +29,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout]);
 
   useEffect(() => {
     // Create Pusher client
@@ -125,6 +128,27 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('📊 Pusher: Stats update', data);
       if (optionsRef.current.onStatsUpdate) {
         optionsRef.current.onStatsUpdate(data);
+      }
+    });
+
+    adminChannel.bind(EVENTS.TOKEN_EXPIRED, (data: any) => {
+      console.log('🔒 Pusher: Token expired', data);
+      if (optionsRef.current.onTokenExpired) {
+        optionsRef.current.onTokenExpired(data);
+      }
+    });
+
+    adminChannel.bind(EVENTS.ADMIN_LOGIN, (data: any) => {
+      console.log('🔐 Pusher: Admin login', data);
+      if (optionsRef.current.onAdminLogin) {
+        optionsRef.current.onAdminLogin(data);
+      }
+    });
+
+    adminChannel.bind(EVENTS.ADMIN_LOGOUT, (data: any) => {
+      console.log('🔐 Pusher: Admin logout', data);
+      if (optionsRef.current.onAdminLogout) {
+        optionsRef.current.onAdminLogout(data);
       }
     });
 

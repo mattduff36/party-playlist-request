@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { usePusher } from '@/hooks/usePusher';
 import { useLiveProgress } from '@/hooks/useLiveProgress';
 import { RequestApprovedEvent } from '@/lib/pusher';
+import PartyNotStarted from '@/components/PartyNotStarted';
 
 interface CurrentTrack {
   name: string;
@@ -65,6 +66,10 @@ export default function DisplayPage() {
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
+  const [adminLoggedIn, setAdminLoggedIn] = useState<boolean | null>(null); // null = loading, true/false = loaded
+  const [displayPageEnabled, setDisplayPageEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
+  const [mounted, setMounted] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
   const [displayEnabled, setDisplayEnabled] = useState(true);
@@ -81,6 +86,21 @@ export default function DisplayPage() {
     onPageControlToggle: (data: any) => {
       console.log('🔄 Display page control changed via Pusher:', data);
       checkDisplayStatus();
+      fetchPageControls(); // Refresh page controls and admin status
+    },
+    onAdminLogin: (data: any) => {
+      console.log('🔐 Admin login via Pusher:', data);
+      // Add small delay to allow admin panel to finish storing token
+      setTimeout(() => {
+        fetchPageControls(); // Refresh admin status and page controls
+      }, 100);
+    },
+    onAdminLogout: (data: any) => {
+      console.log('🔐 Admin logout via Pusher:', data);
+      // Add small delay to allow admin panel to finish clearing token
+      setTimeout(() => {
+        fetchPageControls(); // Refresh admin status and page controls
+      }, 100);
     },
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
@@ -398,6 +418,65 @@ export default function DisplayPage() {
     }
   };
 
+  const checkAdminLoginStatus = async () => {
+    try {
+      const response = await fetch('/api/admin/login-status');
+      if (response.ok) {
+        const data = await response.json();
+        setAdminLoggedIn(data.admin_logged_in);
+      } else {
+        setAdminLoggedIn(false);
+      }
+    } catch (error) {
+      console.error('Error fetching admin login status:', error);
+      setAdminLoggedIn(false);
+    }
+  };
+
+  const fetchPageControls = async () => {
+    try {
+      // Get admin token from localStorage
+      const token = localStorage.getItem('admin_token');
+      console.log('🔑 DisplayPage: Admin token found:', !!token);
+      
+      // First check if admin is logged in
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const adminResponse = await fetch('/api/admin/login-status', { headers });
+      
+      if (adminResponse.ok) {
+        const adminData = await adminResponse.json();
+        console.log('📊 DisplayPage: Admin login data:', adminData);
+        setAdminLoggedIn(adminData.admin_logged_in);
+        
+        if (adminData.admin_logged_in) {
+          // Admin is logged in, fetch page controls
+          const controlsResponse = await fetch('/api/admin/page-controls', { headers });
+          
+          if (controlsResponse.ok) {
+            const controlsData = await controlsResponse.json();
+            setDisplayPageEnabled(controlsData.display_page_enabled);
+          } else {
+            setDisplayPageEnabled(false);
+          }
+        } else {
+          // No admin logged in
+          setDisplayPageEnabled(null); // null means no admin
+        }
+      } else {
+        setAdminLoggedIn(false);
+        setDisplayPageEnabled(null);
+      }
+    } catch (error) {
+      console.error('Error fetching page controls:', error);
+      setAdminLoggedIn(false);
+      setDisplayPageEnabled(null);
+    }
+  };
+
   // Fetch all display data
   useEffect(() => {
     const fetchDisplayData = async () => {
@@ -452,9 +531,13 @@ export default function DisplayPage() {
       }
     };
 
+    console.log('🚀 DisplayPage: useEffect running - client-side JS is working!');
+    setMounted(true);
+    setIsClient(true);
     checkDisplayStatus();
     fetchDisplayData();
     fetchNotifications();
+    fetchPageControls(); // This will also check admin login status
     
     // No need for manual listeners - Pusher handles this automatically
     // The usePusher hook above already listens for page control changes
@@ -481,6 +564,45 @@ export default function DisplayPage() {
     return () => clearInterval(interval);
   }, [eventSettings]);
 
+  // Show loading state while mounting or checking admin status and page controls
+  if (!mounted || adminLoggedIn === null || (adminLoggedIn && displayPageEnabled === null)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-white text-xl">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show "party not started" message if no admin is logged in
+  if (!adminLoggedIn) {
+    return <PartyNotStarted variant="display" />;
+  }
+
+  // Show "display disabled" message if admin is logged in but display page is disabled
+  if (adminLoggedIn && !displayPageEnabled) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center px-4">
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+            🎉 Display Disabled
+          </h1>
+          <p className="text-2xl text-gray-300 mb-4">
+            The DJ has temporarily disabled the display screen
+          </p>
+          <p className="text-lg text-gray-400">
+            Check back in a few minutes!
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!eventSettings) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -489,7 +611,8 @@ export default function DisplayPage() {
     );
   }
 
-  // Show "display disabled" message if manually disabled by admin
+  // Admin status and page controls are handled above - this is the main display content
+
   if (!displayEnabled) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">

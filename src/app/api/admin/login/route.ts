@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { initializeDefaults } from '@/lib/db';
+import { triggerAdminLogin } from '@/lib/pusher';
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,6 +33,20 @@ export async function POST(req: NextRequest) {
       adminId: authResult.admin.id,
       username: authResult.admin.username
     });
+    
+    // Trigger Pusher event for admin login
+    try {
+      await triggerAdminLogin({
+        admin_id: authResult.admin.id,
+        username: authResult.admin.username,
+        login_time: new Date().toISOString(),
+        message: `Admin ${authResult.admin.username} logged in`
+      });
+      console.log('📡 Pusher: Admin login event sent');
+    } catch (pusherError) {
+      console.error('❌ Failed to send admin login Pusher event:', pusherError);
+      // Don't fail the login if Pusher fails
+    }
     
     return NextResponse.json({
       success: true,

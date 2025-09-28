@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 // Using simple icons instead of heroicons for now
 import axios from 'axios';
 import { usePusher } from '@/hooks/usePusher';
+import PartyNotStarted from '@/components/PartyNotStarted';
 
 interface Track {
   id: string;
@@ -70,6 +71,9 @@ export default function HomePage() {
   const [nickname, setNickname] = useState('');
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
   const [partyActive, setPartyActive] = useState(true); // Default to true to avoid flash
+  const [adminLoggedIn, setAdminLoggedIn] = useState<boolean | null>(null); // null = loading, true/false = loaded
+  const [requestsPageEnabled, setRequestsPageEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
+  const [mounted, setMounted] = useState(false);
   
   // User session and notification states
   const [userSessionId] = useState(() => {
@@ -102,6 +106,21 @@ export default function HomePage() {
     onPageControlToggle: (data: any) => {
       console.log('🔄 Page control changed via Pusher:', data);
       fetchPartyStatus();
+      fetchPageControls(); // Refresh page controls and admin status
+    },
+    onAdminLogin: (data: any) => {
+      console.log('🔐 Admin login via Pusher:', data);
+      // Add small delay to allow admin panel to finish storing token
+      setTimeout(() => {
+        fetchPageControls(); // Refresh admin status and page controls
+      }, 100);
+    },
+    onAdminLogout: (data: any) => {
+      console.log('🔐 Admin logout via Pusher:', data);
+      // Add small delay to allow admin panel to finish clearing token
+      setTimeout(() => {
+        fetchPageControls(); // Refresh admin status and page controls
+      }, 100);
     },
     onRequestApproved: (data: any) => {
       console.log('🎉 Request approved via Pusher:', data);
@@ -164,11 +183,104 @@ export default function HomePage() {
     }
   };
 
-  // Fetch event settings and party status on component mount
+  const fetchAdminLoginStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/admin/login-status`);
+      if (response.ok) {
+        const data = await response.json();
+        setAdminLoggedIn(data.admin_logged_in);
+      } else {
+        setAdminLoggedIn(false);
+      }
+    } catch (error) {
+      console.error('Error fetching admin login status:', error);
+      setAdminLoggedIn(false);
+    }
+  };
+
+  const fetchPageControls = async () => {
+    try {
+      console.log('🔄 HomePage: Fetching admin login status...');
+      
+      // Get admin token from localStorage
+      const token = localStorage.getItem('admin_token');
+      console.log('🔑 HomePage: Admin token found:', !!token);
+      
+      // First check if admin is logged in
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const adminResponse = await fetch(`${API_BASE}/admin/login-status`, { headers });
+      console.log('🌐 HomePage: Login API response status:', adminResponse.status);
+      
+      if (adminResponse.ok) {
+        const adminData = await adminResponse.json();
+        console.log('📊 HomePage: Admin login data:', adminData);
+        setAdminLoggedIn(adminData.admin_logged_in);
+        
+        if (adminData.admin_logged_in) {
+          // Admin is logged in, fetch page controls
+          console.log('🔄 HomePage: Admin is logged in, fetching page controls...');
+          const controlsResponse = await fetch(`${API_BASE}/admin/page-controls`, { headers });
+          console.log('🌐 HomePage: Page controls API response status:', controlsResponse.status);
+          
+          if (controlsResponse.ok) {
+            const controlsData = await controlsResponse.json();
+            console.log('📊 HomePage: Page controls data:', controlsData);
+            setRequestsPageEnabled(controlsData.requests_page_enabled);
+          } else {
+            console.error('❌ HomePage: Page controls API failed:', controlsResponse.status);
+            setRequestsPageEnabled(false);
+          }
+        } else {
+          // No admin logged in
+          console.log('🚫 HomePage: No admin logged in, setting page controls to null');
+          setRequestsPageEnabled(null); // null means no admin
+        }
+      } else {
+        console.error('❌ HomePage: Login status API failed:', adminResponse.status);
+        setAdminLoggedIn(false);
+        setRequestsPageEnabled(null);
+      }
+    } catch (error) {
+      console.error('❌ HomePage: Error fetching page controls:', error);
+      setAdminLoggedIn(false);
+      setRequestsPageEnabled(null);
+    }
+  };
+
+  // Set mounted flag when component mounts on client
   useEffect(() => {
+    console.log('🚀 HomePage: useEffect running - client-side JS is working!');
+    setMounted(true);
+  }, []);
+
+  // Fetch event settings, party status, and page controls on component mount
+  useEffect(() => {
+    if (!mounted) return;
+    
+    console.log('🔄 HomePage: Fetching data - mounted is true');
+    console.log('🔄 HomePage: Current states:', { adminLoggedIn, requestsPageEnabled });
     fetchEventSettings();
     fetchPartyStatus();
-  }, []);
+    fetchPageControls(); // This will also check admin login status
+  }, [mounted]);
+
+  // Force initial load if states are still null after a delay
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const timer = setTimeout(() => {
+      if (adminLoggedIn === null) {
+        console.log('🔄 Force loading page controls after timeout');
+        fetchPageControls();
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [adminLoggedIn, mounted]);
 
   // Check if query is a Spotify URL
   const isSpotifyUrl = (query: string): boolean => {
@@ -319,6 +431,57 @@ export default function HomePage() {
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  // Show loading state while mounting or checking admin status and page controls
+  if (!mounted || adminLoggedIn === null || (adminLoggedIn && requestsPageEnabled === null)) {
+    console.log('🔄 HomePage: Showing loading state', { mounted, adminLoggedIn, requestsPageEnabled });
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-white text-xl">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show "party not started" message if no admin is logged in
+  if (!adminLoggedIn) {
+    console.log('🎉 HomePage: Showing PartyNotStarted - no admin logged in');
+    return <PartyNotStarted variant="home" />;
+  }
+
+  // Show "requests disabled" message if admin is logged in but requests page is disabled
+  if (adminLoggedIn && !requestsPageEnabled) {
+    console.log('🚫 HomePage: Showing Requests Disabled - admin logged in but page disabled');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
+        <div className="text-center px-4">
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+            🎉 Requests Disabled
+          </h1>
+          <p className="text-2xl text-gray-300 mb-4">
+            The DJ has temporarily disabled song requests
+          </p>
+          <p className="text-lg text-gray-400">
+            Check back in a few minutes!
+          </p>
+        </div>
+
+        {/* Very faint admin link for beta testing - bottom right corner */}
+        <a
+          href="/admin"
+          className="absolute bottom-4 right-4 w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-sm opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
+          title="Admin Access (Beta Testing)"
+        >
+          admin
+        </a>
+      </div>
+    );
+  }
 
   // Show "party starting soon" only if manually disabled by admin
   if (!partyActive) {
