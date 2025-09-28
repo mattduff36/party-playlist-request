@@ -337,6 +337,69 @@ export default function HomePage() {
     return () => clearTimeout(mobileTimeout);
   }, [adminLoggedIn, mounted]);
 
+  // Force cache refresh for mobile browsers on mount
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      console.log('📱 Mobile device detected - checking cache status');
+      
+      // Add cache-busting timestamp to API calls for mobile
+      const timestamp = Date.now();
+      console.log('📱 Using cache-busting timestamp:', timestamp);
+      
+      // Force a hard refresh of page controls with cache busting
+      const fetchWithCacheBusting = async () => {
+        try {
+          const token = localStorage.getItem('admin_token');
+          const headers: HeadersInit = {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          
+          const response = await fetch(`${API_BASE}/admin/login-status?t=${timestamp}`, { 
+            headers,
+            cache: 'no-store'
+          });
+          
+          console.log('📱 Mobile cache-busted API response:', response.status);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('📱 Mobile cache-busted data:', data);
+            setAdminLoggedIn(data.admin_logged_in);
+            
+            if (data.admin_logged_in) {
+              const controlsResponse = await fetch(`${API_BASE}/admin/page-controls?t=${timestamp}`, { 
+                headers,
+                cache: 'no-store'
+              });
+              if (controlsResponse.ok) {
+                const controlsData = await controlsResponse.json();
+                setRequestsPageEnabled(controlsData.requests_page_enabled);
+              }
+            }
+          } else {
+            setAdminLoggedIn(false);
+            setRequestsPageEnabled(true);
+          }
+        } catch (error) {
+          console.error('📱 Mobile cache-busted fetch failed:', error);
+          setAdminLoggedIn(false);
+          setRequestsPageEnabled(true);
+        }
+      };
+      
+      // Delay the cache-busted fetch slightly to let normal fetch complete first
+      setTimeout(fetchWithCacheBusting, 2000);
+    }
+  }, [mounted]);
+
   // Check if query is a Spotify URL
   const isSpotifyUrl = (query: string): boolean => {
     return query.includes('open.spotify.com/track/') || query.includes('spotify:track:');
@@ -569,8 +632,18 @@ export default function HomePage() {
     );
   }
 
+  // Mobile debug panel (only show on mobile and in development)
+  const showMobileDebug = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && process.env.NODE_ENV === 'development';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative">
+    <>
+      {showMobileDebug && (
+        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white text-xs p-2 z-50">
+          <div>📱 Mobile Debug: Admin={String(adminLoggedIn)} | Requests={String(requestsPageEnabled)} | Mounted={String(mounted)}</div>
+          <div>Version: 1.0.1 | UA: {navigator.userAgent.substring(0, 50)}...</div>
+        </div>
+      )}
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative" style={{paddingTop: showMobileDebug ? '60px' : '0'}}>
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header - Less Prominent */}
@@ -759,6 +832,7 @@ export default function HomePage() {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
