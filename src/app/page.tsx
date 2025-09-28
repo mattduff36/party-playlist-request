@@ -182,9 +182,21 @@ export default function HomePage() {
     try {
       const response = await axios.get(`${API_BASE}/party-status`);
       setPartyActive(response.data.party_active);
+      
+      // For regular users, also get requests_page_enabled from party status
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        console.log('👤 HomePage: Regular user - getting requestsPageEnabled from party status:', response.data.requests_page_enabled);
+        setRequestsPageEnabled(response.data.requests_page_enabled);
+      }
     } catch (error) {
       console.error('Error fetching party status:', error);
       setPartyActive(false);
+      // For regular users, also set requestsPageEnabled to false on error
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        setRequestsPageEnabled(false);
+      }
     }
   };
 
@@ -212,7 +224,7 @@ export default function HomePage() {
       if (!token) {
         console.log('👤 HomePage: No admin token - this is a regular user, skipping admin checks');
         setAdminLoggedIn(false);
-        setRequestsPageEnabled(null); // Not applicable for regular users
+        // Don't set requestsPageEnabled here - it will be set by fetchPartyStatus
         return;
       }
       
