@@ -482,9 +482,9 @@ export default function HomePage() {
   // For devices without admin token (regular users): use partyActive (global database state)
   
   if (adminLoggedIn === true) {
-    // This device has an admin logged in - check their page controls
+    // ADMIN DEVICE: This device has an admin logged in - check their page controls
     if (requestsPageEnabled === false) {
-      console.log('🚫 HomePage: Showing Requests Disabled - admin logged in but requests disabled');
+      console.log('🚫 HomePage: Admin device - Requests Disabled');
       return (
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
           <div className="text-center px-4">
@@ -514,13 +514,48 @@ export default function HomePage() {
       );
     }
     // Admin logged in and requests enabled - show request form (continue to main UI)
+    console.log('✅ HomePage: Admin device - Requests Enabled, showing request form');
   } else {
-    // No local admin (regular user or admin logged out) - check global party status
+    // REGULAR USER DEVICE OR ADMIN LOGGED OUT: Check global party status
     if (!partyActive) {
-      console.log('🎉 HomePage: Showing PartyNotStarted - no global party activity');
+      console.log('🎉 HomePage: Regular user - Party Not Started');
       return <PartyNotStarted variant="home" />;
     }
-    // Global party is active - show request form (continue to main UI)
+    
+    // Party is active, but check if requests are disabled
+    if (requestsPageEnabled === false) {
+      console.log('🚫 HomePage: Regular user - Party active but Requests Disabled');
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
+          <div className="text-center px-4">
+            <div className="flex justify-center mb-6">
+              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+              🎉 Requests Disabled
+            </h1>
+            <p className="text-2xl text-gray-300 mb-4">
+              The DJ has temporarily disabled song requests
+            </p>
+            <p className="text-lg text-gray-400">
+              Check back in a few minutes!
+            </p>
+          </div>
+
+          {/* Very faint admin link for beta testing - bottom right corner */}
+          <a
+            href="/admin"
+            className="absolute bottom-4 right-4 w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-sm opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
+            title="Admin Access (Beta Testing)"
+          >
+            admin
+          </a>
+        </div>
+      );
+    }
+    
+    // Party is active and requests are enabled - show request form (continue to main UI)
+    console.log('✅ HomePage: Regular user - Party active and Requests Enabled, showing request form');
   }
 
   // At this point, either admin is logged in with requests enabled, or global party is active
