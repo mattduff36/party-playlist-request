@@ -64,6 +64,10 @@ export default function MobileCacheBuster() {
       };
       
       console.log('📱 MobileCacheBuster: Mobile optimizations applied');
+      console.log('📱 MobileCacheBuster: Current URL:', window.location.href);
+      console.log('📱 MobileCacheBuster: User Agent:', navigator.userAgent);
+      console.log('📱 MobileCacheBuster: localStorage keys:', Object.keys(localStorage));
+      console.log('📱 MobileCacheBuster: Fetch override active for API calls');
     }
   }, []);
 
