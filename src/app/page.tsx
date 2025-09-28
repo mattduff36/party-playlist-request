@@ -458,10 +458,14 @@ export default function HomePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Show loading state while mounting or waiting for Pusher stats
-  // For regular users: only wait for mounting and stats
-  // For admins: also wait for page controls if they're logged in
-  if (!mounted || stats === null || (adminLoggedIn && requestsPageEnabled === null)) {
+  // Show loading state while mounting or waiting for essential data
+  // For regular users: wait for mounting and either stats OR admin status
+  // For admins: wait for mounting and page controls
+  const isLoadingEssentialData = !mounted || 
+    (adminLoggedIn === null && stats === null) || 
+    (adminLoggedIn && requestsPageEnabled === null);
+    
+  if (isLoadingEssentialData) {
     console.log('🔄 HomePage: Showing loading state', { mounted, adminLoggedIn, requestsPageEnabled, hasStats: !!stats });
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -473,9 +477,11 @@ export default function HomePage() {
     );
   }
 
-  // STEP 1: Check if there's an admin logged in globally (using Pusher stats)
-  // If no global admin activity, show "Party Not Started"
-  if (!stats || !stats.spotify_connected) {
+  // STEP 1: Check if there's an admin logged in globally
+  // Priority: Local admin status > Pusher stats > fallback
+  const hasGlobalAdminActivity = adminLoggedIn || (stats && stats.spotify_connected);
+  
+  if (!hasGlobalAdminActivity) {
     console.log('🎉 HomePage: Showing PartyNotStarted - no admin logged in globally');
     return <PartyNotStarted variant="home" />;
   }
