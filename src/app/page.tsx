@@ -74,6 +74,7 @@ export default function HomePage() {
   const [adminLoggedIn, setAdminLoggedIn] = useState<boolean | null>(null); // null = loading, true/false = loaded
   const [requestsPageEnabled, setRequestsPageEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
   const [mounted, setMounted] = useState(false);
+  const [stats, setStats] = useState<any>(null); // Pusher stats to check global party status
   
   // User session and notification states
   const [userSessionId] = useState(() => {
@@ -149,6 +150,10 @@ export default function HomePage() {
           return newSet;
         });
       }
+    },
+    onStatsUpdate: (data: any) => {
+      console.log('📊 Stats update via Pusher:', data);
+      setStats(data);
     }
   });
 
@@ -551,8 +556,9 @@ export default function HomePage() {
   };
 
   // Show loading state while mounting or checking admin status and page controls
-  if (!mounted || adminLoggedIn === null || (adminLoggedIn && requestsPageEnabled === null)) {
-    console.log('🔄 HomePage: Showing loading state', { mounted, adminLoggedIn, requestsPageEnabled });
+  // Give a bit more time for Pusher stats to arrive
+  if (!mounted || (adminLoggedIn === null && stats === null) || (adminLoggedIn && requestsPageEnabled === null)) {
+    console.log('🔄 HomePage: Showing loading state', { mounted, adminLoggedIn, requestsPageEnabled, hasStats: !!stats });
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
@@ -563,10 +569,17 @@ export default function HomePage() {
     );
   }
 
-  // Show "party not started" message if no admin is logged in
-  if (!adminLoggedIn) {
-    console.log('🎉 HomePage: Showing PartyNotStarted - no admin logged in');
+  // Show "party not started" message if no admin is logged in ANYWHERE (global check)
+  // Check if we have any indication that the party is active (Pusher stats, etc.)
+  if (!adminLoggedIn && (!stats || !stats.spotify_connected)) {
+    console.log('🎉 HomePage: Showing PartyNotStarted - no admin logged in globally');
     return <PartyNotStarted variant="home" />;
+  }
+
+  // If no local admin but we have Pusher stats showing activity, allow requests
+  if (!adminLoggedIn && stats && stats.spotify_connected) {
+    console.log('🎵 HomePage: No local admin but party is active globally - showing request form');
+    // Continue to show the request form
   }
 
   // Show "requests disabled" message if admin is logged in but requests page is disabled
