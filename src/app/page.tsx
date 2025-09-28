@@ -478,16 +478,15 @@ export default function HomePage() {
   }
 
   // STEP 1: Check if there's an admin logged in globally
-  // Priority: Local admin status > Pusher stats > fallback
-  const hasGlobalAdminActivity = adminLoggedIn || (stats && stats.spotify_connected);
-  
-  if (!hasGlobalAdminActivity) {
+  // If adminLoggedIn is explicitly false (admin logged out), show Party Not Started
+  // If adminLoggedIn is null (regular user), check Pusher stats for global activity
+  if (adminLoggedIn === false || (adminLoggedIn === null && (!stats || !stats.spotify_connected))) {
     console.log('🎉 HomePage: Showing PartyNotStarted - no admin logged in globally');
     return <PartyNotStarted variant="home" />;
   }
 
-  // STEP 2: Admin is active globally, now check if requests are disabled
-  // Check the party status (which reflects admin's page control settings)
+  // STEP 2: Admin is active globally, now check if requests are disabled by admin
+  // At this point, we know there's an active admin session (either local or global)
   if (!partyActive) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
