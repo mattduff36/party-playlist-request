@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults } from '@/lib/db';
+import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults, getEventSettings, updateRequest } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
-import { triggerRequestSubmitted } from '@/lib/pusher';
+import { triggerRequestSubmitted, triggerRequestApproved } from '@/lib/pusher';
 
 // Rate limiting storage
 const rateLimitMap = new Map<string, { count: number; resetTime: number; lastRequest: number }>();
@@ -110,7 +110,17 @@ export async function POST(req: NextRequest) {
 
     const ipHash = hashIP(clientIP);
 
-    console.log(`💾 [${requestId}] Creating database request...`);
+    // Check if auto-approval is enabled
+    console.log(`⚙️ [${requestId}] Checking auto-approval settings...`);
+    const eventSettings = await getEventSettings();
+    const shouldAutoApprove = eventSettings.auto_approve;
+    console.log(`🔧 [${requestId}] Auto-approve setting: ${shouldAutoApprove}`);
+
+    // Determine initial status based on auto-approval setting
+    const initialStatus = shouldAutoApprove ? 'approved' : 'pending';
+    const approvedAt = shouldAutoApprove ? new Date().toISOString() : undefined;
+
+    console.log(`💾 [${requestId}] Creating database request with status: ${initialStatus}...`);
     const newRequest = await createRequest({
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
@@ -120,14 +130,36 @@ export async function POST(req: NextRequest) {
       requester_ip_hash: ipHash,
       requester_nickname: requester_nickname || undefined,
       user_session_id: user_session_id || undefined,
-      status: 'pending',
+      status: initialStatus,
+      approved_at: approvedAt,
+      approved_by: shouldAutoApprove ? 'Auto-Approval System' : undefined,
       spotify_added_to_queue: false,
       spotify_added_to_playlist: false
     });
-    console.log(`✅ [${requestId}] Request created successfully (${Date.now() - startTime}ms total)`);
+    console.log(`✅ [${requestId}] Request created successfully with status: ${initialStatus} (${Date.now() - startTime}ms total)`);
 
-    // 🚀 PUSHER: Trigger real-time event for new request submission
+    // 🎵 AUTO-QUEUE: If auto-approved, try to add to Spotify queue
+    let queueSuccess = false;
+    if (shouldAutoApprove) {
+      try {
+        console.log(`🎵 [${requestId}] Auto-approved request - adding to Spotify queue...`);
+        await spotifyService.addToQueue(trackInfo.uri);
+        queueSuccess = true;
+        console.log(`✅ [${requestId}] Successfully added to Spotify queue`);
+        
+        // Update the request to mark it as added to queue
+        await updateRequest(newRequest.id, {
+          spotify_added_to_queue: true
+        });
+      } catch (error) {
+        console.error(`❌ [${requestId}] Failed to add auto-approved request to Spotify queue:`, error);
+        // Don't fail the request if Spotify queue fails - the request is still approved
+      }
+    }
+
+    // 🚀 PUSHER: Trigger real-time events
     try {
+      // Always trigger request submitted event
       await triggerRequestSubmitted({
         id: newRequest.id,
         track_name: trackInfo.name,
@@ -138,14 +170,34 @@ export async function POST(req: NextRequest) {
         submitted_at: new Date().toISOString()
       });
       console.log(`🎉 Pusher event sent for new request: ${trackInfo.name}`);
+
+      // If auto-approved, also trigger approval event
+      if (shouldAutoApprove) {
+        await triggerRequestApproved({
+          id: newRequest.id,
+          track_name: trackInfo.name,
+          artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          album_name: trackInfo.album?.name || 'Unknown Album',
+          track_uri: trackInfo.uri,
+          requester_nickname: requester_nickname || 'Anonymous',
+          user_session_id: user_session_id || undefined,
+          play_next: false, // Default to false for auto-approved requests
+          approved_at: approvedAt!,
+          approved_by: 'Auto-Approval System'
+        });
+        console.log(`🎉 Auto-approval Pusher event sent for: ${trackInfo.name}`);
+      }
     } catch (pusherError) {
       console.error('❌ Failed to send Pusher event for new request:', pusherError);
       // Don't fail the request if Pusher fails
     }
 
+    // Use generic message - don't reveal auto-approval to users
+    const responseMessage = 'Your request has been submitted successfully!';
+
     return NextResponse.json({
       success: true,
-      message: 'Your request has been submitted successfully!',
+      message: responseMessage,
       request: {
         id: newRequest.id,
         track: {
@@ -154,7 +206,7 @@ export async function POST(req: NextRequest) {
           album: trackInfo.album,
           duration_ms: trackInfo.duration_ms
         },
-        status: 'pending'
+        status: 'pending' // Always show as pending to users, regardless of auto-approval
       }
     }, { status: 201 });
 
