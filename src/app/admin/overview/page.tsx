@@ -267,7 +267,7 @@ export default function OverviewPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-white text-sm truncate">
-                        {index + 1}. {track.name}
+                        {track.name}
                       </div>
                       <div className="text-xs text-gray-300 truncate">
                         {Array.isArray(track.artists) ? track.artists.join(', ') : (track.artists || 'Unknown Artist')}

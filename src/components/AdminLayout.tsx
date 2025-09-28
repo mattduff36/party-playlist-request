@@ -38,6 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     display_page_enabled: false
   });
   const [togglingPage, setTogglingPage] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   
   // Get admin data for Spotify connection status
   const { playbackState, stats, isConnected, connectionState } = useAdminData();
@@ -223,8 +224,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
   };
 
-  // Logout function
-  const handleLogout = async () => {
+  // Show logout confirmation modal
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  // Actual logout function
+  const performLogout = async (disconnectSpotify: boolean = false) => {
     const token = localStorage.getItem('admin_token');
     
     // Disable both screens when logging out for security
@@ -274,9 +280,32 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       // Don't fail logout if Pusher fails
     }
     
+    // Disconnect Spotify if requested
+    if (disconnectSpotify && token) {
+      try {
+        console.log('🔒 Disconnecting Spotify...');
+        const spotifyResponse = await fetch('/api/admin/spotify/reset', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (spotifyResponse.ok) {
+          console.log('✅ Spotify disconnected successfully');
+        } else {
+          console.error('Failed to disconnect Spotify:', spotifyResponse.status);
+        }
+      } catch (error) {
+        console.error('Error disconnecting Spotify:', error);
+      }
+    }
+    
     // Clear authentication and redirect
     localStorage.removeItem('admin_token');
     setIsAuthenticated(false);
+    setShowLogoutModal(false);
     router.push('/admin/overview');
   };
 
@@ -595,6 +624,41 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       <MobileNav />
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-4">Confirm Logout</h3>
+            <p className="text-gray-300 mb-6">
+              Do you also want to disconnect your Spotify account? This will log you out of Spotify and clear all connection data.
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+              <button
+                onClick={() => performLogout(true)}
+                className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+              >
+                Yes, disconnect Spotify and logout
+              </button>
+              
+              <button
+                onClick={() => performLogout(false)}
+                className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+              >
+                No, just logout (keep Spotify connected)
+              </button>
+              
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

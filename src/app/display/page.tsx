@@ -743,7 +743,7 @@ export default function DisplayPage() {
                         >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <div className="text-xl font-bold text-purple-300 flex-shrink-0 w-8">
-                          {index + 1}
+                          🎵
                         </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="text-lg font-semibold truncate">{song.name}</h4>
@@ -892,7 +892,7 @@ export default function DisplayPage() {
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold truncate text-sm">{index + 1}. {song.name}</div>
+                            <div className="font-semibold truncate text-sm">{song.name}</div>
                             <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
                           </div>
                           {song.requester_nickname && (
@@ -1008,7 +1008,7 @@ export default function DisplayPage() {
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold truncate">{index + 1}. {song.name}</div>
+                        <div className="font-semibold truncate">{song.name}</div>
                         <div className="text-sm text-gray-300 truncate">{song.artists.join(', ')}</div>
                       </div>
                       {song.requester_nickname && (
@@ -1118,7 +1118,7 @@ export default function DisplayPage() {
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold truncate text-xs">{index + 1}. {song.name}</div>
+                          <div className="font-semibold truncate text-xs">{song.name}</div>
                           <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
                         </div>
                         {song.requester_nickname && (
@@ -1234,7 +1234,7 @@ export default function DisplayPage() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{index + 1}. {song.name}</div>
+                      <div className="font-semibold truncate">{song.name}</div>
                       <div className="text-gray-300 truncate">{song.artists.join(', ')}</div>
                     </div>
                     {song.requester_nickname && (

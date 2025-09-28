@@ -205,92 +205,55 @@ export default function HomePage() {
 
   const fetchPageControls = async () => {
     try {
-      console.log('🔄 HomePage: Fetching admin login status...');
-      console.log('📱 HomePage: User agent:', navigator.userAgent);
-      console.log('📱 HomePage: Is mobile:', /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-      
-      // Get admin token from localStorage
+      // Check if there's an admin token - if not, this is a regular user
       const token = localStorage.getItem('admin_token');
       console.log('🔑 HomePage: Admin token found:', !!token);
-      console.log('🔑 HomePage: localStorage available:', typeof(Storage) !== "undefined");
       
-      // Mobile-specific localStorage debugging
-      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        console.log('🍎 HomePage: iOS device detected');
-        console.log('🍎 HomePage: localStorage keys:', Object.keys(localStorage));
-        if (token) {
-          console.log('🍎 HomePage: Token length:', token.length);
-          console.log('🍎 HomePage: Token starts with:', token.substring(0, 20) + '...');
-        }
+      if (!token) {
+        console.log('👤 HomePage: No admin token - this is a regular user, skipping admin checks');
+        setAdminLoggedIn(false);
+        setRequestsPageEnabled(null); // Not applicable for regular users
+        return;
       }
       
-      // First check if admin is logged in
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      console.log('🔄 HomePage: Admin token found - checking admin status...');
       
-      const adminResponse = await fetch(`${API_BASE}/admin/login-status`, { headers });
-      console.log('🌐 HomePage: Login API response status:', adminResponse.status);
+      // Check admin login status
+      const headers: HeadersInit = {
+        'Authorization': `Bearer ${token}`
+      };
       
-      if (adminResponse.ok) {
-        const adminData = await adminResponse.json();
-        console.log('📊 HomePage: Admin login data:', adminData);
-        setAdminLoggedIn(adminData.admin_logged_in);
+      const response = await fetch(`${API_BASE}/admin/login-status`, { headers });
+      console.log('🌐 HomePage: Login API response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 HomePage: Admin login data:', data);
+        setAdminLoggedIn(data.admin_logged_in);
         
-        if (adminData.admin_logged_in) {
-          // Admin is logged in, fetch page controls
-          console.log('🔄 HomePage: Admin is logged in, fetching page controls...');
+        // If admin is logged in, also fetch page controls
+        if (data.admin_logged_in) {
+          console.log('✅ HomePage: Admin logged in, fetching page controls...');
           const controlsResponse = await fetch(`${API_BASE}/admin/page-controls`, { headers });
-          console.log('🌐 HomePage: Page controls API response status:', controlsResponse.status);
-          
           if (controlsResponse.ok) {
             const controlsData = await controlsResponse.json();
             console.log('📊 HomePage: Page controls data:', controlsData);
             setRequestsPageEnabled(controlsData.requests_page_enabled);
           } else {
-            console.error('❌ HomePage: Page controls API failed:', controlsResponse.status);
-            setRequestsPageEnabled(false);
+            console.error('❌ HomePage: Failed to fetch page controls:', controlsResponse.status);
+            setRequestsPageEnabled(null);
           }
         } else {
-          // No admin logged in
-          console.log('🚫 HomePage: No admin logged in, setting page controls to null');
-          setRequestsPageEnabled(null); // null means no admin
+          console.log('🚫 HomePage: Admin token invalid, treating as regular user');
+          setRequestsPageEnabled(null);
         }
       } else {
-        console.error('❌ HomePage: Login status API failed:', adminResponse.status);
-        console.error('❌ HomePage: Response text:', await adminResponse.text().catch(() => 'Unable to read response'));
+        console.log('❌ HomePage: Login status check failed:', response.status);
         setAdminLoggedIn(false);
         setRequestsPageEnabled(null);
       }
     } catch (error) {
-      console.error('❌ HomePage: Error fetching page controls:', error);
-      console.error('❌ HomePage: Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      // Mobile-specific error handling
-      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        console.error('🍎 HomePage: iOS-specific error - this might be a CORS, network, or localStorage issue');
-        
-        // Try a simple fallback check without authentication
-        try {
-          const fallbackResponse = await fetch(`${API_BASE}/party-status`);
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('🍎 HomePage: Fallback party status:', fallbackData);
-            // If we can reach the API, assume no admin is logged in rather than showing loading forever
-            setAdminLoggedIn(false);
-            setRequestsPageEnabled(fallbackData.requests_page_enabled || false);
-            return;
-          }
-        } catch (fallbackError) {
-          console.error('🍎 HomePage: Fallback check also failed:', fallbackError);
-        }
-      }
-      
+      console.error('Error fetching admin login status:', error);
       setAdminLoggedIn(false);
       setRequestsPageEnabled(null);
     }
@@ -327,83 +290,23 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, [adminLoggedIn, mounted]);
 
-  // Mobile-specific timeout - if still loading after 5 seconds, assume no admin and show request form
+  // Mobile-specific timeout - if still loading after 5 seconds, assume regular user
   useEffect(() => {
     if (!mounted) return;
     
     const mobileTimeout = setTimeout(() => {
       if (adminLoggedIn === null && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        console.log('📱 Mobile timeout: Still loading after 5s, assuming no admin logged in');
+        console.log('📱 Mobile timeout: Still loading after 5s, assuming regular user (no admin token)');
         setAdminLoggedIn(false);
-        setRequestsPageEnabled(true); // Allow requests by default on mobile timeout
+        setRequestsPageEnabled(null); // Regular users don't need page controls
       }
     }, 5000);
 
     return () => clearTimeout(mobileTimeout);
   }, [adminLoggedIn, mounted]);
 
-  // Force cache refresh for mobile browsers on mount
-  useEffect(() => {
-    if (!mounted) return;
-    
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      console.log('📱 Mobile device detected - checking cache status');
-      
-      // Add cache-busting timestamp to API calls for mobile
-      const timestamp = Date.now();
-      console.log('📱 Using cache-busting timestamp:', timestamp);
-      
-      // Force a hard refresh of page controls with cache busting
-      const fetchWithCacheBusting = async () => {
-        try {
-          const token = localStorage.getItem('admin_token');
-          const headers: HeadersInit = {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          };
-          if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-          }
-          
-          const response = await fetch(`${API_BASE}/admin/login-status?t=${timestamp}`, { 
-            headers,
-            cache: 'no-store'
-          });
-          
-          console.log('📱 Mobile cache-busted API response:', response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📱 Mobile cache-busted data:', data);
-            setAdminLoggedIn(data.admin_logged_in);
-            
-            if (data.admin_logged_in) {
-              const controlsResponse = await fetch(`${API_BASE}/admin/page-controls?t=${timestamp}`, { 
-                headers,
-                cache: 'no-store'
-              });
-              if (controlsResponse.ok) {
-                const controlsData = await controlsResponse.json();
-                setRequestsPageEnabled(controlsData.requests_page_enabled);
-              }
-            }
-          } else {
-            setAdminLoggedIn(false);
-            setRequestsPageEnabled(true);
-          }
-        } catch (error) {
-          console.error('📱 Mobile cache-busted fetch failed:', error);
-          setAdminLoggedIn(false);
-          setRequestsPageEnabled(true);
-        }
-      };
-      
-      // Delay the cache-busted fetch slightly to let normal fetch complete first
-      setTimeout(fetchWithCacheBusting, 2000);
-    }
-  }, [mounted]);
+  // Mobile users are regular users - no special cache busting needed for admin checks
+  // The MobileCacheBuster component handles general cache issues
 
   // Check if query is a Spotify URL
   const isSpotifyUrl = (query: string): boolean => {
@@ -555,9 +458,10 @@ export default function HomePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Show loading state while mounting or checking admin status and page controls
-  // Give a bit more time for Pusher stats to arrive
-  if (!mounted || (adminLoggedIn === null && stats === null) || (adminLoggedIn && requestsPageEnabled === null)) {
+  // Show loading state while mounting or waiting for Pusher stats
+  // For regular users: only wait for mounting and stats
+  // For admins: also wait for page controls if they're logged in
+  if (!mounted || stats === null || (adminLoggedIn && requestsPageEnabled === null)) {
     console.log('🔄 HomePage: Showing loading state', { mounted, adminLoggedIn, requestsPageEnabled, hasStats: !!stats });
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -569,52 +473,15 @@ export default function HomePage() {
     );
   }
 
-  // Show "party not started" message if no admin is logged in ANYWHERE (global check)
-  // Check if we have any indication that the party is active (Pusher stats, etc.)
-  if (!adminLoggedIn && (!stats || !stats.spotify_connected)) {
+  // STEP 1: Check if there's an admin logged in globally (using Pusher stats)
+  // If no global admin activity, show "Party Not Started"
+  if (!stats || !stats.spotify_connected) {
     console.log('🎉 HomePage: Showing PartyNotStarted - no admin logged in globally');
     return <PartyNotStarted variant="home" />;
   }
 
-  // If no local admin but we have Pusher stats showing activity, allow requests
-  if (!adminLoggedIn && stats && stats.spotify_connected) {
-    console.log('🎵 HomePage: No local admin but party is active globally - showing request form');
-    // Continue to show the request form
-  }
-
-  // Show "requests disabled" message if admin is logged in but requests page is disabled
-  if (adminLoggedIn && !requestsPageEnabled) {
-    console.log('🚫 HomePage: Showing Requests Disabled - admin logged in but page disabled');
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
-        <div className="text-center px-4">
-          <div className="flex justify-center mb-6">
-            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-            🎉 Requests Disabled
-          </h1>
-          <p className="text-2xl text-gray-300 mb-4">
-            The DJ has temporarily disabled song requests
-          </p>
-          <p className="text-lg text-gray-400">
-            Check back in a few minutes!
-          </p>
-        </div>
-
-        {/* Very faint admin link for beta testing - bottom right corner */}
-        <a
-          href="/admin"
-          className="absolute bottom-4 right-4 w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-sm opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
-          title="Admin Access (Beta Testing)"
-        >
-          admin
-        </a>
-      </div>
-    );
-  }
-
-  // Show "party starting soon" only if manually disabled by admin
+  // STEP 2: Admin is active globally, now check if requests are disabled
+  // Check the party status (which reflects admin's page control settings)
   if (!partyActive) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
@@ -645,18 +512,8 @@ export default function HomePage() {
     );
   }
 
-  // Mobile debug panel (only show on mobile and in development)
-  const showMobileDebug = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && process.env.NODE_ENV === 'development';
-
   return (
-    <>
-      {showMobileDebug && (
-        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white text-xs p-2 z-50">
-          <div>📱 Mobile Debug: Admin={String(adminLoggedIn)} | Requests={String(requestsPageEnabled)} | Mounted={String(mounted)}</div>
-          <div>Version: 1.0.1 | UA: {navigator.userAgent.substring(0, 50)}...</div>
-        </div>
-      )}
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative" style={{paddingTop: showMobileDebug ? '60px' : '0'}}>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative">
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header - Less Prominent */}
@@ -845,7 +702,6 @@ export default function HomePage() {
           </div>
         ))}
       </div>
-      </div>
-    </>
+    </div>
   );
 }
