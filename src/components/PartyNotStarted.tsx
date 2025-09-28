@@ -25,7 +25,7 @@ const PartyNotStarted: React.FC<PartyNotStartedProps> = ({ variant }) => {
         
         {/* Status Message */}
         <p className="text-xl md:text-2xl text-gray-300 mb-8">
-          Your party hasn't started yet, or has already ended!
+          Requests are not active at the moment.
         </p>
 
         {/* Additional Info */}

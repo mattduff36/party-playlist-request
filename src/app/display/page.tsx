@@ -68,6 +68,7 @@ export default function DisplayPage() {
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
   const [adminLoggedIn, setAdminLoggedIn] = useState<boolean | null>(null); // null = loading, true/false = loaded
   const [displayPageEnabled, setDisplayPageEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
+  const [partyActive, setPartyActive] = useState<boolean | null>(null); // null = loading, true/false = loaded
   const [mounted, setMounted] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
@@ -411,10 +412,24 @@ export default function DisplayPage() {
       if (response.ok) {
         const data = await response.json();
         setDisplayEnabled(data.display_page_enabled);
+        setPartyActive(data.party_active);
+        
+        // For regular users (no admin token), also get displayPageEnabled from party status
+        const token = localStorage.getItem('admin_token');
+        if (!token) {
+          console.log('👤 DisplayPage: Regular user - getting displayPageEnabled from party status:', data.display_page_enabled);
+          setDisplayPageEnabled(data.display_page_enabled);
+        }
       }
     } catch (error) {
       console.error('Error checking display status:', error);
       setDisplayEnabled(false);
+      setPartyActive(false);
+      // For regular users, also set displayPageEnabled to false on error
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        setDisplayPageEnabled(false);
+      }
     }
   };
 
@@ -463,17 +478,24 @@ export default function DisplayPage() {
             setDisplayPageEnabled(false);
           }
         } else {
-          // No admin logged in
-          setDisplayPageEnabled(null); // null means no admin
+          // No admin logged in - don't set displayPageEnabled here, it will be set by checkDisplayStatus
         }
       } else {
         setAdminLoggedIn(false);
-        setDisplayPageEnabled(null);
+        // Don't set displayPageEnabled here for regular users
+        const token = localStorage.getItem('admin_token');
+        if (token) {
+          setDisplayPageEnabled(null);
+        }
       }
     } catch (error) {
       console.error('Error fetching page controls:', error);
       setAdminLoggedIn(false);
-      setDisplayPageEnabled(null);
+      // Don't set displayPageEnabled here for regular users
+      const token = localStorage.getItem('admin_token');
+      if (token) {
+        setDisplayPageEnabled(null);
+      }
     }
   };
 
@@ -565,7 +587,11 @@ export default function DisplayPage() {
   }, [eventSettings]);
 
   // Show loading state while mounting or checking admin status and page controls
-  if (!mounted || adminLoggedIn === null || (adminLoggedIn && displayPageEnabled === null)) {
+  const isLoadingEssentialData = !mounted || 
+    (adminLoggedIn === null && partyActive === null) || 
+    (adminLoggedIn && displayPageEnabled === null);
+    
+  if (isLoadingEssentialData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
@@ -576,32 +602,71 @@ export default function DisplayPage() {
     );
   }
 
-  // Show "party not started" message if no admin is logged in
-  if (!adminLoggedIn) {
-    return <PartyNotStarted variant="display" />;
+  // STEP 1: Check if there's an admin logged in and party is active
+  // For devices with admin token: use adminLoggedIn and displayPageEnabled
+  // For devices without admin token (regular users): use partyActive (global database state)
+  
+  if (adminLoggedIn === true) {
+    // ADMIN DEVICE: This device has an admin logged in - check their page controls
+    if (displayPageEnabled === false) {
+      console.log('🚫 DisplayPage: Admin device - Display Disabled');
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+          <div className="text-center px-4">
+            <div className="flex justify-center mb-6">
+              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+              🎉 Display Disabled
+            </h1>
+            <p className="text-2xl text-gray-300 mb-4">
+              The DJ has temporarily disabled the display screen
+            </p>
+            <p className="text-lg text-gray-400">
+              Check back in a few minutes!
+            </p>
+          </div>
+        </div>
+      );
+    }
+    // Admin logged in and display enabled - show display content (continue to main UI)
+    console.log('✅ DisplayPage: Admin device - Display Enabled, showing display content');
+  } else {
+    // REGULAR USER DEVICE OR ADMIN LOGGED OUT: Check global party status
+    if (!partyActive) {
+      console.log('🎉 DisplayPage: Regular user - Party Not Started');
+      return <PartyNotStarted variant="display" />;
+    }
+    
+    // Party is active, but check if display is disabled
+    if (displayPageEnabled === false) {
+      console.log('🚫 DisplayPage: Regular user - Party active but Display Disabled');
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+          <div className="text-center px-4">
+            <div className="flex justify-center mb-6">
+              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+              🎉 Display Disabled
+            </h1>
+            <p className="text-2xl text-gray-300 mb-4">
+              The DJ has temporarily disabled the display screen
+            </p>
+            <p className="text-lg text-gray-400">
+              Check back in a few minutes!
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    // Party is active and display is enabled - show display content (continue to main UI)
+    console.log('✅ DisplayPage: Regular user - Party active and Display Enabled, showing display content');
   }
 
-  // Show "display disabled" message if admin is logged in but display page is disabled
-  if (adminLoggedIn && !displayPageEnabled) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center px-4">
-          <div className="flex justify-center mb-6">
-            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-            🎉 Display Disabled
-          </h1>
-          <p className="text-2xl text-gray-300 mb-4">
-            The DJ has temporarily disabled the display screen
-          </p>
-          <p className="text-lg text-gray-400">
-            Check back in a few minutes!
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // At this point, either admin is logged in with display enabled, or global party is active with display enabled
+  // Continue to show the main display content UI
 
   if (!eventSettings) {
     return (
