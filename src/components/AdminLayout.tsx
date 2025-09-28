@@ -20,6 +20,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
+import { usePusher } from '@/hooks/usePusher';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -40,6 +41,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   
   // Get admin data for Spotify connection status
   const { playbackState, stats, isConnected, connectionState } = useAdminData();
+
+  // Pusher integration for real-time admin panel synchronization
+  usePusher({
+    onPageControlToggle: (data: any) => {
+      console.log('🎛️ AdminLayout: Page control toggle via Pusher:', data);
+      setPageControls({
+        requests_page_enabled: data.requests_page_enabled,
+        display_page_enabled: data.display_page_enabled
+      });
+    }
+  });
 
   // Check authentication on mount and fetch page controls
   useEffect(() => {

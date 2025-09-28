@@ -201,10 +201,23 @@ export default function HomePage() {
   const fetchPageControls = async () => {
     try {
       console.log('🔄 HomePage: Fetching admin login status...');
+      console.log('📱 HomePage: User agent:', navigator.userAgent);
+      console.log('📱 HomePage: Is mobile:', /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
       
       // Get admin token from localStorage
       const token = localStorage.getItem('admin_token');
       console.log('🔑 HomePage: Admin token found:', !!token);
+      console.log('🔑 HomePage: localStorage available:', typeof(Storage) !== "undefined");
+      
+      // Mobile-specific localStorage debugging
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        console.log('🍎 HomePage: iOS device detected');
+        console.log('🍎 HomePage: localStorage keys:', Object.keys(localStorage));
+        if (token) {
+          console.log('🍎 HomePage: Token length:', token.length);
+          console.log('🍎 HomePage: Token starts with:', token.substring(0, 20) + '...');
+        }
+      }
       
       // First check if admin is logged in
       const headers: HeadersInit = {};
@@ -241,11 +254,38 @@ export default function HomePage() {
         }
       } else {
         console.error('❌ HomePage: Login status API failed:', adminResponse.status);
+        console.error('❌ HomePage: Response text:', await adminResponse.text().catch(() => 'Unable to read response'));
         setAdminLoggedIn(false);
         setRequestsPageEnabled(null);
       }
     } catch (error) {
       console.error('❌ HomePage: Error fetching page controls:', error);
+      console.error('❌ HomePage: Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      // Mobile-specific error handling
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        console.error('🍎 HomePage: iOS-specific error - this might be a CORS, network, or localStorage issue');
+        
+        // Try a simple fallback check without authentication
+        try {
+          const fallbackResponse = await fetch(`${API_BASE}/party-status`);
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            console.log('🍎 HomePage: Fallback party status:', fallbackData);
+            // If we can reach the API, assume no admin is logged in rather than showing loading forever
+            setAdminLoggedIn(false);
+            setRequestsPageEnabled(fallbackData.requests_page_enabled || false);
+            return;
+          }
+        } catch (fallbackError) {
+          console.error('🍎 HomePage: Fallback check also failed:', fallbackError);
+        }
+      }
+      
       setAdminLoggedIn(false);
       setRequestsPageEnabled(null);
     }
@@ -280,6 +320,21 @@ export default function HomePage() {
     }, 1000);
 
     return () => clearTimeout(timer);
+  }, [adminLoggedIn, mounted]);
+
+  // Mobile-specific timeout - if still loading after 5 seconds, assume no admin and show request form
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const mobileTimeout = setTimeout(() => {
+      if (adminLoggedIn === null && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        console.log('📱 Mobile timeout: Still loading after 5s, assuming no admin logged in');
+        setAdminLoggedIn(false);
+        setRequestsPageEnabled(true); // Allow requests by default on mobile timeout
+      }
+    }, 5000);
+
+    return () => clearTimeout(mobileTimeout);
   }, [adminLoggedIn, mounted]);
 
   // Check if query is a Spotify URL
