@@ -47,7 +47,7 @@ const normalizePlaybackForComparison = (playback: any) => {
 // Spotify watcher function
 const watchSpotifyChanges = async () => {
   try {
-    console.log('🎵 Spotify watcher: Checking for changes...');
+      console.log('🎵 Spotify watcher: Checking for changes...', new Date().toISOString());
     
     // Check if Spotify is connected using centralized status
     const isConnected = await getSpotifyConnectionStatus();
@@ -61,6 +61,14 @@ const watchSpotifyChanges = async () => {
         spotifyService.getCurrentPlayback().catch(() => null),
         spotifyService.getQueue().catch(() => null)
       ]);
+
+      // Debug: Log current playback state
+      console.log('🎵 Current playback state:', {
+        is_playing: currentPlayback?.is_playing,
+        track: currentPlayback?.item?.name,
+        device: currentPlayback?.device?.name,
+        hasPlayback: !!currentPlayback
+      });
 
       // Check if anything meaningful changed (excluding progress_ms)
       const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
@@ -79,6 +87,15 @@ const watchSpotifyChanges = async () => {
       };
       
       const hasCriticalChanges = Object.values(criticalChanges).some(Boolean);
+
+      // Debug: Always log critical changes check
+      console.log('🔍 Critical changes check:', {
+        lastIsPlaying: lastPlaybackState?.is_playing,
+        currentIsPlaying: currentPlayback?.is_playing,
+        isPlayingChanged: criticalChanges.isPlayingChanged,
+        hasCriticalChanges,
+        criticalChanges
+      });
 
       if (playbackChanged || queueChanged || hasCriticalChanges) {
         console.log('🎵 Spotify watcher: MEANINGFUL changes detected, triggering Pusher event');
@@ -109,12 +126,23 @@ const watchSpotifyChanges = async () => {
           };
         });
 
+        // Format current track data properly
+        const formattedCurrentTrack = currentPlayback?.item ? {
+          name: currentPlayback.item.name,
+          artists: currentPlayback.item.artists?.map((a: any) => a.name) || [],
+          album: currentPlayback.item.album,
+          duration_ms: currentPlayback.item.duration_ms,
+          uri: currentPlayback.item.uri,
+          id: currentPlayback.item.id
+        } : null;
+
         // Trigger Pusher event with enhanced data
         await triggerPlaybackUpdate({
-          current_track: currentPlayback?.item || null,
+          current_track: formattedCurrentTrack,
           queue: enhancedQueue,
           is_playing: currentPlayback?.is_playing || false,
           progress_ms: currentPlayback?.progress_ms || 0,
+          device: currentPlayback?.device || null,
           timestamp: Date.now()
         });
 
@@ -167,7 +195,7 @@ export async function POST(req: NextRequest) {
     }
     
     const body = await req.json();
-    const { action, interval = 5000 } = body; // Default to 5 seconds instead of 2
+    const { action, interval = 2000 } = body; // Default to 2 seconds for real-time updates
 
     if (action === 'start') {
       if (watcherInterval) {
@@ -237,7 +265,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         running: !!watcherInterval,
         lastUpdate: Date.now(),
-        interval: watcherInterval ? 5000 : null
+        interval: watcherInterval ? 2000 : null
       });
 
   } catch (error) {

@@ -139,8 +139,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           spotify_connected: true, // If we're getting playback updates, we're connected
           is_playing: data.is_playing || false,
           track_name: data.current_track?.name,
-          artist_name: data.current_track?.artists?.join(', '),
-          album_name: data.current_track?.album?.name,
+          artist_name: Array.isArray(data.current_track?.artists) 
+            ? data.current_track.artists.join(', ')
+            : data.current_track?.artists || '',
+          album_name: data.current_track?.album?.name || data.current_track?.album || '',
           duration_ms: data.current_track?.duration_ms,
           progress_ms: data.progress_ms || 0,
           image_url: data.current_track?.album?.images?.[1]?.url || data.current_track?.album?.images?.[0]?.url,
@@ -405,7 +407,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ action: 'start', interval: 5000 })
+            body: JSON.stringify({ action: 'start', interval: 2000 })
           });
           console.log('🎵 Spotify watcher started');
         }
