@@ -64,6 +64,7 @@ interface AdminDataContextType {
   connectionState: string;
   handlePlaybackControl: (action: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  refreshPlaybackState: () => Promise<void>;
   updateEventSettings: (settings: Partial<EventSettings>) => Promise<void>;
   handleSpotifyDisconnect: () => Promise<void>;
   handleApprove: (id: string, playNext?: boolean) => Promise<void>;
@@ -129,6 +130,37 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       // Refresh requests and stats to show the new pending request
       refreshRequests();
       refreshStats();
+    },
+    onPlaybackUpdate: (data: any) => {
+      console.log('🎵 Admin: Playback update via Pusher!', data);
+      // Update playback state with the new data from Spotify watcher
+      if (data.current_track || data.queue || data.is_playing !== undefined) {
+        const newPlaybackState = {
+          spotify_connected: true, // If we're getting playback updates, we're connected
+          is_playing: data.is_playing || false,
+          track_name: data.current_track?.name,
+          artist_name: data.current_track?.artists?.join(', '),
+          album_name: data.current_track?.album?.name,
+          duration_ms: data.current_track?.duration_ms,
+          progress_ms: data.progress_ms || 0,
+          image_url: data.current_track?.album?.images?.[1]?.url || data.current_track?.album?.images?.[0]?.url,
+          device_name: data.device?.name,
+          volume_percent: data.device?.volume_percent,
+          queue: data.queue || []
+        };
+        
+        setPlaybackState(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(newPlaybackState)) {
+            console.log('🎵 Admin: Updating playback state from Pusher:', {
+              track_name: newPlaybackState.track_name,
+              is_playing: newPlaybackState.is_playing,
+              queue_length: newPlaybackState.queue.length
+            });
+            return newPlaybackState;
+          }
+          return prev;
+        });
+      }
     },
     onStatsUpdate: (data: any) => {
       console.log('📊 Admin: Stats updated via Pusher!', data);
@@ -581,6 +613,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     connectionState,
     handlePlaybackControl,
     refreshData,
+    refreshPlaybackState,
     updateEventSettings,
     handleSpotifyDisconnect,
     handleApprove,
