@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { Eye, EyeOff, Monitor, Smartphone, ToggleLeft, ToggleRight } from 'lucide-react';
-import { useGlobalEvent } from '@/lib/state/global-event';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface PageControlPanelProps {
   className?: string;

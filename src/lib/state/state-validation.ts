@@ -1,4 +1,4 @@
-import type { GlobalEventState, EventState, EventConfig } from './global-event';
+import type { GlobalEventState, EventState, EventConfig } from './global-event.tsx';
 import type { OptimisticUpdate } from './optimistic-updates';
 
 /**

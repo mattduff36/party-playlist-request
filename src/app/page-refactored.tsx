@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { usePusher } from '@/hooks/usePusher';
-import { useGlobalEvent, usePageState, useEventConfig, useIsLoading, useError } from '@/lib/state/global-event';
+import { useGlobalEvent, usePageState, useEventConfig, useIsLoading, useError } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import PagesDisabled from '@/components/PagesDisabled';
 import LoadingState from '@/components/LoadingState';

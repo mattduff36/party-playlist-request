@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { Power, Play, Pause, Wifi, WifiOff, AlertCircle } from 'lucide-react';
-import { useGlobalEvent } from '@/lib/state/global-event';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface StateControlPanelProps {
   className?: string;

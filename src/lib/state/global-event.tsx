@@ -1,6 +1,6 @@
-import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { db } from '../db';
-import { events, type Event, type EventStatus, type EventConfig } from '../db/schema';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { db } from '@/lib/db';
+import { events, type Event, type EventStatus, type EventConfig } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**

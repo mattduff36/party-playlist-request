@@ -6,18 +6,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authService } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { events, requests, spotifyStatus } from '@/lib/db/schema';
+import { events, requests, spotify_tokens } from '@/lib/db/schema';
 import { eq, and, gt, desc } from 'drizzle-orm';
 import { PusherEvent, generateEventId, generateEventVersion } from '@/lib/pusher/events';
 
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    try {
+      await authService.requireAdminAuth(request);
+    } catch (error) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
     // Get current Spotify status
     const spotifyData = await db
       .select()
-      .from(spotifyStatus)
-      .where(eq(spotifyStatus.eventId, eventId))
+      .from(spotify_tokens)
+      .where(eq(spotify_tokens.admin_id, event.active_admin_id))
       .limit(1);
 
     // Convert to Pusher events
@@ -86,20 +86,18 @@ export async function GET(request: NextRequest) {
 
     // Add Spotify status event if available
     if (spotifyData.length > 0) {
-      const status = spotifyData[0];
+      const token = spotifyData[0];
       pusherEvents.push({
         id: generateEventId(),
-        action: 'playback-update',
-        timestamp: status.updatedAt.getTime(),
+        action: 'spotify-token-update',
+        timestamp: token.updated_at.getTime(),
         version: generateEventVersion(),
         eventId,
         payload: {
-          isPlaying: status.isPlaying,
-          currentTrack: status.currentTrack,
-          progress: status.progress,
-          volume: status.volume,
-          device: status.device,
-          updatedAt: status.updatedAt
+          hasToken: !!token.access_token,
+          expiresAt: token.expires_at,
+          scope: token.scope,
+          updatedAt: token.updated_at
         }
       });
     }

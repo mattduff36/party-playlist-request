@@ -1,7 +1,8 @@
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { Pool } from 'pg';
 import * as schema from './schema';
+import { getConnectionPoolManager, PoolType } from './connection-pool';
+import { getDatabaseService } from './database-service';
 
 // Environment variables
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -14,24 +15,14 @@ if (!DATABASE_URL) {
 // Edge-compatible database connection (for API routes)
 export const db = drizzle(neon(NEON_DATABASE_URL!), { schema });
 
-// Node.js database connection (for server-side operations)
-let pool: Pool | null = null;
+// Connection pool manager (for server-side operations)
+export const poolManager = getConnectionPoolManager();
 
-export function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
-  }
-  return pool;
-}
+// Database service with connection pooling
+export const dbService = getDatabaseService();
 
-// Node.js database connection with Drizzle
-export const dbNode = drizzle(getPool() as any, { schema });
+// Legacy compatibility - use the new database service
+export const dbNode = dbService;
 
 // Export schema for use in other files
 export * from './schema';

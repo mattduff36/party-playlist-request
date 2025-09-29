@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GlobalEventState } from './global-event';
+import type { GlobalEventState } from './global-event.tsx';
 import type { OptimisticUpdate } from './optimistic-updates';
 
 /**

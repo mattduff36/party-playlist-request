@@ -22,7 +22,7 @@ import {
   EventHandler, 
   EventAction 
 } from '@/lib/pusher/events';
-import { useGlobalEvent } from '@/lib/state/global-event';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 // Hook options
 interface UseEventManagerOptions {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
-import { GlobalEventProvider, useGlobalEvent, EventStateMachine, type GlobalEventState, type EventState } from './global-event';
+import { GlobalEventProvider, useGlobalEvent, EventStateMachine, type GlobalEventState, type EventState } from './global-event.tsx';
 
 // Mock database
 vi.mock('../db', () => ({

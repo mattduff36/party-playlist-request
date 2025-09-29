@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { db } from '../db';
 import { events, type Event, type EventStatus, type EventConfig } from '../db/schema';
 import { eq } from 'drizzle-orm';
-import type { GlobalEventState } from './global-event';
+import type { GlobalEventState } from './global-event.tsx';
 import { OptimisticUpdateManager, type OptimisticUpdate } from './optimistic-updates';
 
 /**

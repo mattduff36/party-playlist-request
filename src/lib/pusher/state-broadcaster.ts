@@ -7,7 +7,7 @@
 
 import { broadcastEvent } from './broadcaster';
 import { EventAction, PusherEvent } from './events';
-import { getGlobalEventActions } from '@/lib/state/global-event';
+import { getGlobalEventActions } from '@/lib/state/global-event-client';
 
 // State change types
 export type StateChangeType = 
