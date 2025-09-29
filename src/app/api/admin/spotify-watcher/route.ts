@@ -17,13 +17,29 @@ const normalizePlaybackForComparison = (playback: any) => {
   const { progress_ms, ...normalized } = playback;
   return {
     ...normalized,
+    // Include all important playback state properties
+    is_playing: playback.is_playing,
+    device: playback.device ? {
+      id: playback.device.id,
+      name: playback.device.name,
+      type: playback.device.type,
+      volume_percent: playback.device.volume_percent
+    } : null,
     item: playback.item ? {
-      ...playback.item,
-      // Only include stable track properties
+      // Include all track properties that matter for change detection
       id: playback.item.id,
       name: playback.item.name,
       uri: playback.item.uri,
-      duration_ms: playback.item.duration_ms
+      duration_ms: playback.item.duration_ms,
+      artists: playback.item.artists?.map((a: any) => ({
+        id: a.id,
+        name: a.name
+      })) || [],
+      album: playback.item.album ? {
+        id: playback.item.album.id,
+        name: playback.item.album.name,
+        images: playback.item.album.images || []
+      } : null
     } : null
   };
 };
@@ -52,11 +68,32 @@ const watchSpotifyChanges = async () => {
       
       const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
       const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(lastQueueState);
+      
+      // Additional checks for critical state changes that should always trigger updates
+      const criticalChanges = {
+        isPlayingChanged: lastPlaybackState?.is_playing !== currentPlayback?.is_playing,
+        trackChanged: lastPlaybackState?.item?.id !== currentPlayback?.item?.id,
+        deviceChanged: lastPlaybackState?.device?.id !== currentPlayback?.device?.id,
+        hasNewPlayback: !lastPlaybackState && currentPlayback,
+        lostPlayback: lastPlaybackState && !currentPlayback
+      };
+      
+      const hasCriticalChanges = Object.values(criticalChanges).some(Boolean);
 
-      if (playbackChanged || queueChanged) {
+      if (playbackChanged || queueChanged || hasCriticalChanges) {
         console.log('🎵 Spotify watcher: MEANINGFUL changes detected, triggering Pusher event');
         console.log('🔍 Playback changed:', playbackChanged);
         console.log('🔍 Queue changed:', queueChanged);
+        console.log('🔍 Critical changes:', hasCriticalChanges);
+        
+        // Debug: Log what specifically changed
+        if (playbackChanged || hasCriticalChanges) {
+          console.log('🎵 Playback change details:');
+          console.log('  - is_playing:', lastPlaybackState?.is_playing, '->', currentPlayback?.is_playing);
+          console.log('  - track:', lastPlaybackState?.item?.name, '->', currentPlayback?.item?.name);
+          console.log('  - device:', lastPlaybackState?.device?.name, '->', currentPlayback?.device?.name);
+          console.log('  - critical changes:', criticalChanges);
+        }
         
         // Get approved requests to match with queue items
         const approvedRequests = await getAllRequests().then(requests => 
