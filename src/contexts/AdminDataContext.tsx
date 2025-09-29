@@ -415,12 +415,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Initial data load and start Spotify watcher
   useEffect(() => {
     const initializeAdmin = async () => {
-      await refreshData();
+      console.log('🔄 AdminDataContext: Initializing admin data and Spotify watcher...');
+      setLoading(true);
+      await Promise.all([
+        refreshRequests(),
+        refreshPlaybackState(),
+        refreshEventSettings(),
+        refreshStats()
+      ]);
+      setLoading(false);
       
       // Start Spotify watcher for real-time Pusher events
       try {
         const token = localStorage.getItem('admin_token');
         if (token) {
+          console.log('🎵 Starting Spotify watcher with admin token...');
           await fetch('/api/admin/spotify-watcher', {
             method: 'POST',
             headers: { 
@@ -430,6 +439,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ action: 'start', interval: 2000 })
           });
           console.log('🎵 Spotify watcher started with 2s interval');
+        } else {
+          console.log('⚠️ No admin token found, skipping Spotify watcher start');
         }
       } catch (error) {
         console.error('Failed to start Spotify watcher:', error);
@@ -437,7 +448,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     };
 
     initializeAdmin();
-  }, [refreshData]);
+  }, [refreshRequests, refreshPlaybackState, refreshEventSettings, refreshStats]); // Stable dependencies
 
   // No more periodic refresh - Pusher handles real-time updates!
 
