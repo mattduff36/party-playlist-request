@@ -5,20 +5,20 @@
  * transaction management, and error handling.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { DatabaseService } from '../database-service';
 import { PoolType } from '../connection-pool';
 
 // Mock connection pool manager
 const mockPoolManager = {
-  getDrizzle: vi.fn(),
-  executeWithPool: vi.fn(),
-  isHealthy: vi.fn().mockReturnValue(true),
-  getStats: vi.fn().mockReturnValue(new Map()),
+  getDrizzle: jest.fn(),
+  executeWithPool: jest.fn(),
+  isHealthy: jest.fn().mockReturnValue(true),
+  getStats: jest.fn().mockReturnValue(new Map()),
 };
 
-vi.mock('../connection-pool', () => ({
-  getConnectionPoolManager: vi.fn(() => mockPoolManager),
+jest.mock('../connection-pool', () => ({
+  getConnectionPoolManager: jest.fn(() => mockPoolManager),
   PoolType: {
     READ_ONLY: 'read-only',
     WRITE_ONLY: 'write-only',
@@ -26,33 +26,33 @@ vi.mock('../connection-pool', () => ({
     ADMIN: 'admin',
     ANALYTICS: 'analytics',
   },
-  executeWithPool: vi.fn(),
+  executeWithPool: jest.fn(),
 }));
 
 // Mock drizzle operations
 const mockDrizzle = {
-  select: vi.fn().mockReturnThis(),
-  from: vi.fn().mockReturnThis(),
-  where: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnThis(),
-  orderBy: vi.fn().mockReturnThis(),
-  insert: vi.fn().mockReturnThis(),
-  values: vi.fn().mockReturnThis(),
-  returning: vi.fn().mockResolvedValue([{ id: 'test-id', name: 'test' }]),
-  update: vi.fn().mockReturnThis(),
-  set: vi.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  insert: jest.fn().mockReturnThis(),
+  values: jest.fn().mockReturnThis(),
+  returning: jest.fn().mockResolvedValue([{ id: 'test-id', name: 'test' }]),
+  update: jest.fn().mockReturnThis(),
+  set: jest.fn().mockReturnThis(),
 };
 
 describe('DatabaseService', () => {
   let dbService: DatabaseService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     mockPoolManager.getDrizzle.mockReturnValue(mockDrizzle);
     mockPoolManager.executeWithPool.mockImplementation(async (poolType, operation) => {
       const mockClient = {
-        query: vi.fn().mockResolvedValue({ rows: [{ test: 'data' }] }),
-        release: vi.fn(),
+        query: jest.fn().mockResolvedValue({ rows: [{ test: 'data' }] }),
+        release: jest.fn(),
       };
       return await operation(mockClient);
     });
@@ -272,11 +272,11 @@ describe('DatabaseService', () => {
   describe('Transaction Management', () => {
     it('should execute transaction', async () => {
       const mockClient = {
-        query: vi.fn()
+        query: jest.fn()
           .mockResolvedValueOnce(undefined) // BEGIN
           .mockResolvedValueOnce({ rows: [{ id: 'test' }] }) // Query
           .mockResolvedValueOnce(undefined), // COMMIT
-        release: vi.fn(),
+        release: jest.fn(),
       };
 
       mockPoolManager.executeWithPool.mockImplementation(async (poolType, operation) => {
@@ -298,11 +298,11 @@ describe('DatabaseService', () => {
 
     it('should rollback transaction on error', async () => {
       const mockClient = {
-        query: vi.fn()
+        query: jest.fn()
           .mockResolvedValueOnce(undefined) // BEGIN
           .mockRejectedValueOnce(new Error('Query failed')) // Query fails
           .mockResolvedValueOnce(undefined), // ROLLBACK
-        release: vi.fn(),
+        release: jest.fn(),
       };
 
       mockPoolManager.executeWithPool.mockImplementation(async (poolType, operation) => {

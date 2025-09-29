@@ -28,7 +28,19 @@
     "db:create-constraints": "tsx src/lib/db/constraints.ts create",
     "db:validate-data": "tsx src/lib/db/constraints.ts validate",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:unit": "node scripts/test-runner.js unit",
+    "test:integration": "node scripts/test-runner.js integration",
+    "test:components": "node scripts/test-runner.js components",
+    "test:all": "node scripts/test-runner.js all",
+    "test:watch": "node scripts/test-runner.js all --watch",
+    "test:coverage": "node scripts/test-runner.js all --coverage",
+    "test:comprehensive": "node scripts/test-runner.js integration --coverage",
+    "test:load": "node scripts/load-test-runner.js",
+    "test:load:basic": "node scripts/load-test-runner.js basicLoad",
+    "test:load:spike": "node scripts/load-test-runner.js spikeTest",
+    "test:load:stress": "node scripts/load-test-runner.js stressTest",
+    "test:load:endurance": "node scripts/load-test-runner.js enduranceTest",
+    "test:performance": "npm test -- --config jest.config.integration.js --testPathPatterns=src/__tests__/performance.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
