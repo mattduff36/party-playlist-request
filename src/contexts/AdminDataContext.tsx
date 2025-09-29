@@ -106,6 +106,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 🚀 PUSHER: Real-time updates
+  console.log('🔄 AdminDataContext: Setting up Pusher connection...');
   const { isConnected, connectionState } = usePusher({
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 Admin: Request approved via Pusher!', data);
@@ -133,7 +134,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     },
     onPlaybackUpdate: (data: any) => {
       console.log('🎵 Admin: Playback update via Pusher!', data);
+      console.log('🎵 Admin: Current playback state before update:', playbackState);
       // Update playback state with the new data from Spotify watcher
+      console.log('🎵 Admin: Checking if should update playback state:', {
+        has_current_track: !!data.current_track,
+        has_queue: !!data.queue,
+        has_is_playing: data.is_playing !== undefined,
+        is_playing_value: data.is_playing
+      });
+      
       if (data.current_track || data.queue || data.is_playing !== undefined) {
         const newPlaybackState = {
           spotify_connected: true, // If we're getting playback updates, we're connected
@@ -158,7 +167,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               is_playing: newPlaybackState.is_playing,
               queue_length: newPlaybackState.queue.length
             });
+            console.log('🎵 Admin: New playback state:', newPlaybackState);
             return newPlaybackState;
+          } else {
+            console.log('🎵 Admin: Playback state unchanged, skipping update');
           }
           return prev;
         });
@@ -183,6 +195,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       // The AdminLayout will handle the UI logout
     }
   });
+
+  // Log Pusher connection state changes
+  useEffect(() => {
+    console.log('🔄 AdminDataContext: Pusher connection state changed:', {
+      isConnected,
+      connectionState
+    });
+  }, [isConnected, connectionState]);
 
   // Fetch requests
   const refreshRequests = useCallback(async () => {
@@ -409,7 +429,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             },
             body: JSON.stringify({ action: 'start', interval: 2000 })
           });
-          console.log('🎵 Spotify watcher started');
+          console.log('🎵 Spotify watcher started with 2s interval');
         }
       } catch (error) {
         console.error('Failed to start Spotify watcher:', error);
