@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+'use client';
+
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, ReactNode } from 'react';
+import { useOptionalAdminAuth } from '@/contexts/AdminAuthContext';
 
 /**
  * Client-side Global Event State Management
@@ -6,6 +9,11 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
  * This module provides a client-side state management system for the party playlist
  * application. It manages the global event state (offline/standby/live) and provides
  * hooks for components to access and update the state.
+ * 
+ * AUTHENTICATION:
+ * - Public pages (home, display) use this WITHOUT admin auth - read-only GET requests
+ * - Admin pages use this WITH admin auth - authenticated POST/PUT requests
+ * - Auth token is provided via AdminAuthContext (optional)
  */
 
 // Event State Machine Types
@@ -56,11 +64,18 @@ export type GlobalEventAction =
   | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: any; adminId?: string; adminName?: string } }
   | { type: 'RESET_STATE' };
 
+// Get or create default event ID
+// For multi-event support in the future, this could be retrieved from URL params
+// For now, we'll use null and let the server determine the current active event
+const getDefaultEventId = (): string | null => {
+  return null;
+};
+
 // Initial state
 const initialState: GlobalEventState = {
   status: 'offline',
   version: 0,
-  eventId: null,
+  eventId: getDefaultEventId(),
   activeAdminId: null,
   adminName: null,
   pagesEnabled: {
@@ -181,9 +196,11 @@ export interface GlobalEventActions {
   
   // Event management
   updateEventStatus: (status: EventState) => Promise<void>;
+  setEventStatus: (status: EventState) => Promise<void>; // Alias for updateEventStatus
   updateEventConfig: (config: Partial<any>) => Promise<void>;
   enablePages: (pages: { requests?: boolean; display?: boolean }) => Promise<void>;
   disablePages: () => Promise<void>;
+  setPageEnabled: (page: 'requests' | 'display', enabled: boolean) => Promise<void>;
   
   // Utility
   resetState: () => void;
@@ -191,7 +208,11 @@ export interface GlobalEventActions {
 }
 
 // Actions implementation
-function createActions(dispatch: React.Dispatch<GlobalEventAction>): GlobalEventActions {
+function createActions(
+  dispatch: React.Dispatch<GlobalEventAction>, 
+  getState: () => GlobalEventState,
+  getToken: () => string | null
+): GlobalEventActions {
   return {
     setLoading: (loading: boolean) => {
       dispatch({ type: 'SET_LOADING', payload: loading });
@@ -214,14 +235,47 @@ function createActions(dispatch: React.Dispatch<GlobalEventAction>): GlobalEvent
         dispatch({ type: 'SET_UPDATING', payload: true });
         dispatch({ type: 'SET_ERROR', payload: null });
         
-        // This would typically make an API call to update the server
-        // For now, we'll just update the local state
+        // Get current event ID
+        const eventId = getState().eventId || getDefaultEventId();
+        
+        // Get auth token (if available - only for admin pages)
+        const token = getToken();
+        
+        // Build headers
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        // Add Authorization header if token is available (admin context)
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        // Make API call to update the server
+        const response = await fetch('/api/event/status', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            status,
+            eventId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update event status');
+        }
+
+        const result = await response.json();
+        
+        // Update local state with server response
         dispatch({
           type: 'UPDATE_EVENT',
           payload: {
-            status,
-            version: Date.now(), // Simple version increment
-            config: initialState.config,
+            status: result.event.status,
+            version: result.event.version,
+            config: result.event.config,
+            adminId: result.event.activeAdminId,
           },
         });
       } catch (error) {
@@ -230,6 +284,7 @@ function createActions(dispatch: React.Dispatch<GlobalEventAction>): GlobalEvent
         dispatch({ type: 'SET_UPDATING', payload: false });
       }
     },
+    
     
     updateEventConfig: async (config: Partial<any>) => {
       try {
@@ -313,14 +368,114 @@ function createActions(dispatch: React.Dispatch<GlobalEventAction>): GlobalEvent
       }
     },
     
+    setPageEnabled: async (page: 'requests' | 'display', enabled: boolean) => {
+      try {
+        console.log('🔄 [setPageEnabled] START:', { page, enabled });
+        dispatch({ type: 'SET_UPDATING', payload: true });
+        dispatch({ type: 'SET_ERROR', payload: null });
+        
+        const eventId = getState().eventId || getDefaultEventId();
+        console.log('🔄 [setPageEnabled] eventId:', eventId);
+        
+        // Get auth token (if available - only for admin pages)
+        const token = getToken();
+        console.log('🔄 [setPageEnabled] token present:', !!token);
+        
+        // Build headers
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        // Add Authorization header if token is available (admin context)
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const requestBody = { page, enabled, eventId };
+        console.log('🔄 [setPageEnabled] Making API request to /api/event/pages:', requestBody);
+        
+        const response = await fetch('/api/event/pages', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+        });
+
+        console.log('🔄 [setPageEnabled] API response status:', response.status);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ [setPageEnabled] API error:', errorData);
+          throw new Error(errorData.error || 'Failed to update page control');
+        }
+
+        const result = await response.json();
+        console.log('✅ [setPageEnabled] API response data:', result);
+        
+        const updatePayload = {
+          status: result.event.status,
+          version: result.event.version,
+          config: result.event.config,
+        };
+        console.log('🔄 [setPageEnabled] Dispatching UPDATE_EVENT:', updatePayload);
+        
+        dispatch({
+          type: 'UPDATE_EVENT',
+          payload: updatePayload,
+        });
+        
+        console.log('✅ [setPageEnabled] COMPLETE - state updated');
+      } catch (error) {
+        console.error('❌ [setPageEnabled] ERROR:', error);
+        dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : `Failed to ${enabled ? 'enable' : 'disable'} ${page} page` });
+      } finally {
+        dispatch({ type: 'SET_UPDATING', payload: false });
+      }
+    },
+    
     resetState: () => {
       dispatch({ type: 'RESET_STATE' });
     },
     
     refreshState: async () => {
-      // This would typically make an API call to refresh the state
-      // For now, we'll just reset to initial state
-      dispatch({ type: 'RESET_STATE' });
+      try {
+        console.log('🔄 refreshState called');
+        dispatch({ type: 'SET_LOADING', payload: true });
+        dispatch({ type: 'SET_ERROR', payload: null });
+        
+        // Get current event ID
+        const eventId = getState().eventId || getDefaultEventId();
+        console.log('📡 Fetching event status for eventId:', eventId);
+        
+        // Make API call to get current event state
+        const response = await fetch('/api/event/status');
+        console.log('📡 API response status:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ API error:', errorData);
+          throw new Error(errorData.error || 'Failed to load event state');
+        }
+
+        const result = await response.json();
+        console.log('✅ API response data:', result);
+        
+        // Update local state with server response
+        dispatch({
+          type: 'UPDATE_EVENT',
+          payload: {
+            status: result.event.status,
+            version: result.event.version,
+            config: result.event.config,
+            adminId: result.event.activeAdminId,
+          },
+        });
+        console.log('✅ State updated successfully');
+      } catch (error) {
+        console.error('❌ refreshState error:', error);
+        dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to refresh state' });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
     },
   };
 }
@@ -328,8 +483,94 @@ function createActions(dispatch: React.Dispatch<GlobalEventAction>): GlobalEvent
 // Provider component
 export function GlobalEventProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(globalEventReducer, initialState);
-  const actions = createActions(dispatch);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   
+  // Try to get admin auth context (will be null on public pages, which is fine)
+  const adminAuth = useOptionalAdminAuth();
+  
+  const actions = useMemo(() => {
+    const getToken = () => adminAuth?.token || null;
+    const actions = createActions(dispatch, () => stateRef.current, getToken);
+    // Add alias for backward compatibility
+    actions.setEventStatus = actions.updateEventStatus;
+    return actions;
+  }, [dispatch, adminAuth?.token]);
+
+  // Load initial state on mount
+  useEffect(() => {
+    console.log('🚀 GlobalEventProvider mounted, calling refreshState');
+    actions.refreshState();
+  }, []); // Only run once on mount
+
+  // Listen for Pusher events (state updates and page control changes)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Import Pusher client-side only
+    import('pusher-js').then(({ default: Pusher }) => {
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || '', {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
+      });
+
+      const channel = pusher.subscribe('party-playlist');
+
+      // Listen for state updates (use hyphens - Pusher uses hyphens not underscores)
+      channel.bind('state-update', (data: any) => {
+        console.log('📡 [GlobalEventProvider] Received state-update via Pusher:', data);
+        dispatch({
+          type: 'UPDATE_EVENT',
+          payload: {
+            status: data.status,
+            version: data.version || Date.now(),
+            config: {
+              ...stateRef.current.config,
+              ...data.config,
+              // Preserve pagesEnabled if not provided
+              pages_enabled: data.pagesEnabled || data.config?.pages_enabled || stateRef.current.pagesEnabled,
+            },
+          },
+        });
+      });
+
+      // Listen for page control updates (use hyphens - Pusher uses hyphens not underscores)
+      channel.bind('page-control-toggle', (data: any) => {
+        console.log('📡 [GlobalEventProvider] Received page-control-toggle via Pusher:', data);
+        console.log('📡 [GlobalEventProvider] Current state before update:', {
+          status: stateRef.current.status,
+          pagesEnabled: stateRef.current.pagesEnabled,
+        });
+        
+        const newPagesEnabled = data.pagesEnabled || {
+          requests: data.requests_page_enabled ?? stateRef.current.pagesEnabled.requests,
+          display: data.display_page_enabled ?? stateRef.current.pagesEnabled.display,
+        };
+        
+        console.log('📡 [GlobalEventProvider] New pagesEnabled:', newPagesEnabled);
+        
+        dispatch({
+          type: 'UPDATE_EVENT',
+          payload: {
+            status: stateRef.current.status,
+            version: Date.now(),
+            config: {
+              ...stateRef.current.config,
+              pages_enabled: newPagesEnabled,
+            },
+          },
+        });
+        
+        console.log('✅ [GlobalEventProvider] page-control-toggle state updated');
+      });
+
+      return () => {
+        channel.unbind_all();
+        channel.unsubscribe();
+        pusher.disconnect();
+      };
+    });
+  }, []);
+
   return (
     <GlobalEventContext.Provider value={{ state, dispatch, actions }}>
       {children}

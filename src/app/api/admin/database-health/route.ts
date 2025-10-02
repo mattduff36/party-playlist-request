@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
-import { poolManager, dbService } from '@/lib/db';
+import { getDatabaseService } from '@/lib/db/database-service';
+import { getConnectionPoolManager } from '@/lib/db/connection-pool';
 import { PoolType } from '@/lib/db/connection-pool';
 
 export async function GET(request: NextRequest) {
@@ -20,6 +21,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get comprehensive health information
+    const dbService = getDatabaseService();
+    const poolManager = getConnectionPoolManager();
     const healthCheck = await dbService.healthCheck();
     const poolStats = poolManager.getStats();
     const serviceStats = dbService.getStats();

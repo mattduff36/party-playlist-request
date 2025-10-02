@@ -225,9 +225,9 @@ describe('Performance Tests - 350+ Concurrent Users', () => {
     }, 30000);
 
     it('should handle 350+ concurrent Vercel KV operations', async () => {
-      const { getVercelKVClient } = await import('@/lib/vercel-kv');
+      const { getCacheClient } = await import('@/lib/cache');
       
-      const kv = getVercelKVClient();
+        const cache = getCacheClient();
       const concurrentKVOps = Array.from({ length: PERFORMANCE_CONFIG.concurrentUsers }, (_, i) => 
         performKVOperation(kv, i)
       );
@@ -561,7 +561,7 @@ async function simulateCompleteUserFlow(userId: number) {
         return performRedisOperation(getRedisClient(), userId);
       },
       async () => {
-        const { getVercelKVClient } = await import('@/lib/vercel-kv');
+        const { getCacheClient } = await import('@/lib/cache');
         return performKVOperation(getVercelKVClient(), userId);
       }
     ];

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 // Using simple icons instead of heroicons for now
 import axios from 'axios';
 import { usePusher } from '@/hooks/usePusher';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
 
 interface Track {
@@ -70,11 +71,25 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [nickname, setNickname] = useState('');
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
-  const [partyActive, setPartyActive] = useState(true); // Default to true to avoid flash
-  const [adminLoggedIn, setAdminLoggedIn] = useState<boolean | null>(null); // null = loading, true/false = loaded
-  const [requestsPageEnabled, setRequestsPageEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<any>(null); // Pusher stats to check global party status
+  
+  // Use global event state
+  const { state: globalState } = useGlobalEvent();
+  
+  // Derive state from global event state (with safety checks)
+  const adminLoggedIn = globalState?.adminId !== null;
+  const requestsPageEnabled = globalState?.pagesEnabled?.requests ?? true;
+  
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🏠 [HomePage] Global state updated:', {
+      status: globalState.status,
+      pagesEnabled: globalState.pagesEnabled,
+      requestsPageEnabled,
+      adminLoggedIn,
+    });
+  }, [globalState.status, globalState.pagesEnabled, requestsPageEnabled, adminLoggedIn]);
   
   // User session and notification states
   const [userSessionId] = useState(() => {
@@ -106,22 +121,15 @@ export default function HomePage() {
   usePusher({
     onPageControlToggle: (data: any) => {
       console.log('🔄 Page control changed via Pusher:', data);
-      fetchPartyStatus();
-      fetchPageControls(); // Refresh page controls and admin status
+      // State is now automatically updated by GlobalEventProvider
     },
     onAdminLogin: (data: any) => {
       console.log('🔐 Admin login via Pusher:', data);
-      // Add small delay to allow admin panel to finish storing token
-      setTimeout(() => {
-        fetchPageControls(); // Refresh admin status and page controls
-      }, 100);
+      // State is now automatically updated by GlobalEventProvider
     },
     onAdminLogout: (data: any) => {
       console.log('🔐 Admin logout via Pusher:', data);
-      // Add small delay to allow admin panel to finish clearing token
-      setTimeout(() => {
-        fetchPageControls(); // Refresh admin status and page controls
-      }, 100);
+      // State is now automatically updated by GlobalEventProvider
     },
     onRequestApproved: (data: any) => {
       console.log('🎉 Request approved via Pusher:', data);
@@ -178,98 +186,8 @@ export default function HomePage() {
     }
   };
 
-  const fetchPartyStatus = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/party-status`);
-      setPartyActive(response.data.party_active);
-      
-      // For regular users, also get requests_page_enabled from party status
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.log('👤 HomePage: Regular user - getting requestsPageEnabled from party status:', response.data.requests_page_enabled);
-        setRequestsPageEnabled(response.data.requests_page_enabled);
-      }
-    } catch (error) {
-      console.error('Error fetching party status:', error);
-      setPartyActive(false);
-      // For regular users, also set requestsPageEnabled to false on error
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        setRequestsPageEnabled(false);
-      }
-    }
-  };
-
-  const fetchAdminLoginStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/admin/login-status`);
-      if (response.ok) {
-        const data = await response.json();
-        setAdminLoggedIn(data.admin_logged_in);
-      } else {
-        setAdminLoggedIn(false);
-      }
-    } catch (error) {
-      console.error('Error fetching admin login status:', error);
-      setAdminLoggedIn(false);
-    }
-  };
-
-  const fetchPageControls = async () => {
-    try {
-      // Check if there's an admin token - if not, this is a regular user
-      const token = localStorage.getItem('admin_token');
-      console.log('🔑 HomePage: Admin token found:', !!token);
-      
-      if (!token) {
-        console.log('👤 HomePage: No admin token - this is a regular user, skipping admin checks');
-        setAdminLoggedIn(false);
-        // Don't set requestsPageEnabled here - it will be set by fetchPartyStatus
-        return;
-      }
-      
-      console.log('🔄 HomePage: Admin token found - checking admin status...');
-      
-      // Check admin login status
-      const headers: HeadersInit = {
-        'Authorization': `Bearer ${token}`
-      };
-      
-      const response = await fetch(`${API_BASE}/admin/login-status`, { headers });
-      console.log('🌐 HomePage: Login API response status:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📊 HomePage: Admin login data:', data);
-        setAdminLoggedIn(data.admin_logged_in);
-        
-        // If admin is logged in, also fetch page controls
-        if (data.admin_logged_in) {
-          console.log('✅ HomePage: Admin logged in, fetching page controls...');
-          const controlsResponse = await fetch(`${API_BASE}/admin/page-controls`, { headers });
-          if (controlsResponse.ok) {
-            const controlsData = await controlsResponse.json();
-            console.log('📊 HomePage: Page controls data:', controlsData);
-            setRequestsPageEnabled(controlsData.requests_page_enabled);
-          } else {
-            console.error('❌ HomePage: Failed to fetch page controls:', controlsResponse.status);
-            setRequestsPageEnabled(null);
-          }
-        } else {
-          console.log('🚫 HomePage: Admin token invalid, treating as regular user');
-          setRequestsPageEnabled(null);
-        }
-      } else {
-        console.log('❌ HomePage: Login status check failed:', response.status);
-        setAdminLoggedIn(false);
-        setRequestsPageEnabled(null);
-      }
-    } catch (error) {
-      console.error('Error fetching admin login status:', error);
-      setAdminLoggedIn(false);
-      setRequestsPageEnabled(null);
-    }
-  };
+  // Note: Party status and page controls are now managed by GlobalEventProvider
+  // adminLoggedIn and requestsPageEnabled are derived from globalState (lines 81-82)
 
   // Set mounted flag when component mounts on client
   useEffect(() => {
@@ -284,23 +202,10 @@ export default function HomePage() {
     console.log('🔄 HomePage: Fetching data - mounted is true');
     console.log('🔄 HomePage: Current states:', { adminLoggedIn, requestsPageEnabled });
     fetchEventSettings();
-    fetchPartyStatus();
-    fetchPageControls(); // This will also check admin login status
-  }, [mounted]);
+    // Party status and page controls are now managed by GlobalEventProvider
+  }, [mounted, adminLoggedIn, requestsPageEnabled]);
 
-  // Force initial load if states are still null after a delay
-  useEffect(() => {
-    if (!mounted) return;
-    
-    const timer = setTimeout(() => {
-      if (adminLoggedIn === null) {
-        console.log('🔄 Force loading page controls after timeout');
-        fetchPageControls();
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [adminLoggedIn, mounted]);
+  // State is now managed by GlobalEventProvider - no need for forced reload
 
   // Mobile-specific timeout - if still loading after 5 seconds, assume regular user
   useEffect(() => {
@@ -470,15 +375,11 @@ export default function HomePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Show loading state while mounting or waiting for essential data
-  // For regular users: wait for mounting and either stats OR admin status
-  // For admins: wait for mounting and page controls
-  const isLoadingEssentialData = !mounted || 
-    (adminLoggedIn === null && stats === null) || 
-    (adminLoggedIn && requestsPageEnabled === null);
+  // Show loading state while mounting or waiting for global state
+  const isLoadingEssentialData = !mounted || globalState.isLoading;
     
   if (isLoadingEssentialData) {
-    console.log('🔄 HomePage: Showing loading state', { mounted, adminLoggedIn, requestsPageEnabled, hasStats: !!stats });
+    console.log('🔄 HomePage: Showing loading state', { mounted, isLoading: globalState.isLoading });
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
@@ -489,86 +390,52 @@ export default function HomePage() {
     );
   }
 
-  // STEP 1: Check if there's an admin logged in and party is active
-  // For devices with admin token: use adminLoggedIn and requestsPageEnabled
-  // For devices without admin token (regular users): use partyActive (global database state)
+  // Check event status and page controls using global state (with safety checks)
+  const isOffline = globalState?.status === 'offline';
+  const isStandby = globalState?.status === 'standby';
+  const isLive = globalState?.status === 'live';
+  const requestsEnabled = globalState?.pagesEnabled?.requests ?? true;
   
-  if (adminLoggedIn === true) {
-    // ADMIN DEVICE: This device has an admin logged in - check their page controls
-    if (requestsPageEnabled === false) {
-      console.log('🚫 HomePage: Admin device - Requests Disabled');
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
-          <div className="text-center px-4">
-            <div className="flex justify-center mb-6">
-              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-              🎉 Requests Disabled
-            </h1>
-            <p className="text-2xl text-gray-300 mb-4">
-              The DJ has temporarily disabled song requests
-            </p>
-            <p className="text-lg text-gray-400">
-              Check back in a few minutes!
-            </p>
-          </div>
-
-          {/* Very faint admin link for beta testing - bottom right corner */}
-          <a
-            href="/admin"
-            className="absolute bottom-4 right-4 w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-sm opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
-            title="Admin Access (Beta Testing)"
-          >
-            admin
-          </a>
-        </div>
-      );
-    }
-    // Admin logged in and requests enabled - show request form (continue to main UI)
-    console.log('✅ HomePage: Admin device - Requests Enabled, showing request form');
-  } else {
-    // REGULAR USER DEVICE OR ADMIN LOGGED OUT: Check global party status
-    if (!partyActive) {
-      console.log('🎉 HomePage: Regular user - Party Not Started');
-      return <PartyNotStarted variant="home" />;
-    }
-    
-    // Party is active, but check if requests are disabled
-    if (requestsPageEnabled === false) {
-      console.log('🚫 HomePage: Regular user - Party active but Requests Disabled');
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
-          <div className="text-center px-4">
-            <div className="flex justify-center mb-6">
-              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-              🎉 Requests Disabled
-            </h1>
-            <p className="text-2xl text-gray-300 mb-4">
-              The DJ has temporarily disabled song requests
-            </p>
-            <p className="text-lg text-gray-400">
-              Check back in a few minutes!
-            </p>
-          </div>
-
-          {/* Very faint admin link for beta testing - bottom right corner */}
-          <a
-            href="/admin"
-            className="absolute bottom-4 right-4 w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-sm opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
-            title="Admin Access (Beta Testing)"
-          >
-            admin
-          </a>
-        </div>
-      );
-    }
-    
-    // Party is active and requests are enabled - show request form (continue to main UI)
-    console.log('✅ HomePage: Regular user - Party active and Requests Enabled, showing request form');
+  // Show "Party Not Started" when offline
+  if (isOffline) {
+    console.log('🎉 HomePage: Party Not Started (offline)');
+    return <PartyNotStarted variant="home" eventConfig={globalState.config} />;
   }
+  
+  // Show "Requests Disabled" when in standby or live but requests are disabled
+  if ((isStandby || isLive) && !requestsEnabled) {
+    console.log('🚫 HomePage: Requests Disabled');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
+        <div className="text-center px-4">
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+            🎉 Requests Disabled
+          </h1>
+          <p className="text-2xl text-gray-300 mb-4">
+            The DJ has temporarily disabled song requests
+          </p>
+          <p className="text-lg text-gray-400">
+            Check back in a few minutes!
+          </p>
+        </div>
+
+        {/* Very faint admin link for beta testing - bottom right corner */}
+        <a
+          href="/admin"
+          className="absolute bottom-4 right-4 w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-sm opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
+          title="Admin Access (Beta Testing)"
+        >
+          admin
+        </a>
+      </div>
+    );
+  }
+  
+  // Party is active and requests are enabled - show request form (continue to main UI)
+  console.log('✅ HomePage: Party active and Requests Enabled, showing request form');
 
   // At this point, either admin is logged in with requests enabled, or global party is active
   // Continue to show the main request form UI

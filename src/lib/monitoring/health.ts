@@ -290,34 +290,34 @@ class HealthCheckSystem {
       }
     });
 
-    // Vercel KV health check
-    this.addCheck('vercel_kv', async () => {
+    // Database cache health check
+    this.addCheck('database_cache', async () => {
       try {
-        const { getVercelKVClient } = await import('@/lib/vercel-kv');
-        const kv = getVercelKVClient();
+        const { getCacheClient } = await import('@/lib/cache');
+        const cache = getCacheClient();
         const startTime = Date.now();
         
-        // Test Vercel KV connectivity
-        await kv.set('health_check', 'test', { ex: 10 });
-        const value = await kv.get('health_check');
-        await kv.del('health_check');
+        // Test database cache connectivity
+        await cache.set('health_check', 'test', 10);
+        const value = await cache.get('health_check');
+        await cache.delete('health_check');
         
         const responseTime = Date.now() - startTime;
         
         if (value !== 'test') {
           return {
-            name: 'vercel_kv',
+            name: 'database_cache',
             status: 'unhealthy',
-            message: 'Vercel KV read/write test failed',
+            message: 'Database cache read/write test failed',
             timestamp: Date.now(),
             responseTime,
           };
         }
         
         return {
-          name: 'vercel_kv',
+          name: 'database_cache',
           status: responseTime < 1000 ? 'healthy' : 'degraded',
-          message: `Vercel KV connection successful (${responseTime}ms)`,
+          message: `Database cache connection successful (${responseTime}ms)`,
           timestamp: Date.now(),
           responseTime,
           details: {

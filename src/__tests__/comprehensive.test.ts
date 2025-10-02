@@ -50,7 +50,7 @@ describe('Party Playlist System - Comprehensive Tests', () => {
         require('@/lib/db');
         require('@/lib/pusher');
         require('@/lib/redis');
-        require('@/lib/vercel-kv');
+        require('@/lib/cache');
       }).not.toThrow();
     });
   });
@@ -191,9 +191,9 @@ describe('Party Playlist System - Comprehensive Tests', () => {
     });
 
     it('should be able to use Vercel KV client', async () => {
-      const { getVercelKVClient } = require('@/lib/vercel-kv');
+      const { getCacheClient } = require('@/lib/cache');
       
-      const kv = getVercelKVClient();
+        const cache = getCacheClient();
       expect(kv).toBeDefined();
       
       // Test basic operations
@@ -275,8 +275,8 @@ describe('Party Playlist System - Comprehensive Tests', () => {
     });
 
     it('should have valid Vercel KV configuration', () => {
-      const { getVercelKVClient } = require('@/lib/vercel-kv');
-      const kv = getVercelKVClient();
+      const { getCacheClient } = require('@/lib/cache');
+        const cache = getCacheClient();
       expect(kv).toBeDefined();
     });
   });
@@ -375,7 +375,7 @@ describe('Party Playlist System - Comprehensive Tests', () => {
       }
       
       const { getRedisClient } = require('@/lib/redis');
-      const { getVercelKVClient } = require('@/lib/vercel-kv');
+      const { getCacheClient } = require('@/lib/cache');
       const { generateEventId } = require('@/lib/pusher/events');
       
       // All systems should be available

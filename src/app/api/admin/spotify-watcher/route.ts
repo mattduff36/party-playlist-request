@@ -10,6 +10,7 @@ let lastPlaybackState: any = null;
 let lastQueueState: any = null;
 let watcherInterval: NodeJS.Timeout | null = null;
 let lastStatsUpdate = 0;
+let lastQueueCheck = 0; // Track when we last checked the queue
 
 // Helper function to normalize playback state for comparison (exclude progress_ms)
 const normalizePlaybackForComparison = (playback: any) => {
@@ -45,7 +46,7 @@ const normalizePlaybackForComparison = (playback: any) => {
 };
 
 // Spotify watcher function
-const watchSpotifyChanges = async () => {
+const watchSpotifyChanges = async (queueInterval: number = 20000) => {
   try {
       console.log('🎵 Spotify watcher: Checking for changes...', new Date().toISOString());
     
@@ -54,13 +55,25 @@ const watchSpotifyChanges = async () => {
     
     let currentPlayback = null;
     let queue = null;
+    const now = Date.now();
+    const shouldCheckQueue = now - lastQueueCheck >= queueInterval;
     
     if (isConnected) {
-      // Get current playback and queue only if connected
-      [currentPlayback, queue] = await Promise.all([
-        spotifyService.getCurrentPlayback().catch(() => null),
-        spotifyService.getQueue().catch(() => null)
-      ]);
+      // Always get current playback (5s interval)
+      // Only get queue if enough time has passed (20s interval)
+      if (shouldCheckQueue) {
+        console.log('🎵 Checking both playback AND queue (queue interval reached)');
+        [currentPlayback, queue] = await Promise.all([
+          spotifyService.getCurrentPlayback().catch(() => null),
+          spotifyService.getQueue().catch(() => null)
+        ]);
+        lastQueueCheck = now;
+      } else {
+        console.log('🎵 Checking playback only (queue check skipped)');
+        currentPlayback = await spotifyService.getCurrentPlayback().catch(() => null);
+        // Keep using the last known queue state
+        queue = lastQueueState ? { queue: lastQueueState } : null;
+      }
 
       // Debug: Log current playback state
       console.log('🎵 Current playback state:', {
@@ -157,7 +170,6 @@ const watchSpotifyChanges = async () => {
     }
 
     // Update stats only every 30 seconds (not every 2 seconds!)
-    const now = Date.now();
     if (now - lastStatsUpdate > 30000) {
       console.log('📊 Spotify watcher: Updating stats (30s interval)');
       const requests = await getAllRequests();
@@ -195,25 +207,26 @@ export async function POST(req: NextRequest) {
     }
     
     const body = await req.json();
-    const { action, interval = 2000 } = body; // Default to 2 seconds for real-time updates
+    const { action, interval = 5000, queueInterval = 20000 } = body; // Default: 5s playback, 20s queue
 
     if (action === 'start') {
       if (watcherInterval) {
         clearInterval(watcherInterval);
       }
 
-      console.log(`🎵 Starting Spotify watcher with ${interval}ms interval`);
+      console.log(`🎵 Starting Spotify watcher with ${interval}ms playback interval and ${queueInterval}ms queue interval`);
       
       // Start immediate check
-      await watchSpotifyChanges();
+      await watchSpotifyChanges(queueInterval);
       
-      // Set up interval
-      watcherInterval = setInterval(watchSpotifyChanges, interval);
+      // Set up interval for playback checks (queue will be checked based on queueInterval)
+      watcherInterval = setInterval(() => watchSpotifyChanges(queueInterval), interval);
 
       return NextResponse.json({
         success: true,
         message: 'Spotify watcher started',
-        interval
+        interval,
+        queueInterval
       });
     }
 

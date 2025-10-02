@@ -10,7 +10,8 @@
  */
 
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import { drizzle, DrizzleDB } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
 import * as schema from './schema';
 
 // Pool configuration types
@@ -115,7 +116,7 @@ export class ConnectionPoolManager {
     // Create pools
     for (const [poolType, config] of Object.entries(poolConfigs)) {
       const pool = new Pool(config as PoolConfig);
-      const drizzleInstance = drizzle(pool, { schema });
+      const drizzleInstance = drizzle(neon(config.connectionString), { schema });
       
       this.pools.set(poolType as PoolType, pool);
       this.drizzleInstances.set(poolType as PoolType, drizzleInstance);
@@ -339,7 +340,7 @@ export function getPool(poolType: PoolType = PoolType.READ_WRITE): Pool {
   return getConnectionPoolManager().getPool(poolType);
 }
 
-export function getDrizzle(poolType: PoolType = PoolType.READ_WRITE): DrizzleDB<any> {
+export function getDrizzle(poolType: PoolType = PoolType.READ_WRITE): any {
   return getConnectionPoolManager().getDrizzle(poolType);
 }
 

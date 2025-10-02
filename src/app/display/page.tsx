@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { usePusher } from '@/hooks/usePusher';
 import { useLiveProgress } from '@/hooks/useLiveProgress';
 import { RequestApprovedEvent } from '@/lib/pusher';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
 
 interface CurrentTrack {
@@ -66,14 +67,21 @@ export default function DisplayPage() {
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
-  const [adminLoggedIn, setAdminLoggedIn] = useState<boolean | null>(null); // null = loading, true/false = loaded
-  const [displayPageEnabled, setDisplayPageEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
-  const [partyActive, setPartyActive] = useState<boolean | null>(null); // null = loading, true/false = loaded
   const [mounted, setMounted] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
-  const [displayEnabled, setDisplayEnabled] = useState(true);
+  
+  // Use global event state
+  const { state: globalState } = useGlobalEvent();
+  
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('📺 [DisplayPage] Global state updated:', {
+      status: globalState.status,
+      pagesEnabled: globalState.pagesEnabled,
+    });
+  }, [globalState.status, globalState.pagesEnabled]);
   
   // Message system state
   const [currentMessage, setCurrentMessage] = useState<{
@@ -86,22 +94,15 @@ export default function DisplayPage() {
   const { isConnected, connectionState } = usePusher({
     onPageControlToggle: (data: any) => {
       console.log('🔄 Display page control changed via Pusher:', data);
-      checkDisplayStatus();
-      fetchPageControls(); // Refresh page controls and admin status
+      // State is now managed by GlobalEventProvider via Pusher listeners
     },
     onAdminLogin: (data: any) => {
       console.log('🔐 Admin login via Pusher:', data);
-      // Add small delay to allow admin panel to finish storing token
-      setTimeout(() => {
-        fetchPageControls(); // Refresh admin status and page controls
-      }, 100);
+      // State is now managed by GlobalEventProvider
     },
     onAdminLogout: (data: any) => {
       console.log('🔐 Admin logout via Pusher:', data);
-      // Add small delay to allow admin panel to finish clearing token
-      setTimeout(() => {
-        fetchPageControls(); // Refresh admin status and page controls
-      }, 100);
+      // State is now managed by GlobalEventProvider
     },
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
@@ -405,99 +406,9 @@ export default function DisplayPage() {
     generateQR();
   }, []);
 
-  // Check if display page is enabled
-  const checkDisplayStatus = async () => {
-    try {
-      const response = await fetch('/api/party-status');
-      if (response.ok) {
-        const data = await response.json();
-        setDisplayEnabled(data.display_page_enabled);
-        setPartyActive(data.party_active);
-        
-        // For regular users (no admin token), also get displayPageEnabled from party status
-        const token = localStorage.getItem('admin_token');
-        if (!token) {
-          console.log('👤 DisplayPage: Regular user - getting displayPageEnabled from party status:', data.display_page_enabled);
-          setDisplayPageEnabled(data.display_page_enabled);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking display status:', error);
-      setDisplayEnabled(false);
-      setPartyActive(false);
-      // For regular users, also set displayPageEnabled to false on error
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        setDisplayPageEnabled(false);
-      }
-    }
-  };
-
-  const checkAdminLoginStatus = async () => {
-    try {
-      const response = await fetch('/api/admin/login-status');
-      if (response.ok) {
-        const data = await response.json();
-        setAdminLoggedIn(data.admin_logged_in);
-      } else {
-        setAdminLoggedIn(false);
-      }
-    } catch (error) {
-      console.error('Error fetching admin login status:', error);
-      setAdminLoggedIn(false);
-    }
-  };
-
-  const fetchPageControls = async () => {
-    try {
-      // Get admin token from localStorage
-      const token = localStorage.getItem('admin_token');
-      console.log('🔑 DisplayPage: Admin token found:', !!token);
-      
-      // First check if admin is logged in
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const adminResponse = await fetch('/api/admin/login-status', { headers });
-      
-      if (adminResponse.ok) {
-        const adminData = await adminResponse.json();
-        console.log('📊 DisplayPage: Admin login data:', adminData);
-        setAdminLoggedIn(adminData.admin_logged_in);
-        
-        if (adminData.admin_logged_in) {
-          // Admin is logged in, fetch page controls
-          const controlsResponse = await fetch('/api/admin/page-controls', { headers });
-          
-          if (controlsResponse.ok) {
-            const controlsData = await controlsResponse.json();
-            setDisplayPageEnabled(controlsData.display_page_enabled);
-          } else {
-            setDisplayPageEnabled(false);
-          }
-        } else {
-          // No admin logged in - don't set displayPageEnabled here, it will be set by checkDisplayStatus
-        }
-      } else {
-        setAdminLoggedIn(false);
-        // Don't set displayPageEnabled here for regular users
-        const token = localStorage.getItem('admin_token');
-        if (token) {
-          setDisplayPageEnabled(null);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching page controls:', error);
-      setAdminLoggedIn(false);
-      // Don't set displayPageEnabled here for regular users
-      const token = localStorage.getItem('admin_token');
-      if (token) {
-        setDisplayPageEnabled(null);
-      }
-    }
-  };
+  // ===== REMOVED OLD STATE MANAGEMENT =====
+  // All state is now managed by GlobalEventProvider
+  // checkDisplayStatus, checkAdminLoginStatus, and fetchPageControls are no longer needed
 
   // Fetch all display data
   useEffect(() => {
@@ -556,13 +467,11 @@ export default function DisplayPage() {
     console.log('🚀 DisplayPage: useEffect running - client-side JS is working!');
     setMounted(true);
     setIsClient(true);
-    checkDisplayStatus();
     fetchDisplayData();
     fetchNotifications();
-    fetchPageControls(); // This will also check admin login status
     
-    // No need for manual listeners - Pusher handles this automatically
-    // The usePusher hook above already listens for page control changes
+    // State is now managed by GlobalEventProvider
+    // No manual status checks needed - Pusher handles real-time updates automatically
     
     // No more polling - Pusher handles real-time updates!
   }, []); // Only run once
@@ -586,10 +495,8 @@ export default function DisplayPage() {
     return () => clearInterval(interval);
   }, [eventSettings]);
 
-  // Show loading state while mounting or checking admin status and page controls
-  const isLoadingEssentialData = !mounted || 
-    (adminLoggedIn === null && partyActive === null) || 
-    (adminLoggedIn && displayPageEnabled === null);
+  // Show loading state while mounting or waiting for global state
+  const isLoadingEssentialData = !mounted || globalState.isLoading;
     
   if (isLoadingEssentialData) {
     return (
@@ -602,68 +509,43 @@ export default function DisplayPage() {
     );
   }
 
-  // STEP 1: Check if there's an admin logged in and party is active
-  // For devices with admin token: use adminLoggedIn and displayPageEnabled
-  // For devices without admin token (regular users): use partyActive (global database state)
+  // Check event status and page controls using global state (with safety checks)
+  const isOffline = globalState?.status === 'offline';
+  const isStandby = globalState?.status === 'standby';
+  const isLive = globalState?.status === 'live';
+  const displayEnabled = globalState?.pagesEnabled?.display ?? true;
   
-  if (adminLoggedIn === true) {
-    // ADMIN DEVICE: This device has an admin logged in - check their page controls
-    if (displayPageEnabled === false) {
-      console.log('🚫 DisplayPage: Admin device - Display Disabled');
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-          <div className="text-center px-4">
-            <div className="flex justify-center mb-6">
-              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-              🎉 Display Disabled
-            </h1>
-            <p className="text-2xl text-gray-300 mb-4">
-              The DJ has temporarily disabled the display screen
-            </p>
-            <p className="text-lg text-gray-400">
-              Check back in a few minutes!
-            </p>
-          </div>
-        </div>
-      );
-    }
-    // Admin logged in and display enabled - show display content (continue to main UI)
-    console.log('✅ DisplayPage: Admin device - Display Enabled, showing display content');
-  } else {
-    // REGULAR USER DEVICE OR ADMIN LOGGED OUT: Check global party status
-    if (!partyActive) {
-      console.log('🎉 DisplayPage: Regular user - Party Not Started');
-      return <PartyNotStarted variant="display" />;
-    }
-    
-    // Party is active, but check if display is disabled
-    if (displayPageEnabled === false) {
-      console.log('🚫 DisplayPage: Regular user - Party active but Display Disabled');
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-          <div className="text-center px-4">
-            <div className="flex justify-center mb-6">
-              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-              🎉 Display Disabled
-            </h1>
-            <p className="text-2xl text-gray-300 mb-4">
-              The DJ has temporarily disabled the display screen
-            </p>
-            <p className="text-lg text-gray-400">
-              Check back in a few minutes!
-            </p>
-          </div>
-        </div>
-      );
-    }
-    
-    // Party is active and display is enabled - show display content (continue to main UI)
-    console.log('✅ DisplayPage: Regular user - Party active and Display Enabled, showing display content');
+  // Show "Party Not Started" when offline
+  if (isOffline) {
+    console.log('🎉 DisplayPage: Party Not Started (offline)');
+    return <PartyNotStarted variant="display" eventConfig={globalState.config} />;
   }
+  
+  // Show "Display Disabled" when in standby or live but display is disabled
+  if ((isStandby || isLive) && !displayEnabled) {
+    console.log('🚫 DisplayPage: Display Disabled');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center px-4">
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+            🎉 Display Disabled
+          </h1>
+          <p className="text-2xl text-gray-300 mb-4">
+            The DJ has temporarily disabled the display screen
+          </p>
+          <p className="text-lg text-gray-400">
+            Check back in a few minutes!
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Party is active and display is enabled - show display content (continue to main UI)
+  console.log('✅ DisplayPage: Party active and Display Enabled, showing display content');
 
   // At this point, either admin is logged in with display enabled, or global party is active with display enabled
   // Continue to show the main display content UI
@@ -677,27 +559,6 @@ export default function DisplayPage() {
   }
 
   // Admin status and page controls are handled above - this is the main display content
-
-  if (!displayEnabled) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center px-4">
-          <div className="flex justify-center mb-6">
-            <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-            🎉 Display Temporarily Disabled
-          </h1>
-          <p className="text-2xl text-gray-300 mb-4">
-            The DJ has temporarily disabled the display screen
-          </p>
-          <p className="text-lg text-gray-400">
-            Check back in a few minutes!
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   const messages = [
     eventSettings.welcome_message,

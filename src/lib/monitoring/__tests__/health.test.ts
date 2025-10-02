@@ -20,11 +20,11 @@ jest.mock('@/lib/redis', () => ({
   })),
 }));
 
-jest.mock('@/lib/vercel-kv', () => ({
-  getVercelKVClient: jest.fn(() => ({
-    set: jest.fn().mockResolvedValue('OK'),
+jest.mock('@/lib/cache', () => ({
+  getCacheClient: jest.fn(() => ({
+    set: jest.fn().mockResolvedValue(undefined),
     get: jest.fn().mockResolvedValue('test'),
-    del: jest.fn().mockResolvedValue(1),
+    delete: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 

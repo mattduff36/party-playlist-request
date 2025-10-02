@@ -436,9 +436,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ action: 'start', interval: 2000 })
+            body: JSON.stringify({ 
+              action: 'start', 
+              interval: 5000,        // Check playback every 5 seconds
+              queueInterval: 20000   // Check queue every 20 seconds
+            })
           });
-          console.log('🎵 Spotify watcher started with 2s interval');
+          console.log('🎵 Spotify watcher started: 5s playback, 20s queue');
         } else {
           console.log('⚠️ No admin token found, skipping Spotify watcher start');
         }

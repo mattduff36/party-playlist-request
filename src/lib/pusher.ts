@@ -106,6 +106,7 @@ export const EVENTS = {
   STATS_UPDATE: 'stats-update',
   QUEUE_UPDATE: 'queue-update',
   PAGE_CONTROL_TOGGLE: 'page-control-toggle',
+  STATE_UPDATE: 'state-update',
   TOKEN_EXPIRED: 'token-expired',
   ADMIN_LOGIN: 'admin-login',
   ADMIN_LOGOUT: 'admin-logout',
@@ -193,4 +194,41 @@ export const triggerAdminLogin = async (data: AdminLoginEvent) => {
 
 export const triggerAdminLogout = async (data: AdminLogoutEvent) => {
   await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGOUT, data);
+};
+
+// State update event interface
+export interface StateUpdateEvent {
+  status: 'offline' | 'standby' | 'live';
+  pagesEnabled: {
+    requests: boolean;
+    display: boolean;
+  };
+  config: {
+    event_title?: string;
+    welcome_message?: string;
+    secondary_message?: string;
+    tertiary_message?: string;
+  };
+  adminId?: string;
+  adminName?: string;
+}
+
+export const triggerStateUpdate = async (data: StateUpdateEvent) => {
+  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.STATE_UPDATE, data);
+};
+
+// Page control update event interface
+export interface PageControlUpdateEvent {
+  page: 'requests' | 'display';
+  enabled: boolean;
+  pagesEnabled: {
+    requests: boolean;
+    display: boolean;
+  };
+  adminId?: string;
+  adminName?: string;
+}
+
+export const triggerPageControlUpdate = async (data: PageControlUpdateEvent) => {
+  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.PAGE_CONTROL_TOGGLE, data);
 };
