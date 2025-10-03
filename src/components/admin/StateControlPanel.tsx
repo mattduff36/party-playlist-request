@@ -113,34 +113,14 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
     }
   };
 
-  const currentConfig = getStateConfig(state.status);
-
   return (
-    <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-white mb-1">Event Control</h2>
-        <p className="text-gray-400 text-sm">Control the party playlist event state</p>
+    <div className={`bg-gray-800 rounded-lg p-3 ${className}`}>
+      <div className="mb-2">
+        <h2 className="text-lg font-semibold text-white">Event Control</h2>
       </div>
 
-      {/* Current State Display */}
-      <div className="mb-6">
-        <div className={`inline-flex items-center space-x-3 px-4 py-3 rounded-lg border-2 ${currentConfig.bgColor} ${currentConfig.borderColor} transition-all duration-500 ease-in-out`}>
-          <currentConfig.icon className={`w-6 h-6 ${currentConfig.color} ${isTransitioning ? 'animate-pulse' : ''}`} />
-          <div>
-            <div className={`font-semibold ${currentConfig.color} ${isTransitioning ? 'animate-pulse' : ''}`}>
-              {currentConfig.label}
-            </div>
-            <div className="text-gray-400 text-sm">
-              {currentConfig.description}
-            </div>
-          </div>
-          {/* Status indicator dot */}
-          <div className={`w-3 h-3 rounded-full ${currentConfig.color.replace('text-', 'bg-')} ${isTransitioning ? 'animate-pulse' : 'animate-pulse'}`}></div>
-        </div>
-      </div>
-
-      {/* State Control Buttons */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* State Control Buttons - More Compact */}
+      <div className="grid grid-cols-3 gap-2">
         {(['offline', 'standby', 'live'] as const).map((status) => {
           const config = getStateConfig(status);
           const isActive = state.status === status;
@@ -153,78 +133,62 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
               onClick={() => handleStateChange(status)}
               disabled={isDisabled}
               className={`
-                flex flex-col items-center space-y-2 p-4 rounded-lg border-2 transition-all duration-300 ease-in-out
+                flex flex-col items-center space-y-1 p-2 rounded-lg border-2 transition-all duration-200
                 ${isActive 
                   ? `${config.bgColor} ${config.borderColor} ${config.color} shadow-lg` 
                   : canTransition
-                    ? 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600 hover:border-gray-500 hover:shadow-md'
+                    ? 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
                     : 'bg-gray-800 border-gray-700 text-gray-500'
                 }
-                ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105 active:scale-95'}
-                ${isActive ? 'ring-2 ring-opacity-50 ring-current' : ''}
+                ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
               title={!canTransition ? `Cannot transition from ${state.status} to ${status}` : undefined}
             >
-              <config.icon className="w-8 h-8" />
-              <div className="text-center">
-                <div className="font-medium text-sm">{config.label}</div>
-                <div className="text-xs opacity-75">{config.description}</div>
-              </div>
+              <config.icon className="w-5 h-5" />
+              <div className="font-medium text-xs">{config.label}</div>
             </button>
           );
         })}
       </div>
 
-      {/* Transition Indicator */}
+      {/* Transition Indicator - Compact */}
       {isTransitioning && (
-        <div className="mt-4 flex items-center justify-center space-x-2 text-yellow-400 animate-pulse">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
-          <span className="text-sm font-medium">Transitioning...</span>
+        <div className="mt-1.5 flex items-center justify-center space-x-1 text-yellow-400 text-xs">
+          <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-yellow-400"></div>
+          <span>Updating...</span>
         </div>
       )}
 
-      {/* State Change Success Indicator */}
-      {!isTransitioning && state.lastUpdated && (
-        <div className="mt-4 flex items-center justify-center space-x-2 text-green-400 animate-fade-in">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-sm">State updated successfully</span>
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className="bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border border-green-400 flex items-center space-x-3">
+            <CheckCircle className="w-5 h-5" />
+            <div>
+              <div className="font-semibold">State Updated!</div>
+              <div className="text-sm opacity-90">
+                Event is now {state.status}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-
-        {/* Success Toast */}
-        {showSuccessToast && (
-          <div className="fixed top-4 right-4 z-50 animate-fade-in">
-            <div className="bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border border-green-400 flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5" />
-              <div>
-                <div className="font-semibold">State Updated!</div>
-                <div className="text-sm opacity-90">
-                  Event is now {state.status}
-                </div>
-              </div>
-            </div>
+      {/* Error Display - Compact */}
+      {state.error && (
+        <div className="mt-2 p-2 bg-red-900/20 border border-red-600 rounded text-xs">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span className="text-red-300 flex-1">{state.error}</span>
+            <button
+              onClick={() => actions.setError(null)}
+              className="text-red-400 hover:text-red-300 underline"
+            >
+              ✕
+            </button>
           </div>
-        )}
-
-        {/* Error Display */}
-        {state.error && (
-          <div className="mt-4 p-4 bg-red-900/20 border border-red-600 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="font-semibold text-red-400 mb-1">Error</div>
-                <div className="text-red-300 text-sm">{state.error}</div>
-                <button
-                  onClick={() => actions.setError(null)}
-                  className="mt-2 text-red-400 hover:text-red-300 text-sm underline"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }
