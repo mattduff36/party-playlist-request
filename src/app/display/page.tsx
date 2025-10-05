@@ -627,8 +627,12 @@ export default function DisplayPage() {
                         />
                       )}
                       <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
-                      <p className="text-lg text-gray-300 mb-2">{currentTrack.artists.join(', ')}</p>
-                      <p className="text-sm text-gray-400 mb-3">{currentTrack.album}</p>
+                      <p className="text-lg text-gray-300 mb-2">
+                        {currentTrack.artists && currentTrack.artists.length > 0 
+                          ? currentTrack.artists.filter(a => a).join(', ') 
+                          : 'Unknown Artist'}
+                      </p>
+                      <p className="text-sm text-gray-400 mb-3">{currentTrack.album || 'Unknown Album'}</p>
                       
                   </div>
                 ) : (
@@ -673,7 +677,9 @@ export default function DisplayPage() {
                         </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="text-lg font-semibold truncate">{song.name}</h4>
-                              <p className="text-gray-300 text-sm truncate">{song.artists.join(', ')}</p>
+                              <p className="text-gray-300 text-sm truncate">
+                                {song.artists && song.artists.length > 0 ? song.artists.filter(a => a).join(', ') : 'Unknown Artist'}
+                              </p>
                         </div>
                       </div>
                           {song.requester_nickname && (
@@ -782,8 +788,12 @@ export default function DisplayPage() {
                         />
                       )}
                       <h3 className="text-base font-bold mb-2 leading-tight">{currentTrack.name}</h3>
-                      <p className="text-sm text-gray-300 mb-1">{currentTrack.artists.join(', ')}</p>
-                      <p className="text-xs text-gray-400 mb-2">{currentTrack.album}</p>
+                      <p className="text-sm text-gray-300 mb-1">
+                        {currentTrack.artists && currentTrack.artists.length > 0 
+                          ? currentTrack.artists.filter(a => a).join(', ') 
+                          : 'Unknown Artist'}
+                      </p>
+                      <p className="text-xs text-gray-400 mb-2">{currentTrack.album || 'Unknown Album'}</p>
                       
                     </div>
                   ) : (
@@ -819,7 +829,9 @@ export default function DisplayPage() {
                         >
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold truncate text-sm">{song.name}</div>
-                            <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
+                            <div className="text-xs text-gray-300 truncate">
+                              {song.artists && song.artists.length > 0 ? song.artists.filter(a => a).join(', ') : 'Unknown Artist'}
+                            </div>
                           </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-2">
@@ -910,7 +922,11 @@ export default function DisplayPage() {
                     />
                   )}
                   <h3 className="text-lg font-bold mb-2">{currentTrack.name}</h3>
-                  <p className="text-base text-gray-300 mb-3">{currentTrack.artists.join(', ')}</p>
+                  <p className="text-base text-gray-300 mb-3">
+                    {currentTrack.artists && currentTrack.artists.length > 0 
+                      ? currentTrack.artists.filter(a => a).join(', ') 
+                      : 'Unknown Artist'}
+                  </p>
                   
                   </div>
                 ) : (
@@ -935,7 +951,9 @@ export default function DisplayPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold truncate">{song.name}</div>
-                        <div className="text-sm text-gray-300 truncate">{song.artists.join(', ')}</div>
+                        <div className="text-sm text-gray-300 truncate">
+                          {song.artists && song.artists.length > 0 ? song.artists.filter(a => a).join(', ') : 'Unknown Artist'}
+                        </div>
                       </div>
                       {song.requester_nickname && (
                         <div className="flex-shrink-0 ml-3">
@@ -1009,8 +1027,12 @@ export default function DisplayPage() {
                       />
                     )}
                     <h3 className="text-xs font-bold mb-1 leading-tight">{currentTrack.name}</h3>
-                    <p className="text-xs text-gray-300 mb-1">{currentTrack.artists.join(', ')}</p>
-                    <p className="text-xs text-gray-400">{currentTrack.album}</p>
+                    <p className="text-xs text-gray-300 mb-1">
+                      {currentTrack.artists && currentTrack.artists.length > 0 
+                        ? currentTrack.artists.filter(a => a).join(', ') 
+                        : 'Unknown Artist'}
+                    </p>
+                    <p className="text-xs text-gray-400">{currentTrack.album || 'Unknown Album'}</p>
                   </div>
                 ) : (
                   <div className="text-center text-gray-400 text-xs">
@@ -1045,7 +1067,9 @@ export default function DisplayPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold truncate text-xs">{song.name}</div>
-                          <div className="text-xs text-gray-300 truncate">{song.artists.join(', ')}</div>
+                          <div className="text-xs text-gray-300 truncate">
+                            {song.artists && song.artists.length > 0 ? song.artists.filter(a => a).join(', ') : 'Unknown Artist'}
+                          </div>
                         </div>
                         {song.requester_nickname && (
                           <div className="flex-shrink-0 ml-1">
@@ -1136,7 +1160,11 @@ export default function DisplayPage() {
                   />
                 )}
               <h3 className="text-lg font-bold mb-1">{currentTrack.name}</h3>
-              <p className="text-sm text-gray-300 mb-3">{currentTrack.artists.join(', ')}</p>
+              <p className="text-sm text-gray-300 mb-3">
+                {currentTrack.artists && currentTrack.artists.length > 0 
+                  ? currentTrack.artists.filter(a => a).join(', ') 
+                  : 'Unknown Artist'}
+              </p>
               
             </div>
           ) : (
@@ -1161,7 +1189,9 @@ export default function DisplayPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{song.name}</div>
-                      <div className="text-gray-300 truncate">{song.artists.join(', ')}</div>
+                      <div className="text-gray-300 truncate">
+                        {song.artists && song.artists.length > 0 ? song.artists.filter(a => a).join(', ') : 'Unknown Artist'}
+                      </div>
                     </div>
                     {song.requester_nickname && (
                       <div className="flex-shrink-0 ml-2">

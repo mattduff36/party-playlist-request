@@ -79,13 +79,6 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
         <h2 className="text-lg font-semibold text-white">Page Controls</h2>
       </div>
 
-      {/* Warning for offline state - Compact */}
-      {!canControlPages && (
-        <div className="mb-2 p-1.5 bg-yellow-900/20 border border-yellow-600 rounded text-xs text-yellow-400">
-          ⚠️ Start event to enable controls
-        </div>
-      )}
-
       {/* Toggles on same line - Whole box clickable */}
       <div className="grid grid-cols-2 gap-2">
         {pages.map((page) => {
@@ -99,7 +92,7 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
               onClick={() => handlePageToggle(page.key, !isEnabled)}
               disabled={isTogglingThis || !canControlPages}
               className={`
-                flex items-center justify-center space-x-2 p-2 rounded-lg border-2 transition-all duration-200
+                flex flex-col items-center space-y-1 p-2 rounded-lg border-2 transition-all duration-200
                 ${isEnabled 
                   ? 'bg-green-900/20 border-green-600' 
                   : 'bg-gray-700 border-gray-600'
@@ -109,15 +102,9 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
               `}
               title={!canControlPages ? 'Enable event first' : `Click to ${isEnabled ? 'disable' : 'enable'}`}
             >
-              <Icon className={`w-4 h-4 ${isEnabled ? 'text-green-400' : 'text-gray-400'}`} />
-              <span className={`text-sm font-medium ${isEnabled ? 'text-green-400' : 'text-gray-300'}`}>
+              <Icon className={`w-5 h-5 ${isEnabled ? 'text-green-400' : 'text-gray-400'}`} />
+              <div className={`font-medium text-xs ${isEnabled ? 'text-green-400' : 'text-gray-300'}`}>
                 {page.key === 'requests' ? 'Requests' : 'Display'}
-              </span>
-              <div className={`
-                px-1.5 py-0.5 rounded text-xs font-medium
-                ${isEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}
-              `}>
-                {isEnabled ? 'ON' : 'OFF'}
               </div>
             </button>
           );

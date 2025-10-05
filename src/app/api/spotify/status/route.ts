@@ -6,9 +6,24 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
+import { getConnectionStatusMessage, isSpotifyPermanentlyDisconnected } from '@/lib/spotify-connection-state';
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Spotify is permanently disconnected
+    if (isSpotifyPermanentlyDisconnected()) {
+      return NextResponse.json({
+        connected: false,
+        is_playing: false,
+        current_track: null,
+        device: null,
+        error: 'Not connected to Spotify',
+        status_message: getConnectionStatusMessage(),
+        requires_manual_reconnect: true,
+        last_updated: new Date().toISOString()
+      });
+    }
+
     // Check if connected and get status
     const isConnected = await spotifyService.isConnectedAndValid();
     
@@ -19,6 +34,8 @@ export async function GET(request: NextRequest) {
         current_track: null,
         device: null,
         error: 'Not connected to Spotify',
+        status_message: getConnectionStatusMessage(),
+        requires_manual_reconnect: false,
         last_updated: new Date().toISOString()
       });
     }
@@ -49,15 +66,24 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Spotify status error:', error);
+    // Don't log errors for expected disconnection states
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get Spotify status';
+    const isExpectedError = errorMessage.includes('disconnected') || 
+                           errorMessage.includes('backoff') ||
+                           errorMessage.includes('No refresh token');
+    
+    if (!isExpectedError) {
+      console.error('Spotify status error:', error);
+    }
     
     return NextResponse.json({
       connected: false,
       is_playing: false,
       current_track: null,
       device: null,
-      error: error instanceof Error ? error.message : 'Failed to get Spotify status',
+      error: 'Not connected to Spotify',
+      status_message: getConnectionStatusMessage(),
       last_updated: new Date().toISOString()
-    }, { status: 500 });
+    }, { status: 200 }); // Return 200 for disconnected state - it's not an error
   }
 }

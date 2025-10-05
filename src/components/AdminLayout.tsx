@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { 
   Home,
   LogOut,
-  Bell,
   Music,
   Play,
   Settings,
@@ -13,6 +12,11 @@ import {
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import SpotifyStatusDropdown from '@/components/admin/SpotifyStatusDropdown';
+import NotificationsDropdown from '@/components/admin/NotificationsDropdown';
+import NotificationInitializer from '@/components/admin/NotificationInitializer';
+import EventStateDropdown from '@/components/admin/EventStateDropdown';
+import PageToggleIcons from '@/components/admin/PageToggleIcons';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -338,6 +342,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // Main admin layout (authenticated)
   return (
     <div className="min-h-screen bg-gray-900 flex">
+      <NotificationInitializer />
       <Sidebar />
       
       {/* Main content */}
@@ -353,16 +358,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 {navItems.find(item => item.id === activeTab)?.label || 'Admin'}
               </h2>
             </div>
-            <div className="flex items-center space-x-4">
-              {/* Notification Badge */}
-              {stats && stats.pending_requests > 0 && (
-                <div className="relative">
-                  <Bell className="w-5 h-5 text-gray-400" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                    {stats.pending_requests}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center space-x-2">
+              {/* Event State Dropdown */}
+              <EventStateDropdown />
+              
+              {/* Page Toggle Icons */}
+              <PageToggleIcons />
+              
+              {/* Spotify Status Dropdown */}
+              <SpotifyStatusDropdown />
+              
+              {/* Notifications Dropdown */}
+              <NotificationsDropdown />
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
+import { resetSpotifyConnectionState } from '@/lib/spotify-connection-state';
 
 // Handle GET request (when Spotify redirects back)
 export async function GET(req: NextRequest) {
@@ -11,27 +12,27 @@ export async function GET(req: NextRequest) {
 
     // If there's an error from Spotify
     if (error) {
-      const redirectUrl = new URL('/admin/spotify-setup', req.url);
+      const redirectUrl = new URL('/admin/overview', req.url);
       redirectUrl.searchParams.set('error', `Spotify authentication failed: ${error}`);
       return NextResponse.redirect(redirectUrl);
     }
 
     // If we have the authorization code
     if (code && state) {
-      const redirectUrl = new URL('/admin/spotify-setup', req.url);
+      const redirectUrl = new URL('/admin/overview', req.url);
       redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('state', state);
       return NextResponse.redirect(redirectUrl);
     }
 
     // If no code or error, redirect back with error
-    const redirectUrl = new URL('/admin/spotify-setup', req.url);
+    const redirectUrl = new URL('/admin/overview', req.url);
     redirectUrl.searchParams.set('error', 'No authorization code received from Spotify');
     return NextResponse.redirect(redirectUrl);
 
   } catch (error) {
     console.error('Error in Spotify callback:', error);
-    const redirectUrl = new URL('/admin/spotify-setup', req.url);
+    const redirectUrl = new URL('/admin/overview', req.url);
     redirectUrl.searchParams.set('error', 'Failed to process Spotify callback');
     return NextResponse.redirect(redirectUrl);
   }
@@ -147,6 +148,10 @@ export async function POST(req: NextRequest) {
         console.log('Failed to cleanup OAuth session (non-critical):', cleanupError);
       }
     }
+    
+    // Reset connection state - Spotify is now connected!
+    resetSpotifyConnectionState();
+    console.log('✅ Spotify connection state reset - ready for API calls');
     
     return NextResponse.json({
       success: true,

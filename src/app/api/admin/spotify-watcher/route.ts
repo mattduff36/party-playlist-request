@@ -4,6 +4,7 @@ import { spotifyService } from '@/lib/spotify';
 import { triggerPlaybackUpdate, triggerStatsUpdate } from '@/lib/pusher';
 import { getAllRequests } from '@/lib/db';
 import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
+import { shouldAttemptSpotifyCall, isSpotifyPermanentlyDisconnected } from '@/lib/spotify-connection-state';
 
 // Store last known state to detect changes (excluding progress_ms which changes constantly)
 let lastPlaybackState: any = null;
@@ -48,7 +49,34 @@ const normalizePlaybackForComparison = (playback: any) => {
 // Spotify watcher function
 const watchSpotifyChanges = async (queueInterval: number = 20000) => {
   try {
-      console.log('🎵 Spotify watcher: Checking for changes...', new Date().toISOString());
+    // Check event status - don't try to connect when offline
+    try {
+      const { getDatabaseService } = await import('@/lib/db/database-service');
+      const dbService = getDatabaseService();
+      const currentEvent = await dbService.getEvent();
+      
+      if (currentEvent && currentEvent.status === 'offline') {
+        console.log('⏸️ Spotify watcher: Skipping check - event is offline');
+        return;
+      }
+    } catch (eventError) {
+      console.error('Failed to check event status:', eventError);
+      // Continue if we can't check event status - better to try than fail silently
+    }
+
+    // Don't try if permanently disconnected
+    if (isSpotifyPermanentlyDisconnected()) {
+      console.log('⏸️ Spotify watcher: Skipping check - permanently disconnected');
+      return;
+    }
+
+    // Don't try if in backoff period
+    if (!shouldAttemptSpotifyCall()) {
+      console.log('⏸️ Spotify watcher: Skipping check - in backoff period');
+      return;
+    }
+
+    console.log('🎵 Spotify watcher: Checking for changes...', new Date().toISOString());
     
     // Check if Spotify is connected using centralized status
     const isConnected = await getSpotifyConnectionStatus();

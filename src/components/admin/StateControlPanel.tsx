@@ -7,8 +7,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Power, Play, Pause, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Power, Play, Pause, AlertCircle } from 'lucide-react';
 import { useGlobalEvent, EventStateMachine } from '@/lib/state/global-event-client';
 
 interface StateControlPanelProps {
@@ -18,8 +18,6 @@ interface StateControlPanelProps {
 export default function StateControlPanel({ className = '' }: StateControlPanelProps) {
   const { state, actions } = useGlobalEvent();
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [previousStatus, setPreviousStatus] = useState(state?.status || 'offline');
 
   // Safety check - if state is not available, show loading
   if (!state) {
@@ -32,21 +30,6 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
       </div>
     );
   }
-
-  // Show success toast when state changes
-  useEffect(() => {
-    if (state.status !== previousStatus && !isTransitioning) {
-      setShowSuccessToast(true);
-      setPreviousStatus(state.status);
-      
-      // Hide toast after 3 seconds
-      const timer = setTimeout(() => {
-        setShowSuccessToast(false);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [state.status, previousStatus, isTransitioning]);
 
   const handleStateChange = async (newStatus: 'offline' | 'standby' | 'live') => {
     if (isTransitioning || !state || state.status === newStatus) return;
@@ -61,6 +44,56 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
 
     setIsTransitioning(true);
     try {
+      // If going to offline, disconnect Spotify and disable pages
+      if (newStatus === 'offline') {
+        const token = localStorage.getItem('admin_token');
+        if (token) {
+          console.log('🔌 Going offline: Disconnecting Spotify and disabling pages...');
+          
+          // Disconnect from Spotify
+          try {
+            await fetch('/api/spotify/disconnect', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            console.log('✅ Spotify disconnected');
+          } catch (spotifyError) {
+            console.error('Failed to disconnect Spotify:', spotifyError);
+            // Continue anyway - not critical
+          }
+
+          // Disable both pages if they're enabled
+          const pagesToDisable: Array<'requests' | 'display'> = [];
+          if (state.pagesEnabled.requests) pagesToDisable.push('requests');
+          if (state.pagesEnabled.display) pagesToDisable.push('display');
+
+          if (pagesToDisable.length > 0) {
+            try {
+              await Promise.all(
+                pagesToDisable.map(page =>
+                  fetch(`/api/event/pages/${page}`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ enabled: false })
+                  })
+                )
+              );
+              console.log('✅ Pages disabled:', pagesToDisable.join(', '));
+            } catch (pageError) {
+              console.error('Failed to disable pages:', pageError);
+              // Continue anyway
+            }
+          }
+        }
+      }
+
+      // Update the event status
       await actions?.setEventStatus?.(newStatus);
     } catch (error) {
       console.error('Failed to change event status:', error);
@@ -156,21 +189,6 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
         <div className="mt-1.5 flex items-center justify-center space-x-1 text-yellow-400 text-xs">
           <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-yellow-400"></div>
           <span>Updating...</span>
-        </div>
-      )}
-
-      {/* Success Toast */}
-      {showSuccessToast && (
-        <div className="fixed top-4 right-4 z-50 animate-fade-in">
-          <div className="bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border border-green-400 flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5" />
-            <div>
-              <div className="font-semibold">State Updated!</div>
-              <div className="text-sm opacity-90">
-                Event is now {state.status}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

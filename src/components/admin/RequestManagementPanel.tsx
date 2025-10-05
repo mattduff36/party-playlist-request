@@ -8,7 +8,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, CheckCircle, XCircle, PlayCircle, Trash2, Shuffle, Search, Filter } from 'lucide-react';
+import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface RequestManagementPanelProps {
@@ -264,18 +264,11 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
                 Approve
               </button>
               <button
-                onClick={() => handleBatchApprove(true)}
-                className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-              >
-                <PlayCircle className="w-4 h-4" />
-                Play Next
-              </button>
-              <button
                 onClick={handleBatchReject}
                 className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
               >
                 <XCircle className="w-4 h-4" />
-                Reject
+                Decline
               </button>
               <button
                 onClick={handleBatchDelete}
@@ -324,13 +317,13 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
                   request.status === 'rejected' ? 'bg-red-400/5 border-red-400/20' :
                   'bg-blue-400/5 border-blue-400/20'
                 }`}>
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   {/* Checkbox */}
                   <input
                     type="checkbox"
                     checked={selectedRequests.has(request.id)}
                     onChange={() => handleSelectRequest(request.id)}
-                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 mt-1"
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                   />
 
                   {/* Album Art */}
@@ -363,23 +356,16 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
                     {request.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => handleApprove(request.id, true)}
-                          className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Play Next"
-                        >
-                          <PlayCircle className="w-4 h-4 text-white" />
-                        </button>
-                        <button
                           onClick={() => handleApprove(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Accept"
+                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          title="Approve"
                         >
                           <CheckCircle className="w-4 h-4 text-white" />
                         </button>
                         <button
                           onClick={() => handleReject(request.id)}
-                          className="flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Reject"
+                          className="flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          title="Decline"
                         >
                           <XCircle className="w-4 h-4 text-white" />
                         </button>
@@ -389,16 +375,9 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
                     {request.status === 'rejected' && (
                       <>
                         <button
-                          onClick={() => handleApprove(request.id, true)}
-                          className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Play Next"
-                        >
-                          <PlayCircle className="w-4 h-4 text-white" />
-                        </button>
-                        <button
                           onClick={() => handleApprove(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Accept"
+                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          title="Approve"
                         >
                           <CheckCircle className="w-4 h-4 text-white" />
                         </button>
@@ -408,16 +387,9 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
                     {request.status === 'played' && (
                       <>
                         <button
-                          onClick={() => handlePlayAgain(request.id, true)}
-                          className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Play Next"
-                        >
-                          <PlayCircle className="w-4 h-4 text-white" />
-                        </button>
-                        <button
                           onClick={() => handlePlayAgain(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                          title="Add to Queue"
+                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          title="Play Again"
                         >
                           <CheckCircle className="w-4 h-4 text-white" />
                         </button>

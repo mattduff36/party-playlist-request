@@ -117,6 +117,36 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
     }
   };
 
+  // Reset connection state (allows retry after permanent failure)
+  const resetConnectionState = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        setState(prev => ({ ...prev, error: 'No admin token found' }));
+        return;
+      }
+
+      const response = await fetch('/api/spotify/reset-connection-state', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setState(prev => ({ ...prev, error: null }));
+        // Refresh the status
+        await checkConnectionStatus();
+      } else {
+        const data = await response.json();
+        setState(prev => ({ ...prev, error: data.error || 'Failed to reset connection state' }));
+      }
+    } catch (error) {
+      console.error('Error resetting connection state:', error);
+      setState(prev => ({ ...prev, error: 'Failed to reset connection state' }));
+    }
+  };
+
   // Disconnect from Spotify
   const disconnectFromSpotify = async () => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
@@ -259,6 +289,20 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           <p className="text-gray-400 text-sm text-center">
             You'll be redirected to Spotify to authorize the connection
           </p>
+
+          {/* Reset connection state button (for when retries are exhausted) */}
+          <div className="pt-2 border-t border-gray-700">
+            <button
+              onClick={resetConnectionState}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Reset Connection State</span>
+            </button>
+            <p className="text-gray-500 text-xs text-center mt-1">
+              Use if connection keeps failing
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">

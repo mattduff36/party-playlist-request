@@ -1,5 +1,12 @@
 import crypto from 'crypto';
 import { getSpotifyAuth, setSpotifyAuth } from './db';
+import { 
+  shouldAttemptSpotifyCall, 
+  recordSpotifySuccess, 
+  recordSpotifyFailure,
+  isSpotifyPermanentlyDisconnected,
+  getConnectionStatusMessage
+} from './spotify-connection-state';
 
 export interface SpotifyTrack {
   id: string;
@@ -54,6 +61,11 @@ class SpotifyService {
 
   async isConnectedAndValid(): Promise<boolean> {
     try {
+      // Quick check: if permanently disconnected, don't even try
+      if (isSpotifyPermanentlyDisconnected()) {
+        return false;
+      }
+
       const auth = await getSpotifyAuth();
       if (!auth || !auth.access_token || !auth.refresh_token) {
         return false;
@@ -61,12 +73,18 @@ class SpotifyService {
       
       // Check if token is expired
       if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
+        // Only attempt refresh if we should try
+        if (!shouldAttemptSpotifyCall()) {
+          // In backoff period, just return false quietly
+          return false;
+        }
+
         console.log('Access token expired, attempting refresh...');
         try {
           await this.refreshAccessToken();
           return true;
         } catch (refreshError) {
-          console.error('Failed to refresh token:', refreshError);
+          // Error is already logged in refreshAccessToken, just return false
           return false;
         }
       }
@@ -240,45 +258,80 @@ class SpotifyService {
   }
 
   async refreshAccessToken(): Promise<string> {
+    // Check if we should even attempt this call
+    if (isSpotifyPermanentlyDisconnected()) {
+      throw new Error('Spotify is permanently disconnected - manual reconnection required');
+    }
+
+    if (!shouldAttemptSpotifyCall()) {
+      throw new Error('Spotify is in backoff period - retry later');
+    }
+
     const auth = await getSpotifyAuth();
     if (!auth || !auth.refresh_token) {
+      recordSpotifyFailure('No refresh token available');
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(`${this.authURL}/api/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: auth.refresh_token
-      })
-    });
+    try {
+      const response = await fetch(`${this.authURL}/api/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: auth.refresh_token
+        })
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Token refresh failed:', errorText);
-      throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        // Determine if this is a permanent failure (invalid credentials) or temporary
+        const isPermanentError = response.status === 400 || response.status === 401;
+        
+        if (isPermanentError) {
+          console.warn('⚠️ Spotify token refresh failed with permanent error:', {
+            status: response.status,
+            error: errorText
+          });
+        }
+        
+        recordSpotifyFailure(`Token refresh failed: ${response.status}`);
+        throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
+      }
+
+      const tokenData = await response.json();
+      
+      // Update tokens in database
+      const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+      const updatedAuth = {
+        ...auth,
+        access_token: tokenData.access_token,
+        expires_at: expiresAt,
+        // Keep existing refresh_token if not provided in response
+        refresh_token: tokenData.refresh_token || auth.refresh_token
+      };
+
+      await setSpotifyAuth(updatedAuth);
+      
+      // Record success - this resets failure count
+      recordSpotifySuccess();
+      console.log('✅ Access token refreshed');
+      
+      return tokenData.access_token;
+    } catch (error) {
+      // If it's already our Error, just rethrow
+      if (error instanceof Error) {
+        throw error;
+      }
+      
+      // Otherwise record and wrap
+      recordSpotifyFailure('Unknown error during token refresh');
+      throw new Error('Failed to refresh Spotify token');
     }
-
-    const tokenData = await response.json();
-    
-    // Update tokens in database
-    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
-    const updatedAuth = {
-      ...auth,
-      access_token: tokenData.access_token,
-      expires_at: expiresAt,
-      // Keep existing refresh_token if not provided in response
-      refresh_token: tokenData.refresh_token || auth.refresh_token
-    };
-
-    await setSpotifyAuth(updatedAuth);
-    console.log('✅ Access token refreshed');
-    
-    return tokenData.access_token;
   }
 
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, retries = 1): Promise<any> {

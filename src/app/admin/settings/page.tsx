@@ -33,6 +33,41 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  // Handle Spotify connection
+  const handleSpotifyConnect = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        console.error('No admin token found');
+        return;
+      }
+
+      // Get Spotify authorization URL
+      const response = await fetch('/api/spotify/auth', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to get Spotify auth URL:', errorData.error);
+        return;
+      }
+
+      const data = await response.json();
+      
+      // Store OAuth data in localStorage for callback
+      localStorage.setItem('spotify_state', data.state);
+      localStorage.setItem('spotify_code_verifier', data.code_verifier);
+      
+      // Redirect to Spotify authorization
+      window.location.href = data.auth_url;
+    } catch (err) {
+      console.error('Error connecting to Spotify:', err);
+    }
+  };
+
   // Update form data when eventSettings loads
   useEffect(() => {
     if (eventSettings) {
@@ -525,11 +560,11 @@ export default function SettingsPage() {
               <p className="text-gray-400 text-sm">Connect your Spotify account to control music playback</p>
             </div>
             <button
-              onClick={() => router.push('/admin/spotify-setup')}
+              onClick={handleSpotifyConnect}
               className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
             >
               <Music className="w-4 h-4 mr-2" />
-              Setup Spotify
+              Connect Spotify
             </button>
           </div>
         </div>
