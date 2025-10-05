@@ -11,6 +11,7 @@ import StateControlPanel from '@/components/admin/StateControlPanel';
 import PageControlPanel from '@/components/admin/PageControlPanel';
 import SpotifyStatusDisplay from '@/components/admin/SpotifyStatusDisplay';
 import RequestManagementPanel from '@/components/admin/RequestManagementPanel';
+import EventInfoPanel from '@/components/admin/EventInfoPanel';
 import { SpotifyErrorBoundary } from '@/components/error/SpotifyErrorBoundary';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
@@ -122,6 +123,9 @@ export default function AdminOverviewPage() {
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Event Information Panel */}
+        <EventInfoPanel />
         
         {/* Main Control Panels - Side by Side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
