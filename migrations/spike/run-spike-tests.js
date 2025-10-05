@@ -170,7 +170,7 @@ async function testUniqueConstraint() {
     console.log('   ❌ FAIL - Constraint did not prevent duplicate active event!');
     return false;
   } catch (error) {
-    if (error.message.includes('one_active_event_per_user')) {
+    if (error.message.includes('one_active_event_per_user') || error.message.includes('idx_one_active_event_per_user')) {
       console.log('   ✅ PASS - Constraint correctly prevented duplicate');
       return true;
     } else {

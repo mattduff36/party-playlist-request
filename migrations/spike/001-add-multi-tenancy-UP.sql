@@ -63,11 +63,13 @@ CREATE TABLE IF NOT EXISTS user_events (
   expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '24 hours') NOT NULL,
   
   -- Metadata
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-  
-  -- Constraints: Only ONE active event per user in Phase 1
-  CONSTRAINT one_active_event_per_user UNIQUE (user_id) WHERE (active = true)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
+
+-- Create unique partial index for one active event per user
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_event_per_user 
+  ON user_events(user_id) 
+  WHERE active = true;
 
 -- Display Tokens table: Temporary tokens for display page access
 CREATE TABLE IF NOT EXISTS display_tokens (
@@ -206,7 +208,7 @@ VALUES (
   'bypass_token_john_12345678901234567890',
   true,
   NOW() + INTERVAL '24 hours'
-) ON CONFLICT ON CONSTRAINT one_active_event_per_user DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 -- Active Event for Jane Doe
 INSERT INTO user_events (id, user_id, name, pin, bypass_token, active, expires_at)
@@ -218,27 +220,27 @@ VALUES (
   'bypass_token_jane_09876543210987654321',
   true,
   NOW() + INTERVAL '24 hours'
-) ON CONFLICT ON CONSTRAINT one_active_event_per_user DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 -- No active event for Test DJ (to test "no active event" state)
 
 -- Test Requests for John Smith
-INSERT INTO requests (id, user_id, user_event_id, track_id, track_data, submitted_by, status, created_at)
+INSERT INTO requests (id, user_id, user_event_id, track_uri, track_name, artist_name, album_name, duration_ms, requester_nickname, requester_ip_hash, status, spotify_added_to_queue, spotify_added_to_playlist, created_at)
 VALUES
-  (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
-   'spotify:track:test1', '{"track_name": "Test Song 1", "artist_name": "Test Artist 1"}', 'Guest 1', 'pending', NOW() - INTERVAL '5 minutes'),
-  (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
-   'spotify:track:test2', '{"track_name": "Test Song 2", "artist_name": "Test Artist 2"}', 'Guest 2', 'approved', NOW() - INTERVAL '3 minutes'),
-  (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
-   'spotify:track:test3', '{"track_name": "Test Song 3", "artist_name": "Test Artist 3"}', 'Guest 3', 'rejected', NOW() - INTERVAL '1 minute');
+  (gen_random_uuid()::text, '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
+   'spotify:track:test1', 'Test Song 1', 'Test Artist 1', 'Test Album', 180000, 'Guest 1', 'test_ip_1', 'pending', false, false, NOW() - INTERVAL '5 minutes'),
+  (gen_random_uuid()::text, '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
+   'spotify:track:test2', 'Test Song 2', 'Test Artist 2', 'Test Album', 200000, 'Guest 2', 'test_ip_2', 'approved', false, false, NOW() - INTERVAL '3 minutes'),
+  (gen_random_uuid()::text, '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 
+   'spotify:track:test3', 'Test Song 3', 'Test Artist 3', 'Test Album', 220000, 'Guest 3', 'test_ip_3', 'rejected', false, false, NOW() - INTERVAL '1 minute');
 
 -- Test Requests for Jane Doe
-INSERT INTO requests (id, user_id, user_event_id, track_id, track_data, submitted_by, status, created_at)
+INSERT INTO requests (id, user_id, user_event_id, track_uri, track_name, artist_name, album_name, duration_ms, requester_nickname, requester_ip_hash, status, spotify_added_to_queue, spotify_added_to_playlist, created_at)
 VALUES
-  (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 
-   'spotify:track:test4', '{"track_name": "Test Song 4", "artist_name": "Test Artist 4"}', 'Guest 4', 'pending', NOW() - INTERVAL '4 minutes'),
-  (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 
-   'spotify:track:test5', '{"track_name": "Test Song 5", "artist_name": "Test Artist 5"}', 'Guest 5', 'approved', NOW() - INTERVAL '2 minutes');
+  (gen_random_uuid()::text, '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 
+   'spotify:track:test4', 'Test Song 4', 'Test Artist 4', 'Test Album', 190000, 'Guest 4', 'test_ip_4', 'pending', false, false, NOW() - INTERVAL '4 minutes'),
+  (gen_random_uuid()::text, '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 
+   'spotify:track:test5', 'Test Song 5', 'Test Artist 5', 'Test Album', 210000, 'Guest 5', 'test_ip_5', 'approved', false, false, NOW() - INTERVAL '2 minutes');
 
 -- User Settings (example)
 INSERT INTO user_settings (user_id, key, value)
