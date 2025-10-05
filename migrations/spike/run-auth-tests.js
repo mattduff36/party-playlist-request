@@ -133,7 +133,7 @@ async function test6_UserAccessOtherResource() {
   });
   
   if (response.ok) {
-    throw new Error('User should NOT be able to access another user\\'s resource');
+    throw new Error('User should NOT be able to access another users resource');
   }
   
   if (response.status !== 403) {
