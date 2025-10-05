@@ -54,14 +54,14 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       label: 'Overview', 
       icon: Home, 
       href: `${baseRoute}/admin/overview`,
-      badge: stats.pending_count > 0 ? stats.pending_count : undefined
+      badge: stats?.pending_count && stats.pending_count > 0 ? stats.pending_count : undefined
     },
     { 
       id: 'requests', 
       label: 'Requests', 
       icon: Music, 
       href: `${baseRoute}/admin/requests`,
-      badge: stats.pending_count > 0 ? stats.pending_count : undefined
+      badge: stats?.pending_count && stats.pending_count > 0 ? stats.pending_count : undefined
     },
     { 
       id: 'settings', 
