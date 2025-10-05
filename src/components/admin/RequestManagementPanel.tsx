@@ -8,7 +8,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter } from 'lucide-react';
+import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter, PlayCircle } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface RequestManagementPanelProps {
@@ -20,6 +20,7 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
     requests,
     handleApprove,
     handleReject,
+    handleResubmit,
     handleDelete,
     handlePlayAgain,
     loading,
@@ -375,11 +376,11 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
                     {request.status === 'rejected' && (
                       <>
                         <button
-                          onClick={() => handleApprove(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
-                          title="Approve"
+                          onClick={() => handleResubmit(request.id)}
+                          className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          title="Re-submit as Pending"
                         >
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <PlayCircle className="w-4 h-4 text-white" />
                         </button>
                       </>
                     )}
