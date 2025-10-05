@@ -66,7 +66,7 @@ export default function UserAdminLayout({
       <NotificationProvider>
         <GlobalEventProvider>
           <AdminDataProvider>
-            <AdminLayout>{children}</AdminLayout>
+            <AdminLayout username={username}>{children}</AdminLayout>
           </AdminDataProvider>
         </GlobalEventProvider>
       </NotificationProvider>

@@ -21,9 +21,10 @@ import PageToggleIcons from '@/components/admin/PageToggleIcons';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
+  username?: string;
 }
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { token, isAuthenticated, setToken, clearToken, isLoading: authLoading } = useAdminAuth();
@@ -256,7 +257,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex items-center h-16 px-4 bg-gray-900">
           <span className="text-2xl mr-2">🎵</span>
-          <h1 className="text-xl font-bold text-white">DJ Admin</h1>
+          <h1 className="text-xl font-bold text-white">{username || 'DJ Admin'}</h1>
         </div>
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex-1 px-3 space-y-1">
