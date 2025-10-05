@@ -1,74 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import { Music, Clock } from 'lucide-react';
 
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-}
-
-export default function AdminSpotifyPage() {
-  const router = useRouter();
-  const params = useParams();
-  const username = params.username as string;
-  
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/me');
-        
-        if (!response.ok) {
-          router.push('/login');
-          return;
-        }
-
-        const data = await response.json();
-        setUser(data.user);
-
-        if (data.user.username !== username && data.user.role !== 'superadmin') {
-          router.push(`/${data.user.username}/admin/spotify`);
-          return;
-        }
-
-        setLoading(false);
-      } catch (err) {
-        router.push('/login');
-      }
-    }
-
-    checkAuth();
-  }, [router, username]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-white animate-spin" />
-      </div>
-    );
-  }
-
+export default function SpotifyPage() {
   return (
-    <AdminLayout username={username} activeTab="spotify" userRole={user?.role}>
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-8">Spotify Connection</h1>
-        
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-12 border border-white/20 text-center">
-          <p className="text-white text-xl mb-4">🚧 Coming Soon!</p>
-          <p className="text-blue-200">
-            Per-user Spotify OAuth connection will be built here.
-            This is part of Phase 1 Week 3 (Spotify Multi-Tenancy).
+    <div className="space-y-6">
+      {/* Coming Soon Message */}
+      <div className="bg-gray-800 rounded-lg p-8">
+        <div className="text-center">
+          <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Music className="w-12 h-12 text-gray-400" />
+          </div>
+          <h2 className="text-3xl font-bold text-white mb-4">Spotify Controls</h2>
+          <div className="flex items-center justify-center space-x-2 text-purple-400 mb-6">
+            <Clock className="w-5 h-5" />
+            <span className="text-lg font-medium">Updates to this page coming soon!</span>
+          </div>
+          <p className="text-gray-400 text-lg max-w-md mx-auto mb-8">
+            We're working on enhanced Spotify controls and queue management features. 
+            For now, use the Overview page to manage your music.
           </p>
+          <div className="bg-gray-700/50 rounded-lg p-4 max-w-sm mx-auto">
+            <p className="text-gray-300 text-sm">
+              💡 <strong>Tip:</strong> You can control playback and reorder songs from the Overview page
+            </p>
+          </div>
         </div>
       </div>
-    </AdminLayout>
+    </div>
   );
 }
-
