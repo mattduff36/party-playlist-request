@@ -75,9 +75,9 @@ export async function POST(req: NextRequest) {
     // Create user
     const userId = uuidv4();
     await pool.query(
-      `INSERT INTO users (id, username, email, password_hash, role, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [userId, username, email, passwordHash, 'user']
+      `INSERT INTO users (id, username, email, password_hash, role, display_name, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [userId, username, email, passwordHash, 'user', username]
     );
 
     // Generate JWT
