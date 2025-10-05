@@ -163,7 +163,7 @@ async function test4_TokenIsolationOnUpdate() {
   const janeTokenAfter = janeAfter.rows[0].spotify_access_token;
 
   if (janeTokenBefore !== janeTokenAfter) {
-    throw new Error('Jane\\'s token was affected by John\\'s update!');
+    throw new Error('Janes token was affected by Johns update!');
   }
 
   console.log(`   John's token updated, Jane's token unchanged ✅`);
@@ -214,11 +214,11 @@ async function test6_TokenExpiryIndependence() {
   const johnExpired = new Date(john.spotify_token_expires_at).getTime() < Date.now();
 
   if (!johnExpired) {
-    throw new Error('John\\'s token should be expired');
+    throw new Error('Johns token should be expired');
   }
 
   if (janeExpired) {
-    throw new Error('Jane\\'s token should NOT be expired');
+    throw new Error('Janes token should NOT be expired');
   }
 
   console.log(`   John's token: EXPIRED ✅`);
@@ -310,11 +310,11 @@ async function test9_PerUserTokenUpdate() {
   const jane = result.rows.find(r => r.id === TEST_USERS.jane);
 
   if (!john.spotify_access_token.includes('john_token_')) {
-    throw new Error('John\\'s token not updated');
+    throw new Error('Johns token not updated');
   }
 
   if (!jane.spotify_access_token.includes('jane_token_')) {
-    throw new Error('Jane\\'s token not updated');
+    throw new Error('Janes token not updated');
   }
 
   console.log(`   Both users' tokens updated independently ✅`);
