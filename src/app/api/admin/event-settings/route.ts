@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth';
 import { getEventSettings, updateEventSettings } from '@/lib/db';
+import { triggerEvent, CHANNELS } from '@/lib/pusher';
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,7 +38,14 @@ export async function POST(req: NextRequest) {
       display_refresh_interval,
       request_limit,
       auto_approve,
-      force_polling
+      force_polling,
+      decline_explicit,
+      qr_boost_duration,
+      theme_primary_color,
+      theme_secondary_color,
+      theme_tertiary_color,
+      show_scrolling_bar,
+      karaoke_mode
     } = body;
     
     console.log('📝 Updating event settings:', {
@@ -45,7 +53,18 @@ export async function POST(req: NextRequest) {
       request_limit,
       auto_approve,
       force_polling,
-      hasOtherFields: !!(dj_name || venue_info || welcome_message)
+      decline_explicit,
+      show_scrolling_bar,
+      karaoke_mode,
+      qr_boost_duration,
+      theme_primary_color,
+      theme_secondary_color,
+      theme_tertiary_color,
+      welcome_message,
+      secondary_message,
+      tertiary_message,
+      show_qr_code,
+      hasOtherFields: !!(dj_name || venue_info)
     });
     
     const updatedSettings = await updateEventSettings({
@@ -59,8 +78,27 @@ export async function POST(req: NextRequest) {
       display_refresh_interval,
       request_limit,
       auto_approve,
-      force_polling
+      force_polling,
+      decline_explicit,
+      qr_boost_duration,
+      theme_primary_color,
+      theme_secondary_color,
+      theme_tertiary_color,
+      show_scrolling_bar,
+      karaoke_mode
     });
+    
+    // Trigger Pusher event to notify all clients of settings update
+    try {
+      await triggerEvent(CHANNELS.PARTY_PLAYLIST, 'settings-update', {
+        settings: updatedSettings,
+        timestamp: Date.now()
+      });
+      console.log('📡 Settings update event sent via Pusher');
+    } catch (pusherError) {
+      console.error('Failed to send Pusher event for settings update:', pusherError);
+      // Don't fail the request if Pusher fails
+    }
     
     return NextResponse.json({
       success: true,

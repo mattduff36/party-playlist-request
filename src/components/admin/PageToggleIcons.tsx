@@ -44,12 +44,12 @@ export default function PageToggleIcons() {
         onClick={() => handlePageToggle('requests')}
         disabled={isToggling === 'requests' || !canControlPages}
         className={`
-          relative p-2 rounded-lg transition-colors
+          relative px-3 py-2 rounded-lg border-2 transition-all
           ${requestsEnabled 
-            ? 'text-green-400 hover:bg-green-900/20' 
-            : 'text-gray-400 hover:bg-gray-700'
+            ? 'bg-green-900/20 border-green-600 text-green-400' 
+            : 'bg-gray-800 border-gray-600 text-gray-400'
           }
-          ${!canControlPages ? 'opacity-50 cursor-not-allowed' : ''}
+          ${!canControlPages ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}
           ${isToggling === 'requests' ? 'opacity-50' : ''}
         `}
         title={
@@ -58,12 +58,10 @@ export default function PageToggleIcons() {
             : `Requests Page: ${requestsEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
       >
-        <Smartphone className="w-5 h-5" />
-        {/* Status Dot */}
-        <span className={`
-          absolute top-1 right-1 w-2 h-2 rounded-full
-          ${requestsEnabled ? 'bg-green-400' : 'bg-gray-600'}
-        `} />
+        <div className="flex items-center gap-1.5">
+          <Smartphone className="w-4 h-4" />
+          <span className="text-xs font-medium">Requests</span>
+        </div>
       </button>
 
       {/* Display Page Toggle */}
@@ -71,12 +69,12 @@ export default function PageToggleIcons() {
         onClick={() => handlePageToggle('display')}
         disabled={isToggling === 'display' || !canControlPages}
         className={`
-          relative p-2 rounded-lg transition-colors
+          relative px-3 py-2 rounded-lg border-2 transition-all
           ${displayEnabled 
-            ? 'text-green-400 hover:bg-green-900/20' 
-            : 'text-gray-400 hover:bg-gray-700'
+            ? 'bg-green-900/20 border-green-600 text-green-400' 
+            : 'bg-gray-800 border-gray-600 text-gray-400'
           }
-          ${!canControlPages ? 'opacity-50 cursor-not-allowed' : ''}
+          ${!canControlPages ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}
           ${isToggling === 'display' ? 'opacity-50' : ''}
         `}
         title={
@@ -85,12 +83,10 @@ export default function PageToggleIcons() {
             : `Display Page: ${displayEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
       >
-        <Monitor className="w-5 h-5" />
-        {/* Status Dot */}
-        <span className={`
-          absolute top-1 right-1 w-2 h-2 rounded-full
-          ${displayEnabled ? 'bg-green-400' : 'bg-gray-600'}
-        `} />
+        <div className="flex items-center gap-1.5">
+          <Monitor className="w-4 h-4" />
+          <span className="text-xs font-medium">Display</span>
+        </div>
       </button>
     </>
   );

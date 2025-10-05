@@ -7,6 +7,7 @@ import { useLiveProgress } from '@/hooks/useLiveProgress';
 import { RequestApprovedEvent } from '@/lib/pusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
+import { EventConfig } from '@/lib/db/schema';
 
 interface CurrentTrack {
   name: string;
@@ -24,18 +25,6 @@ interface QueueItem {
   album: string;
   uri: string;
   requester_nickname?: string;
-}
-
-interface EventSettings {
-  event_title: string;
-  dj_name: string;
-  venue_info: string;
-  welcome_message: string;
-  secondary_message: string;
-  tertiary_message: string;
-  show_qr_code: boolean;
-  display_refresh_interval: number;
-  // Legacy polling settings (no longer used - Pusher handles real-time updates)
 }
 
 interface Notification {
@@ -59,7 +48,7 @@ interface RequestItem {
 export default function DisplayPage() {
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
-  const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
+  const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
@@ -89,6 +78,40 @@ export default function DisplayPage() {
     duration: number | null;
     created_at: string;
   } | null>(null);
+  
+  // Animation state for notice board
+  const [isMessageVisible, setIsMessageVisible] = useState(false); // Controls horizontal (columns)
+  const [isVerticalExpanded, setIsVerticalExpanded] = useState(false); // Controls vertical (rows)
+  const [showMessageText, setShowMessageText] = useState(false);
+  
+  // Handle notice board animation when message changes - two-phase approach
+  useEffect(() => {
+    if (currentMessage) {
+      // Message is appearing
+      // Phase 1: Horizontal expansion (columns: 0fr→1fr, 2fr→1fr)
+      setIsMessageVisible(true);
+      
+      // Phase 2: After 1s, do vertical animation + fade in text
+      const phase2Timer = setTimeout(() => {
+        setIsVerticalExpanded(true);
+        setShowMessageText(true);
+      }, 1000);
+      
+      return () => clearTimeout(phase2Timer);
+    } else {
+      // Message is disappearing - reverse order
+      // Phase 1: Fade out text + vertical animation
+      setShowMessageText(false);
+      setIsVerticalExpanded(false);
+      
+      // Phase 2: After 1s, collapse horizontally
+      const collapseTimer = setTimeout(() => {
+        setIsMessageVisible(false);
+      }, 1000);
+      
+      return () => clearTimeout(collapseTimer);
+    }
+  }, [currentMessage]);
   
   // 🚀 PUSHER: Real-time updates with animation triggers
   const { isConnected, connectionState } = usePusher({
@@ -199,6 +222,13 @@ export default function DisplayPage() {
     onMessageCleared: (data: any) => {
       console.log('💬 PUSHER: Message cleared!', data);
       setCurrentMessage(null);
+    },
+    onSettingsUpdate: (data: any) => {
+      console.log('⚙️ PUSHER: Settings updated!', data);
+      if (data.settings) {
+        setEventSettings(data.settings);
+        console.log('✅ Event settings refreshed from Pusher');
+      }
     }
   });
   
@@ -215,7 +245,7 @@ export default function DisplayPage() {
   // Calculate dynamic font size based on message length and device type
   // Ensures ALL text fits in container without resizing, minimum 0.1rem
   // Maximizes use of available vertical and horizontal space
-  const getMessageFontSize = (messageLength: number, deviceType: 'tv' | 'tablet' | 'mobile') => {
+  const getMessageFontSize = (messageText: string, deviceType: 'tv' | 'tablet' | 'mobile') => {
     const containerDimensions = {
       tv: { width: 400, height: 300 },      // Approximate container dimensions for TV layout
       tablet: { width: 300, height: 200 }, // Approximate container dimensions for tablet layout  
@@ -232,13 +262,18 @@ export default function DisplayPage() {
     const maxSize = maxSizes[deviceType];
     const minSize = 0.1; // Minimum font size in rem as requested
     
-    // Account for padding (20% margin on each side)
-    const availableWidth = containerWidth * 0.8;
-    const availableHeight = containerHeight * 0.8;
+    // Account for padding and safety margin (30% margin on each side)
+    const availableWidth = containerWidth * 0.7;
+    const availableHeight = containerHeight * 0.7;
     
-    // Average character width is roughly 0.6em, line height is 1.2em
-    const avgCharWidth = 0.6;
+    // Average character width is roughly 0.7em (conservative), line height is 1.2em
+    const avgCharWidth = 0.7;
     const lineHeightMultiplier = 1.2;
+    
+    // Find the longest word to ensure it can fit on a single line
+    const words = messageText.split(/\s+/);
+    const longestWordLength = Math.max(...words.map(w => w.length));
+    const messageLength = messageText.length;
     
     // Binary search for optimal font size that uses maximum space
     let minFontSize = minSize;
@@ -252,14 +287,18 @@ export default function DisplayPage() {
       // Calculate how many characters fit per line at this font size
       const charsPerLine = Math.floor(availableWidth / (testFontSizePx * avgCharWidth));
       
+      // Check if the longest word can fit on a single line
+      const longestWordWidth = longestWordLength * testFontSizePx * avgCharWidth;
+      const wordFits = longestWordWidth <= availableWidth;
+      
       // Calculate how many lines we need
       const requiredLines = Math.ceil(messageLength / charsPerLine);
       
       // Calculate total height needed
       const totalHeight = requiredLines * testFontSizePx * lineHeightMultiplier;
       
-      // Check if it fits within available height
-      if (totalHeight <= availableHeight && charsPerLine > 0) {
+      // Check if it fits within available height AND the longest word fits on one line
+      if (totalHeight <= availableHeight && charsPerLine > 0 && wordFits) {
         optimalFontSize = testFontSize;
         minFontSize = testFontSize; // Try larger
       } else {
@@ -495,12 +534,23 @@ export default function DisplayPage() {
     return () => clearInterval(interval);
   }, [eventSettings]);
 
+  // Dynamic theme colors (defined early for use in all return statements)
+  const themeColors = {
+    primary: (eventSettings as any)?.theme_primary_color || '#9333ea',
+    secondary: (eventSettings as any)?.theme_secondary_color || '#3b82f6',
+    tertiary: (eventSettings as any)?.theme_tertiary_color || '#4f46e5',
+  };
+  
+  const gradientStyle = {
+    background: `linear-gradient(to bottom right, ${themeColors.primary}, ${themeColors.secondary}, ${themeColors.tertiary})`
+  };
+
   // Show loading state while mounting or waiting for global state
   const isLoadingEssentialData = !mounted || globalState.isLoading;
     
   if (isLoadingEssentialData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
           <p className="text-white text-xl">Loading...</p>
@@ -525,7 +575,7 @@ export default function DisplayPage() {
   if ((isStandby || isLive) && !displayEnabled) {
     console.log('🚫 DisplayPage: Display Disabled');
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
         <div className="text-center px-4">
           <div className="flex justify-center mb-6">
             <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
@@ -545,8 +595,6 @@ export default function DisplayPage() {
   }
   
   // Party is active and display is enabled - show display content (continue to main UI)
-  console.log('✅ DisplayPage: Party active and Display Enabled, showing display content');
-
   // At this point, either admin is logged in with display enabled, or global party is active with display enabled
   // Continue to show the main display content UI
 
@@ -597,7 +645,7 @@ export default function DisplayPage() {
   // TV Layout (Large screens)
   if (deviceType === 'tv') {
     return (
-      <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-6 overflow-hidden">
+      <div className="h-screen text-white p-6 overflow-hidden" style={gradientStyle}>
         <div className="max-w-7xl mx-auto h-full flex flex-col">
           {/* Header - Fixed Height */}
           <div className="text-center py-4 flex-shrink-0">
@@ -611,11 +659,25 @@ export default function DisplayPage() {
           </div>
 
           {/* Main Content Area - Dynamic Height */}
-          <div className="flex-1 grid grid-cols-4 gap-6 min-h-0 mb-4">
-              {/* Now Playing + QR Code Column */}
-              <div className="col-span-1 flex flex-col h-full">
-                {/* Now Playing - Takes most of the space */}
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex-1 flex flex-col justify-center">
+          <div 
+            className="flex-1 min-h-0 mb-4"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMessageVisible ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr' : '1fr 1fr 1fr 1fr 0fr 0fr',
+              gridTemplateRows: isVerticalExpanded ? '4fr 2fr' : '3fr 3fr',
+              gap: '1.5rem',
+              marginRight: isMessageVisible ? '0' : '-3rem',
+              transition: 'grid-template-columns 1s ease-in-out, grid-template-rows 1s ease-in-out, margin-right 1s ease-in-out'
+            }}
+          >
+              {/* Now Playing */}
+              <div 
+                className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
+                style={{
+                  gridColumn: '1 / span 2',
+                  gridRow: '1'
+                }}
+              >
                   <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
                 {currentTrack ? (
                   <div className="text-center">
@@ -642,17 +704,28 @@ export default function DisplayPage() {
                 )}
               </div>
 
-                {/* QR Code - Square block at bottom */}
-                {eventSettings.show_qr_code && qrCodeUrl && (
-                  <div className="bg-white rounded-2xl p-6 text-center mt-4">
-                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-3 w-32 h-32" />
-                    <p className="text-black text-lg font-semibold">Request your song now!</p>
-                  </div>
-                )}
-              </div>
+              {/* QR Code */}
+              {eventSettings.show_qr_code && qrCodeUrl && (
+                <div 
+                  className="bg-white rounded-2xl p-6 text-center flex flex-col justify-center items-center min-w-0"
+                  style={{
+                    gridColumn: '1 / span 2',
+                    gridRow: '2'
+                  }}
+                >
+                  <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
+                  <p className="text-black text-lg font-semibold">Request your song now!</p>
+                </div>
+              )}
 
-              {/* Up Next - Longer Section */}
-              <div className="col-span-2 flex flex-col min-h-0">
+              {/* Up Next */}
+              <div 
+                className="flex flex-col min-h-0 min-w-0"
+                style={{
+                  gridColumn: '3 / span 2',
+                  gridRow: '1 / span 2'
+                }}
+              >
                 {upcomingSongs.length > 0 ? (
                   <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col h-full min-h-0 relative">
                   <h2 className="text-3xl font-semibold mb-6 text-center flex-shrink-0">🎶 Up Next</h2>
@@ -703,30 +776,39 @@ export default function DisplayPage() {
                 )}
               </div>
 
-              {/* Messages Section */}
-              <div className="col-span-1">
-                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex flex-col">
-                  <h2 className="text-3xl font-semibold mb-6 text-center">💬 Messages</h2>
-                  
+              {/* Messages Section (Notice Board) */}
+              <div 
+                className="min-w-0"
+                style={{
+                  gridColumn: '5 / span 2',
+                  gridRow: '1 / span 2',
+                  width: isMessageVisible ? 'auto' : '0',
+                  minWidth: isMessageVisible ? 'auto' : '0',
+                  overflow: 'hidden',
+                  padding: isMessageVisible ? '0' : '0',
+                  margin: isMessageVisible ? '0' : '0',
+                  opacity: isMessageVisible ? 1 : 0,
+                  transition: 'width 1s ease-in-out, min-width 1s ease-in-out, opacity 1s ease-in-out'
+                }}
+              >
+                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex flex-col" style={{ minWidth: '200px' }}>
                   <div className="flex-1 flex items-center justify-center">
-                    {currentMessage ? (
-                      <div className="text-center px-4 overflow-hidden">
+                    {currentMessage && (
+                      <div className={`text-center px-4 overflow-hidden transition-opacity duration-300 ${
+                        showMessageText ? 'opacity-100' : 'opacity-0'
+                      }`}>
                         <p 
-                          className="text-white font-medium leading-tight break-words overflow-wrap-anywhere hyphens-auto"
+                          className="text-white font-medium leading-tight"
                           style={{ 
-                            fontSize: getMessageFontSize(currentMessage.text.length, 'tv'),
+                            fontSize: getMessageFontSize(currentMessage.text, 'tv'),
                             lineHeight: '1.2',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word'
+                            wordBreak: 'normal',
+                            overflowWrap: 'normal',
+                            whiteSpace: 'normal'
                           }}
                         >
                           {currentMessage.text}
                         </p>
-                      </div>
-                    ) : (
-                      <div className="text-center text-gray-400">
-                        <div className="text-4xl mb-4">💬</div>
-                        <p className="text-xl">No messages</p>
                       </div>
                     )}
                   </div>
@@ -735,16 +817,18 @@ export default function DisplayPage() {
             </div>
 
           {/* Scrolling Messages Bar at Bottom - Fixed Height */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 overflow-hidden flex-shrink-0 h-16">
-            <div className="flex items-center h-full">
-              <div className="text-xl mr-3">📢</div>
-              <div className="flex-1 overflow-hidden">
-                  <div className={`animate-marquee whitespace-nowrap text-lg font-medium ${messageTextColor}`}>
-                    {displayContent}
-                  </div>
+          {(eventSettings as any).show_scrolling_bar !== false && (
+            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 overflow-hidden flex-shrink-0 h-16">
+              <div className="flex items-center h-full">
+                <div className="text-xl mr-3">📢</div>
+                <div className="flex-1 overflow-hidden">
+                    <div className={`animate-marquee whitespace-nowrap text-lg font-medium ${messageTextColor}`}>
+                      {displayContent}
+                    </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         <StatusDots />
       </div>
@@ -758,7 +842,7 @@ export default function DisplayPage() {
     if (isLandscape) {
       // Tablet Landscape - Full desktop layout with smaller text
       return (
-        <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-3 overflow-hidden">
+        <div className="h-screen text-white p-3 overflow-hidden" style={gradientStyle}>
           <div className="max-w-6xl mx-auto h-full flex flex-col">
             {/* Header - Fixed Height */}
             <div className="text-center py-2 flex-shrink-0">
@@ -772,11 +856,25 @@ export default function DisplayPage() {
             </div>
 
             {/* Main Content Area - Dynamic Height */}
-            <div className="flex-1 grid grid-cols-4 gap-4 min-h-0 mb-3">
-              {/* Now Playing + QR Code Column */}
-              <div className="col-span-1 flex flex-col h-full">
-                {/* Now Playing - Takes most of the space */}
-                <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-1 flex flex-col justify-center">
+            <div 
+              className="flex-1 min-h-0 mb-3"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMessageVisible ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr' : '1fr 1fr 1fr 1fr 0fr 0fr',
+                gridTemplateRows: isVerticalExpanded ? '4fr 2fr' : '3fr 3fr',
+                gap: '1rem',
+                marginRight: isMessageVisible ? '0' : '-2rem',
+                transition: 'grid-template-columns 1s ease-in-out, grid-template-rows 1s ease-in-out, margin-right 1s ease-in-out'
+              }}
+            >
+              {/* Now Playing */}
+              <div 
+                className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col justify-center min-w-0"
+                style={{
+                  gridColumn: '1 / span 2',
+                  gridRow: '1'
+                }}
+              >
                   <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
                   {currentTrack ? (
                     <div className="text-center">
@@ -803,17 +901,28 @@ export default function DisplayPage() {
                   )}
                 </div>
 
-                {/* QR Code - Square block at bottom */}
-                {eventSettings.show_qr_code && qrCodeUrl && (
-                  <div className="bg-white rounded-xl p-3 text-center mt-3">
-                    <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-2 w-20 h-20" />
-                    <p className="text-black text-sm font-semibold">Request your song now!</p>
-                  </div>
-                )}
-              </div>
+              {/* QR Code */}
+              {eventSettings.show_qr_code && qrCodeUrl && (
+                <div 
+                  className="bg-white rounded-xl p-3 text-center flex flex-col justify-center items-center min-w-0"
+                  style={{
+                    gridColumn: '1 / span 2',
+                    gridRow: '2'
+                  }}
+                >
+                  <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-[200px] mb-2" style={{ aspectRatio: '1/1' }} />
+                  <p className="text-black text-sm font-semibold">Request your song now!</p>
+                </div>
+              )}
 
-              {/* Up Next - Longer Section */}
-              <div className="col-span-2 flex flex-col min-h-0">
+              {/* Up Next */}
+              <div 
+                className="flex flex-col min-h-0 min-w-0"
+                style={{
+                  gridColumn: '3 / span 2',
+                  gridRow: '1 / span 2'
+                }}
+              >
                 {upcomingSongs.length > 0 ? (
                   <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0 relative">
                     <h2 className="text-xl font-semibold mb-4 text-center flex-shrink-0">🎶 Upcoming songs</h2>
@@ -851,30 +960,39 @@ export default function DisplayPage() {
                 )}
               </div>
 
-              {/* Messages Section */}
-              <div className="col-span-1">
-                <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full flex flex-col">
-                  <h2 className="text-lg font-semibold mb-4 text-center">💬 Messages</h2>
-                  
+              {/* Messages Section (Notice Board) */}
+              <div 
+                className="min-w-0"
+                style={{
+                  gridColumn: '5 / span 2',
+                  gridRow: '1 / span 2',
+                  width: isMessageVisible ? 'auto' : '0',
+                  minWidth: isMessageVisible ? 'auto' : '0',
+                  overflow: 'hidden',
+                  padding: isMessageVisible ? '0' : '0',
+                  margin: isMessageVisible ? '0' : '0',
+                  opacity: isMessageVisible ? 1 : 0,
+                  transition: 'width 1s ease-in-out, min-width 1s ease-in-out, opacity 1s ease-in-out'
+                }}
+              >
+                <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full flex flex-col" style={{ minWidth: '150px' }}>
                   <div className="flex-1 flex items-center justify-center">
-                    {currentMessage ? (
-                      <div className="text-center px-3 overflow-hidden">
+                    {currentMessage && (
+                      <div className={`text-center px-3 overflow-hidden transition-opacity duration-300 ${
+                        showMessageText ? 'opacity-100' : 'opacity-0'
+                      }`}>
                         <p 
-                          className="text-white font-medium leading-tight break-words overflow-wrap-anywhere hyphens-auto"
+                          className="text-white font-medium leading-tight"
                           style={{ 
-                            fontSize: getMessageFontSize(currentMessage.text.length, 'tablet'),
+                            fontSize: getMessageFontSize(currentMessage.text, 'tablet'),
                             lineHeight: '1.2',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word'
+                            wordBreak: 'normal',
+                            overflowWrap: 'normal',
+                            whiteSpace: 'normal'
                           }}
                         >
                           {currentMessage.text}
                         </p>
-                      </div>
-                    ) : (
-                      <div className="text-center text-gray-400">
-                        <div className="text-2xl mb-2">💬</div>
-                        <p className="text-sm">No messages</p>
                       </div>
                     )}
                   </div>
@@ -883,16 +1001,18 @@ export default function DisplayPage() {
             </div>
 
             {/* Scrolling Messages Bar at Bottom - Fixed Height */}
-            <div className="bg-black/50 backdrop-blur-sm rounded-xl p-2 overflow-hidden flex-shrink-0 h-12">
-              <div className="flex items-center h-full">
-                <div className="text-base mr-2">📢</div>
-                <div className="flex-1 overflow-hidden">
-                  <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
-                    {displayContent}
+            {(eventSettings as any).show_scrolling_bar !== false && (
+              <div className="bg-black/50 backdrop-blur-sm rounded-xl p-2 overflow-hidden flex-shrink-0 h-12">
+                <div className="flex items-center h-full">
+                  <div className="text-base mr-2">📢</div>
+                  <div className="flex-1 overflow-hidden">
+                    <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
+                      {displayContent}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
           <StatusDots />
         </div>
@@ -900,7 +1020,7 @@ export default function DisplayPage() {
     } else {
       // Tablet Portrait - Simplified layout
     return (
-        <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4 overflow-hidden">
+        <div className="h-screen text-white p-4 overflow-hidden" style={gradientStyle}>
           <div className="max-w-2xl mx-auto h-full flex flex-col">
             <div className="text-center py-3 flex-shrink-0">
               <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
@@ -974,16 +1094,18 @@ export default function DisplayPage() {
             </div>
 
             {/* Scrolling Messages Bar at Bottom */}
-            <div className="bg-black/50 backdrop-blur-sm rounded-xl p-3 overflow-hidden flex-shrink-0 h-14">
-              <div className="flex items-center h-full">
-                <div className="text-lg mr-3">📢</div>
-                <div className="flex-1 overflow-hidden">
-                  <div className={`animate-marquee whitespace-nowrap text-base font-medium ${messageTextColor}`}>
-                    {displayContent}
+            {(eventSettings as any).show_scrolling_bar !== false && (
+              <div className="bg-black/50 backdrop-blur-sm rounded-xl p-3 overflow-hidden flex-shrink-0 h-14">
+                <div className="flex items-center h-full">
+                  <div className="text-lg mr-3">📢</div>
+                  <div className="flex-1 overflow-hidden">
+                    <div className={`animate-marquee whitespace-nowrap text-base font-medium ${messageTextColor}`}>
+                      {displayContent}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+            )}
           <StatusDots />
         </div>
       </div>
@@ -997,7 +1119,7 @@ export default function DisplayPage() {
   if (isLandscape) {
     // Mobile Landscape - Full desktop layout with very small text
   return (
-      <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-2 overflow-hidden">
+      <div className="h-screen text-white p-2 overflow-hidden" style={gradientStyle}>
         <div className="max-w-5xl mx-auto h-full flex flex-col">
           {/* Header - Fixed Height */}
           <div className="text-center py-1 flex-shrink-0">
@@ -1011,11 +1133,25 @@ export default function DisplayPage() {
           </div>
 
           {/* Main Content Area - Dynamic Height */}
-          <div className="flex-1 grid grid-cols-4 gap-2 min-h-0 mb-2">
-            {/* Now Playing + QR Code Column */}
-            <div className="col-span-1 flex flex-col h-full">
-              {/* Now Playing - Takes most of the space */}
-              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 flex-1 flex flex-col justify-center">
+          <div 
+            className="flex-1 min-h-0 mb-2"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMessageVisible ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr' : '1fr 1fr 1fr 1fr 0fr 0fr',
+              gridTemplateRows: isVerticalExpanded ? '4fr 2fr' : '3fr 3fr',
+              gap: '0.5rem',
+              marginRight: isMessageVisible ? '0' : '-1rem',
+              transition: 'grid-template-columns 1s ease-in-out, grid-template-rows 1s ease-in-out, margin-right 1s ease-in-out'
+            }}
+          >
+            {/* Now Playing */}
+            <div 
+              className="bg-black/30 backdrop-blur-sm rounded-lg p-2 flex flex-col justify-center min-w-0"
+              style={{
+                gridColumn: '1 / span 2',
+                gridRow: '1'
+              }}
+            >
                 <h2 className="text-xs font-semibold mb-2 text-center">🎵 Now Playing</h2>
                 {currentTrack ? (
         <div className="text-center">
@@ -1038,20 +1174,31 @@ export default function DisplayPage() {
                   <div className="text-center text-gray-400 text-xs">
                     No song currently playing
                   </div>
-                )}
-              </div>
-
-              {/* QR Code - Square block at bottom */}
-              {eventSettings.show_qr_code && qrCodeUrl && (
-                <div className="bg-white rounded-lg p-2 text-center mt-2">
-                  <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-1 w-12 h-12" />
-                  <p className="text-black text-xs font-semibold">Request now!</p>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Up Next - Longer Section */}
-            <div className="col-span-2">
+            {/* QR Code */}
+            {eventSettings.show_qr_code && qrCodeUrl && (
+              <div 
+                className="bg-white rounded-lg p-2 text-center flex flex-col justify-center items-center min-w-0"
+                style={{
+                  gridColumn: '1 / span 2',
+                  gridRow: '2'
+                }}
+              >
+                <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-[120px] mb-1" style={{ aspectRatio: '1/1' }} />
+                <p className="text-black text-xs font-semibold">Request now!</p>
+              </div>
+            )}
+
+            {/* Up Next */}
+            <div 
+              className="flex flex-col min-h-0 min-w-0"
+              style={{
+                gridColumn: '3 / span 2',
+                gridRow: '1 / span 2'
+              }}
+            >
               {upcomingSongs.length > 0 ? (
                 <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full relative">
                   <h2 className="text-sm font-semibold mb-2 text-center">🎶 Upcoming songs</h2>
@@ -1089,30 +1236,39 @@ export default function DisplayPage() {
               )}
             </div>
 
-            {/* Messages Section */}
-            <div className="col-span-1">
-              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full flex flex-col">
-                <h2 className="text-xs font-semibold mb-2 text-center">💬 Messages</h2>
-                
+            {/* Messages Section (Notice Board) */}
+            <div 
+              className="min-w-0"
+              style={{
+                gridColumn: '5 / span 2',
+                gridRow: '1 / span 2',
+                width: isMessageVisible ? 'auto' : '0',
+                minWidth: isMessageVisible ? 'auto' : '0',
+                overflow: 'hidden',
+                padding: isMessageVisible ? '0' : '0',
+                margin: isMessageVisible ? '0' : '0',
+                opacity: isMessageVisible ? 1 : 0,
+                transition: 'width 1s ease-in-out, min-width 1s ease-in-out, opacity 1s ease-in-out'
+              }}
+            >
+              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full flex flex-col" style={{ minWidth: '100px' }}>
                 <div className="flex-1 flex items-center justify-center">
-                  {currentMessage ? (
-                    <div className="text-center px-2 overflow-hidden">
+                  {currentMessage && (
+                    <div className={`text-center px-2 overflow-hidden transition-opacity duration-300 ${
+                      showMessageText ? 'opacity-100' : 'opacity-0'
+                    }`}>
                       <p 
-                        className="text-white font-medium leading-tight break-words overflow-wrap-anywhere hyphens-auto"
+                        className="text-white font-medium leading-tight"
                         style={{ 
-                          fontSize: getMessageFontSize(currentMessage.text.length, 'mobile'),
+                          fontSize: getMessageFontSize(currentMessage.text, 'mobile'),
                           lineHeight: '1.1',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'break-word'
+                          wordBreak: 'normal',
+                          overflowWrap: 'normal',
+                          whiteSpace: 'normal'
                         }}
                       >
                         {currentMessage.text}
                       </p>
-                    </div>
-                  ) : (
-                    <div className="text-center text-gray-400">
-                      <div className="text-sm mb-1">💬</div>
-                      <p className="text-xs">No messages</p>
                     </div>
                   )}
                 </div>
@@ -1121,16 +1277,18 @@ export default function DisplayPage() {
           </div>
 
           {/* Scrolling Messages Bar at Bottom - Fixed Height */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-lg p-1 overflow-hidden flex-shrink-0 h-8">
-            <div className="flex items-center h-full">
-              <div className="text-xs mr-1">📢</div>
-              <div className="flex-1 overflow-hidden">
-                <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
-                  {displayContent}
+          {(eventSettings as any).show_scrolling_bar !== false && (
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-1 overflow-hidden flex-shrink-0 h-8">
+              <div className="flex items-center h-full">
+                <div className="text-xs mr-1">📢</div>
+                <div className="flex-1 overflow-hidden">
+                  <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
+                    {displayContent}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         <StatusDots />
       </div>
@@ -1138,7 +1296,7 @@ export default function DisplayPage() {
   } else {
     // Mobile Portrait - Simplified layout
     return (
-      <div className="h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-3 overflow-hidden">
+      <div className="h-screen text-white p-3 overflow-hidden" style={gradientStyle}>
         <div className="max-w-sm mx-auto h-full flex flex-col">
           <div className="text-center flex-shrink-0 mb-3">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
@@ -1212,16 +1370,18 @@ export default function DisplayPage() {
           </div>
 
           {/* Scrolling Messages Bar at Bottom */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 overflow-hidden flex-shrink-0 h-12">
-            <div className="flex items-center h-full">
-              <div className="text-sm mr-2">📢</div>
-              <div className="flex-1 overflow-hidden">
-                <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
-                  {displayContent}
+          {(eventSettings as any).show_scrolling_bar !== false && (
+            <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 overflow-hidden flex-shrink-0 h-12">
+              <div className="flex items-center h-full">
+                <div className="text-sm mr-2">📢</div>
+                <div className="flex-1 overflow-hidden">
+                  <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
+                    {displayContent}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
       </div>
       <StatusDots />
     </div>

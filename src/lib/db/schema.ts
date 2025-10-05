@@ -126,7 +126,15 @@ export interface EventConfig {
   show_qr_code?: boolean;
   request_limit?: number;
   auto_approve?: boolean;
+  decline_explicit?: boolean;
   message_text?: string;
   message_duration?: number;
   message_created_at?: string;
+  // Display screen settings
+  qr_boost_duration?: number;
+  theme_primary_color?: string;
+  theme_secondary_color?: string;
+  theme_tertiary_color?: string;
+  show_scrolling_bar?: boolean;
+  karaoke_mode?: boolean;
 }

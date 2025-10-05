@@ -17,6 +17,7 @@ interface UsePusherOptions {
   onTokenExpired?: (data: any) => void;
   onAdminLogin?: (data: any) => void;
   onAdminLogout?: (data: any) => void;
+  onSettingsUpdate?: (data: any) => void;
 }
 
 export const usePusher = (options: UsePusherOptions = {}) => {
@@ -29,7 +30,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout, options.onSettingsUpdate]);
 
   useEffect(() => {
     // Create Pusher client
@@ -119,6 +120,13 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('💬 Pusher: Message cleared', data);
       if (optionsRef.current.onMessageCleared) {
         optionsRef.current.onMessageCleared(data);
+      }
+    });
+
+    channel.bind('settings-update', (data: any) => {
+      console.log('⚙️ Pusher: Settings update', data);
+      if (optionsRef.current.onSettingsUpdate) {
+        optionsRef.current.onSettingsUpdate(data);
       }
     });
 

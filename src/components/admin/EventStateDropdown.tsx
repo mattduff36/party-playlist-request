@@ -51,48 +51,66 @@ export default function EventStateDropdown() {
 
     setIsTransitioning(true);
     try {
-      // If going to offline, disconnect Spotify and disable pages
-      if (newStatus === 'offline') {
+      // If going to offline or standby, disable pages
+      // If going to offline, also disconnect Spotify
+      if (newStatus === 'offline' || newStatus === 'standby') {
         const token = localStorage.getItem('admin_token');
         if (token) {
-          console.log('🔌 Going offline: Disconnecting Spotify and disabling pages...');
+          console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'} pages...`);
           
-          // Disconnect from Spotify
-          try {
-            await fetch('/api/spotify/disconnect', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            console.log('✅ Spotify disconnected');
-          } catch (spotifyError) {
-            console.error('Failed to disconnect Spotify:', spotifyError);
+          // Disconnect from Spotify only when going offline
+          if (newStatus === 'offline') {
+            try {
+              await fetch('/api/spotify/disconnect', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              console.log('✅ Spotify disconnected');
+            } catch (spotifyError) {
+              console.error('Failed to disconnect Spotify:', spotifyError);
+            }
           }
 
-          // Disable both pages if they're enabled
-          const pagesToDisable: Array<'requests' | 'display'> = [];
-          if (state.pagesEnabled.requests) pagesToDisable.push('requests');
-          if (state.pagesEnabled.display) pagesToDisable.push('display');
+          // Disable pages if they're enabled
+          const disablePromises = [];
+          
+          if (state.pagesEnabled.requests) {
+            console.log('🔌 Disabling Requests page...');
+            disablePromises.push(
+              fetch('/api/event/pages', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ page: 'requests', enabled: false })
+              })
+            );
+          }
+          
+          if (state.pagesEnabled.display) {
+            console.log('🔌 Disabling Display page...');
+            disablePromises.push(
+              fetch('/api/event/pages', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ page: 'display', enabled: false })
+              })
+            );
+          }
 
-          if (pagesToDisable.length > 0) {
+          if (disablePromises.length > 0) {
             try {
-              await Promise.all(
-                pagesToDisable.map(page =>
-                  fetch(`/api/event/pages/${page}`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ enabled: false })
-                  })
-                )
-              );
-              console.log('✅ Pages disabled:', pagesToDisable.join(', '));
+              await Promise.all(disablePromises);
+              console.log('✅ Pages disabled');
             } catch (pageError) {
-              console.error('Failed to disable pages:', pageError);
+              console.error('❌ Failed to disable pages:', pageError);
             }
           }
         }

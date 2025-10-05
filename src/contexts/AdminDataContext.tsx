@@ -375,7 +375,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const updateEventSettings = useCallback(async (settings: Partial<EventSettings>) => {
     try {
       const token = localStorage.getItem('admin_token');
-      if (!token) return;
+      if (!token) {
+        console.error('❌ No admin token found');
+        return;
+      }
+
+      console.log('🔄 [AdminDataContext] updateEventSettings called with:', settings);
+      console.log('🔄 [AdminDataContext] Settings keys:', Object.keys(settings));
 
       const response = await fetch('/api/admin/event-settings', {
         method: 'POST',
@@ -386,12 +392,19 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(settings)
       });
       
+      console.log('🔄 [AdminDataContext] API response status:', response.status);
+      
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [AdminDataContext] Settings updated successfully:', result);
         // Refresh event settings after update
         await refreshEventSettings();
+      } else {
+        const errorText = await response.text();
+        console.error('❌ [AdminDataContext] API error:', errorText);
       }
     } catch (error) {
-      console.error('Failed to update event settings:', error);
+      console.error('❌ [AdminDataContext] Failed to update event settings:', error);
     }
   }, [refreshEventSettings]);
 

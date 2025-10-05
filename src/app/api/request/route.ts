@@ -110,11 +110,21 @@ export async function POST(req: NextRequest) {
 
     const ipHash = hashIP(clientIP);
 
-    // Check if auto-approval is enabled
-    console.log(`⚙️ [${requestId}] Checking auto-approval settings...`);
+    // Check event settings
+    console.log(`⚙️ [${requestId}] Checking event settings...`);
     const eventSettings = await getEventSettings();
     const shouldAutoApprove = eventSettings.auto_approve;
-    console.log(`🔧 [${requestId}] Auto-approve setting: ${shouldAutoApprove}`);
+    const shouldDeclineExplicit = (eventSettings as any).decline_explicit || false;
+    console.log(`🔧 [${requestId}] Auto-approve: ${shouldAutoApprove}, Decline explicit: ${shouldDeclineExplicit}`);
+
+    // Check if track is explicit and should be auto-declined
+    if (shouldDeclineExplicit && trackInfo.explicit) {
+      console.log(`🚫 [${requestId}] Track is explicit and auto-decline is enabled, rejecting request`);
+      return NextResponse.json({ 
+        error: 'Explicit content is not allowed. Please choose a different song.',
+        explicit: true
+      }, { status: 403 });
+    }
 
     // Determine initial status based on auto-approval setting
     const initialStatus = shouldAutoApprove ? 'approved' : 'pending';

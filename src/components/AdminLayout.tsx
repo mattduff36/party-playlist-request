@@ -8,7 +8,8 @@ import {
   Music,
   Play,
   Settings,
-  Monitor
+  Monitor,
+  Eye
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -233,6 +234,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const getCurrentTab = () => {
     if (pathname?.includes('/requests')) return 'requests';
     if (pathname?.includes('/spotify')) return 'spotify';
+    if (pathname?.includes('/display')) return 'display';
     if (pathname?.includes('/settings')) return 'settings';
     return 'overview';
   };
@@ -244,6 +246,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { id: 'overview', label: 'Overview', icon: Home, href: '/admin/overview' },
     { id: 'requests', label: 'Song Requests', icon: Music, href: '/admin/requests' },
     { id: 'spotify', label: 'Spotify', icon: Play, href: '/admin/spotify' },
+    { id: 'display', label: 'Display Settings', icon: Eye, href: '/admin/display' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 
@@ -359,11 +362,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </h2>
             </div>
             <div className="flex items-center space-x-2">
-              {/* Event State Dropdown */}
-              <EventStateDropdown />
-              
               {/* Page Toggle Icons */}
               <PageToggleIcons />
+              
+              {/* Event State Dropdown */}
+              <EventStateDropdown />
               
               {/* Spotify Status Dropdown */}
               <SpotifyStatusDropdown />

@@ -6,6 +6,7 @@ import axios from 'axios';
 import { usePusher } from '@/hooks/usePusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
+import { EventConfig } from '@/lib/db/schema';
 
 interface Track {
   id: string;
@@ -38,20 +39,6 @@ interface RequestResponse {
   };
 }
 
-interface EventSettings {
-  event_title: string;
-  welcome_message: string;
-  secondary_message: string;
-  tertiary_message: string;
-  show_qr_code: boolean;
-  display_refresh_interval: number;
-  // Polling intervals (in seconds) - optional for compatibility
-  admin_polling_interval?: number;
-  display_polling_interval?: number;
-  now_playing_polling_interval?: number;
-  sse_update_interval?: number;
-}
-
 const API_BASE = '/api';
 
 // Helper function to format duration
@@ -70,7 +57,7 @@ export default function HomePage() {
   const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [nickname, setNickname] = useState('');
-  const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
+  const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<any>(null); // Pusher stats to check global party status
   
@@ -162,6 +149,13 @@ export default function HomePage() {
     onStatsUpdate: (data: any) => {
       console.log('📊 Stats update via Pusher:', data);
       setStats(data);
+    },
+    onSettingsUpdate: (data: any) => {
+      console.log('⚙️ PUSHER: Settings updated!', data);
+      if (data.settings) {
+        setEventSettings(data.settings);
+        console.log('✅ Event settings refreshed from Pusher');
+      }
     }
   });
 
@@ -377,11 +371,22 @@ export default function HomePage() {
 
   // Show loading state while mounting or waiting for global state
   const isLoadingEssentialData = !mounted || globalState.isLoading;
+  
+  // Dynamic theme colors (defined early for use in all return statements)
+  const themeColors = {
+    primary: (eventSettings as any)?.theme_primary_color || '#9333ea',
+    secondary: (eventSettings as any)?.theme_secondary_color || '#3b82f6',
+    tertiary: (eventSettings as any)?.theme_tertiary_color || '#4f46e5',
+  };
+  
+  const gradientStyle = {
+    background: `linear-gradient(to bottom right, ${themeColors.primary}, ${themeColors.secondary}, ${themeColors.tertiary})`
+  };
     
   if (isLoadingEssentialData) {
     console.log('🔄 HomePage: Showing loading state', { mounted, isLoading: globalState.isLoading });
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
           <p className="text-white text-xl">Loading...</p>
@@ -406,7 +411,7 @@ export default function HomePage() {
   if ((isStandby || isLive) && !requestsEnabled) {
     console.log('🚫 HomePage: Requests Disabled');
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative">
+      <div className="min-h-screen flex items-center justify-center relative" style={gradientStyle}>
         <div className="text-center px-4">
           <div className="flex justify-center mb-6">
             <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">🎵</div>
@@ -443,7 +448,7 @@ export default function HomePage() {
   // Continue to main request form UI below
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative">
+    <div className="min-h-screen relative" style={gradientStyle}>
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header - Less Prominent */}

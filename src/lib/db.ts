@@ -300,6 +300,58 @@ export async function initializeDatabase() {
       console.log('ℹ️ This might be expected if column already exists');
     }
 
+    // Migration: Add display customization columns to event_settings
+    try {
+      console.log('🔧 Starting display customization migration...');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS decline_explicit BOOLEAN DEFAULT FALSE;
+      `);
+      console.log('✅ decline_explicit column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS qr_boost_duration INTEGER DEFAULT 5;
+      `);
+      console.log('✅ qr_boost_duration column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS theme_primary_color TEXT DEFAULT '#9333ea';
+      `);
+      console.log('✅ theme_primary_color column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS theme_secondary_color TEXT DEFAULT '#3b82f6';
+      `);
+      console.log('✅ theme_secondary_color column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS theme_tertiary_color TEXT DEFAULT '#4f46e5';
+      `);
+      console.log('✅ theme_tertiary_color column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS show_scrolling_bar BOOLEAN DEFAULT TRUE;
+      `);
+      console.log('✅ show_scrolling_bar column added');
+      
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS karaoke_mode BOOLEAN DEFAULT FALSE;
+      `);
+      console.log('✅ karaoke_mode column added');
+      
+      console.log('✅ Display customization columns migration completed successfully');
+    } catch (migrationError) {
+      console.error('❌ Display customization columns migration failed:', migrationError);
+      console.log('ℹ️ This might be expected if columns already exist');
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS oauth_sessions (
         state TEXT PRIMARY KEY,
@@ -581,15 +633,29 @@ export async function updateEventSettings(settings: Partial<Omit<EventSettings, 
   const values = fields.map(field => settings[field as keyof typeof settings]);
   const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
   
+  console.log('💾 [DB] updateEventSettings called with:', {
+    fieldsCount: fields.length,
+    fields: fields,
+    values: values
+  });
+  
   if (fields.length === 0) {
+    console.log('⚠️ [DB] No fields to update, returning current settings');
     return getEventSettings();
   }
   
-  await client.query(`
+  const query = `
     UPDATE event_settings 
     SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
     WHERE id = 1
-  `, values);
+  `;
+  
+  console.log('💾 [DB] Executing query:', query);
+  console.log('💾 [DB] With values:', values);
+  
+  await client.query(query, values);
+  
+  console.log('✅ [DB] Event settings updated successfully');
   
   return getEventSettings();
 }
