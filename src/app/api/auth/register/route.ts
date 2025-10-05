@@ -114,8 +114,10 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Registration error:', error);
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
