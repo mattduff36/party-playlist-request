@@ -1,102 +1,108 @@
+/**
+ * Authentication Library
+ * JWT token generation, verification, and password hashing
+ */
+
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { getAdmin, updateAdminLastLogin } from './db';
-import { NextRequest } from 'next/server';
 
-export interface AdminPayload {
-  adminId: string;
-  username: string;
-  type: 'admin';
+const JWT_SECRET = process.env.JWT_SECRET || '';
+const JWT_EXPIRES_IN = '7d'; // 7 days
+
+if (!JWT_SECRET) {
+  console.warn('⚠️ WARNING: JWT_SECRET not set in environment variables!');
 }
 
-class AuthService {
-  private jwtSecret: string;
-  private tokenExpiry = '24h';
+export interface JWTPayload {
+  user_id: string;
+  username: string;
+  email: string;
+  role: 'user' | 'superadmin';
+  iat?: number;
+  exp?: number;
+}
 
-  constructor() {
-    this.jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
-  }
+/**
+ * Generate a JWT token for a user
+ */
+export function generateToken(user: Omit<JWTPayload, 'iat' | 'exp'>): string {
+  const token = jwt.sign(
+    {
+      user_id: user.user_id,
+      username: user.username,
+      email: user.email,
+      role: user.role
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+  
+  console.log('🔑 Generated JWT for user:', user.username);
+  return token;
+}
 
-  generateToken(payload: AdminPayload): string {
-    return jwt.sign(payload, this.jwtSecret, { 
-      expiresIn: this.tokenExpiry,
-      issuer: 'party-dj-system'
-    } as jwt.SignOptions);
-  }
-
-  verifyToken(token: string): AdminPayload {
-    try {
-      return jwt.verify(token, this.jwtSecret) as AdminPayload;
-    } catch (error) {
-      throw new Error('Invalid or expired token');
+/**
+ * Verify and decode a JWT token
+ */
+export function verifyToken(token: string): JWTPayload | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return decoded;
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      console.log('❌ Token expired');
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      console.log('❌ Invalid token:', error.message);
+    } else {
+      console.log('❌ Token verification error:', error);
     }
+    return null;
   }
+}
 
-  async hashPassword(password: string): Promise<string> {
-    return await bcrypt.hash(password, 10);
-  }
+/**
+ * Hash a password using bcrypt
+ */
+export async function hashPassword(plaintext: string): Promise<string> {
+  const saltRounds = 12;
+  const hash = await bcrypt.hash(plaintext, saltRounds);
+  return hash;
+}
 
-  async comparePassword(password: string, hash: string): Promise<boolean> {
-    return await bcrypt.compare(password, hash);
-  }
+/**
+ * Compare plaintext password with hash
+ */
+export async function comparePassword(plaintext: string, hash: string): Promise<boolean> {
+  const isMatch = await bcrypt.compare(plaintext, hash);
+  return isMatch;
+}
 
-  async authenticateAdmin(username: string, password: string) {
-    try {
-      const admin = await getAdmin(username);
-
-      if (!admin || !admin.is_active) {
-        throw new Error('Invalid credentials');
-      }
-
-      const isValidPassword = await this.comparePassword(password, admin.password_hash);
-      if (!isValidPassword) {
-        throw new Error('Invalid credentials');
-      }
-
-      await updateAdminLastLogin(admin.username);
-
-      const token = this.generateToken({
-        adminId: admin.id,
-        username: admin.username,
-        type: 'admin'
-      });
-
-      return {
-        token,
-        admin: {
-          id: admin.id,
-          username: admin.username,
-          lastLogin: admin.last_login
-        }
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  extractTokenFromRequest(req: NextRequest): string | null {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
+/**
+ * Extract token from Authorization header or cookie
+ */
+export function extractToken(authHeader?: string | null, cookieValue?: string | null): string | null {
+  // Try Authorization header first (Bearer token)
+  if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
   }
-
-  async requireAdminAuth(req: NextRequest): Promise<AdminPayload> {
-    const token = this.extractTokenFromRequest(req);
-    
-    if (!token) {
-      throw new Error('No token provided');
-    }
-
-    const decoded = this.verifyToken(token);
-
-    if (decoded.type !== 'admin') {
-      throw new Error('Admin access required');
-    }
-
-    return decoded;
+  
+  // Try cookie
+  if (cookieValue) {
+    return cookieValue;
   }
+  
+  return null;
 }
 
-export const authService = new AuthService();
+/**
+ * Create cookie options for auth token
+ */
+export function getCookieOptions(isProduction: boolean) {
+  return {
+    httpOnly: true,
+    secure: isProduction, // HTTPS only in production
+    sameSite: 'lax' as const,
+    maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+    path: '/'
+  };
+}
