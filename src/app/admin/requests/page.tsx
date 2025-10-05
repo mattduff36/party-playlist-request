@@ -6,10 +6,11 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 import { useState, useEffect } from 'react';
 import { Music, CheckCircle, XCircle, PlayCircle, Trash2, Shuffle } from 'lucide-react';
 
-const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain, onAddRandomSong, isAddingRandomSong }: { 
-  requestsData: any[], 
+const RequestsTab = ({ requestsData, onApprove, onReject, onResubmit, onDelete, onPlayAgain, onAddRandomSong, isAddingRandomSong }: { 
+  requestsData: any[],
   onApprove: (id: string, playNext?: boolean) => void,
   onReject: (id: string) => void,
+  onResubmit: (id: string) => void,
   onDelete: (id: string) => void,
   onPlayAgain: (id: string, playNext?: boolean) => void,
   onAddRandomSong: () => void,
@@ -249,20 +250,12 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                       {request.status === 'rejected' && (
                         <>
                           <button
-                            onClick={() => onApprove(request.id, true)}
+                            onClick={() => onResubmit(request.id)}
                             className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors min-w-[36px] min-h-[36px]"
-                            title="Play Next"
+                            title="Re-submit as Pending"
                           >
                             <PlayCircle className="w-4 h-4 text-white" />
-                            <span className="hidden lg:inline ml-1 text-white text-xs">Play Next</span>
-                          </button>
-                          <button
-                            onClick={() => onApprove(request.id)}
-                            className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded transition-colors min-w-[36px] min-h-[36px]"
-                            title="Accept"
-                          >
-                            <CheckCircle className="w-4 h-4 text-white" />
-                            <span className="hidden lg:inline ml-1 text-white text-xs">Accept</span>
+                            <span className="hidden lg:inline ml-1 text-white text-xs">Re-submit</span>
                           </button>
                           {request.rejection_reason && (
                             <span className="text-gray-500 text-xs hidden md:inline ml-2" title={request.rejection_reason}>
@@ -318,6 +311,7 @@ export default function RequestsPage() {
     requests,
     handleApprove,
     handleReject,
+    handleResubmit,
     handleDelete,
     handlePlayAgain,
     loading,
@@ -388,6 +382,7 @@ export default function RequestsPage() {
       requestsData={requests || []}
       onApprove={handleApprove}
       onReject={handleReject}
+      onResubmit={handleResubmit}
       onDelete={handleDelete}
       onPlayAgain={handlePlayAgain}
       onAddRandomSong={handleAddRandomSong}

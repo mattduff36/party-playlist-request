@@ -540,6 +540,65 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshRequests, refreshStats]);
 
+  const handleResubmit = useCallback(async (id: string) => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        console.error('❌ No admin token found for resubmit request');
+        return;
+      }
+
+      // First, get the rejected request details
+      const request = requests.find(r => r.id === id);
+      if (!request) {
+        console.error(`❌ Request ${id} not found`);
+        return;
+      }
+
+      console.log(`🔄 Re-submitting request ${id}`);
+
+      // Create a new pending request with the same details
+      const response = await fetch('/api/request', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          track_uri: request.track_uri,
+          track_name: request.track_name,
+          artist_name: request.artist_name,
+          album_name: request.album_name,
+          requester_nickname: request.requester_nickname || 'Re-submitted'
+        })
+      });
+      
+      if (response.ok) {
+        console.log(`✅ Request re-submitted successfully`);
+        
+        // Delete the old rejected request
+        const deleteResponse = await fetch(`/api/admin/delete/${id}`, {
+          method: 'DELETE',
+          headers: { 
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (deleteResponse.ok) {
+          console.log(`✅ Old rejected request ${id} deleted`);
+        }
+        
+        // Refresh the data
+        await refreshRequests();
+        await refreshStats();
+      } else {
+        const error = await response.text();
+        console.error(`❌ Failed to re-submit request:`, response.status, error);
+      }
+    } catch (error) {
+      console.error(`❌ Error re-submitting request ${id}:`, error);
+    }
+  }, [requests, refreshRequests, refreshStats]);
+
   const handleDelete = useCallback(async (id: string) => {
     try {
       const token = localStorage.getItem('admin_token');
@@ -668,6 +727,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     handleSpotifyDisconnect,
     handleApprove,
     handleReject,
+    handleResubmit,
     handleDelete,
     handlePlayAgain,
     handleQueueReorder
