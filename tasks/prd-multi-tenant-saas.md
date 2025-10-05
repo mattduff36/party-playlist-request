@@ -78,7 +78,7 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 
 **FR-1.2** User registration must collect:
 - Email (unique, validated)
-- Username (unique, alphanumeric + hyphens, 3-20 characters, used in URLs)
+- Username (unique, alphanumeric + hyphens, 3-20 characters, used in URLs, **permanent and non-editable**)
 - Display name (shown to guests, e.g., "John Smith DJ Services")
 - Password (minimum 8 characters, hashed with bcrypt)
 
@@ -99,24 +99,29 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 **FR-2.1** The homepage (`/`) must display a static landing page with:
 - Brief description of PartyPlaylist
 - Prominent [Login] button linking to `/login`
-- [Contact Me] button linking to contact information
+- [Contact Me] button opening a contact form modal
 
-**FR-2.2** User-specific URLs must follow the pattern `/:username/*` where `:username` is the unique username.
+**FR-2.2** The contact form must:
+- Collect: name, email, message
+- Send via Resend API to contact@partyplaylist.co.uk
+- Show success/error confirmation
 
-**FR-2.3** Public pages (request form, display) must be accessible at:
+**FR-2.3** User-specific URLs must follow the pattern `/:username/*` where `:username` is the unique username.
+
+**FR-2.4** Public pages (request form, display) must be accessible at:
 - `/:username` - Request form (PIN-protected)
 - `/:username/display` - Now playing display (token or auth-protected)
 
-**FR-2.4** Admin pages must be accessible at:
+**FR-2.5** Admin pages must be accessible at:
 - `/:username/admin/overview` - Dashboard
 - `/:username/admin/requests` - Request management
 - `/:username/admin/settings` - Event settings
 - `/:username/admin/queue` - Spotify queue management
 - `/:username/admin/spotify` - Spotify connection
 
-**FR-2.5** Middleware must verify that the authenticated user's username matches the `:username` in the URL for admin routes.
+**FR-2.6** Middleware must verify that the authenticated user's username matches the `:username` in the URL for admin routes.
 
-**FR-2.6** Super admin pages must be accessible at:
+**FR-2.7** Super admin pages must be accessible at:
 - `/superadmin/dashboard` - Platform overview
 - `/superadmin/users` - User management
 - `/superadmin/users/new` - Create new user manually
@@ -126,12 +131,12 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 **FR-3.1** Users must be able to start a new event from their admin panel.
 
 **FR-3.2** When an event is created, the system must generate:
-- A unique 4-digit PIN (0000-9999)
+- A unique 4-digit PIN (0000-9999, **avoiding obvious patterns**: 0000, 1111, 1234, etc.)
 - A cryptographically secure bypass token (32 characters)
 - An event ID (UUID)
 - A start timestamp
 
-**FR-3.3** Only ONE active event per user is allowed in Phase 1.
+**FR-3.3** Only ONE active event per user is allowed in Phase 1. If a user attempts to create a new event while one is active, display error: "You already have an active event. End it first or wait for auto-expiry."
 
 **FR-3.4** Events must automatically expire 24 hours after creation.
 
@@ -200,6 +205,8 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 - "Display page is only accessible when logged in. Please open this page from your admin panel."
 - [Go to Login] button
 
+**FR-6.9** Admin panel must provide a "Revoke Display Access" button to immediately invalidate all display tokens for that user (e.g., if venue TV is stolen or compromised).
+
 ### 4.7 Request Form (Public)
 
 **FR-7.1** The request form at `/:username` must be accessible only when:
@@ -250,19 +257,19 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 **FR-10.1** The system must integrate Stripe for payment processing.
 
 **FR-10.2** Three pricing models must be supported:
-- **One-off Event**: Single payment for a single event (24-hour access)
-- **Subscription**: Recurring monthly payment for unlimited events
-- **Custom**: Manually configured pricing by super admin
+- **One-off Event**: £30 single payment for one event (24-hour access)
+- **Subscription**: £10/month recurring payment for unlimited events (introductory pricing for first 50 subscribers, then £20/month)
+- **Custom/Free**: Manually configured pricing by super admin (including free accounts)
 
-**FR-10.3** Users with `pending` status must be redirected to a payment page after registration.
+**FR-10.3** **PHASE 1 SCOPE**: Super admin will manually create all user accounts. Self-service payment integration is deferred to Phase 2.
 
-**FR-10.4** Upon successful payment, user status must change from `pending` to `active`.
+**FR-10.4** Super admin must be able to manually activate accounts and set subscription type when creating users.
 
-**FR-10.5** Subscription payments must be handled via Stripe's subscription API.
+**FR-10.5** System must track which pricing tier each user is on (`one-off`, `subscription`, `custom`, `free`).
 
-**FR-10.6** Failed payments must change user status to `suspended`.
+**FR-10.6** *(Phase 2)* Stripe webhook handling for `payment_succeeded`, `payment_failed`, `subscription_cancelled` events.
 
-**FR-10.7** Super admin must be able to manually activate accounts without payment (for VIP/custom deals).
+**FR-10.7** *(Phase 2)* Self-service payment flow where users can select pricing and pay via Stripe checkout.
 
 ### 4.11 Super Admin Panel
 
@@ -283,9 +290,14 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 
 **FR-11.5** Super admin must be able to create new user accounts manually via `/superadmin/users/new`.
 
-**FR-11.6** Manually created accounts can be marked as "free" (no payment required).
+**FR-11.6** When creating accounts, super admin must be able to:
+- Set subscription type: one-off, subscription, custom, or free
+- Set initial status: pending, active, suspended
+- Set pricing (for custom plans)
 
 **FR-11.7** Super admin must be able to change user status between: `pending`, `active`, `suspended`, `cancelled`.
+
+**FR-11.8** When a user's subscription is cancelled, their data must be retained for 30 days before deletion (grace period for potential reactivation).
 
 ### 4.12 Existing Data Migration
 
@@ -316,11 +328,17 @@ Enable PartyPlaylist to serve multiple paying customers simultaneously, each run
 
 **NG-7** API for third-party integrations
 
-**NG-8** Automatic subscription renewal handling (manual monitoring by admin)
+**NG-8** Stripe webhook handling for subscription events (manual monitoring by super admin for Phase 1)
 
-**NG-9** Subdomain-based routing (path-based only: `/:username/*`)
+**NG-9** Self-service user registration with payment (super admin creates all accounts manually in Phase 1)
 
-**NG-10** Multiple payment providers (Stripe only for Phase 1)
+**NG-10** Event history viewing (only current/active event shown in Phase 1)
+
+**NG-11** User impersonation feature for support purposes
+
+**NG-12** Subdomain-based routing (path-based only: `/:username/*`)
+
+**NG-13** Multiple payment providers (Stripe integration prepared for Phase 2)
 
 ---
 
@@ -341,7 +359,10 @@ CREATE TABLE users (
   role VARCHAR(20) DEFAULT 'user', -- 'user' or 'superadmin'
   status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'active', 'suspended', 'cancelled'
   subscription_type VARCHAR(20), -- 'one-off', 'subscription', 'custom', 'free'
-  stripe_customer_id VARCHAR(255),
+  custom_price_amount DECIMAL(10, 2), -- For custom pricing plans
+  stripe_customer_id VARCHAR(255), -- Phase 2
+  cancelled_at TIMESTAMP, -- When subscription was cancelled
+  deletion_scheduled_at TIMESTAMP, -- cancelled_at + 30 days
   created_at TIMESTAMP DEFAULT NOW(),
   last_login TIMESTAMP
 );
@@ -447,11 +468,12 @@ Super Admin Pages:
 
 ### 7.3 Dependencies
 
-- **New:** `stripe` - Payment processing
+- **New:** `stripe` - Payment processing (Phase 2 integration)
 - **New:** `jsonwebtoken` - JWT token generation/verification
 - **New:** `bcryptjs` - Password hashing
 - **New:** `express-rate-limit` - Rate limiting for security
 - **New:** `qrcode` - QR code generation
+- **New:** `resend` - Email API for contact form
 - **Existing:** Next.js, PostgreSQL, Pusher, Axios
 
 ### 7.4 Migration Strategy
@@ -504,42 +526,34 @@ All Pusher event subscriptions must include `user_id` for isolation.
 
 ---
 
-## 9. Open Questions
+## 9. Decisions Made (Previously Open Questions)
 
-1. **Q1**: What pricing should we set for one-off events vs subscriptions? (e.g., £10 one-off, £20/month subscription)
-   - **Owner to decide** and provide pricing details
+All clarifying questions have been resolved. Key decisions:
 
-2. **Q2**: Should users be able to edit their username after registration, or is it permanent?
-   - **Recommendation**: Permanent (changing URLs would break QR codes)
+1. **Pricing Model**: 
+   - One-off event: £30
+   - Subscription: £10/month (introductory for first 50 users), then £20/month
+   - Custom/Free: Set by super admin
 
-3. **Q3**: How should we handle Stripe webhooks for subscription events (payment_succeeded, payment_failed, subscription_cancelled)?
-   - **Requires**: Webhook endpoint implementation plan
+2. **Username Editing**: Permanent and non-editable (prevents breaking QR codes and URLs)
 
-4. **Q4**: Should the super admin be able to impersonate users (login as them) for support purposes?
-   - **Phase 2 consideration**
+3. **Payment Integration**: 
+   - Phase 1: Manual account creation by super admin only
+   - Phase 2: Stripe webhooks for automated subscription management
 
-5. **Q5**: What happens to a user's data if they cancel their subscription?
-   - **Options**: 
-     - A) Immediate data deletion
-     - B) 30-day grace period before deletion
-     - C) Archive indefinitely (soft delete)
-   - **Owner to decide**
+4. **User Impersonation**: Deferred to Phase 2
 
-6. **Q6**: Should we show event history (past events) to users, or only current/active event?
-   - **Recommendation**: Show history in Phase 2
+5. **Data Retention**: 30-day grace period before deletion upon subscription cancellation
 
-7. **Q7**: For the "Contact Me" button on homepage, what should the target be?
-   - **Options**: Email link, contact form, external website
-   - **Owner to provide**: Contact details
+6. **Event History**: Deferred to Phase 2 (only current/active event shown in Phase 1)
 
-8. **Q8**: Should PIN codes be truly random, or avoid easily confused patterns (e.g., 0000, 1234)?
-   - **Recommendation**: Avoid obvious patterns for security
+7. **Contact Form**: Contact form modal using Resend API → contact@partyplaylist.co.uk
 
-9. **Q9**: What should happen if a user tries to start a new event while one is still active?
-   - **Recommendation**: Show error: "You already have an active event. End it first or wait for auto-expiry."
+8. **PIN Generation**: Avoid obvious patterns (0000, 1111, 1234, etc.) for security
 
-10. **Q10**: Should display tokens be revocable from admin panel (e.g., if TV is stolen)?
-    - **Recommendation**: Yes, add "Revoke Display Access" button
+9. **Concurrent Events**: System enforces single active event; error message if attempted
+
+10. **Display Token Revocation**: Yes, "Revoke Display Access" button in admin panel
 
 ---
 
@@ -547,19 +561,20 @@ All Pusher event subscriptions must include `user_id` for isolation.
 
 ### Phase 1A: Foundation (Week 1-2)
 - Database schema changes
-- User registration & authentication
+- User authentication (login only, no self-registration for Phase 1)
 - Path-based routing structure
-- Basic super admin panel
+- Basic super admin panel with manual user creation
 
 ### Phase 1B: Event System (Week 2-3)
 - Event creation/management
-- PIN authentication
+- PIN authentication with pattern avoidance
 - QR code generation
 - Bypass token validation
 
 ### Phase 1C: Display & Security (Week 3-4)
 - Display page authentication
 - Display token generation
+- Display token revocation
 - Error handling for cross-user access
 - Rate limiting
 
@@ -569,19 +584,21 @@ All Pusher event subscriptions must include `user_id` for isolation.
 - Multi-user Spotify watcher
 - Token isolation
 
-### Phase 1E: Payment Integration (Week 5-6)
-- Stripe integration
-- Checkout flow
-- Webhook handling
-- Payment status management
+### Phase 1E: Homepage & Contact (Week 5)
+- Static landing page
+- Contact form modal
+- Resend API integration
+- Basic marketing copy
 
-### Phase 1F: Testing & Polish (Week 6-7)
+### Phase 1F: Testing & Polish (Week 5-6)
 - End-to-end testing
-- Security audit
-- Performance testing
+- Security audit (PIN rate limiting, data isolation)
+- Performance testing with multiple concurrent users
 - Bug fixes
 
-**Estimated Total: 6-7 weeks of focused development**
+**Estimated Total: 5-6 weeks of focused development**
+
+*Note: Payment integration (Stripe) moved to Phase 2, simplifying Phase 1 timeline.*
 
 ---
 
