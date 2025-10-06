@@ -263,11 +263,11 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
   };
 
   return (
-    <div className="relative">
-      {/* Logout button - fixed in top right */}
+    <>
+      {/* Logout button - fixed in top right corner */}
       <button
         onClick={onLogout}
-        className="fixed top-4 right-4 z-50 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-300 flex items-center gap-2 shadow-lg border border-gray-700"
+        className="fixed top-4 right-4 z-50 bg-gray-800/80 hover:bg-gray-700/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-colors duration-300 flex items-center gap-2 shadow-lg border border-gray-700"
       >
         <Lock className="h-4 w-4" />
         Logout
@@ -292,7 +292,7 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
         notifications={notifications}
         onDismissNotifications={dismissNotifications}
       />
-    </div>
+    </>
   );
 }
 
