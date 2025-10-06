@@ -22,17 +22,9 @@ export default function SettingsPage() {
   // Handle Spotify connection
   const handleSpotifyConnect = async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('No admin token found');
-        return;
-      }
-
       // Get Spotify authorization URL
       const response = await fetch('/api/spotify/auth', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // JWT auth via cookies
       });
 
       if (!response.ok) {
