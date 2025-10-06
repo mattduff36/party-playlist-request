@@ -26,6 +26,7 @@ export default function EventInfoPanel() {
       // Clear event when going offline
       console.log('📅 Event is offline, clearing event info');
       setEvent(null);
+      setLoading(false); // Stop loading when offline
     }
   }, [state?.status]); // Re-fetch when status changes
 
