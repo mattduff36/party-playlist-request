@@ -417,10 +417,25 @@ export async function createRequest(request: Omit<Request, 'id' | 'created_at'>)
   return result.rows[0];
 }
 
-export async function getRequest(id: string): Promise<Request | null> {
+export async function getRequest(id: string, userId?: string): Promise<Request | null> {
   const client = getPool();
+  
+  // If userId provided, ensure ownership (multi-tenant isolation)
+  if (userId) {
+    const result = await client.query('SELECT * FROM requests WHERE id = $1 AND user_id = $2', [id, userId]);
+    return result.rows[0] || null;
+  }
+  
+  // Legacy: return any (for backward compatibility during migration)
   const result = await client.query('SELECT * FROM requests WHERE id = $1', [id]);
   return result.rows[0] || null;
+}
+
+// Helper: Verify request ownership
+export async function verifyRequestOwnership(requestId: string, userId: string): Promise<boolean> {
+  const client = getPool();
+  const result = await client.query('SELECT id FROM requests WHERE id = $1 AND user_id = $2', [requestId, userId]);
+  return result.rows.length > 0;
 }
 
 export async function updateRequest(id: string, updates: Partial<Request>): Promise<Request | null> {
@@ -439,7 +454,7 @@ export async function updateRequest(id: string, updates: Partial<Request>): Prom
   return result.rows[0] || null;
 }
 
-export async function getRequestsByStatus(status: string, limit = 50, offset = 0): Promise<Request[]> {
+export async function getRequestsByStatus(status: string, limit = 50, offset = 0, userId?: string): Promise<Request[]> {
   const client = getPool();
   
   // For approved requests, order by approved_at ASC (oldest approved first - play order)
@@ -451,6 +466,16 @@ export async function getRequestsByStatus(status: string, limit = 50, offset = 0
     orderBy = 'approved_at DESC'; // Most recently played first
   }
   
+  // If userId provided, filter by it for multi-tenant isolation
+  if (userId) {
+    const result = await client.query(
+      `SELECT * FROM requests WHERE status = $1 AND user_id = $2 ORDER BY ${orderBy} LIMIT $3 OFFSET $4`,
+      [status, userId, limit, offset]
+    );
+    return result.rows;
+  }
+  
+  // Legacy: return all (for backward compatibility during migration)
   const result = await client.query(
     `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
     [status, limit, offset]
@@ -458,8 +483,19 @@ export async function getRequestsByStatus(status: string, limit = 50, offset = 0
   return result.rows;
 }
 
-export async function getAllRequests(limit = 50, offset = 0): Promise<Request[]> {
+export async function getAllRequests(limit = 50, offset = 0, userId?: string): Promise<Request[]> {
   const client = getPool();
+  
+  // If userId provided, filter by it for multi-tenant isolation
+  if (userId) {
+    const result = await client.query(
+      'SELECT * FROM requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+      [userId, limit, offset]
+    );
+    return result.rows;
+  }
+  
+  // Legacy: return all (for backward compatibility during migration)
   const result = await client.query(
     'SELECT * FROM requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
     [limit, offset]
@@ -480,9 +516,30 @@ export async function checkRecentDuplicate(trackUri: string, minutesAgo: number 
   return result.rows[0] || null;
 }
 
-export async function getRequestsCount(): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
+export async function getRequestsCount(userId?: string): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
   const client = getPool();
   
+  // If userId provided, filter by it for multi-tenant isolation
+  if (userId) {
+    const result = await client.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'pending') as pending,
+        COUNT(*) FILTER (WHERE status = 'approved') as approved,
+        COUNT(*) FILTER (WHERE status = 'rejected') as rejected
+      FROM requests
+      WHERE user_id = $1
+    `, [userId]);
+    
+    return {
+      total: parseInt(result.rows[0].total),
+      pending: parseInt(result.rows[0].pending),
+      approved: parseInt(result.rows[0].approved),
+      rejected: parseInt(result.rows[0].rejected)
+    };
+  }
+  
+  // Legacy: count all (for backward compatibility during migration)
   const result = await client.query(`
     SELECT 
       COUNT(*) as total,

@@ -21,15 +21,14 @@ export async function GET(req: NextRequest) {
     let requests;
     let total;
 
-    // TODO: These functions need to be updated to accept user_id parameter
-    // For now, they'll return all requests (not user-filtered)
+    // Now user-scoped! Only return this user's requests
     if (status === 'all') {
-      requests = await getAllRequests(limit, offset);
-      const counts = await getRequestsCount();
+      requests = await getAllRequests(limit, offset, userId);
+      const counts = await getRequestsCount(userId);
       total = counts.total;
     } else {
-      requests = await getRequestsByStatus(status, limit, offset);
-      const counts = await getRequestsCount();
+      requests = await getRequestsByStatus(status, limit, offset, userId);
+      const counts = await getRequestsCount(userId);
       total = status === 'pending' ? counts.pending : 
              status === 'approved' ? counts.approved : 
              status === 'rejected' ? counts.rejected : 0;

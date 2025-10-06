@@ -14,8 +14,9 @@ export async function GET(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`📊 [admin/stats] User ${auth.user.username} (${userId}) fetching stats`);
     
-    const counts = await getRequestsCount();
-    const allRequests = await getAllRequests(1000); // Get more for stats
+    // Now user-scoped! Only count this user's requests
+    const counts = await getRequestsCount(userId);
+    const allRequests = await getAllRequests(1000, 0, userId); // Get more for stats
     
     // Calculate today's requests
     const today = new Date();

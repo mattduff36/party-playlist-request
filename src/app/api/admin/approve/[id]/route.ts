@@ -20,12 +20,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json();
     const { add_to_queue = true, add_to_playlist = true, play_next = false } = body;
     
-    const request = await getRequest(id);
-
-    if (!request || request.status !== 'pending') {
+    // Verify ownership - user can only approve their own requests
+    const request = await getRequest(id, userId);
+    
+    if (!request) {
+      console.log(`❌ [admin/approve] Request ${id} not found or not owned by user ${userId}`);
       return NextResponse.json({ 
-        error: 'Request not found or already processed' 
+        error: 'Request not found or access denied' 
       }, { status: 404 });
+    }
+
+    if (request.status !== 'pending') {
+      return NextResponse.json({ 
+        error: 'Request already processed' 
+      }, { status: 400 });
     }
 
     let queueSuccess = false;
