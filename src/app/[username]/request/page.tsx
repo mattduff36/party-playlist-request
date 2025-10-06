@@ -159,50 +159,141 @@ export default function UserRequestPage() {
     );
   }
 
-  // Authenticated - show request form (use existing request form component)
+  // Authenticated - show request form with full functionality
+  return <AuthenticatedRequestPage username={username} eventData={eventData} onLogout={() => {
+    sessionStorage.removeItem(`event_auth_${username}`);
+    setAuthenticated(false);
+    setPin('');
+  }} />;
+}
+
+// Separate component for authenticated request functionality
+function AuthenticatedRequestPage({ username, eventData, onLogout }: { username: string; eventData: any; onLogout: () => void }) {
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Load nickname from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(`nickname_${username}`);
+    if (saved) setNickname(saved);
+  }, [username]);
+
+  // Save nickname to localStorage
+  const handleNicknameChange = (newNickname: string) => {
+    setNickname(newNickname);
+    localStorage.setItem(`nickname_${username}`, newNickname);
+  };
+
+  // Search for tracks
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.tracks || []);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Submit request
+  const handleSubmitRequest = async (track: any) => {
+    if (!nickname.trim()) {
+      setRequestStatus('error');
+      setStatusMessage('Please enter your nickname');
+      setTimeout(() => setRequestStatus('idle'), 3000);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track_uri: track.uri,
+          track_name: track.name,
+          artist_name: track.artists.join(', '),
+          album_name: track.album,
+          duration_ms: track.duration_ms,
+          requester_nickname: nickname,
+          username: username // For multi-tenancy
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setRequestStatus('success');
+        setStatusMessage(data.message || 'Request submitted successfully!');
+        setSearchResults([]); // Clear search
+        setTimeout(() => setRequestStatus('idle'), 3000);
+      } else {
+        setRequestStatus('error');
+        setStatusMessage(data.error || 'Failed to submit request');
+        setTimeout(() => setRequestStatus('idle'), 3000);
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      setRequestStatus('error');
+      setStatusMessage('Connection error. Please try again.');
+      setTimeout(() => setRequestStatus('idle'), 3000);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const dismissNotifications = () => {
+    setNotifications([]);
+  };
+
+  // Import dynamically to avoid SSR issues
+  const RequestForm = require('@/components/RequestForm').default;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-4">
-      <div className="max-w-2xl mx-auto py-8">
-        <div className="bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center">
-                <Music2 className="h-8 w-8 text-purple-400 mr-3" />
-                Request a Song
-              </h1>
-              {eventData?.name && (
-                <p className="text-gray-400 mt-2">{eventData.name}</p>
-              )}
-            </div>
-            <div className="flex items-center text-green-400">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              <span className="text-sm">Authenticated</span>
-            </div>
-          </div>
+    <div className="relative">
+      {/* Logout button - fixed in top right */}
+      <button
+        onClick={onLogout}
+        className="fixed top-4 right-4 z-50 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-300 flex items-center gap-2 shadow-lg border border-gray-700"
+      >
+        <Lock className="h-4 w-4" />
+        Logout
+      </button>
 
-          {/* TODO: Import and use the actual RequestForm component */}
-          <div className="bg-gray-700 rounded-lg p-6 text-center">
-            <Music2 className="h-16 w-16 text-gray-500 mx-auto mb-4" />
-            <p className="text-gray-300 text-lg">
-              Song request form will be integrated here
-            </p>
-            <p className="text-gray-500 text-sm mt-2">
-              (Using existing RequestForm component from main request page)
-            </p>
-          </div>
-
-          <button
-            onClick={() => {
-              sessionStorage.removeItem(`event_auth_${username}`);
-              setAuthenticated(false);
-              setPin('');
-            }}
-            className="mt-6 w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-300"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+      <RequestForm
+        eventConfig={{
+          event_title: eventData?.name || `${username}'s Party Playlist`,
+          welcome_message: 'Request your favorite songs!',
+          secondary_message: 'Search and add tracks to the queue',
+          tertiary_message: 'Have fun!'
+        }}
+        onSearch={handleSearch}
+        onSubmitRequest={handleSubmitRequest}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        isSubmitting={isSubmitting}
+        requestStatus={requestStatus}
+        statusMessage={statusMessage}
+        nickname={nickname}
+        onNicknameChange={handleNicknameChange}
+        notifications={notifications}
+        onDismissNotifications={dismissNotifications}
+      />
     </div>
   );
 }
