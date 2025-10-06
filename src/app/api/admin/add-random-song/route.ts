@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRequest, initializeDefaults } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted } from '@/lib/pusher';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 
 // Predefined list of popular songs for random selection
 const POPULAR_SONGS = [
@@ -73,8 +73,14 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
   try {
-    // Verify admin authentication
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`✅ [${requestId}] User ${auth.user.username} (${userId}) adding random song`);
 
     console.log(`⏱️ [${requestId}] Initializing defaults...`);
     await initializeDefaults();
@@ -122,7 +128,8 @@ export async function POST(req: NextRequest) {
       requester_nickname: 'PartyPlaylist Suggestion',
       status: 'pending',
       spotify_added_to_queue: false,
-      spotify_added_to_playlist: false
+      spotify_added_to_playlist: false,
+      user_id: userId // Multi-tenant: Link request to user
     });
     console.log(`✅ [${requestId}] Request created successfully (${Date.now() - startTime}ms total)`);
 
