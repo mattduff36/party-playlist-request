@@ -207,11 +207,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Fetch requests
   const refreshRequests = useCallback(async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       const response = await fetch('/api/admin/requests', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // JWT auth via cookies
       });
       if (response.ok) {
         const data = await response.json();
@@ -235,11 +232,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Fetch playback state
   const refreshPlaybackState = useCallback(async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       const response = await fetch('/api/admin/queue/details', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // JWT auth via cookies
       });
       if (response.ok) {
         const data = await response.json();
@@ -288,11 +282,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Fetch event settings
   const refreshEventSettings = useCallback(async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       const response = await fetch('/api/admin/event-settings', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // JWT auth via cookies
       });
       if (response.ok) {
         const data = await response.json();
@@ -315,11 +306,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Fetch stats
   const refreshStats = useCallback(async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       const response = await fetch('/api/admin/stats', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // JWT auth via cookies
       });
       if (response.ok) {
         const data = await response.json();
@@ -354,12 +342,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Handle playback controls
   const handlePlaybackControl = useCallback(async (action: string) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       const response = await fetch(`/api/admin/playback/${action}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // JWT auth via cookies
       });
       
       if (response.ok) {
@@ -374,21 +359,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Update event settings
   const updateEventSettings = useCallback(async (settings: Partial<EventSettings>) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('❌ No admin token found');
-        return;
-      }
-
       console.log('🔄 [AdminDataContext] updateEventSettings called with:', settings);
       console.log('🔄 [AdminDataContext] Settings keys:', Object.keys(settings));
 
       const response = await fetch('/api/admin/event-settings', {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // JWT auth via cookies
         body: JSON.stringify(settings)
       });
       
