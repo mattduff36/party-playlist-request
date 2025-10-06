@@ -170,6 +170,7 @@ export async function endEvent(eventId: string, userId: string): Promise<void> {
  */
 export async function verifyPIN(username: string, pin: string): Promise<UserEvent | null> {
   try {
+    const pool = getPool();
     const result = await pool.query(
       `SELECT e.* FROM user_events e
        INNER JOIN users u ON u.id = e.user_id
@@ -205,6 +206,7 @@ export async function verifyBypassToken(
   bypassToken: string
 ): Promise<UserEvent | null> {
   try {
+    const pool = getPool();
     const result = await pool.query(
       `SELECT e.* FROM user_events e
        INNER JOIN users u ON u.id = e.user_id
@@ -242,6 +244,7 @@ export async function createDisplayToken(
   hoursValid: number = 24
 ): Promise<DisplayToken> {
   try {
+    const pool = getPool();
     const token = generateDisplayToken();
     const expiresAt = new Date(Date.now() + hoursValid * 60 * 60 * 1000);
 
@@ -269,6 +272,7 @@ export async function verifyDisplayToken(
   username: string,
   displayToken: string
 ): Promise<{ event: UserEvent; token: DisplayToken } | null> {
+  const pool = getPool();
   const client = await pool.connect();
 
   try {
@@ -351,6 +355,7 @@ export async function verifyDisplayToken(
  */
 export async function revokeDisplayToken(tokenId: string, userId: string): Promise<void> {
   try {
+    const pool = getPool();
     await pool.query(
       `UPDATE display_tokens 
        SET uses_remaining = 0 
@@ -373,6 +378,7 @@ export async function getDisplayTokensForEvent(
   userId: string
 ): Promise<DisplayToken[]> {
   try {
+    const pool = getPool();
     const result = await pool.query(
       `SELECT * FROM display_tokens 
        WHERE event_id = $1 AND user_id = $2
