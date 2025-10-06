@@ -52,12 +52,32 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { track_uri, track_url, requester_nickname, user_session_id } = body;
+    const { track_uri, track_url, requester_nickname, user_session_id, username } = body;
     
     if (!track_uri && !track_url) {
       return NextResponse.json({ 
         error: 'Either track_uri or track_url is required' 
       }, { status: 400 });
+    }
+
+    // Multi-tenant: Get user_id from username
+    let userId: string | null = null;
+    if (username) {
+      const { getPool } = await import('@/lib/db');
+      const pool = getPool();
+      const userResult = await pool.query(
+        'SELECT id FROM users WHERE username = $1',
+        [username]
+      );
+
+      if (userResult.rows.length === 0) {
+        return NextResponse.json({ 
+          error: 'User not found' 
+        }, { status: 404 });
+      }
+
+      userId = userResult.rows[0].id;
+      console.log(`👤 [${requestId}] Request for user: ${username} (${userId})`);
     }
 
     let trackUri = track_uri;
@@ -144,7 +164,8 @@ export async function POST(req: NextRequest) {
       approved_at: approvedAt,
       approved_by: shouldAutoApprove ? 'Auto-Approval System' : undefined,
       spotify_added_to_queue: false,
-      spotify_added_to_playlist: false
+      spotify_added_to_playlist: false,
+      user_id: userId || undefined // Multi-tenant: Link request to user
     });
     console.log(`✅ [${requestId}] Request created successfully with status: ${initialStatus} (${Date.now() - startTime}ms total)`);
 
