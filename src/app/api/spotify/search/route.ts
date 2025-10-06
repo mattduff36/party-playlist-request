@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
 
     console.log(`🔍 Searching Spotify for: "${query}" (limit: ${limit})`);
 
-    const tracks = await spotifyService.searchTracks(query, limit);
+    const response = await spotifyService.searchTracks(query, limit);
+    
+    // Spotify API returns { tracks: { items: [...] } }
+    const tracks = response?.tracks?.items || [];
 
     return NextResponse.json({
       tracks: tracks.map((track: any) => ({
