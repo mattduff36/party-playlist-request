@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { triggerStateUpdate } from '@/lib/pusher';
 import { EventStatus } from '@/lib/db/schema';
 
@@ -23,6 +23,15 @@ function canTransition(from: EventStatus, to: EventStatus): boolean {
 
 export async function GET(req: NextRequest) {
   try {
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`📊 [event/status] User ${auth.user.username} (${userId}) fetching event status`);
+    
     // Import database service dynamically to avoid circular dependencies
     const { getDatabaseService } = await import('@/lib/db/database-service');
     const dbService = getDatabaseService();
@@ -89,8 +98,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
     
+    const userId = auth.user.user_id;
+    console.log(`🔄 [event/status] User ${auth.user.username} (${userId}) updating event status`);
+
     const body = await req.json();
     const { status, eventId } = body;
 
@@ -155,11 +171,11 @@ export async function POST(req: NextRequest) {
           secondary_message: updatedEvent.config?.secondary_message || '',
           tertiary_message: updatedEvent.config?.tertiary_message || '',
         },
-        adminId: admin.adminId,
-        adminName: admin.username,
+        adminId: userId,
+        adminName: auth.user.username,
       });
       
-      console.log(`🎉 Event status updated to ${status} by ${admin.username}`);
+      console.log(`🎉 Event status updated to ${status} by ${auth.user.username}`);
     } catch (pusherError) {
       console.error('❌ Failed to send Pusher event:', pusherError);
       // Don't fail the request if Pusher fails
