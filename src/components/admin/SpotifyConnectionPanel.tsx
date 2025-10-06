@@ -120,17 +120,9 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
   // Reset connection state (allows retry after permanent failure)
   const resetConnectionState = async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        setState(prev => ({ ...prev, error: 'No admin token found' }));
-        return;
-      }
-
       const response = await fetch('/api/spotify/reset-connection-state', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // JWT auth via cookies
       });
       
       if (response.ok) {

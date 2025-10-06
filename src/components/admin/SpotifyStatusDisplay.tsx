@@ -98,18 +98,9 @@ export default function SpotifyStatusDisplay({ className = '' }: SpotifyStatusDi
     setError(null);
     
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        setError('Not authenticated. Please log in first.');
-        setIsConnecting(false);
-        return;
-      }
-
-      // Get Spotify authorization URL
+      // Get Spotify authorization URL (JWT auth via cookies)
       const response = await fetch('/api/spotify/auth', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {

@@ -85,17 +85,9 @@ export default function SpotifyStatusDropdown() {
   // Connect to Spotify - redirect directly to Spotify auth
   const handleConnect = async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('No admin token found');
-        return;
-      }
-
-      // Get Spotify authorization URL
+      // Get Spotify authorization URL (JWT auth via cookies)
       const response = await fetch('/api/spotify/auth', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -120,12 +112,9 @@ export default function SpotifyStatusDropdown() {
   // Reset connection state
   const handleResetState = async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       await fetch('/api/spotify/reset-connection-state', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // JWT auth via cookies
       });
       
       await fetchStatus();

@@ -146,18 +146,12 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
     
     setIsAddingRandomSong(true);
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('No admin token found');
-        return;
-      }
-
       const response = await fetch('/api/admin/add-random-song', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include' // JWT auth via cookies
       });
 
       if (response.ok) {

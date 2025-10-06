@@ -47,66 +47,63 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
       // If going to offline or standby, disable pages
       // If going to offline, also disconnect Spotify
       if (newStatus === 'offline' || newStatus === 'standby') {
-        const token = localStorage.getItem('admin_token');
-        if (token) {
-          console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'} pages...`);
-          
-          // Disconnect from Spotify only when going offline
-          if (newStatus === 'offline') {
-            try {
-              await fetch('/api/spotify/disconnect', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-              console.log('✅ Spotify disconnected');
-            } catch (spotifyError) {
-              console.error('Failed to disconnect Spotify:', spotifyError);
-              // Continue anyway - not critical
-            }
+        console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'} pages...`);
+        
+        // Disconnect from Spotify only when going offline
+        if (newStatus === 'offline') {
+          try {
+            await fetch('/api/spotify/disconnect', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include' // JWT auth via cookies
+            });
+            console.log('✅ Spotify disconnected');
+          } catch (spotifyError) {
+            console.error('Failed to disconnect Spotify:', spotifyError);
+            // Continue anyway - not critical
           }
+        }
 
-          // Disable pages if they're enabled
-          const disablePromises = [];
-          
-          if (state.pagesEnabled.requests) {
-            console.log('🔌 Disabling Requests page...');
-            disablePromises.push(
-              fetch('/api/event/pages', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ page: 'requests', enabled: false })
-              })
-            );
-          }
-          
-          if (state.pagesEnabled.display) {
-            console.log('🔌 Disabling Display page...');
-            disablePromises.push(
-              fetch('/api/event/pages', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ page: 'display', enabled: false })
-              })
-            );
-          }
+        // Disable pages if they're enabled
+        const disablePromises = [];
+        
+        if (state.pagesEnabled.requests) {
+          console.log('🔌 Disabling Requests page...');
+          disablePromises.push(
+            fetch('/api/event/pages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include', // JWT auth via cookies
+              body: JSON.stringify({ page: 'requests', enabled: false })
+            })
+          );
+        }
+        
+        if (state.pagesEnabled.display) {
+          console.log('🔌 Disabling Display page...');
+          disablePromises.push(
+            fetch('/api/event/pages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include', // JWT auth via cookies
+              body: JSON.stringify({ page: 'display', enabled: false })
+            })
+          );
+        }
 
-          if (disablePromises.length > 0) {
-            try {
-              await Promise.all(disablePromises);
-              console.log('✅ Pages disabled');
-            } catch (pageError) {
-              console.error('❌ Failed to disable pages:', pageError);
-              // Continue anyway
-            }
+        if (disablePromises.length > 0) {
+          try {
+            await Promise.all(disablePromises);
+            console.log('✅ Pages disabled');
+          } catch (pageError) {
+            console.error('❌ Failed to disable pages:', pageError);
+            // Continue anyway
           }
         }
       }

@@ -1,7 +1,8 @@
 /**
- * Admin Overview Page - Redesigned
+ * Admin Overview Page - Multi-Tenant Architecture
  * 
- * A clean, professional admin interface focused on essential controls.
+ * Clean rebuild with JWT auth (no legacy AdminAuthContext)
+ * All features preserved from single-user version
  */
 
 'use client';
@@ -65,18 +66,13 @@ export default function AdminOverviewPage() {
     }
 
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('No admin token found');
-        return;
-      }
-
+      // JWT auth is handled by HTTP-only cookies automatically
       const response = await fetch('/api/spotify/callback', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Include cookies
         body: JSON.stringify({
           code,
           state: oauthState,
@@ -124,7 +120,7 @@ export default function AdminOverviewPage() {
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Event Information Panel */}
+        {/* Event Information Panel - NEW for multi-tenant */}
         <EventInfoPanel />
         
         {/* Main Control Panels - Side by Side */}
@@ -146,4 +142,3 @@ export default function AdminOverviewPage() {
     </div>
   );
 }
-
