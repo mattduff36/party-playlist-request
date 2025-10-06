@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getEventSettings, updateEventSettings } from '@/lib/db';
 import { triggerEvent, CHANNELS } from '@/lib/pusher';
 
 export async function GET(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) fetching settings`);
     
     const settings = await getEventSettings();
     
@@ -24,7 +31,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) updating settings`);
     
     const body = await req.json();
     const {

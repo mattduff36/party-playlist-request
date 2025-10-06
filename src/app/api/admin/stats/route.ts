@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getRequestsCount, getAllRequests } from '@/lib/db';
 import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 
 export async function GET(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`📊 [admin/stats] User ${auth.user.username} (${userId}) fetching stats`);
     
     const counts = await getRequestsCount();
     const allRequests = await getAllRequests(1000); // Get more for stats
