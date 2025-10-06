@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { QrCode, Copy, Monitor, CheckCircle, RefreshCw, Loader2, Lock } from 'lucide-react';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 export default function EventInfoPanel() {
   const pathname = usePathname();
   const username = pathname?.split('/')[1] || '';
+  const { state } = useGlobalEvent(); // Listen to event status changes
   
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -14,9 +16,18 @@ export default function EventInfoPanel() {
   const [generatingToken, setGeneratingToken] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Fetch event when component mounts OR when event status changes to Live/Standby
   useEffect(() => {
-    fetchEvent();
-  }, []);
+    // Only fetch if event is Live or Standby (event is ON)
+    if (state?.status === 'live' || state?.status === 'standby') {
+      console.log('📅 Event is active, fetching event info...');
+      fetchEvent();
+    } else if (state?.status === 'offline') {
+      // Clear event when going offline
+      console.log('📅 Event is offline, clearing event info');
+      setEvent(null);
+    }
+  }, [state?.status]); // Re-fetch when status changes
 
   const fetchEvent = async () => {
     try {
@@ -75,10 +86,14 @@ export default function EventInfoPanel() {
     );
   }
 
-  if (!event) {
+  if (!event || state?.status === 'offline') {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
-        <p className="text-gray-400 text-center">No active event</p>
+        <p className="text-gray-400 text-center">
+          {state?.status === 'offline' 
+            ? 'No active event - Set event to Live or Standby to start'
+            : 'No active event'}
+        </p>
       </div>
     );
   }
