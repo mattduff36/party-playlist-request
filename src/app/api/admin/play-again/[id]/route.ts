@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getRequest, getSetting } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
     const { id } = await params;
+    
+    console.log(`🔄 [admin/play-again] User ${auth.user.username} (${userId}) replaying request ${id}`);
     
     const body = await req.json();
     const { play_next = false } = body;
     
-    const request = await getRequest(id);
+    // Verify ownership - user can only play their own requests again
+    const request = await getRequest(id, userId);
 
     if (!request) {
+      console.log(`❌ [admin/play-again] Request ${id} not found or not owned by user ${userId}`);
       return NextResponse.json({ 
-        error: 'Request not found' 
+        error: 'Request not found or access denied' 
       }, { status: 404 });
     }
 
