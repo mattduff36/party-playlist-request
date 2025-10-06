@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 
@@ -9,10 +9,15 @@ export async function GET(req: NextRequest) {
   console.log(`🔍 [${requestId}] Queue details endpoint called at ${new Date().toISOString()}`);
   
   try {
-    // Verify admin authentication first
+    // Authenticate and get user info
     const authStart = Date.now();
-    await authService.requireAdminAuth(req);
-    console.log(`✅ [${requestId}] Admin auth verified (${Date.now() - authStart}ms)`);
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`✅ [${requestId}] User ${auth.user.username} (${userId}) auth verified (${Date.now() - authStart}ms)`);
     
     // Check if we have valid Spotify connection using centralized status
     console.log(`🔍 [${requestId}] Checking Spotify connection status...`);
