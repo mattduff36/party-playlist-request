@@ -107,16 +107,34 @@ const RequestForm: React.FC<RequestFormProps> = ({
           </div>
         )}
 
-        {/* Search Section */}
+        {/* Nickname Input - FIRST (mandatory) */}
+        <div className="max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto mb-6 sm:mb-8 lg:mb-12">
+          <label className="block text-white font-semibold text-sm sm:text-base md:text-lg lg:text-xl mb-2 sm:mb-3">
+            Your Name
+          </label>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => onNicknameChange(e.target.value)}
+            placeholder="Enter your name..."
+            className="w-full px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4 text-sm sm:text-base md:text-lg lg:text-xl rounded-lg border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            maxLength={50}
+          />
+          {!nickname.trim() && (
+            <p className="text-gray-300 text-xs sm:text-sm mt-2">Please enter your name first to search for songs</p>
+          )}
+        </div>
+
+        {/* Search Section - SECOND (only enabled after nickname) */}
         <div className="max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl 2xl:max-w-6xl mx-auto mb-6 sm:mb-8 lg:mb-12">
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder="Search for songs, artists, or albums..."
-              className="w-full px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-6 text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl rounded-full border-0 focus:ring-2 sm:focus:ring-4 focus:ring-blue-500 focus:outline-none"
-              disabled={isSearching}
+              placeholder={nickname.trim() ? "Search for songs, artists, or albums..." : "Enter your name first..."}
+              className="w-full px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-6 text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl rounded-full border-0 focus:ring-2 sm:focus:ring-4 focus:ring-blue-500 focus:outline-none disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={!nickname.trim() || isSearching}
             />
             {isSearching && (
               <div className="absolute right-3 sm:right-4 lg:right-6 top-1/2 transform -translate-y-1/2">
@@ -124,18 +142,6 @@ const RequestForm: React.FC<RequestFormProps> = ({
               </div>
             )}
           </div>
-        </div>
-
-        {/* Nickname Input */}
-        <div className="max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto mb-6 sm:mb-8 lg:mb-12">
-          <input
-            type="text"
-            value={nickname}
-            onChange={(e) => onNicknameChange(e.target.value)}
-            placeholder="Enter your nickname"
-            className="w-full px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4 text-sm sm:text-base md:text-lg lg:text-xl rounded-lg border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            maxLength={50}
-          />
         </div>
 
         {/* Search Results */}

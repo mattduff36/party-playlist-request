@@ -177,11 +177,28 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
   const [statusMessage, setStatusMessage] = useState('');
   const [nickname, setNickname] = useState('');
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [eventSettings, setEventSettings] = useState<any>(null);
 
   // Load nickname from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(`nickname_${username}`);
     if (saved) setNickname(saved);
+  }, [username]);
+
+  // Fetch event settings
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const response = await fetch(`/api/public/event-config?username=${username}`);
+        if (response.ok) {
+          const data = await response.json();
+          setEventSettings(data.config);
+        }
+      } catch (error) {
+        console.error('Failed to fetch event settings:', error);
+      }
+    }
+    fetchSettings();
   }, [username]);
 
   // Save nickname to localStorage
@@ -275,10 +292,10 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
 
       <RequestForm
         eventConfig={{
-          event_title: eventData?.name || `${username}'s Party Playlist`,
-          welcome_message: 'Request your favorite songs!',
-          secondary_message: 'Search and add tracks to the queue',
-          tertiary_message: 'Have fun!'
+          event_title: eventSettings?.event_title || 'Party DJ Requests',
+          welcome_message: eventSettings?.welcome_message || 'Request your favorite songs and let\'s keep the party going!',
+          secondary_message: eventSettings?.secondary_message || 'Your requests will be reviewed by the DJ',
+          tertiary_message: eventSettings?.tertiary_message || ''
         }}
         onSearch={handleSearch}
         onSubmitRequest={handleSubmitRequest}
@@ -292,6 +309,11 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
         notifications={notifications}
         onDismissNotifications={dismissNotifications}
       />
+      
+      {/* Debug footer - shows username during development */}
+      <div className="fixed bottom-2 left-2 text-gray-500 text-xs bg-black/20 px-2 py-1 rounded">
+        @{username}
+      </div>
     </>
   );
 }
