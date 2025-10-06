@@ -131,34 +131,121 @@ export default function UserDisplayPage() {
     return null; // Should not reach here
   }
 
-  // Authenticated - show display page
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-4">
-      <div className="max-w-7xl mx-auto py-8">
-        <div className="bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-4xl font-bold flex items-center">
-              <Monitor className="h-10 w-10 text-purple-400 mr-4" />
-              {username}'s Display
-            </h1>
-            {eventData?.name && (
-              <span className="text-gray-400 text-lg">{eventData.name}</span>
-            )}
-          </div>
+  // Authenticated - show display page with real-time updates
+  return <AuthenticatedDisplayPage username={username} eventData={eventData} />;
+}
 
-          {/* TODO: Import and use the actual Display component */}
-          <div className="bg-gray-700 rounded-lg p-12 text-center">
-            <Monitor className="h-24 w-24 text-gray-500 mx-auto mb-6" />
-            <p className="text-gray-300 text-xl mb-4">
-              Display page content will be integrated here
-            </p>
-            <p className="text-gray-500">
-              (Using existing display page components from main display page)
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+// Separate component for authenticated display functionality
+function AuthenticatedDisplayPage({ username, eventData }: { username: string; eventData: any }) {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [nowPlaying, setNowPlaying] = useState<any | null>(null);
+  const [eventConfig, setEventConfig] = useState<any>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchDisplayData();
+  }, [username]);
+
+  const fetchDisplayData = async () => {
+    try {
+      // Fetch requests (approved/pending)
+      const reqResponse = await fetch(`/api/public/requests?username=${username}`);
+      if (reqResponse.ok) {
+        const reqData = await reqResponse.json();
+        setRequests(reqData.requests || []);
+      }
+
+      // Fetch now playing
+      const playingResponse = await fetch(`/api/public/now-playing?username=${username}`);
+      if (playingResponse.ok) {
+        const playingData = await playingResponse.json();
+        setNowPlaying(playingData.nowPlaying);
+      }
+
+      // Fetch event config
+      const configResponse = await fetch(`/api/public/event-config?username=${username}`);
+      if (configResponse.ok) {
+        const configData = await configResponse.json();
+        setEventConfig(configData.config);
+      }
+
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error('Error fetching display data:', error);
+    }
+  };
+
+  // Set up Pusher for real-time updates
+  useEffect(() => {
+    // Use dynamic import to avoid SSR issues
+    const setupPusher = async () => {
+      const Pusher = (await import('pusher-js')).default;
+      
+      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+      });
+
+      const channel = pusher.subscribe('party-playlist');
+
+      // Listen for request updates
+      channel.bind('request-submitted', (data: any) => {
+        console.log('🆕 Request submitted:', data);
+        fetchDisplayData(); // Refresh data
+      });
+
+      channel.bind('request-approved', (data: any) => {
+        console.log('✅ Request approved:', data);
+        fetchDisplayData(); // Refresh data
+      });
+
+      // Listen for playback updates
+      channel.bind('playback-update', (data: any) => {
+        console.log('🎵 Playback update:', data);
+        if (data.current_track) {
+          setNowPlaying({
+            track_name: data.current_track.name,
+            artist_name: data.current_track.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
+            album_name: data.current_track.album?.name || 'Unknown Album',
+            duration_ms: data.current_track.duration_ms || 0,
+            progress_ms: data.progress_ms || 0,
+            is_playing: data.is_playing || false,
+          });
+        }
+        setLastUpdate(new Date());
+      });
+
+      return () => {
+        channel.unbind_all();
+        channel.unsubscribe();
+        pusher.disconnect();
+      };
+    };
+
+    setupPusher();
+  }, [username]);
+
+  // Auto-refresh every 30 seconds as backup
+  useEffect(() => {
+    const interval = setInterval(fetchDisplayData, 30000);
+    return () => clearInterval(interval);
+  }, [username]);
+
+  // Import DisplayContent dynamically
+  const DisplayContent = require('@/components/DisplayContent').default;
+
+  return (
+    <DisplayContent
+      eventConfig={{
+        event_title: eventConfig?.event_title || `${username}'s Party Playlist`,
+        welcome_message: eventConfig?.welcome_message || 'Request your favorite songs!',
+        secondary_message: eventConfig?.secondary_message || 'Your requests will be reviewed by the DJ',
+        tertiary_message: eventConfig?.tertiary_message || 'Keep the party going!',
+      }}
+      requests={requests}
+      nowPlaying={nowPlaying}
+      lastUpdate={lastUpdate}
+    />
   );
 }
 
