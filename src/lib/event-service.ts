@@ -3,7 +3,7 @@
  * Handles user events, PINs, bypass tokens, and display tokens
  */
 
-import { pool } from '@/lib/db';
+import { getPool } from '@/lib/db';
 import crypto from 'crypto';
 
 // ============================================================================
@@ -72,6 +72,7 @@ function generateDisplayToken(): string {
  */
 export async function getActiveEvent(userId: string): Promise<UserEvent | null> {
   try {
+    const pool = getPool();
     const result = await pool.query(
       `SELECT * FROM user_events 
        WHERE user_id = $1 AND active = true 
@@ -99,6 +100,7 @@ export async function createEvent(
   userId: string, 
   eventName?: string
 ): Promise<UserEvent> {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {
@@ -143,6 +145,7 @@ export async function createEvent(
  */
 export async function endEvent(eventId: string, userId: string): Promise<void> {
   try {
+    const pool = getPool();
     await pool.query(
       `UPDATE user_events 
        SET active = false, ended_at = NOW() 
