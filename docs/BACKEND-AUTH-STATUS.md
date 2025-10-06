@@ -1,5 +1,23 @@
 # Backend API Authentication Status
 
+**Last Updated:** 2025-01-06  
+**Progress:** 15/30 routes completed (50%)  
+**Status:** 🟡 IN PROGRESS
+
+## Session Notes (2025-01-06)
+
+**Work Completed:**
+- Created `/api/spotify/search` endpoint (public, no auth required)
+- Fixed RequestForm integration
+- Tested authentication flow end-to-end
+
+**Next Session Priority:**
+- Fix Spotify re-authentication issue (HIGH PRIORITY)
+- Continue updating remaining 15 routes
+- Test data isolation between users
+
+---
+
 ## ✅ Updated to JWT Auth (5 endpoints)
 
 These endpoints now extract `user_id` from JWT and are ready for user-scoping:
