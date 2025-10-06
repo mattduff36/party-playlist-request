@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import RequestForm from '@/components/RequestForm';
 
 export default function UserRequestPage() {
   const params = useParams();
@@ -260,9 +261,6 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
   const dismissNotifications = () => {
     setNotifications([]);
   };
-
-  // Import dynamically to avoid SSR issues
-  const RequestForm = require('@/components/RequestForm').default;
 
   return (
     <div className="relative">
