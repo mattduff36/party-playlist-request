@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getRequest, updateRequest, getSetting, createNotification } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestApproved } from '@/lib/pusher';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
     const { id } = await params;
+    
+    console.log(`✅ [admin/approve] User ${auth.user.username} (${userId}) approving request ${id}`);
     
     const body = await req.json();
     const { add_to_queue = true, add_to_playlist = true, play_next = false } = body;
