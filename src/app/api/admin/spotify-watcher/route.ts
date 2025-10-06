@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 import { triggerPlaybackUpdate, triggerStatsUpdate } from '@/lib/pusher';
 import { getAllRequests } from '@/lib/db';
@@ -229,7 +229,11 @@ export async function POST(req: NextRequest) {
                            authHeader?.includes(process.env.SYSTEM_STARTUP_TOKEN || '');
     
     if (!isSystemStartup) {
-      await authService.requireAdminAuth(req);
+      // Authenticate and get user info
+      const auth = requireAuth(req);
+      if (!auth.authenticated || !auth.user) {
+        return auth.response!;
+      }
     } else {
       console.log('🔧 System startup: Starting Spotify watcher automatically');
     }
@@ -301,7 +305,11 @@ export async function POST(req: NextRequest) {
 // Get watcher status
 export async function GET(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
     
       return NextResponse.json({
         running: !!watcherInterval,

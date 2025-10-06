@@ -56,11 +56,13 @@ function generateSecurePIN(): string {
 // ============================================================================
 
 function generateBypassToken(): string {
-  return `bp_${crypto.randomBytes(32).toString('hex')}`;
+  // Generate 29 bytes (58 hex chars) + "bp_" prefix = 61 chars total (under 64 limit)
+  return `bp_${crypto.randomBytes(29).toString('hex')}`;
 }
 
 function generateDisplayToken(): string {
-  return `dt_${crypto.randomBytes(32).toString('hex')}`;
+  // Generate 29 bytes (58 hex chars) + "dt_" prefix = 61 chars total (under 64 limit)
+  return `dt_${crypto.randomBytes(29).toString('hex')}`;
 }
 
 // ============================================================================
