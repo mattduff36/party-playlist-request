@@ -1,16 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
-import { getPool } from '@/lib/db';
+import { requireAuth } from '@/middleware/auth';
+import { getPool, verifyRequestOwnership } from '@/lib/db';
 import { triggerRequestDeleted } from '@/lib/pusher';
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
     const { id } = await params;
+    
+    console.log(`🗑️ [admin/delete] User ${auth.user.username} (${userId}) deleting request ${id}`);
+    
+    // Verify ownership - user can only delete their own requests
+    const isOwner = await verifyRequestOwnership(id, userId);
+    if (!isOwner) {
+      console.log(`❌ [admin/delete] Request ${id} not owned by user ${userId}`);
+      return NextResponse.json({ 
+        error: 'Request not found or access denied' 
+      }, { status: 404 });
+    }
     
     const client = getPool();
     
-    // Delete the request completely
+    // Delete the request completely (ownership already verified)
     const result = await client.query(
       'DELETE FROM requests WHERE id = $1 RETURNING *',
       [id]
