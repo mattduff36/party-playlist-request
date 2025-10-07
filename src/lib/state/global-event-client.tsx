@@ -521,10 +521,10 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
         }
 
         const authData = await authResponse.json();
-        const userId = authData.user?.user_id;
+        const userId = authData.user?.id; // ✅ Fixed: API returns 'id', not 'user_id'
 
         if (!userId) {
-          console.warn('⚠️ No userId found, skipping Pusher setup');
+          console.warn('⚠️ No userId found in auth response, skipping Pusher setup');
           return;
         }
 
