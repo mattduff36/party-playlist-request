@@ -405,13 +405,14 @@ export async function createRequest(request: Omit<Request, 'id' | 'created_at'>)
     INSERT INTO requests (
       id, track_uri, track_name, artist_name, album_name, 
       duration_ms, requester_ip_hash, requester_nickname, user_session_id,
-      status, spotify_added_to_queue, spotify_added_to_playlist
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      status, spotify_added_to_queue, spotify_added_to_playlist, user_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
   `, [
     id, request.track_uri, request.track_name, request.artist_name, 
     request.album_name, request.duration_ms, request.requester_ip_hash, 
-    request.requester_nickname, request.user_session_id, request.status, false, false
+    request.requester_nickname, request.user_session_id, request.status, false, false,
+    request.user_id || null
   ]);
 
   return result.rows[0];
