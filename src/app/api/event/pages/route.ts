@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { triggerPageControlUpdate } from '@/lib/pusher';
 
 export async function POST(req: NextRequest) {
   try {
     console.log('🌐 [API /event/pages POST] Request received');
     
-    const admin = await authService.requireAdminAuth(req);
-    console.log('🌐 [API /event/pages POST] Admin authenticated:', { adminId: admin.adminId, username: admin.username });
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`🌐 [event/pages] User ${auth.user.username} (${userId}) updating page controls`);
     
     const body = await req.json();
     console.log('🌐 [API /event/pages POST] Request body:', body);
@@ -68,8 +74,8 @@ export async function POST(req: NextRequest) {
       page,
       enabled,
       pagesEnabled: updatedEvent.config.pages_enabled,
-      adminId: admin.adminId,
-      adminName: admin.username,
+      adminId: userId,
+      adminName: auth.user.username,
     };
     console.log('📡 [API /event/pages POST] Triggering Pusher event:', pusherPayload);
     await triggerPageControlUpdate(pusherPayload);
@@ -100,9 +106,18 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
-    const eventId = 'default-event'; // TODO: Get actual event ID dynamically
-    const event = await getEvent(eventId);
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`🌐 [event/pages GET] User ${auth.user.username} (${userId}) getting page controls`);
+    
+    const { getDatabaseService } = await import('@/lib/db/database-service');
+    const dbService = getDatabaseService();
+    const event = await dbService.getEvent();
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });

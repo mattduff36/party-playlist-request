@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getDatabaseService } from '@/lib/db/database-service';
 import { getConnectionPoolManager } from '@/lib/db/connection-pool';
 import { PoolType } from '@/lib/db/connection-pool';
@@ -14,10 +14,9 @@ import { PoolType } from '@/lib/db/connection-pool';
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
-    try {
-      await authService.requireAdminAuth(request);
-    } catch (error) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = requireAuth(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
     }
 
     // Get comprehensive health information

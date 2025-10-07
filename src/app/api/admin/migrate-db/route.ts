@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { initializeDatabase } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
     
     console.log('🔄 Running database migration...');
     await initializeDatabase();

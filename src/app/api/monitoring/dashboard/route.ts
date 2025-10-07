@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { metricsCollector } from '@/lib/monitoring/metrics';
 import { alertingSystem } from '@/lib/monitoring/alerts';
 import { healthCheckSystem } from '@/lib/monitoring/health';
@@ -14,10 +14,9 @@ import { healthCheckSystem } from '@/lib/monitoring/health';
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
-    try {
-      await authService.requireAdminAuth(request);
-    } catch (error) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = requireAuth(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
     }
 
     // Get all monitoring data

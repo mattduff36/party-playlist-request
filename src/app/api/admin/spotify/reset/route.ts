@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { clearSpotifyAuth } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin authentication
-    await authService.requireAdminAuth(req);
-    
-    console.log('🔄 Admin initiated Spotify connection reset');
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`🔄 [spotify/reset] User ${auth.user.username} (${userId}) resetting Spotify connection`);
     
     // Properly revoke tokens with Spotify before clearing from database
     const { spotifyService } = await import('@/lib/spotify');
     await spotifyService.revokeTokens();
     
-    console.log('✅ Spotify connection reset completed - tokens revoked and cleared');
+    // Clear user's Spotify auth from database
+    await clearSpotifyAuth(userId);
+    
+    console.log(`✅ Spotify connection reset completed for user ${userId}`);
     
     return NextResponse.json({
       success: true,

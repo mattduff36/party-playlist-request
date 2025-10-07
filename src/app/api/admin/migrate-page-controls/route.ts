@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getPool } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
     // Require admin authentication
-    await authService.requireAdminAuth(req);
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
     
     const client = getPool();
     

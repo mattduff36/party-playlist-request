@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { db } from '@/lib/db';
 import { events, requests, spotify_tokens } from '@/lib/db/schema';
 import { eq, and, gt, desc } from 'drizzle-orm';
@@ -15,10 +15,9 @@ import { PusherEvent, generateEventId, generateEventVersion } from '@/lib/pusher
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
-    try {
-      await authService.requireAdminAuth(request);
-    } catch (error) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = requireAuth(request);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
     }
 
     // Get query parameters
