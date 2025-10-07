@@ -277,7 +277,9 @@ export default function UserRequestPage() {
         id: track.id,
         uri: track.uri,
         name: track.name,
-        artists: Array.isArray(track.artists) ? track.artists : track.artists.map((a: any) => a.name),
+        artists: Array.isArray(track.artists) 
+          ? (typeof track.artists[0] === 'string' ? track.artists : track.artists.map((a: any) => a.name))
+          : [],
         album: typeof track.album === 'string' ? track.album : track.album?.name || 'Unknown Album',
         duration_ms: track.duration_ms,
         explicit: track.explicit || false,
