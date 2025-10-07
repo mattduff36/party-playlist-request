@@ -134,24 +134,28 @@ export const triggerEvent = async (
   }
 };
 
-// Specific event triggers
-export const triggerRequestApproved = async (data: RequestApprovedEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_APPROVED, data);
+// Specific event triggers (USER-SPECIFIC)
+export const triggerRequestApproved = async (data: RequestApprovedEvent & { userId: string }) => {
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.REQUEST_APPROVED, data);
 };
 
-export const triggerRequestRejected = async (data: RequestRejectedEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_REJECTED, data);
+export const triggerRequestRejected = async (data: RequestRejectedEvent & { userId: string }) => {
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.REQUEST_REJECTED, data);
 };
 
-export const triggerRequestDeleted = async (data: RequestDeletedEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_DELETED, data);
+export const triggerRequestDeleted = async (data: RequestDeletedEvent & { userId: string }) => {
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.REQUEST_DELETED, data);
 };
 
-export const triggerRequestSubmitted = async (data: RequestSubmittedEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.REQUEST_SUBMITTED, data);
+export const triggerRequestSubmitted = async (data: RequestSubmittedEvent & { userId: string }) => {
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.REQUEST_SUBMITTED, data);
 };
 
-export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent) => {
+export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId: string }) => {
   // Reduce payload size to avoid Pusher 10KB limit
   const compactData = {
     current_track: data.current_track ? {
@@ -178,14 +182,17 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent) => {
     })) || [],
     is_playing: data.is_playing,
     progress_ms: data.progress_ms,
-    timestamp: data.timestamp
+    timestamp: data.timestamp,
+    userId: data.userId
   };
   
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.PLAYBACK_UPDATE, compactData);
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.PLAYBACK_UPDATE, compactData);
 };
 
-export const triggerStatsUpdate = async (stats: any) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.STATS_UPDATE, stats);
+export const triggerStatsUpdate = async (stats: any & { userId: string }) => {
+  const userChannel = getAdminChannel(stats.userId);
+  await triggerEvent(userChannel, EVENTS.STATS_UPDATE, stats);
 };
 
 export const triggerTokenExpired = async (data: TokenExpiredEvent) => {
