@@ -207,7 +207,7 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
     localStorage.setItem(`nickname_${username}`, newNickname);
   };
 
-  // Search for tracks
+  // Search for tracks using the event owner's Spotify connection
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -216,13 +216,18 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
 
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}&limit=10`);
+      const response = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}&username=${username}&limit=10`);
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data.tracks || []);
+      } else {
+        const error = await response.json();
+        console.error('Search error:', error.error);
+        setSearchResults([]);
       }
     } catch (error) {
       console.error('Search error:', error);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
