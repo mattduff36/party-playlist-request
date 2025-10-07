@@ -1,38 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { clearSpotifyAuth } from '@/lib/db';
 
 async function handleDisconnect(req: NextRequest) {
-  console.log('🔌 Spotify disconnect request received');
+  console.log('🔌 [spotify/disconnect] Request received');
   
   try {
-    console.log('🔐 Verifying admin authentication...');
-    await authService.requireAdminAuth(req);
-    console.log('✅ Admin authentication verified');
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      console.log('❌ [spotify/disconnect] Authentication failed');
+      return auth.response!;
+    }
     
-    console.log('🗑️ Clearing Spotify authentication from database...');
+    const userId = auth.user.user_id;
+    console.log(`✅ [spotify/disconnect] User ${auth.user.username} (${userId}) disconnecting Spotify`);
+    
+    console.log('🗑️ [spotify/disconnect] Clearing Spotify authentication from database...');
     await clearSpotifyAuth();
-    console.log('✅ Spotify authentication cleared successfully');
+    console.log('✅ [spotify/disconnect] Spotify authentication cleared successfully');
     
     const response = {
       success: true,
       message: 'Spotify account disconnected successfully'
     };
     
-    console.log('📤 Sending success response:', response);
+    console.log('📤 [spotify/disconnect] Sending success response');
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('❌ Error in disconnect handler:', error);
+    console.error('❌ [spotify/disconnect] Error:', error);
     
     if (error instanceof Error && error.message.includes('token')) {
-      console.log('🔐 Authentication error, returning 401');
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      return NextResponse.json({ 
+        error: 'Authentication required',
+        details: 'Please log in to continue'
+      }, { status: 401 });
     }
     
-    console.error('💥 Unexpected error disconnecting Spotify:', error);
     return NextResponse.json({ 
-      error: 'Failed to disconnect Spotify account' 
+      error: 'Failed to disconnect Spotify account',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

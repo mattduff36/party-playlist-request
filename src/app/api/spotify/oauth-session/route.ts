@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getOAuthSession, clearOAuthSession } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      console.log('❌ [spotify/oauth-session] Authentication failed');
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`✅ [spotify/oauth-session] User ${auth.user.username} (${userId}) retrieving OAuth session`);
     
     const { searchParams } = new URL(req.url);
     const state = searchParams.get('state');
@@ -13,15 +21,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'State parameter required' }, { status: 400 });
     }
     
-    console.log('Looking up OAuth session for state:', state);
+    console.log('🔍 [spotify/oauth-session] Looking up OAuth session for state:', state);
     const session = await getOAuthSession(state);
     
     if (!session) {
-      console.log('OAuth session not found for state:', state);
+      console.log('❌ [spotify/oauth-session] OAuth session not found for state:', state);
       return NextResponse.json({ error: 'OAuth session not found or expired' }, { status: 404 });
     }
     
-    console.log('OAuth session found, returning code verifier');
+    console.log('✅ [spotify/oauth-session] OAuth session found, returning code verifier');
     
     // Clean up the session after retrieving it (one-time use)
     await clearOAuthSession(state);
@@ -31,14 +39,18 @@ export async function GET(req: NextRequest) {
     });
     
   } catch (error) {
-    console.error('Error retrieving OAuth session:', error);
+    console.error('❌ [spotify/oauth-session] Error:', error);
     
-    if (error instanceof Error && (error.message.includes('No token provided') || error.message.includes('Admin access required'))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && error.message.includes('token')) {
+      return NextResponse.json({ 
+        error: 'Authentication required',
+        details: 'Please log in to continue'
+      }, { status: 401 });
     }
     
     return NextResponse.json({ 
-      error: 'Failed to retrieve OAuth session' 
+      error: 'Failed to retrieve OAuth session',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
