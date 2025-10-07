@@ -462,7 +462,42 @@ export default function UserRequestPage() {
     );
   }
 
-  // Main Request Form (after authentication)
+  // Check event status and page controls BEFORE showing form
+  if (authenticated && globalState) {
+    // Event is offline
+    if (globalState.status === 'offline') {
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
+          <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl max-w-md w-full mx-4 text-center">
+            <div className="text-6xl mb-6">🎵</div>
+            <h1 className="text-3xl font-bold text-white mb-4">Party Not Started</h1>
+            <p className="text-gray-300 mb-4">
+              The DJ hasn't started the party yet. Check back soon!
+            </p>
+            <p className="text-sm text-gray-400">@{username}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Requests page is disabled
+    if (!globalState.pagesEnabled?.requests) {
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
+          <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl max-w-md w-full mx-4 text-center">
+            <div className="text-6xl mb-6">🚫</div>
+            <h1 className="text-3xl font-bold text-white mb-4">Requests Disabled</h1>
+            <p className="text-gray-300 mb-4">
+              The DJ has temporarily disabled song requests. Check back later!
+            </p>
+            <p className="text-sm text-gray-400">@{username}</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Main Request Form (after authentication and checks passed)
   return (
     <div className="min-h-screen relative" style={gradientStyle}>
       {/* Hero Section */}
