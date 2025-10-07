@@ -90,10 +90,14 @@ export interface AdminLogoutEvent {
   message: string;
 }
 
-// Pusher channels
+// Pusher channel helpers - USER-SPECIFIC channels for multi-tenancy
+export const getUserChannel = (userId: string) => `private-party-playlist-${userId}`;
+export const getAdminChannel = (userId: string) => `private-admin-updates-${userId}`;
+
+// Legacy global channels (DEPRECATED - DO NOT USE for user-specific events)
 export const CHANNELS = {
-  PARTY_PLAYLIST: 'party-playlist',
-  ADMIN_UPDATES: 'admin-updates',
+  PARTY_PLAYLIST: 'party-playlist', // ⚠️ DEPRECATED: Use getUserChannel(userId) instead
+  ADMIN_UPDATES: 'admin-updates',   // ⚠️ DEPRECATED: Use getAdminChannel(userId) instead
 } as const;
 
 // Pusher events
@@ -211,10 +215,12 @@ export interface StateUpdateEvent {
   };
   adminId?: string;
   adminName?: string;
+  userId: string; // Required for user-specific channel
 }
 
 export const triggerStateUpdate = async (data: StateUpdateEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.STATE_UPDATE, data);
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.STATE_UPDATE, data);
 };
 
 // Page control update event interface
@@ -227,8 +233,10 @@ export interface PageControlUpdateEvent {
   };
   adminId?: string;
   adminName?: string;
+  userId: string; // Required for user-specific channel
 }
 
 export const triggerPageControlUpdate = async (data: PageControlUpdateEvent) => {
-  await triggerEvent(CHANNELS.PARTY_PLAYLIST, EVENTS.PAGE_CONTROL_TOGGLE, data);
+  const userChannel = getUserChannel(data.userId);
+  await triggerEvent(userChannel, EVENTS.PAGE_CONTROL_TOGGLE, data);
 };

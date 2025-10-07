@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // Trigger Pusher event for real-time synchronization
+    // Trigger Pusher event for real-time synchronization (USER-SPECIFIC CHANNEL)
     try {
       await triggerStateUpdate({
         status: updatedEvent.status as EventStatus,
@@ -174,6 +174,7 @@ export async function POST(req: NextRequest) {
         },
         adminId: userId,
         adminName: auth.user.username,
+        userId: userId, // ✅ USER-SPECIFIC CHANNEL - only this user receives the event
       });
       
       console.log(`🎉 Event status updated to ${status} by ${auth.user.username}`);

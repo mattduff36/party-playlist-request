@@ -69,16 +69,17 @@ export async function POST(req: NextRequest) {
       newPagesEnabled: updatedEvent.config.pages_enabled,
     });
 
-    // Trigger Pusher event for real-time updates
-    const pusherPayload = {
-      page,
-      enabled,
-      pagesEnabled: updatedEvent.config.pages_enabled,
-      adminId: userId,
-      adminName: auth.user.username,
-    };
-    console.log('📡 [API /event/pages POST] Triggering Pusher event:', pusherPayload);
-    await triggerPageControlUpdate(pusherPayload);
+        // Trigger Pusher event for real-time updates (USER-SPECIFIC CHANNEL)
+        const pusherPayload = {
+          page,
+          enabled,
+          pagesEnabled: updatedEvent.config.pages_enabled,
+          adminId: userId,
+          adminName: auth.user.username,
+          userId: userId, // ✅ USER-SPECIFIC CHANNEL - only this user receives the event
+        };
+        console.log('📡 [API /event/pages POST] Triggering Pusher event:', pusherPayload);
+        await triggerPageControlUpdate(pusherPayload);
     console.log('✅ [API /event/pages POST] Pusher event sent successfully');
 
     const responseData = { 

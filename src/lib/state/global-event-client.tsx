@@ -507,68 +507,106 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Import Pusher client-side only
-    import('pusher-js').then(({ default: Pusher }) => {
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || '', {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-      });
+    let pusherInstance: any = null;
+    let channelInstance: any = null;
 
-      const channel = pusher.subscribe('party-playlist');
+    // Fetch userId and subscribe to user-specific channel
+    const setupPusher = async () => {
+      try {
+        // Get authenticated user's ID
+        const authResponse = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!authResponse.ok) {
+          console.warn('⚠️ Not authenticated, skipping Pusher setup');
+          return;
+        }
 
-      // Listen for state updates (use hyphens - Pusher uses hyphens not underscores)
-      channel.bind('state-update', (data: any) => {
-        console.log('📡 [GlobalEventProvider] Received state-update via Pusher:', data);
-        dispatch({
-          type: 'UPDATE_EVENT',
-          payload: {
-            status: data.status,
-            version: data.version || Date.now(),
-            config: {
-              ...stateRef.current.config,
-              ...data.config,
-              // Preserve pagesEnabled if not provided
-              pages_enabled: data.pagesEnabled || data.config?.pages_enabled || stateRef.current.pagesEnabled,
+        const authData = await authResponse.json();
+        const userId = authData.user?.user_id;
+
+        if (!userId) {
+          console.warn('⚠️ No userId found, skipping Pusher setup');
+          return;
+        }
+
+        console.log(`📡 Setting up Pusher for user ${userId}`);
+
+        // Import Pusher client-side only
+        const { default: Pusher } = await import('pusher-js');
+        pusherInstance = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || '', {
+          cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
+        });
+
+        // Subscribe to USER-SPECIFIC channel
+        const userChannel = `private-party-playlist-${userId}`;
+        console.log(`📡 Subscribing to user-specific channel: ${userChannel}`);
+        channelInstance = pusherInstance.subscribe(userChannel);
+
+        // Listen for state updates (use hyphens - Pusher uses hyphens not underscores)
+        channelInstance.bind('state-update', (data: any) => {
+          console.log('📡 [GlobalEventProvider] Received state-update via Pusher:', data);
+          dispatch({
+            type: 'UPDATE_EVENT',
+            payload: {
+              status: data.status,
+              version: data.version || Date.now(),
+              config: {
+                ...stateRef.current.config,
+                ...data.config,
+                // Preserve pagesEnabled if not provided
+                pages_enabled: data.pagesEnabled || data.config?.pages_enabled || stateRef.current.pagesEnabled,
+              },
             },
-          },
+          });
         });
-      });
 
-      // Listen for page control updates (use hyphens - Pusher uses hyphens not underscores)
-      channel.bind('page-control-toggle', (data: any) => {
-        console.log('📡 [GlobalEventProvider] Received page-control-toggle via Pusher:', data);
-        console.log('📡 [GlobalEventProvider] Current state before update:', {
-          status: stateRef.current.status,
-          pagesEnabled: stateRef.current.pagesEnabled,
-        });
-        
-        const newPagesEnabled = data.pagesEnabled || {
-          requests: data.requests_page_enabled ?? stateRef.current.pagesEnabled.requests,
-          display: data.display_page_enabled ?? stateRef.current.pagesEnabled.display,
-        };
-        
-        console.log('📡 [GlobalEventProvider] New pagesEnabled:', newPagesEnabled);
-        
-        dispatch({
-          type: 'UPDATE_EVENT',
-          payload: {
+        // Listen for page control updates (use hyphens - Pusher uses hyphens not underscores)
+        channelInstance.bind('page-control-toggle', (data: any) => {
+          console.log('📡 [GlobalEventProvider] Received page-control-toggle via Pusher:', data);
+          console.log('📡 [GlobalEventProvider] Current state before update:', {
             status: stateRef.current.status,
-            version: Date.now(),
-            config: {
-              ...stateRef.current.config,
-              pages_enabled: newPagesEnabled,
+            pagesEnabled: stateRef.current.pagesEnabled,
+          });
+          
+          const newPagesEnabled = data.pagesEnabled || {
+            requests: data.requests_page_enabled ?? stateRef.current.pagesEnabled.requests,
+            display: data.display_page_enabled ?? stateRef.current.pagesEnabled.display,
+          };
+          
+          console.log('📡 [GlobalEventProvider] New pagesEnabled:', newPagesEnabled);
+          
+          dispatch({
+            type: 'UPDATE_EVENT',
+            payload: {
+              status: stateRef.current.status,
+              version: Date.now(),
+              config: {
+                ...stateRef.current.config,
+                pages_enabled: newPagesEnabled,
+              },
             },
-          },
+          });
+          
+          console.log('✅ [GlobalEventProvider] page-control-toggle state updated');
         });
-        
-        console.log('✅ [GlobalEventProvider] page-control-toggle state updated');
-      });
 
-      return () => {
-        channel.unbind_all();
-        channel.unsubscribe();
-        pusher.disconnect();
-      };
-    });
+      } catch (error) {
+        console.error('❌ Failed to setup Pusher:', error);
+      }
+    };
+
+    // Start Pusher setup
+    setupPusher();
+
+    // Cleanup function
+    return () => {
+      if (channelInstance) {
+        channelInstance.unbind_all();
+        channelInstance.unsubscribe();
+      }
+      if (pusherInstance) {
+        pusherInstance.disconnect();
+      }
+    };
   }, []);
 
   return (
