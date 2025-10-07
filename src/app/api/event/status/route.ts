@@ -41,8 +41,9 @@ export async function GET(req: NextRequest) {
     
     if (!event) {
       // Create a default event if none exists
-      console.log('No event found, creating default event...');
+      console.log(`No event found for user ${userId}, creating default event...`);
       const defaultEvent = await dbService.createEvent({
+        user_id: userId,  // ✅ Associate event with this user
         status: 'offline',
         version: 0,
         config: {
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     // Update event status with version increment
     const newVersion = currentEvent.version + 1;
-    const updatedEvent = await dbService.updateEventStatus(currentEvent.id, status as EventStatus, newVersion);
+    const updatedEvent = await dbService.updateEventStatus(currentEvent.id, status as EventStatus, newVersion, userId);
 
     if (!updatedEvent) {
       return NextResponse.json({ 

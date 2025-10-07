@@ -145,13 +145,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             })}
           </div>
           <div className="px-3 pt-4 border-t border-gray-700">
-            <button
-              onClick={handleLogout}
+              <button
+                onClick={handleLogout}
               className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
+              >
+                <LogOut className="w-5 h-5 mr-3" />
               <span>Logout</span>
-            </button>
+              </button>
           </div>
         </div>
       </div>
@@ -238,7 +238,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     <>
       <NotificationInitializer />
       <div className="min-h-screen bg-gray-900 text-white">
-        <Sidebar />
+      <Sidebar />
         <TopNav />
         
         <div className="md:pl-64">
@@ -248,10 +248,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               <div className="flex items-center space-x-4">
                 <EventStateDropdown />
                 <PageToggleIcons />
-              </div>
+            </div>
               <div className="flex items-center space-x-4">
-                <SpotifyStatusDropdown />
-                <NotificationsDropdown />
+              <SpotifyStatusDropdown />
+              <NotificationsDropdown />
               </div>
             </div>
             
@@ -261,7 +261,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             </main>
           </div>
         </div>
-        
+
         <BottomNav />
         <LogoutModal />
       </div>

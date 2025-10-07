@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     
     console.log('🌐 [API /event/pages POST] New config:', newConfig);
 
-    const updatedEvent = await dbService.updateEvent(currentEvent.id, { config: newConfig });
+    const updatedEvent = await dbService.updateEvent(currentEvent.id, { config: newConfig }, userId);
     console.log('🌐 [API /event/pages POST] Event updated in DB:', {
       id: updatedEvent.id,
       newPagesEnabled: updatedEvent.config.pages_enabled,

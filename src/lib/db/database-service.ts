@@ -114,7 +114,7 @@ export class DatabaseService {
     );
   }
 
-  async updateEvent(eventId: string, updates: Partial<Event>): Promise<Event> {
+  async updateEvent(eventId: string, updates: Partial<Event>, userId: string): Promise<Event> {
     return await this.executeQuery(
       PoolType.WRITE_ONLY,
       async (client) => {
@@ -126,7 +126,7 @@ export class DatabaseService {
             ...updates,
             updated_at: new Date(),
           })
-          .where(eq(events.id, eventId))
+          .where(and(eq(events.id, eventId), eq(events.user_id, userId)))  // ✅ Verify ownership
           .returning();
         
         return result[0];
@@ -134,7 +134,7 @@ export class DatabaseService {
     );
   }
 
-  async updateEventStatus(eventId: string, status: EventStatus, version: number): Promise<Event> {
+  async updateEventStatus(eventId: string, status: EventStatus, version: number, userId: string): Promise<Event> {
     return await this.executeQuery(
       PoolType.WRITE_ONLY,
       async (client) => {
@@ -147,7 +147,7 @@ export class DatabaseService {
             version,
             updated_at: new Date(),
           })
-          .where(eq(events.id, eventId))
+          .where(and(eq(events.id, eventId), eq(events.user_id, userId)))  // ✅ Verify ownership
           .returning();
         
         return result[0];
@@ -468,9 +468,9 @@ export const db = {
   // Event operations
   getEvent: (userId: string, eventId?: string) => getDatabaseService().getEvent(userId, eventId),
   createEvent: (eventData: Partial<Event>) => getDatabaseService().createEvent(eventData),
-  updateEvent: (eventId: string, updates: Partial<Event>) => getDatabaseService().updateEvent(eventId, updates),
-  updateEventStatus: (eventId: string, status: EventStatus, version: number) => 
-    getDatabaseService().updateEventStatus(eventId, status, version),
+  updateEvent: (eventId: string, updates: Partial<Event>, userId: string) => getDatabaseService().updateEvent(eventId, updates, userId),
+  updateEventStatus: (eventId: string, status: EventStatus, version: number, userId: string) => 
+    getDatabaseService().updateEventStatus(eventId, status, version, userId),
   
   // Request operations
   getRequests: (eventId: string, limit?: number, offset?: number) => 
