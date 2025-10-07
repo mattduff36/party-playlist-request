@@ -1,9 +1,11 @@
 # Spotify Re-Authentication Issue
 
-**Priority:** 🔴 HIGH  
-**Status:** 🐛 BUG - Discovered during testing  
-**Assigned:** Next session  
+**Priority:** 🟢 RESOLVED  
+**Status:** ✅ FIXED - See SPOTIFY-AUTH-ISSUE-RESOLVED.md  
+**Fixed:** 2025-01-06 (continued session)  
 **Branch:** `phase1/auth-and-landing`
+
+> **⚠️ This issue has been resolved. See `SPOTIFY-AUTH-ISSUE-RESOLVED.md` for details.**
 
 ## Problem Description
 

@@ -460,7 +460,7 @@ export default function DisplayPage() {
           setCurrentTrack(data.current_track);
           setUpcomingSongs(data.upcoming_songs || []);
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error fetching display data:', error);
         // Set default settings if fetch fails
         if (!eventSettings) {
@@ -498,7 +498,7 @@ export default function DisplayPage() {
             }
           }
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error fetching notifications:', error);
       }
     };
@@ -1295,7 +1295,7 @@ export default function DisplayPage() {
     );
   } else {
     // Mobile Portrait - Simplified layout
-    return (
+  return (
       <div className="h-screen text-white p-3 overflow-hidden" style={gradientStyle}>
         <div className="max-w-sm mx-auto h-full flex flex-col">
           <div className="text-center flex-shrink-0 mb-3">
