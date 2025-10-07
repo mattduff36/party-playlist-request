@@ -1,9 +1,22 @@
 import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// Events table - Core state management
+// Users table - Multi-tenant user accounts
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: text('username').notNull().unique(),
+  email: text('email').notNull().unique(),
+  password_hash: text('password_hash').notNull(),
+  display_name: text('display_name'),
+  role: text('role').notNull().default('user'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Events table - Core state management (now per-user)
 export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
+  user_id: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   status: text('status', { 
     enum: ['offline', 'standby', 'live'] 
   }).notNull().default('offline'),
@@ -79,6 +92,8 @@ export const requestsRelations = relations(requests, ({ one }) => ({
 }));
 
 // Type exports for TypeScript
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
 export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
 export type Admin = typeof admins.$inferSelect;
