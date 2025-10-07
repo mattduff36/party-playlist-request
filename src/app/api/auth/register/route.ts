@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-import { v4 as uuidv4 } from 'uuid';
-import { generateToken, hashPassword, getCookieOptions } from '@/lib/auth';
+import { sql } from '@/lib/db/neon-client';
+import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+import { sendVerificationEmail } from '@/lib/email/email-service';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-export async function POST(req: NextRequest) {
+/**
+ * POST /api/auth/register
+ * Register a new user account
+ */
+export async function POST(request: NextRequest) {
   try {
-    const { username, email, password } = await req.json();
+    const body = await request.json();
+    const { username, email, password } = body;
 
     // Validation
     if (!username || !email || !password) {
@@ -17,109 +21,151 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate username format (lowercase alphanumeric + hyphens, 3-50 chars)
-    const usernamePattern = /^[a-z0-9-]{3,50}$/;
-    if (!usernamePattern.test(username)) {
+    // Username validation
+    const usernameRegex = /^[a-z0-9_-]{3,30}$/;
+    if (!usernameRegex.test(username)) {
       return NextResponse.json(
-        { error: 'Username must be 3-50 characters, lowercase letters, numbers, and hyphens only' },
+        { error: 'Username must be 3-30 characters long and contain only lowercase letters, numbers, hyphens, and underscores' },
         { status: 400 }
       );
     }
 
-    // Validate email format
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       return NextResponse.json(
-        { error: 'Invalid email format' },
+        { error: 'Invalid email address' },
         { status: 400 }
       );
     }
 
-    // Validate password length
+    // Password validation
     if (password.length < 8) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
+        { error: 'Password must be at least 8 characters long' },
         { status: 400 }
       );
     }
 
-    // Check if username already exists
-    const usernameCheck = await pool.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
-    );
+    // Reserved usernames
+    const reservedUsernames = [
+      'admin', 'api', 'app', 'auth', 'dashboard', 'login', 'logout', 
+      'register', 'signup', 'signin', 'signout', 'settings', 'account',
+      'help', 'support', 'about', 'contact', 'terms', 'privacy', 'legal',
+      'www', 'mail', 'ftp', 'localhost', 'test', 'demo', 'example',
+      'user', 'users', 'profile', 'profiles', 'billing', 'payments',
+      'oauth', 'callback', 'verify', 'reset', 'forgot', 'password'
+    ];
 
-    if (usernameCheck.rows.length > 0) {
+    if (reservedUsernames.includes(username.toLowerCase())) {
       return NextResponse.json(
-        { error: 'Username already taken' },
-        { status: 409 }
+        { error: 'This username is reserved' },
+        { status: 400 }
       );
     }
 
-    // Check if email already exists
-    const emailCheck = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    // Check if username or email already exists
+    const existing = await sql`
+      SELECT id, username, email FROM users 
+      WHERE LOWER(username) = LOWER(${username}) OR LOWER(email) = LOWER(${email})
+    `;
 
-    if (emailCheck.rows.length > 0) {
-      return NextResponse.json(
-        { error: 'Email already registered' },
-        { status: 409 }
-      );
+    if (existing.length > 0) {
+      const existingUser = existing[0];
+      if (existingUser.username.toLowerCase() === username.toLowerCase()) {
+        return NextResponse.json(
+          { error: 'Username is already taken' },
+          { status: 409 }
+        );
+      }
+      if (existingUser.email.toLowerCase() === email.toLowerCase()) {
+        return NextResponse.json(
+          { error: 'Email address is already registered' },
+          { status: 409 }
+        );
+      }
     }
 
     // Hash password
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Generate email verification token (32 bytes = 64 hex characters)
+    const verificationToken = randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Create user
-    const userId = uuidv4();
-    await pool.query(
-      `INSERT INTO users (id, username, email, password_hash, role, display_name, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [userId, username, email, passwordHash, 'user', username]
-    );
+    const result = await sql`
+      INSERT INTO users (
+        username, 
+        email, 
+        password_hash, 
+        account_status, 
+        email_verified,
+        email_verification_token,
+        email_verification_expires,
+        role
+      )
+      VALUES (
+        ${username.toLowerCase()}, 
+        ${email.toLowerCase()}, 
+        ${passwordHash}, 
+        'pending',
+        false,
+        ${verificationToken},
+        ${verificationExpires.toISOString()},
+        'user'
+      )
+      RETURNING id, username, email, created_at
+    `;
 
-    // Generate JWT
-    const token = generateToken({
-      user_id: userId,
-      username,
-      email,
-      role: 'user'
+    const newUser = result[0];
+
+    console.log('✅ User created:', newUser.username);
+
+    // Send verification email
+    const emailResult = await sendVerificationEmail({
+      username: newUser.username,
+      email: newUser.email,
+      verificationToken: verificationToken
     });
 
-    // Create response with cookie
-    const response = NextResponse.json(
-      { 
-        success: true,
-        user: {
-          id: userId,
-          username,
-          email,
-          role: 'user'
-        }
-      },
-      { status: 201 }
-    );
+    if (!emailResult.success) {
+      console.error('⚠️ Failed to send verification email, but user was created');
+    }
 
-    // Set auth cookie
-    const isProduction = process.env.NODE_ENV === 'production';
-    const cookieOptions = getCookieOptions(isProduction);
+    return NextResponse.json({
+      success: true,
+      message: 'Account created successfully! Please check your email to verify your account.',
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        created_at: newUser.created_at
+      }
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('❌ Error creating user:', error);
     
-    response.cookies.set('auth_token', token, cookieOptions);
+    // Handle unique constraint violations
+    if (error.code === '23505') {
+      if (error.message.includes('username')) {
+        return NextResponse.json(
+          { error: 'Username is already taken' },
+          { status: 409 }
+        );
+      }
+      if (error.message.includes('email')) {
+        return NextResponse.json(
+          { error: 'Email address is already registered' },
+          { status: 409 }
+        );
+      }
+    }
 
-    console.log('✅ User registered:', username);
-
-    return response;
-
-  } catch (error) {
-    console.error('❌ Registration error:', error);
-    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to create account. Please try again.' },
       { status: 500 }
     );
   }
 }
-
