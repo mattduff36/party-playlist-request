@@ -32,7 +32,9 @@ export default function EventInfoPanel() {
 
   const fetchEvent = async () => {
     try {
-      const response = await fetch('/api/events/current');
+      const response = await fetch('/api/events/current', {
+        credentials: 'include' // ✅ CRITICAL: Send JWT cookie for user-specific event
+      });
       if (response.ok) {
         const data = await response.json();
         setEvent(data.event);
@@ -49,6 +51,7 @@ export default function EventInfoPanel() {
     try {
       const response = await fetch('/api/events/display-token', {
         method: 'POST',
+        credentials: 'include', // ✅ CRITICAL: Send JWT cookie for user-specific token
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usesRemaining: 999, hoursValid: 24 })
       });
