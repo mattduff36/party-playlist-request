@@ -180,6 +180,7 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
           userId: ??? // Need userId here
           timestamp: Date.now()
         });
+        */
 
         // Update stored state
         lastPlaybackState = currentPlayback;
