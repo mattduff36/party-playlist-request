@@ -219,7 +219,21 @@ function AuthenticatedRequestPage({ username, eventData, onLogout }: { username:
       const response = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}&username=${username}&limit=10`);
       if (response.ok) {
         const data = await response.json();
-        setSearchResults(data.tracks || []);
+        
+        // Transform Spotify API response to match our Track interface
+        const transformedTracks = (data.tracks || []).map((track: any) => ({
+          id: track.id,
+          uri: track.uri,
+          name: track.name,
+          artists: track.artists?.map((a: any) => a.name) || [],
+          album: track.album?.name || 'Unknown Album',
+          duration_ms: track.duration_ms,
+          explicit: track.explicit || false,
+          preview_url: track.preview_url,
+          image: track.album?.images?.[0]?.url
+        }));
+        
+        setSearchResults(transformedTracks);
       } else {
         const error = await response.json();
         console.error('Search error:', error.error);
