@@ -98,11 +98,6 @@ export default function DisplaySettingsPage() {
     setMessageStatus('');
 
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        throw new Error('No admin token found');
-      }
-
       // Calculate duration in seconds
       let durationInSeconds = null;
       if (messageDuration === 'indefinite') {
@@ -115,8 +110,8 @@ export default function DisplaySettingsPage() {
 
       const response = await fetch('/api/admin/message', {
         method: 'POST',
+        credentials: 'include', // JWT auth via cookies
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -147,16 +142,9 @@ export default function DisplaySettingsPage() {
     setMessageStatus('');
 
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        throw new Error('No admin token found');
-      }
-
       const response = await fetch('/api/admin/message', {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // JWT auth via cookies
       });
 
       if (response.ok) {
