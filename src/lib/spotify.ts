@@ -469,53 +469,6 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('PUT', `/me/player/volume?volume_percent=${volumePercent}`);
   }
 
-  // Get Client Credentials token (app-level, not user-specific)
-  private async getClientCredentialsToken(): Promise<string> {
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
-      },
-      body: 'grant_type=client_credentials'
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get Spotify client credentials');
-    }
-
-    const data = await response.json();
-    return data.access_token;
-  }
-
-  // Public search using Client Credentials (no user auth required)
-  async searchTracksPublic(query: string, limit = 20) {
-    try {
-      const token = await this.getClientCredentialsToken();
-      const params = new URLSearchParams({
-        q: query,
-        type: 'track',
-        limit: limit.toString()
-      });
-
-      const response = await fetch(`${this.baseURL}/search?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Spotify search failed: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Public search error:', error);
-      throw error;
-    }
-  }
-
-  // User-authenticated search (for admin use)
   async searchTracks(query: string, limit = 20) {
     const params = new URLSearchParams({
       q: query,
