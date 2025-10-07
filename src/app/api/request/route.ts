@@ -188,22 +188,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🚀 PUSHER: Trigger real-time events
+    // 🚀 PUSHER: Trigger real-time events (USER-SPECIFIC CHANNEL)
     try {
       // Always trigger request submitted event
-      await triggerRequestSubmitted({
-        id: newRequest.id,
-        track_name: trackInfo.name,
-        artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
-        album_name: trackInfo.album?.name || 'Unknown Album',
-        track_uri: trackInfo.uri,
-        requester_nickname: requester_nickname || 'Anonymous',
-        submitted_at: new Date().toISOString()
-      });
+      if (userId) { // Only trigger if we have a userId (multi-tenant)
+        await triggerRequestSubmitted({
+          id: newRequest.id,
+          track_name: trackInfo.name,
+          artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          album_name: trackInfo.album?.name || 'Unknown Album',
+          track_uri: trackInfo.uri,
+          requester_nickname: requester_nickname || 'Anonymous',
+          submitted_at: new Date().toISOString(),
+          userId: userId // ✅ USER-SPECIFIC CHANNEL
+        });
+      }
       console.log(`🎉 Pusher event sent for new request: ${trackInfo.name}`);
 
       // If auto-approved, also trigger approval event
-      if (shouldAutoApprove) {
+      if (shouldAutoApprove && userId) {
         await triggerRequestApproved({
           id: newRequest.id,
           track_name: trackInfo.name,
@@ -214,7 +217,8 @@ export async function POST(req: NextRequest) {
           user_session_id: user_session_id || undefined,
           play_next: false, // Default to false for auto-approved requests
           approved_at: approvedAt!,
-          approved_by: 'Auto-Approval System'
+          approved_by: 'Auto-Approval System',
+          userId: userId // ✅ USER-SPECIFIC CHANNEL
         });
         console.log(`🎉 Auto-approval Pusher event sent for: ${trackInfo.name}`);
       }

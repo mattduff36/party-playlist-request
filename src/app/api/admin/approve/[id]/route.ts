@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await updateRequest(id, {
       status: newStatus,
       approved_at: new Date().toISOString(),
-      approved_by: admin.username,
+      approved_by: auth.user.username,
       spotify_added_to_queue: queueSuccess,
       spotify_added_to_playlist: playlistSuccess
     });
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         track_name: request.track_name
       });
 
-      // 🚀 PUSHER: Trigger real-time event for approved request
+      // 🚀 PUSHER: Trigger real-time event for approved request (USER-SPECIFIC CHANNEL)
       try {
         await triggerRequestApproved({
           id: request.id,
@@ -104,7 +104,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           user_session_id: request.user_session_id || undefined,
           play_next: play_next,
           approved_at: new Date().toISOString(),
-          approved_by: admin.username
+          approved_by: auth.user.username,
+          userId: userId // ✅ USER-SPECIFIC CHANNEL
         });
         console.log(`🎉 Pusher event sent for approved request: ${request.track_name}`);
         

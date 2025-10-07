@@ -41,14 +41,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     
     const deletedRequest = result.rows[0];
     
-    // 🚀 PUSHER: Trigger real-time event for deleted request
+    // 🚀 PUSHER: Trigger real-time event for deleted request (USER-SPECIFIC CHANNEL)
     try {
       await triggerRequestDeleted({
         id: deletedRequest.id,
         track_name: deletedRequest.track_name,
         artist_name: deletedRequest.artist_name,
         status: deletedRequest.status,
-        deleted_at: new Date().toISOString()
+        deleted_at: new Date().toISOString(),
+        userId: userId // ✅ USER-SPECIFIC CHANNEL
       });
       console.log(`🗑️ Pusher event sent for deleted request: ${deletedRequest.track_name}`);
     } catch (pusherError) {

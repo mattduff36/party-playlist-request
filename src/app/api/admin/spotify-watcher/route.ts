@@ -167,13 +167,17 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
           id: currentPlayback.item.id
         } : null;
 
-        // Trigger Pusher event with enhanced data
+        // TODO: Pusher disabled - watcher needs per-user refactor
+        // This global watcher doesn't have a userId context
+        // Need to implement per-user watchers or pass userId to this function
+        /*
         await triggerPlaybackUpdate({
           current_track: formattedCurrentTrack,
           queue: enhancedQueue,
           is_playing: currentPlayback?.is_playing || false,
           progress_ms: currentPlayback?.progress_ms || 0,
           device: currentPlayback?.device || null,
+          userId: ??? // Need userId here
           timestamp: Date.now()
         });
 
@@ -201,7 +205,8 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
         spotify_connected: isConnected
       };
 
-      await triggerStatsUpdate(stats);
+      // TODO: Pusher disabled - watcher needs per-user refactor
+      // await triggerStatsUpdate({...stats, userId: ???});
       lastStatsUpdate = now;
     }
 
