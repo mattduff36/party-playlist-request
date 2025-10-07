@@ -14,12 +14,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.log(`🔍 Searching Spotify for: "${query}" (limit: ${limit})`);
+    console.log(`🔍 [PUBLIC] Searching Spotify for: "${query}" (limit: ${limit})`);
 
-    const response = await spotifyService.searchTracks(query, limit);
+    // Use public search (Client Credentials) - no user auth required
+    const response = await spotifyService.searchTracksPublic(query, limit);
     
     // Spotify API returns { tracks: { items: [...] } }
     const tracks = response?.tracks?.items || [];
+
+    console.log(`✅ [PUBLIC] Found ${tracks.length} tracks`);
 
     return NextResponse.json({
       tracks: tracks.map((track: any) => ({
@@ -36,9 +39,9 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Spotify search error:', error);
+    console.error('❌ [PUBLIC] Spotify search error:', error);
     return NextResponse.json(
-      { error: 'Failed to search Spotify' },
+      { error: 'Failed to search Spotify', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
