@@ -58,39 +58,18 @@ export async function GET(req: NextRequest) {
 // Keep the POST handler for the actual token exchange
 export async function POST(req: NextRequest) {
   try {
-    // This requires admin authentication
-    const authHeader = req.headers.get('authorization');
-    console.log('🔐 Callback auth check:', {
-      hasAuthHeader: !!authHeader,
-      authHeaderStart: authHeader?.substring(0, 20) + '...',
-      authHeaderLength: authHeader?.length
-    });
+    // Authenticate using JWT cookies
+    const { requireAuth } = await import('@/middleware/auth');
+    const auth = requireAuth(req);
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('Spotify callback: No authorization header provided');
-      return NextResponse.json({ 
-        error: 'Authentication required. Please log in to the admin panel first.',
-        redirect: '/admin',
-        message: 'To connect Spotify, please go to the admin panel and use the "🎵 Spotify Setup" link.'
-      }, { status: 401 });
+    if (!auth.authenticated || !auth.user) {
+      console.error('❌ [spotify/callback] Authentication required');
+      return auth.response!;
     }
 
-    // Validate the admin token properly
-    try {
-      const { authService } = await import('@/lib/auth');
-      const adminPayload = await authService.requireAdminAuth(req);
-      console.log('✅ Admin authentication successful:', { 
-        adminId: adminPayload.adminId, 
-        username: adminPayload.username 
-      });
-    } catch (authError) {
-      console.error('❌ Admin authentication failed:', authError.message);
-      return NextResponse.json({ 
-        error: 'Authentication required. Please log in to the admin panel first.',
-        redirect: '/admin',
-        message: 'To connect Spotify, please go to the admin panel and use the "🎵 Spotify Setup" link.'
-      }, { status: 401 });
-    }
+    const userId = auth.user.user_id;
+    const username = auth.user.username;
+    console.log(`✅ [spotify/callback] User ${username} (${userId}) exchanging Spotify code`);
 
     const body = await req.json();
     const { code, state, code_verifier } = body;
