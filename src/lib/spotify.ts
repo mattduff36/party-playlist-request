@@ -222,7 +222,7 @@ class SpotifyService {
     return tokenData;
   }
 
-  private async saveTokens(tokenData: any) {
+  private async saveTokens(tokenData: any, userId: string) {
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
     
     const authData = {
@@ -233,8 +233,8 @@ class SpotifyService {
       token_type: tokenData.token_type || 'Bearer'
     };
 
-    await setSpotifyAuth(authData);
-    console.log('✅ Spotify tokens saved to database');
+    await setSpotifyAuth(authData, userId);
+    console.log(`✅ Spotify tokens saved to database for user ${userId}`);
   }
 
   async getAccessToken(): Promise<string> {

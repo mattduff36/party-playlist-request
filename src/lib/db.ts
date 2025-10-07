@@ -610,26 +610,39 @@ export async function updateAdminLastLogin(username: string): Promise<void> {
 }
 
 // Spotify auth operations
-export async function getSpotifyAuth(): Promise<SpotifyAuth | null> {
+export async function getSpotifyAuth(userId?: string): Promise<SpotifyAuth | null> {
   const client = getPool();
-  const result = await client.query('SELECT * FROM spotify_auth WHERE id = 1');
+  
+  if (userId) {
+    const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [userId]);
+    return result.rows[0] || null;
+  }
+  
+  // Fallback for single-tenant compatibility (shouldn't be used in multi-tenant)
+  const result = await client.query('SELECT * FROM spotify_auth LIMIT 1');
   return result.rows[0] || null;
 }
 
-export async function setSpotifyAuth(auth: SpotifyAuth): Promise<void> {
+export async function setSpotifyAuth(auth: SpotifyAuth, userId: string): Promise<void> {
   const client = getPool();
   await client.query(`
-    INSERT INTO spotify_auth (id, access_token, refresh_token, expires_at, scope, token_type, updated_at)
-    VALUES (1, $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-    ON CONFLICT (id) DO UPDATE SET 
-      access_token = $1, refresh_token = $2, expires_at = $3, 
-      scope = $4, token_type = $5, updated_at = CURRENT_TIMESTAMP
-  `, [auth.access_token, auth.refresh_token, auth.expires_at, auth.scope, auth.token_type]);
+    INSERT INTO spotify_auth (user_id, access_token, refresh_token, expires_at, scope, token_type, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id) DO UPDATE SET 
+      access_token = $2, refresh_token = $3, expires_at = $4, 
+      scope = $5, token_type = $6, updated_at = CURRENT_TIMESTAMP
+  `, [userId, auth.access_token, auth.refresh_token, auth.expires_at, auth.scope, auth.token_type]);
 }
 
-export async function clearSpotifyAuth(): Promise<void> {
+export async function clearSpotifyAuth(userId?: string): Promise<void> {
   const client = getPool();
-  await client.query('DELETE FROM spotify_auth WHERE id = 1');
+  
+  if (userId) {
+    await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
+  } else {
+    // Fallback for single-tenant compatibility
+    await client.query('DELETE FROM spotify_auth');
+  }
 }
 
 // OAuth session management
