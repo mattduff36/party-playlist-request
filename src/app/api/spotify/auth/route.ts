@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 import { storeOAuthSession, cleanupExpiredOAuthSessions } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
-    console.log('Spotify auth endpoint called');
-    await authService.requireAdminAuth(req);
+    console.log('🎵 [spotify/auth] Endpoint called');
     
-    console.log('Admin auth verified, generating Spotify auth URL...');
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      console.log('❌ [spotify/auth] Authentication failed');
+      return auth.response!;
+    }
+    
+    const userId = auth.user.user_id;
+    console.log(`✅ [spotify/auth] User ${auth.user.username} (${userId}) requesting Spotify auth`);
+    
+    console.log('🔗 [spotify/auth] Generating Spotify authorization URL...');
     const authData = spotifyService.getAuthorizationURL();
     
-    console.log('Spotify auth URL generated:', { 
+    console.log('✅ [spotify/auth] Spotify auth URL generated:', { 
       hasUrl: !!authData.url, 
       urlLength: authData.url?.length,
       hasState: !!authData.state 
@@ -20,12 +29,12 @@ export async function GET(req: NextRequest) {
     // Store OAuth session server-side instead of relying on localStorage
     try {
       await storeOAuthSession(authData.state, authData.codeVerifier);
-      console.log('OAuth session stored server-side for state:', authData.state);
+      console.log('💾 [spotify/auth] OAuth session stored server-side for state:', authData.state);
       
       // Clean up expired sessions while we're here
       await cleanupExpiredOAuthSessions();
     } catch (dbError) {
-      console.log('⚠️ Failed to store OAuth session server-side (will rely on localStorage):', (dbError as Error).message);
+      console.log('⚠️ [spotify/auth] Failed to store OAuth session server-side (will rely on localStorage):', (dbError as Error).message);
       // Continue without server-side storage - localStorage will be the only option
     }
     
@@ -37,13 +46,12 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error in Spotify auth endpoint:', error);
+    console.error('❌ [spotify/auth] Error in Spotify auth endpoint:', error);
     
     if (error instanceof Error && error.message.includes('token')) {
       return NextResponse.json({ 
-        error: 'Authentication required. Please log in to the admin panel first.',
-        redirect: '/admin',
-        message: 'To connect Spotify, please go to the admin panel and use the "🎵 Spotify Setup" link.'
+        error: 'Authentication required',
+        details: 'Please log in to continue'
       }, { status: 401 });
     }
     
