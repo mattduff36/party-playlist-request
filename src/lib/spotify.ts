@@ -170,10 +170,11 @@ class SpotifyService {
     };
   }
 
-  async exchangeCodeForToken(code: string, codeVerifier: string) {
+  async exchangeCodeForToken(code: string, codeVerifier: string, userId: string) {
     console.log('Spotify token exchange:', { 
       hasCode: !!code, 
       hasCodeVerifier: !!codeVerifier,
+      userId,
       clientId: this.clientId ? 'SET' : 'MISSING',
       redirectUri: this.redirectUri,
       codeLength: code?.length,
@@ -218,7 +219,7 @@ class SpotifyService {
     }
 
     const tokenData = await response.json();
-    await this.saveTokens(tokenData);
+    await this.saveTokens(tokenData, userId);
     return tokenData;
   }
 
