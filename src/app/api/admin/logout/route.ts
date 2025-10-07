@@ -1,25 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { triggerAdminLogout } from '@/lib/pusher';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin authentication to get admin info before logout
-    const admin = await authService.requireAdminAuth(req);
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
     
-    console.log('🔐 Admin logout initiated:', admin.username);
+    const userId = auth.user.user_id;
+    console.log(`🔐 [logout] User ${auth.user.username} (${userId}) logging out`);
     
     // Trigger Pusher event for admin logout
     try {
       await triggerAdminLogout({
-        admin_id: admin.id,
-        username: admin.username,
+        admin_id: userId,
+        username: auth.user.username,
         logout_time: new Date().toISOString(),
-        message: `Admin ${admin.username} logged out`
+        message: `User ${auth.user.username} logged out`
       });
-      console.log('📡 Pusher: Admin logout event sent');
+      console.log('📡 Pusher: Logout event sent');
     } catch (pusherError) {
-      console.error('❌ Failed to send admin logout Pusher event:', pusherError);
+      console.error('❌ Failed to send logout Pusher event:', pusherError);
       // Don't fail the logout if Pusher fails
     }
     

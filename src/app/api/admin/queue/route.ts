@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 
 export async function GET(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`🎵 [queue] User ${auth.user.username} (${userId}) getting queue`);
     
     const playbackState = await spotifyService.getCurrentPlayback();
     

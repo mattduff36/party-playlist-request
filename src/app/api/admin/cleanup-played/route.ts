@@ -1,20 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getPool } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`🧹 [cleanup-played] User ${auth.user.username} (${userId}) cleaning up played requests`);
     
     const client = getPool();
     
-    // Delete played requests that are older than 1 hour
+    // Delete played requests that are older than 1 hour (user-scoped)
     const result = await client.query(`
       DELETE FROM requests 
       WHERE status = 'played' 
+      AND user_id = $1
       AND approved_at < NOW() - INTERVAL '1 hour'
       RETURNING id, track_name, artist_name, approved_at
-    `);
+    `, [userId]);
     
     const deletedRequests = result.rows;
     

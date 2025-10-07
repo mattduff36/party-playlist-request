@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 import { getRequestsByStatus, updateRequest } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    await authService.requireAdminAuth(req);
+    // Authenticate and get user info
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`✅ [mark-played] User ${auth.user.username} (${userId}) marking played requests`);
     
     // Get current playback state
     const playbackState = await spotifyService.getCurrentPlayback();
@@ -21,8 +28,8 @@ export async function POST(req: NextRequest) {
     const currentTrack = playbackState.item;
     let markedCount = 0;
     
-    // Get all approved requests
-    const approvedRequests = await getRequestsByStatus('approved', 100);
+    // Get user's approved requests only
+    const approvedRequests = await getRequestsByStatus('approved', 100, 0, userId);
     
     // Check if current track matches any approved request
     for (const request of approvedRequests) {

@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { getEventSettings, updateEventSettings } from '@/lib/db';
 import { triggerEvent, CHANNELS } from '@/lib/pusher';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin authentication
-    await authService.requireAdminAuth(req);
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`💬 [message] User ${auth.user.username} (${userId}) sending message`);
 
     const { message_text, message_duration } = await req.json();
 
@@ -63,8 +69,14 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    // Verify admin authentication
-    await authService.requireAdminAuth(req);
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`💬 [message/delete] User ${auth.user.username} (${userId}) clearing message`);
 
     // Clear the message using the proper database function
     await updateEventSettings({

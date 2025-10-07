@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 
 export async function GET(req: NextRequest) {
@@ -7,8 +7,14 @@ export async function GET(req: NextRequest) {
   console.log('🧪 Spotify test endpoint called');
   
   try {
-    await authService.requireAdminAuth(req);
-    console.log(`✅ Admin auth verified (${Date.now() - startTime}ms)`);
+    // Authenticate user
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
+
+    const userId = auth.user.user_id;
+    console.log(`🧪 [spotify-test] User ${auth.user.username} (${userId}) running Spotify test (${Date.now() - startTime}ms)`);
     
     const results = {
       timestamp: new Date().toISOString(),
