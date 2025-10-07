@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
       hasState: !!authData.state 
     });
     
-    // Store OAuth session server-side instead of relying on localStorage
+    // Store OAuth session server-side with user info for callback redirect
     try {
-      await storeOAuthSession(authData.state, authData.codeVerifier);
-      console.log('💾 [spotify/auth] OAuth session stored server-side for state:', authData.state);
+      await storeOAuthSession(authData.state, authData.codeVerifier, userId, auth.user.username);
+      console.log('💾 [spotify/auth] OAuth session stored for user:', auth.user.username);
       
       // Clean up expired sessions while we're here
       await cleanupExpiredOAuthSessions();

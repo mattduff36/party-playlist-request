@@ -10,23 +10,40 @@ export async function GET(req: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
+    // Get username from OAuth session to redirect correctly
+    let username = 'admin'; // Fallback to single-tenant route
+    if (state) {
+      try {
+        const { getOAuthSession } = await import('@/lib/db');
+        const session = await getOAuthSession(state);
+        if (session?.username) {
+          username = session.username;
+          console.log(`🔀 [spotify/callback] Redirecting to /${username}/admin/overview`);
+        }
+      } catch (sessionError) {
+        console.error('Failed to get OAuth session for redirect:', sessionError);
+      }
+    }
+
+    const baseUrl = username === 'admin' ? '/admin/overview' : `/${username}/admin/overview`;
+
     // If there's an error from Spotify
     if (error) {
-      const redirectUrl = new URL('/admin/overview', req.url);
+      const redirectUrl = new URL(baseUrl, req.url);
       redirectUrl.searchParams.set('error', `Spotify authentication failed: ${error}`);
       return NextResponse.redirect(redirectUrl);
     }
 
     // If we have the authorization code
     if (code && state) {
-      const redirectUrl = new URL('/admin/overview', req.url);
+      const redirectUrl = new URL(baseUrl, req.url);
       redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('state', state);
       return NextResponse.redirect(redirectUrl);
     }
 
     // If no code or error, redirect back with error
-    const redirectUrl = new URL('/admin/overview', req.url);
+    const redirectUrl = new URL(baseUrl, req.url);
     redirectUrl.searchParams.set('error', 'No authorization code received from Spotify');
     return NextResponse.redirect(redirectUrl);
 

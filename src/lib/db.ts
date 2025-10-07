@@ -633,26 +633,55 @@ export async function clearSpotifyAuth(): Promise<void> {
 }
 
 // OAuth session management
-export async function storeOAuthSession(state: string, codeVerifier: string): Promise<void> {
+export async function storeOAuthSession(state: string, codeVerifier: string, userId?: string, username?: string): Promise<void> {
   const client = getPool();
-  await client.query(`
-    INSERT INTO oauth_sessions (state, code_verifier)
-    VALUES ($1, $2)
-    ON CONFLICT (state) DO UPDATE SET 
-      code_verifier = $2, 
-      created_at = CURRENT_TIMESTAMP,
-      expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
-  `, [state, codeVerifier]);
+  
+  // Check if user_id and username columns exist
+  try {
+    await client.query(`
+      INSERT INTO oauth_sessions (state, code_verifier, user_id, username)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (state) DO UPDATE SET 
+        code_verifier = $2,
+        user_id = $3,
+        username = $4,
+        created_at = CURRENT_TIMESTAMP,
+        expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
+    `, [state, codeVerifier, userId || null, username || null]);
+  } catch (error) {
+    // Fallback for old schema without user_id/username columns
+    await client.query(`
+      INSERT INTO oauth_sessions (state, code_verifier)
+      VALUES ($1, $2)
+      ON CONFLICT (state) DO UPDATE SET 
+        code_verifier = $2, 
+        created_at = CURRENT_TIMESTAMP,
+        expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
+    `, [state, codeVerifier]);
+  }
 }
 
-export async function getOAuthSession(state: string): Promise<{ code_verifier: string } | null> {
+export async function getOAuthSession(state: string): Promise<{ code_verifier: string; username?: string } | null> {
   const client = getPool();
-  const result = await client.query(`
-    SELECT code_verifier FROM oauth_sessions 
-    WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
-  `, [state]);
   
-  return result.rows[0] || null;
+  // Try to get username if column exists
+  try {
+    const result = await client.query(`
+      SELECT code_verifier, username FROM oauth_sessions
+      WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
+    `, [state]);
+    
+    if (result.rows.length === 0) return null;
+    return result.rows[0];
+  } catch (error) {
+    // Fallback for old schema
+    const result = await client.query(`
+      SELECT code_verifier FROM oauth_sessions 
+      WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
+    `, [state]);
+    
+    return result.rows[0] || null;
+  }
 }
 
 export async function clearOAuthSession(state: string): Promise<void> {
