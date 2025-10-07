@@ -65,23 +65,26 @@ export class DatabaseService {
   }
 
   // Event operations
-  async getEvent(eventId?: string): Promise<Event | null> {
+  async getEvent(userId: string, eventId?: string): Promise<Event | null> {
     return await this.executeQuery(
       PoolType.READ_ONLY,
       async (client) => {
         const drizzle = getConnectionPoolManager().getDrizzle(PoolType.READ_ONLY);
         
         if (eventId) {
+          // Get specific event for this user
           const result = await drizzle
             .select()
             .from(events)
-            .where(eq(events.id, eventId))
+            .where(and(eq(events.id, eventId), eq(events.user_id, userId)))
             .limit(1);
           return result[0] || null;
         } else {
+          // Get the most recent active event for this user
           const result = await drizzle
             .select()
             .from(events)
+            .where(eq(events.user_id, userId))
             .orderBy(desc(events.updated_at))
             .limit(1);
           return result[0] || null;
@@ -463,7 +466,7 @@ export function getDatabaseService(): DatabaseService {
 // Convenience functions
 export const db = {
   // Event operations
-  getEvent: (eventId?: string) => getDatabaseService().getEvent(eventId),
+  getEvent: (userId: string, eventId?: string) => getDatabaseService().getEvent(userId, eventId),
   createEvent: (eventData: Partial<Event>) => getDatabaseService().createEvent(eventData),
   updateEvent: (eventId: string, updates: Partial<Event>) => getDatabaseService().updateEvent(eventId, updates),
   updateEventStatus: (eventId: string, status: EventStatus, version: number) => 

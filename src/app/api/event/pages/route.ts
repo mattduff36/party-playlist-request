@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
     const dbService = getDatabaseService();
     
     console.log('🌐 [API /event/pages POST] Getting event:', eventId || 'first/active');
-    // Get current event (pass undefined if no eventId to get the first/active event)
-    const currentEvent = await dbService.getEvent(eventId || undefined);
+    // Get current event for THIS user
+    const currentEvent = await dbService.getEvent(userId, eventId || undefined);
     if (!currentEvent) {
       console.error('❌ [API /event/pages POST] Event not found');
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
     
     const { getDatabaseService } = await import('@/lib/db/database-service');
     const dbService = getDatabaseService();
-    const event = await dbService.getEvent();
+    const event = await dbService.getEvent(userId);
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });

@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
     const { getDatabaseService } = await import('@/lib/db/database-service');
     const dbService = getDatabaseService();
     
-    // Get current event status
-    const event = await dbService.getEvent();
+    // Get current event status for THIS user
+    const event = await dbService.getEvent(userId);
     
     if (!event) {
       // Create a default event if none exists
@@ -126,8 +126,8 @@ export async function POST(req: NextRequest) {
     const { getDatabaseService } = await import('@/lib/db/database-service');
     const dbService = getDatabaseService();
     
-    // Get current event state (pass null if no eventId to get the first/active event)
-    const currentEvent = await dbService.getEvent(eventId || undefined);
+    // Get current event state for THIS user
+    const currentEvent = await dbService.getEvent(userId, eventId || undefined);
 
     if (!currentEvent) {
       return NextResponse.json({ 

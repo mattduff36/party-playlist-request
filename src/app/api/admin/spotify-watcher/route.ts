@@ -49,20 +49,10 @@ const normalizePlaybackForComparison = (playback: any) => {
 // Spotify watcher function
 const watchSpotifyChanges = async (queueInterval: number = 20000) => {
   try {
-    // Check event status - don't try to connect when offline
-    try {
-      const { getDatabaseService } = await import('@/lib/db/database-service');
-      const dbService = getDatabaseService();
-      const currentEvent = await dbService.getEvent();
-      
-      if (currentEvent && currentEvent.status === 'offline') {
-        console.log('⏸️ Spotify watcher: Skipping check - event is offline');
-        return;
-      }
-    } catch (eventError) {
-      console.error('Failed to check event status:', eventError);
-      // Continue if we can't check event status - better to try than fail silently
-    }
+    // TODO: Multi-tenant refactor needed - this watcher should be per-user
+    // For now, skip event status check as we can't determine userId in background task
+    // The watcher will run for all users globally
+    console.log('⚠️ Spotify watcher: Running in global mode (multi-tenant refactor needed)');
 
     // Don't try if permanently disconnected
     if (isSpotifyPermanentlyDisconnected()) {

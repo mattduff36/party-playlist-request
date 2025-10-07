@@ -78,8 +78,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     { 
       id: 'display', 
       label: 'Display', 
-      icon: Monitor, 
-      href: `${baseRoute}/display`
+      icon: Eye, 
+      href: `${baseRoute}/admin/display`
     },
   ];
 
