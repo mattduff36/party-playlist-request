@@ -32,6 +32,12 @@ export default function LoginPage() {
         return;
       }
 
+      // Check if super admin - redirect to super admin panel
+      if (data.user?.role === 'superadmin') {
+        router.push('/superadmin');
+        return;
+      }
+
       // Success! Redirect to user's admin panel
       router.push(`/${username}/admin/overview`);
     } catch (err) {
@@ -41,18 +47,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-[#191414] flex items-center justify-center px-6">
       <div className="w-full max-w-md">
         {/* Logo */}
         <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <Music2 className="w-10 h-10 text-white" />
+          <Music2 className="w-10 h-10 text-[#1DB954]" />
           <span className="text-3xl font-bold text-white">PartyPlaylist</span>
         </Link>
 
         {/* Login Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-2xl">
+        <div className="bg-black/50 backdrop-blur-lg rounded-2xl p-8 border border-[#1DB954]/20 shadow-2xl">
           <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-blue-200 mb-8">Login to your account</p>
+          <p className="text-gray-400 mb-8">Login to your account</p>
 
           {error && (
             <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg flex items-start gap-3">
@@ -63,7 +69,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-blue-100 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
                 Username
               </label>
               <input
@@ -72,7 +78,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase())}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent transition-all"
                 placeholder="johnsmith"
                 autoComplete="username"
                 disabled={loading}
@@ -80,7 +86,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-blue-100 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
               <input
@@ -89,7 +95,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent transition-all"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 disabled={loading}
@@ -97,7 +103,7 @@ export default function LoginPage() {
             </div>
 
             <div className="text-right">
-              <Link href="/auth/forgot-password" className="text-pink-400 hover:text-pink-300 text-sm transition-colors">
+              <Link href="/auth/forgot-password" className="text-[#1DB954] hover:text-[#1ed760] text-sm transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -105,7 +111,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold rounded-lg transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold rounded-full transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -119,16 +125,16 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-blue-200">
+            <p className="text-gray-400">
               Don't have an account?{' '}
-              <Link href="/register" className="text-pink-400 hover:text-pink-300 font-semibold transition-colors">
+              <Link href="/register" className="text-[#1DB954] hover:text-[#1ed760] font-semibold transition-colors">
                 Register here
               </Link>
             </p>
           </div>
 
           <div className="mt-4 text-center">
-            <Link href="/" className="text-blue-300 hover:text-white text-sm transition-colors">
+            <Link href="/" className="text-gray-500 hover:text-white text-sm transition-colors">
               ← Back to home
             </Link>
           </div>
@@ -137,4 +143,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

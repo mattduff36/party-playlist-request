@@ -58,12 +58,12 @@ function VerifyEmailContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br [#191414] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center justify-center mb-4">
-            <Music2 className="w-12 h-12 text-yellow-400" />
+            <Music2 className="w-12 h-12 text-[#1DB954]" />
           </Link>
         </div>
 
@@ -74,7 +74,7 @@ function VerifyEmailContent() {
           {status === 'loading' && (
             <>
               <div className="bg-gradient-to-br from-yellow-400/20 to-pink-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Loader2 className="w-10 h-10 text-yellow-400 animate-spin" />
+                <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin" />
               </div>
               <h1 className="text-2xl font-bold text-white mb-4">
                 Verifying Your Email...
@@ -101,7 +101,7 @@ function VerifyEmailContent() {
               {username && (
                 <div className="bg-white/5 rounded-lg p-4 mb-6">
                   <p className="text-gray-400 text-sm mb-2">Your account is now active:</p>
-                  <p className="text-yellow-400 font-semibold text-lg">@{username}</p>
+                  <p className="text-[#1DB954] font-semibold text-lg">@{username}</p>
                 </div>
               )}
 
@@ -117,7 +117,7 @@ function VerifyEmailContent() {
 
               <Link
                 href="/auth/login"
-                className="inline-flex items-center justify-center w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
+                className="inline-flex items-center justify-center w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
               >
                 Go to Login Now
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -149,7 +149,7 @@ function VerifyEmailContent() {
               <div className="space-y-3">
                 <Link
                   href="/register"
-                  className="block w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
+                  className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
                 >
                   Register Again
                 </Link>
@@ -166,7 +166,7 @@ function VerifyEmailContent() {
 
         {/* Back Link */}
         <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-400 hover:text-yellow-400 transition-colors text-sm">
+          <Link href="/" className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm">
             ← Back to home
           </Link>
         </div>
@@ -178,9 +178,9 @@ function VerifyEmailContent() {
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br [#191414] flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 className="w-10 h-10 text-yellow-400 animate-spin mb-4" />
+          <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin mb-4" />
           <p className="text-white">Loading verification...</p>
         </div>
       </div>

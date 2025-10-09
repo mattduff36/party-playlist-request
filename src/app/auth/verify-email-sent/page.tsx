@@ -10,12 +10,12 @@ function VerifyEmailSentContent() {
   const email = searchParams.get('email') || 'your email';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br [#191414] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center justify-center mb-4">
-            <Music2 className="w-12 h-12 text-yellow-400" />
+            <Music2 className="w-12 h-12 text-[#1DB954]" />
           </Link>
         </div>
 
@@ -23,7 +23,7 @@ function VerifyEmailSentContent() {
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl text-center">
           {/* Icon */}
           <div className="bg-gradient-to-br from-yellow-400/20 to-pink-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Mail className="w-10 h-10 text-yellow-400" />
+            <Mail className="w-10 h-10 text-[#1DB954]" />
           </div>
 
           {/* Title */}
@@ -35,7 +35,7 @@ function VerifyEmailSentContent() {
           <p className="text-gray-300 mb-2">
             We've sent a verification link to:
           </p>
-          <p className="text-yellow-400 font-semibold text-lg mb-6">
+          <p className="text-[#1DB954] font-semibold text-lg mb-6">
             {email}
           </p>
 
@@ -49,19 +49,19 @@ function VerifyEmailSentContent() {
             <p className="text-gray-300 text-sm mb-3 font-medium">What to do next:</p>
             <ul className="space-y-2 text-gray-400 text-sm">
               <li className="flex items-start">
-                <span className="text-yellow-400 mr-2">1.</span>
+                <span className="text-[#1DB954] mr-2">1.</span>
                 <span>Open your email inbox</span>
               </li>
               <li className="flex items-start">
-                <span className="text-yellow-400 mr-2">2.</span>
+                <span className="text-[#1DB954] mr-2">2.</span>
                 <span>Find the email from Party Playlist</span>
               </li>
               <li className="flex items-start">
-                <span className="text-yellow-400 mr-2">3.</span>
+                <span className="text-[#1DB954] mr-2">3.</span>
                 <span>Click the verification link</span>
               </li>
               <li className="flex items-start">
-                <span className="text-yellow-400 mr-2">4.</span>
+                <span className="text-[#1DB954] mr-2">4.</span>
                 <span>Start creating your playlist experience!</span>
               </li>
             </ul>
@@ -78,7 +78,7 @@ function VerifyEmailSentContent() {
           <div className="space-y-3">
             <Link
               href="/auth/login"
-              className="block w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
+              className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
             >
               Go to Login
             </Link>
@@ -94,7 +94,7 @@ function VerifyEmailSentContent() {
 
         {/* Back Link */}
         <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-400 hover:text-yellow-400 transition-colors text-sm inline-flex items-center">
+          <Link href="/" className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm inline-flex items-center">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to home
           </Link>
@@ -107,7 +107,7 @@ function VerifyEmailSentContent() {
 export default function VerifyEmailSentPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br [#191414] flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     }>

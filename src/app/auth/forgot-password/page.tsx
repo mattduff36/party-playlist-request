@@ -60,19 +60,19 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#191414] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center justify-center mb-4">
-            <Music2 className="w-12 h-12 text-yellow-400" />
+            <Music2 className="w-12 h-12 text-[#1DB954]" />
           </Link>
           <h1 className="text-3xl font-bold text-white mb-2">Reset Your Password</h1>
           <p className="text-gray-400">Enter your email and we'll send you a reset link</p>
         </div>
 
         {/* Form Card */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl">
+        <div className="bg-black/50 backdrop-blur-md rounded-2xl p-8 border border-[#1DB954]/20 shadow-2xl">
           
           {status === 'success' ? (
             // Success State
@@ -108,7 +108,7 @@ export default function ForgotPasswordPage() {
 
               <Link
                 href="/auth/login"
-                className="block w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300 text-center"
+                className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
               >
                 Back to Login
               </Link>
@@ -135,7 +135,7 @@ export default function ForgotPasswordPage() {
                     id="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                    className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
                     placeholder="you@example.com"
                     disabled={isSubmitting}
                     autoFocus
@@ -151,7 +151,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isSubmitting || !email}
-                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center"
+                className="w-full bg-[#1DB954] hover:bg-[#1ed760] disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 px-4 rounded-full transition-all duration-300 flex items-center justify-center"
               >
                 {isSubmitting ? (
                   <>
@@ -186,7 +186,7 @@ export default function ForgotPasswordPage() {
 
         {/* Back Link */}
         <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-400 hover:text-yellow-400 transition-colors text-sm inline-flex items-center">
+          <Link href="/" className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm inline-flex items-center">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to home
           </Link>

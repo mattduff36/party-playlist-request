@@ -110,12 +110,12 @@ function ResetPasswordContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#191414] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center justify-center mb-4">
-            <Music2 className="w-12 h-12 text-yellow-400" />
+            <Music2 className="w-12 h-12 text-[#1DB954]" />
           </Link>
           <h1 className="text-3xl font-bold text-white mb-2">Create New Password</h1>
           <p className="text-gray-400">Enter your new password below</p>
@@ -145,7 +145,7 @@ function ResetPasswordContent() {
 
               <Link
                 href="/auth/login"
-                className="block w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300 text-center"
+                className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
               >
                 Go to Login Now
               </Link>
@@ -168,7 +168,7 @@ function ResetPasswordContent() {
               <div className="space-y-3">
                 <Link
                   href="/auth/forgot-password"
-                  className="block w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300 text-center"
+                  className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
                 >
                   Request New Reset Link
                 </Link>
@@ -204,7 +204,7 @@ function ResetPasswordContent() {
                     onChange={(e) => setPassword(e.target.value)}
                     className={`w-full pl-12 pr-12 py-3 bg-white/10 border ${
                       errors.password ? 'border-red-500' : 'border-white/30'
-                    } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent`}
+                    } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent`}
                     placeholder="••••••••"
                     disabled={isSubmitting}
                     autoFocus
@@ -231,7 +231,7 @@ function ResetPasswordContent() {
                               ? passwordStrength.level === 'weak'
                                 ? 'bg-red-500'
                                 : passwordStrength.level === 'medium'
-                                ? 'bg-yellow-500'
+                                ? 'bg-[#1DB954]'
                                 : 'bg-green-500'
                               : 'bg-gray-600'
                           }`}
@@ -243,7 +243,7 @@ function ResetPasswordContent() {
                         passwordStrength.level === 'weak'
                           ? 'text-red-400'
                           : passwordStrength.level === 'medium'
-                          ? 'text-yellow-400'
+                          ? 'text-[#1DB954]'
                           : 'text-green-400'
                       }`}
                     >
@@ -270,7 +270,7 @@ function ResetPasswordContent() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className={`w-full pl-12 pr-12 py-3 bg-white/10 border ${
                       errors.confirmPassword ? 'border-red-500' : 'border-white/30'
-                    } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent`}
+                    } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent`}
                     placeholder="••••••••"
                     disabled={isSubmitting}
                   />
@@ -292,7 +292,7 @@ function ResetPasswordContent() {
               <button
                 type="submit"
                 disabled={isSubmitting || !password || !confirmPassword}
-                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center"
+                className="w-full bg-[#1DB954] hover:bg-[#1ed760] disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-bold py-3 px-4 rounded-full transition-all duration-300 flex items-center justify-center"
               >
                 {isSubmitting ? (
                   <>
@@ -311,7 +311,7 @@ function ResetPasswordContent() {
             <div className="mt-6 pt-6 border-t border-white/10 text-center">
               <Link
                 href="/auth/login"
-                className="text-gray-400 hover:text-yellow-400 transition-colors text-sm"
+                className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm"
               >
                 Remember your password? <span className="font-medium">Log in</span>
               </Link>
@@ -321,7 +321,7 @@ function ResetPasswordContent() {
 
         {/* Back Link */}
         <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-400 hover:text-yellow-400 transition-colors text-sm">
+          <Link href="/" className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm">
             ← Back to home
           </Link>
         </div>
@@ -335,7 +335,7 @@ export default function ResetPasswordPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 className="w-10 h-10 text-yellow-400 animate-spin mb-4" />
+          <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin mb-4" />
           <p className="text-white">Loading...</p>
         </div>
       </div>

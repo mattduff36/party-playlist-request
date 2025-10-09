@@ -41,12 +41,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Use role from database, default to 'user' if not set
+    const role = user.role === 'superadmin' ? 'superadmin' : 'user';
+
     // Generate JWT
     const token = generateToken({
       user_id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role
+      role: role
     });
 
     // Create response with cookie
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
           id: user.id,
           username: user.username,
           email: user.email,
-          role: user.role
+          role: role
         }
       },
       { status: 200 }
