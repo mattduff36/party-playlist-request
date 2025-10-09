@@ -419,25 +419,20 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       
       // Start Spotify watcher for real-time Pusher events
       try {
-        const token = localStorage.getItem('admin_token');
-        if (token) {
-          console.log('🎵 Starting Spotify watcher with admin token...');
-          await fetch('/api/admin/spotify-watcher', {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-              action: 'start', 
-              interval: 5000,        // Check playback every 5 seconds
-              queueInterval: 20000   // Check queue every 20 seconds
-            })
-          });
-          console.log('🎵 Spotify watcher started: 5s playback, 20s queue');
-        } else {
-          console.log('⚠️ No admin token found, skipping Spotify watcher start');
-        }
+        console.log('🎵 Starting Spotify watcher...');
+        await fetch('/api/admin/spotify-watcher', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include', // Use JWT cookie authentication
+          body: JSON.stringify({ 
+            action: 'start', 
+            interval: 5000,        // Check playback every 5 seconds
+            queueInterval: 20000   // Check queue every 20 seconds
+          })
+        });
+        console.log('🎵 Spotify watcher started: 5s playback, 20s queue');
       } catch (error) {
         console.error('Failed to start Spotify watcher:', error);
       }
@@ -451,20 +446,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Request management methods
   const handleApprove = useCallback(async (id: string, playNext?: boolean) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('❌ No admin token found for approve request');
-        return;
-      }
-
       console.log(`🎵 Approving request ${id} (play_next: ${playNext})`);
       
       const response = await fetch(`/api/admin/approve/${id}`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use JWT cookie authentication
         body: JSON.stringify({
           add_to_queue: true,
           add_to_playlist: true,
@@ -487,20 +476,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const handleReject = useCallback(async (id: string, reason?: string) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('❌ No admin token found for reject request');
-        return;
-      }
-
       console.log(`🚫 Rejecting request ${id}`);
 
       const response = await fetch(`/api/admin/reject/${id}`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use JWT cookie authentication
         body: JSON.stringify({
           reason: reason || 'Rejected by admin'
         })
@@ -521,17 +504,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const handleDelete = useCallback(async (id: string) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('❌ No admin token found for delete request');
-        return;
-      }
-
       console.log(`🗑️ Deleting request ${id}`);
 
       const response = await fetch(`/api/admin/delete/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use JWT cookie authentication
       });
       
       if (response.ok) {
@@ -549,20 +526,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const handlePlayAgain = useCallback(async (id: string, playNext?: boolean) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        console.error('❌ No admin token found for play again request');
-        return;
-      }
-
       console.log(`🔄 Playing request ${id} again (play_next: ${playNext})`);
 
       const response = await fetch(`/api/admin/play-again/${id}`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use JWT cookie authentication
         body: JSON.stringify({
           play_next: playNext || false
         })
@@ -584,9 +555,6 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const handleQueueReorder = useCallback(async (fromIndex: number, toIndex: number) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
       // Optimistically update the local queue for immediate UI feedback
       setPlaybackState(prev => {
         if (!prev?.queue) return prev;
@@ -604,9 +572,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/admin/queue/reorder', {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use JWT cookie authentication
         body: JSON.stringify({ fromIndex, toIndex })
       });
 
