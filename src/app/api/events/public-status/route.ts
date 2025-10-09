@@ -34,20 +34,21 @@ export async function GET(req: NextRequest) {
 
     const userId = userResult[0].id;
 
-    // Get event for this user
+    // Get event for this user (from events table, with PIN from user_events)
     const eventResult = await sql`
       SELECT 
-        id,
-        status,
-        version,
-        config,
-        active_admin_id,
-        updated_at,
-        pin,
-        bypass_token
-      FROM events
-      WHERE user_id = ${userId}
-      ORDER BY updated_at DESC
+        e.id,
+        e.status,
+        e.version,
+        e.config,
+        e.active_admin_id,
+        e.updated_at,
+        ue.pin,
+        ue.bypass_token
+      FROM events e
+      LEFT JOIN user_events ue ON ue.user_id = e.user_id AND ue.active = true AND ue.expires_at > NOW()
+      WHERE e.user_id = ${userId}
+      ORDER BY e.updated_at DESC
       LIMIT 1
     `;
 
