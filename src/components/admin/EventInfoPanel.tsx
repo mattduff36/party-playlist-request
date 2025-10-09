@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { QrCode, Copy, Monitor, CheckCircle, RefreshCw, Loader2, Lock } from 'lucide-react';
+import { QrCode, Copy, Monitor, CheckCircle, RefreshCw, Lock } from 'lucide-react';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface EventInfoPanelProps {
@@ -16,8 +16,6 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
   
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [displayToken, setDisplayToken] = useState<string | null>(null);
-  const [generatingToken, setGeneratingToken] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   // Fetch event when component mounts OR when event status changes to Live/Standby
@@ -47,29 +45,6 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
       console.error('Failed to fetch event:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const generateDisplayToken = async () => {
-    setGeneratingToken(true);
-    try {
-      const response = await fetch('/api/events/display-token', {
-        method: 'POST',
-        credentials: 'include', // ✅ CRITICAL: Send JWT cookie for user-specific token
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usesRemaining: 999, hoursValid: 24 })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDisplayToken(data.displayToken.token);
-      } else {
-        console.error('Failed to generate display token');
-      }
-    } catch (error) {
-      console.error('Error generating display token:', error);
-    } finally {
-      setGeneratingToken(false);
     }
   };
 
@@ -108,9 +83,7 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
 
   const requestUrl = `${window.location.origin}/${username}/request`;
   const requestUrlWithBypass = `${requestUrl}?bt=${event.bypass_token}`;
-  const displayUrl = displayToken 
-    ? `${window.location.origin}/${username}/display?dt=${displayToken}`
-    : null;
+  const displayUrl = `${window.location.origin}/${username}/display/${event.pin}`;
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 space-y-6">
@@ -192,65 +165,42 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
         </p>
       </div>
 
-      {/* Display Token */}
+      {/* Display Screen URL */}
       <div className="space-y-3 border-t border-gray-700 pt-6">
         <label className="block text-gray-300 font-medium flex items-center">
           <Monitor className="h-5 w-5 mr-2 text-purple-400" />
           Display Screen URL
         </label>
-        
-        {!displayToken ? (
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            value={displayUrl}
+            readOnly
+            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+          />
           <button
-            onClick={generateDisplayToken}
-            disabled={generatingToken}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            onClick={() => copyToClipboard(displayUrl, 'displayUrl')}
+            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            title="Copy URL"
           >
-            {generatingToken ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Generating...
-              </>
+            {copied === 'displayUrl' ? (
+              <CheckCircle className="h-5 w-5 text-green-400" />
             ) : (
-              <>
-                <Monitor className="h-5 w-5 mr-2" />
-                Generate Display URL
-              </>
+              <Copy className="h-5 w-5 text-gray-400" />
             )}
           </button>
-        ) : (
-          <>
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                value={displayUrl || ''}
-                readOnly
-                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
-              />
-              <button
-                onClick={() => copyToClipboard(displayUrl || '', 'displayUrl')}
-                className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-                title="Copy URL"
-              >
-                {copied === 'displayUrl' ? (
-                  <CheckCircle className="h-5 w-5 text-green-400" />
-                ) : (
-                  <Copy className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
-            </div>
-            <a
-              href={displayUrl || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center"
-            >
-              Open Display Screen →
-            </a>
-            <p className="text-gray-500 text-xs">
-              Open this URL on your display screen (TV, projector, etc.)
-            </p>
-          </>
-        )}
+        </div>
+        <a
+          href={displayUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center"
+        >
+          Open Display Screen →
+        </a>
+        <p className="text-gray-500 text-xs">
+          Open this URL on your display screen (TV, projector, etc.) - Uses event PIN for access
+        </p>
       </div>
 
       {/* Event Expiry */}
