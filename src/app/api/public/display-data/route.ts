@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
       const playbackState = await spotifyService.getCurrentPlayback();
       
       if (playbackState && playbackState.item) {
-        const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
+        // Album art is already in the playback response
+        const albumArt = playbackState.item.album?.images?.[0]?.url || null;
+        
         currentTrack = {
           name: playbackState.item.name,
           artists: playbackState.item.artists.map((a: any) => a.name),
