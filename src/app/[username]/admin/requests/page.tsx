@@ -4,15 +4,16 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 
 // Import the external RequestsTab component we created earlier
 import { useState, useEffect } from 'react';
-import { Music, CheckCircle, XCircle, PlayCircle, Trash2, Shuffle } from 'lucide-react';
+import { Music, CheckCircle, XCircle, PlayCircle, Trash2, Shuffle, RotateCcw } from 'lucide-react';
 
-const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain, onAddRandomSong, isAddingRandomSong }: { 
+const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain, onAddRandomSong, onResubmit, isAddingRandomSong }: { 
   requestsData: any[], 
   onApprove: (id: string, playNext?: boolean) => void,
   onReject: (id: string) => void,
   onDelete: (id: string) => void,
   onPlayAgain: (id: string, playNext?: boolean) => void,
   onAddRandomSong: () => void,
+  onResubmit: (id: string) => void,
   isAddingRandomSong?: boolean
 }) => {
   // Ensure requestsData is always an array FIRST
@@ -171,17 +172,6 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                     <div className="flex flex-wrap gap-2 flex-shrink-0">
                       <button
                         onClick={() => {
-                          console.log('🎵 Play Next button clicked for request:', request.id);
-                          onApprove(request.id, true);
-                        }}
-                        className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[36px] min-h-[36px]"
-                        title="Play Next"
-                      >
-                        <PlayCircle className="w-4 h-4 text-white" />
-                        <span className="hidden lg:inline ml-1 text-white text-xs">Play Next</span>
-                      </button>
-                      <button
-                        onClick={() => {
                           console.log('✅ Accept button clicked for request:', request.id);
                           onApprove(request.id);
                         }}
@@ -249,20 +239,15 @@ const RequestsTab = ({ requestsData, onApprove, onReject, onDelete, onPlayAgain,
                       {request.status === 'rejected' && (
                         <>
                           <button
-                            onClick={() => onApprove(request.id, true)}
+                            onClick={() => {
+                              console.log('🔄 Re-submit button clicked for request:', request.id);
+                              onResubmit(request.id);
+                            }}
                             className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors min-w-[36px] min-h-[36px]"
-                            title="Play Next"
+                            title="Re-submit"
                           >
-                            <PlayCircle className="w-4 h-4 text-white" />
-                            <span className="hidden lg:inline ml-1 text-white text-xs">Play Next</span>
-                          </button>
-                          <button
-                            onClick={() => onApprove(request.id)}
-                            className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded transition-colors min-w-[36px] min-h-[36px]"
-                            title="Accept"
-                          >
-                            <CheckCircle className="w-4 h-4 text-white" />
-                            <span className="hidden lg:inline ml-1 text-white text-xs">Accept</span>
+                            <RotateCcw className="w-4 h-4 text-white" />
+                            <span className="hidden lg:inline ml-1 text-white text-xs">Re-submit</span>
                           </button>
                           {request.rejection_reason && (
                             <span className="text-gray-500 text-xs hidden md:inline ml-2" title={request.rejection_reason}>
@@ -364,6 +349,53 @@ export default function RequestsPage() {
     }
   };
 
+  const handleResubmit = async (requestId: string) => {
+    try {
+      console.log('🔄 Re-submitting request:', requestId);
+      
+      // Find the request in our local state
+      const request = requests?.find(r => r.id === requestId);
+      
+      if (!request) {
+        console.error('❌ Request not found:', requestId);
+        return;
+      }
+      
+      // Delete the old rejected request
+      console.log('🗑️ Deleting old rejected request...');
+      await handleDelete(requestId);
+      
+      // Re-submit as a new pending request
+      console.log('📤 Re-submitting as new pending request...');
+      const response = await fetch('/api/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          track_uri: request.track_uri,
+          track_name: request.track_name,
+          artist_name: request.artist_name,
+          album_name: request.album_name,
+          duration_ms: request.duration_ms,
+          requester_nickname: request.requester_nickname || 'Anonymous',
+          username: window.location.pathname.split('/')[1] // Get username from URL
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Request re-submitted successfully');
+        // Pusher will automatically update the list
+      } else {
+        const error = await response.text();
+        console.error('❌ Failed to re-submit request:', error);
+      }
+    } catch (error) {
+      console.error('❌ Error re-submitting request:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -385,6 +417,7 @@ export default function RequestsPage() {
       onDelete={handleDelete}
       onPlayAgain={handlePlayAgain}
       onAddRandomSong={handleAddRandomSong}
+      onResubmit={handleResubmit}
       isAddingRandomSong={isAddingRandomSong}
     />
   );

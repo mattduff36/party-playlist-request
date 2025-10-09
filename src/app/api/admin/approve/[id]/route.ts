@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, { status: 404 });
     }
 
-    if (request.status !== 'pending') {
+    if (request.status !== 'pending' && request.status !== 'rejected') {
       return NextResponse.json({ 
         error: 'Request already processed' 
       }, { status: 400 });
