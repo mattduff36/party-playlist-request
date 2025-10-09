@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { QrCode, Copy, Monitor, CheckCircle, RefreshCw, Lock } from 'lucide-react';
+import { QrCode, Copy, Monitor, CheckCircle, RefreshCw, Lock, Loader2 } from 'lucide-react';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface EventInfoPanelProps {
