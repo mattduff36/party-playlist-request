@@ -112,30 +112,20 @@ export default function EventInfoPanel() {
     <div className="bg-gray-800 rounded-lg p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">Event Information</h2>
-        <button
-          onClick={fetchEvent}
-          className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="h-5 w-5 text-gray-400" />
-        </button>
-      </div>
-
-      {/* PIN Display */}
-      <div className="bg-purple-900/30 border-2 border-purple-600 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <Lock className="h-5 w-5 text-purple-400 mr-2" />
-            <span className="text-gray-300 font-medium">Event PIN</span>
+        <div className="flex items-center space-x-4">
+          {/* PIN Display - Compact */}
+          <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
+            <Lock className="h-4 w-4 text-purple-400" />
+            <span className="text-gray-400 text-sm">PIN:</span>
+            <span className="text-2xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
           </div>
-        </div>
-        <div className="text-center">
-          <div className="text-6xl font-bold text-white tracking-widest font-mono mb-2">
-            {event.pin}
-          </div>
-          <p className="text-gray-400 text-sm">
-            Share this PIN with guests to request songs
-          </p>
+          <button
+            onClick={fetchEvent}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className="h-5 w-5 text-gray-400" />
+          </button>
         </div>
       </div>
 

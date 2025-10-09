@@ -46,168 +46,184 @@ const normalizePlaybackForComparison = (playback: any) => {
   };
 };
 
-// Spotify watcher function
+// Spotify watcher function - now properly multi-tenant
 const watchSpotifyChanges = async (queueInterval: number = 20000) => {
   try {
-    // TODO: Multi-tenant refactor needed - this watcher should be per-user
-    // For now, skip event status check as we can't determine userId in background task
-    // The watcher will run for all users globally
-    console.log('⚠️ Spotify watcher: Running in global mode (multi-tenant refactor needed)');
-
-    // Don't try if permanently disconnected
-    if (isSpotifyPermanentlyDisconnected()) {
-      console.log('⏸️ Spotify watcher: Skipping check - permanently disconnected');
-      return;
-    }
-
-    // Don't try if in backoff period
-    if (!shouldAttemptSpotifyCall()) {
-      console.log('⏸️ Spotify watcher: Skipping check - in backoff period');
-      return;
-    }
-
-    console.log('🎵 Spotify watcher: Checking for changes...', new Date().toISOString());
+    console.log('🎵 Spotify watcher: Starting multi-tenant check...', new Date().toISOString());
     
-    // Check if Spotify is connected using centralized status
-    const isConnected = await getSpotifyConnectionStatus();
+    // Get all users with valid Spotify connections
+    const { sql } = await import('@/lib/db/neon-client');
+    const usersWithSpotify = await sql`
+      SELECT user_id, username 
+      FROM users u
+      WHERE EXISTS (
+        SELECT 1 FROM spotify_connections sc 
+        WHERE sc.user_id = u.id 
+        AND sc.access_token IS NOT NULL 
+        AND sc.refresh_token IS NOT NULL
+      )
+      LIMIT 10
+    `;
+    
+    if (usersWithSpotify.length === 0) {
+      console.log('⏸️ No users with Spotify connections found');
+      return;
+    }
+    
+    console.log(`🎵 Checking Spotify for ${usersWithSpotify.length} user(s)`);
+    
+    // Check each user's Spotify separately
+    for (const { user_id, username } of usersWithSpotify) {
+      await watchSingleUserSpotify(user_id, username, queueInterval);
+    }
+
+  } catch (error) {
+    console.error('🎵 Spotify watcher error:', error);
+  }
+};
+
+// Watch a single user's Spotify playback
+const watchSingleUserSpotify = async (userId: string, username: string, queueInterval: number) => {
+  try {
+    console.log(`🎵 [${username}] Checking Spotify playback...`);
+    
+    // Check if THIS USER's Spotify is connected (using userId!)
+    const isConnected = await spotifyService.isConnected(userId);
+    
+    if (!isConnected) {
+      console.log(`⏸️ [${username}] Not connected, skipping`);
+      return;
+    }
     
     let currentPlayback = null;
     let queue = null;
     const now = Date.now();
+    
+    // Get user-specific last state (we need per-user state tracking)
+    // For now, simplified: check both playback and queue
     const shouldCheckQueue = now - lastQueueCheck >= queueInterval;
     
-    if (isConnected) {
-      // Always get current playback (5s interval)
-      // Only get queue if enough time has passed (20s interval)
+    try {
       if (shouldCheckQueue) {
-        console.log('🎵 Checking both playback AND queue (queue interval reached)');
+        console.log(`🎵 [${username}] Checking both playback AND queue`);
         [currentPlayback, queue] = await Promise.all([
-          spotifyService.getCurrentPlayback().catch(() => null),
-          spotifyService.getQueue().catch(() => null)
+          spotifyService.getCurrentPlayback(userId).catch(() => null),
+          spotifyService.getQueue(userId).catch(() => null)
         ]);
         lastQueueCheck = now;
       } else {
-        console.log('🎵 Checking playback only (queue check skipped)');
-        currentPlayback = await spotifyService.getCurrentPlayback().catch(() => null);
-        // Keep using the last known queue state
+        console.log(`🎵 [${username}] Checking playback only`);
+        currentPlayback = await spotifyService.getCurrentPlayback(userId).catch(() => null);
         queue = lastQueueState ? { queue: lastQueueState } : null;
       }
+    } catch (error) {
+      console.error(`❌ [${username}] Error fetching playback:`, error);
+      return;
+    }
 
-      // Debug: Log current playback state
-      console.log('🎵 Current playback state:', {
-        is_playing: currentPlayback?.is_playing,
-        track: currentPlayback?.item?.name,
-        device: currentPlayback?.device?.name,
-        hasPlayback: !!currentPlayback
+    // Debug: Log current playback state
+    console.log(`🎵 [${username}] Current playback:`, {
+      is_playing: currentPlayback?.is_playing,
+      track: currentPlayback?.item?.name,
+      device: currentPlayback?.device?.name,
+      hasPlayback: !!currentPlayback
+    });
+
+    // Check if anything meaningful changed
+    const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
+    const normalizedLastPlayback = normalizePlaybackForComparison(lastPlaybackState);
+    
+    const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
+    const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(lastQueueState);
+    
+    // Critical state changes
+    const criticalChanges = {
+      isPlayingChanged: lastPlaybackState?.is_playing !== currentPlayback?.is_playing,
+      trackChanged: lastPlaybackState?.item?.id !== currentPlayback?.item?.id,
+      deviceChanged: lastPlaybackState?.device?.id !== currentPlayback?.device?.id,
+      hasNewPlayback: !lastPlaybackState && currentPlayback,
+      lostPlayback: lastPlaybackState && !currentPlayback
+    };
+    
+    const hasCriticalChanges = Object.values(criticalChanges).some(Boolean);
+
+    if (playbackChanged || queueChanged || hasCriticalChanges) {
+      console.log(`🎵 [${username}] MEANINGFUL changes detected!`);
+      
+      // Get THIS USER's approved requests
+      const { getAllRequests: getUserRequests } = await import('@/lib/db');
+      const allRequests = await getUserRequests();
+      const userApprovedRequests = allRequests.filter(r => 
+        r.status === 'approved' && r.user_id === userId
+      );
+
+      // Enhance queue items with requester information
+      const enhancedQueue = (queue?.queue || []).map((track: any) => {
+        const matchingRequest = userApprovedRequests.find(req => req.track_uri === track.uri);
+        return {
+          ...track,
+          requester_nickname: matchingRequest?.requester_nickname || null
+        };
       });
 
-      // Check if anything meaningful changed (excluding progress_ms)
-      const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
-      const normalizedLastPlayback = normalizePlaybackForComparison(lastPlaybackState);
-      
-      const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
-      const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(lastQueueState);
-      
-      // Additional checks for critical state changes that should always trigger updates
-      const criticalChanges = {
-        isPlayingChanged: lastPlaybackState?.is_playing !== currentPlayback?.is_playing,
-        trackChanged: lastPlaybackState?.item?.id !== currentPlayback?.item?.id,
-        deviceChanged: lastPlaybackState?.device?.id !== currentPlayback?.device?.id,
-        hasNewPlayback: !lastPlaybackState && currentPlayback,
-        lostPlayback: lastPlaybackState && !currentPlayback
-      };
-      
-      const hasCriticalChanges = Object.values(criticalChanges).some(Boolean);
+      // Format current track data
+      const formattedCurrentTrack = currentPlayback?.item ? {
+        name: currentPlayback.item.name,
+        artists: currentPlayback.item.artists?.map((a: any) => a.name) || [],
+        album: currentPlayback.item.album,
+        duration_ms: currentPlayback.item.duration_ms,
+        uri: currentPlayback.item.uri,
+        id: currentPlayback.item.id
+      } : null;
 
-      // Debug: Always log critical changes check
-      console.log('🔍 Critical changes check:', {
-        lastIsPlaying: lastPlaybackState?.is_playing,
-        currentIsPlaying: currentPlayback?.is_playing,
-        isPlayingChanged: criticalChanges.isPlayingChanged,
-        hasCriticalChanges,
-        criticalChanges
-      });
-
-      if (playbackChanged || queueChanged || hasCriticalChanges) {
-        console.log('🎵 Spotify watcher: MEANINGFUL changes detected, triggering Pusher event');
-        console.log('🔍 Playback changed:', playbackChanged);
-        console.log('🔍 Queue changed:', queueChanged);
-        console.log('🔍 Critical changes:', hasCriticalChanges);
-        
-        // Debug: Log what specifically changed
-        if (playbackChanged || hasCriticalChanges) {
-          console.log('🎵 Playback change details:');
-          console.log('  - is_playing:', lastPlaybackState?.is_playing, '->', currentPlayback?.is_playing);
-          console.log('  - track:', lastPlaybackState?.item?.name, '->', currentPlayback?.item?.name);
-          console.log('  - device:', lastPlaybackState?.device?.name, '->', currentPlayback?.device?.name);
-          console.log('  - critical changes:', criticalChanges);
-        }
-        
-        // Get approved requests to match with queue items
-        const approvedRequests = await getAllRequests().then(requests => 
-          requests.filter(r => r.status === 'approved')
-        );
-
-        // Enhance queue items with requester information
-        const enhancedQueue = (queue?.queue || []).map((track: any) => {
-          const matchingRequest = approvedRequests.find(req => req.track_uri === track.uri);
-          return {
-            ...track,
-            requester_nickname: matchingRequest?.requester_nickname || null
-          };
-        });
-
-        // Format current track data properly
-        const formattedCurrentTrack = currentPlayback?.item ? {
-          name: currentPlayback.item.name,
-          artists: currentPlayback.item.artists?.map((a: any) => a.name) || [],
-          album: currentPlayback.item.album,
-          duration_ms: currentPlayback.item.duration_ms,
-          uri: currentPlayback.item.uri,
-          id: currentPlayback.item.id
-        } : null;
-
-        // TODO: Pusher disabled - watcher needs per-user refactor
-        // This global watcher doesn't have a userId context
-        // Need to implement per-user watchers or pass userId to this function
-        /*
+      // ✅ Trigger Pusher update for THIS USER ONLY
+      try {
+        console.log(`📡 [${username}] Sending playback update to Pusher`);
         await triggerPlaybackUpdate({
           current_track: formattedCurrentTrack,
           queue: enhancedQueue,
           is_playing: currentPlayback?.is_playing || false,
           progress_ms: currentPlayback?.progress_ms || 0,
           device: currentPlayback?.device || null,
-          userId: ??? // Need userId here
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          userId: userId
         });
-        */
-
-        // Update stored state
-        lastPlaybackState = currentPlayback;
-        lastQueueState = queue?.queue;
-      } else {
-        console.log('🎵 Spotify watcher: No meaningful changes, skipping Pusher event');
+      } catch (pusherError) {
+        console.error(`❌ [${username}] Failed to trigger playback update:`, pusherError);
       }
+
+      // Update stored state
+      lastPlaybackState = currentPlayback;
+      lastQueueState = queue?.queue;
     } else {
-      console.log('🎵 Spotify watcher: Not connected or tokens invalid, skipping playback checks');
+      console.log(`🎵 [${username}] No meaningful changes`);
     }
 
-    // Update stats only every 30 seconds (not every 2 seconds!)
+    // Update stats only every 30 seconds
     if (now - lastStatsUpdate > 30000) {
-      console.log('📊 Spotify watcher: Updating stats (30s interval)');
-      const requests = await getAllRequests();
+      console.log(`📊 [${username}] Updating stats (30s interval)`);
+      const { getAllRequests: getUserRequests } = await import('@/lib/db');
+      const allRequests = await getUserRequests();
+      const userRequests = allRequests.filter(r => r.user_id === userId);
+      
       const stats = {
-        total_requests: requests.length,
-        pending_requests: requests.filter(r => r.status === 'pending').length,
-        approved_requests: requests.filter(r => r.status === 'approved').length,
-        rejected_requests: requests.filter(r => r.status === 'rejected').length,
-        played_requests: requests.filter(r => r.status === 'played').length,
-        unique_requesters: new Set(requests.map(r => r.requester_nickname || 'Anonymous')).size,
+        total_requests: userRequests.length,
+        pending_requests: userRequests.filter(r => r.status === 'pending').length,
+        approved_requests: userRequests.filter(r => r.status === 'approved').length,
+        rejected_requests: userRequests.filter(r => r.status === 'rejected').length,
+        played_requests: userRequests.filter(r => r.status === 'played').length,
+        unique_requesters: new Set(userRequests.map(r => r.requester_nickname || 'Anonymous')).size,
         spotify_connected: isConnected
       };
 
-      // TODO: Pusher disabled - watcher needs per-user refactor
-      // await triggerStatsUpdate({...stats, userId: ???});
+      // Trigger stats update for THIS USER
+      try {
+        console.log(`📡 [${username}] Sending stats update to Pusher`);
+        await triggerStatsUpdate({...stats, userId});
+      } catch (pusherError) {
+        console.error(`❌ [${username}] Failed to trigger stats update:`, pusherError);
+      }
+      
       lastStatsUpdate = now;
     }
 
