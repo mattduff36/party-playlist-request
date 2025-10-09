@@ -57,10 +57,10 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
       SELECT u.id as user_id, u.username 
       FROM users u
       WHERE EXISTS (
-        SELECT 1 FROM spotify_connections sc 
-        WHERE sc.user_id = u.id 
-        AND sc.access_token IS NOT NULL 
-        AND sc.refresh_token IS NOT NULL
+        SELECT 1 FROM spotify_auth sa 
+        WHERE sa.user_id = u.id 
+        AND sa.access_token IS NOT NULL 
+        AND sa.refresh_token IS NOT NULL
       )
       LIMIT 10
     `;

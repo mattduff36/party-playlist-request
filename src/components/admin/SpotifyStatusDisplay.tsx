@@ -23,6 +23,7 @@ import {
 
 interface SpotifyStatusDisplayProps {
   className?: string;
+  showHeader?: boolean;
 }
 
 interface SpotifyStatus {
@@ -47,7 +48,7 @@ interface SpotifyStatus {
   lastUpdated: string;
 }
 
-export default function SpotifyStatusDisplay({ className = '' }: SpotifyStatusDisplayProps) {
+export default function SpotifyStatusDisplay({ className = '', showHeader = true }: SpotifyStatusDisplayProps) {
   const [status, setStatus] = useState<SpotifyStatus>({
     connected: false,
     isPlaying: false,
@@ -187,36 +188,38 @@ export default function SpotifyStatusDisplay({ className = '' }: SpotifyStatusDi
   return (
     <div className={`bg-gray-800 rounded-lg p-4 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-1">Spotify Status</h2>
-          <p className="text-gray-400 text-sm">Real-time connection and playback status</p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Device Badge - only show when connected */}
-          {status.connected && status.device && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 rounded-lg">
-              {(() => {
-                const DeviceIcon = getDeviceIcon(status.device.type);
-                return <DeviceIcon className="w-4 h-4 text-gray-400" />;
-              })()}
-              <span className="text-xs text-gray-300">{status.device.name}</span>
-              <div className="flex items-center gap-1 text-gray-400">
-                <Volume2 className="w-3 h-3" />
-                <span className="text-xs">{status.device.volume_percent}%</span>
-              </div>
-            </div>
-          )}
+      {showHeader && (
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-1">Spotify Status</h2>
+            <p className="text-gray-400 text-sm">Real-time connection and playback status</p>
+          </div>
           
-          <button
-            onClick={fetchStatus}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <RefreshCw className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Device Badge - only show when connected */}
+            {status.connected && status.device && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 rounded-lg">
+                {(() => {
+                  const DeviceIcon = getDeviceIcon(status.device.type);
+                  return <DeviceIcon className="w-4 h-4 text-gray-400" />;
+                })()}
+                <span className="text-xs text-gray-300">{status.device.name}</span>
+                <div className="flex items-center gap-1 text-gray-400">
+                  <Volume2 className="w-3 h-3" />
+                  <span className="text-xs">{status.device.volume_percent}%</span>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={fetchStatus}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Error Display */}
       {(error || status.error || status.requires_manual_reconnect || status.status_message) && (

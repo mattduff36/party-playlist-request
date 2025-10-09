@@ -13,9 +13,10 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface RequestManagementPanelProps {
   className?: string;
+  showHeader?: boolean;
 }
 
-export default function RequestManagementPanel({ className = '' }: RequestManagementPanelProps) {
+export default function RequestManagementPanel({ className = '', showHeader = true }: RequestManagementPanelProps) {
   const {
     requests,
     handleApprove,
@@ -187,12 +188,14 @@ export default function RequestManagementPanel({ className = '' }: RequestManage
   return (
     <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-white mb-1">Song Requests</h2>
-        <p className="text-gray-400 text-sm">
-          Manage song requests from users
-        </p>
-      </div>
+      {showHeader && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-white mb-1">Song Requests</h2>
+          <p className="text-gray-400 text-sm">
+            Manage song requests from users
+          </p>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex flex-col lg:flex-row gap-4 mb-6">

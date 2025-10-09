@@ -5,7 +5,11 @@ import { usePathname } from 'next/navigation';
 import { QrCode, Copy, Monitor, CheckCircle, RefreshCw, Loader2, Lock } from 'lucide-react';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
-export default function EventInfoPanel() {
+interface EventInfoPanelProps {
+  showHeader?: boolean;
+}
+
+export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProps = {}) {
   const pathname = usePathname();
   const username = pathname?.split('/')[1] || '';
   const { state } = useGlobalEvent(); // Listen to event status changes
@@ -110,24 +114,26 @@ export default function EventInfoPanel() {
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white">Event Information</h2>
-        <div className="flex items-center space-x-4">
-          {/* PIN Display - Compact */}
-          <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
-            <Lock className="h-4 w-4 text-purple-400" />
-            <span className="text-gray-400 text-sm">PIN:</span>
-            <span className="text-2xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Event Information</h2>
+          <div className="flex items-center space-x-4">
+            {/* PIN Display - Compact */}
+            <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
+              <Lock className="h-4 w-4 text-purple-400" />
+              <span className="text-gray-400 text-sm">PIN:</span>
+              <span className="text-2xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
+            </div>
+            <button
+              onClick={fetchEvent}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className="h-5 w-5 text-gray-400" />
+            </button>
           </div>
-          <button
-            onClick={fetchEvent}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="h-5 w-5 text-gray-400" />
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Request URL */}
       <div className="space-y-3">

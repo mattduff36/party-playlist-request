@@ -7,7 +7,8 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Lock, RefreshCw, Volume2, Monitor, Smartphone, Music } from 'lucide-react';
 import StateControlPanel from '@/components/admin/StateControlPanel';
 import PageControlPanel from '@/components/admin/PageControlPanel';
 import SpotifyStatusDisplay from '@/components/admin/SpotifyStatusDisplay';
@@ -18,6 +19,79 @@ import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 export default function AdminOverviewPage() {
   const { state } = useGlobalEvent();
+  
+  // Collapsible sections state
+  const [expandedSections, setExpandedSections] = useState({
+    eventInfo: true,
+    spotifyStatus: true,
+    songRequests: true,
+  });
+  
+  // Event data for header display
+  const [eventData, setEventData] = useState<any>(null);
+  
+  // Spotify status for header display
+  const [spotifyStatus, setSpotifyStatus] = useState<any>(null);
+  
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+  
+  // Fetch event data for PIN display
+  useEffect(() => {
+    if (state?.status === 'live' || state?.status === 'standby') {
+      fetchEventData();
+    }
+  }, [state?.status]);
+  
+  // Fetch Spotify status for header display
+  useEffect(() => {
+    if (state?.status === 'live' || state?.status === 'standby') {
+      fetchSpotifyStatus();
+      const interval = setInterval(fetchSpotifyStatus, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [state?.status]);
+  
+  const fetchEventData = async () => {
+    try {
+      const response = await fetch('/api/events/current', {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEventData(data.event);
+      }
+    } catch (error) {
+      console.error('Failed to fetch event:', error);
+    }
+  };
+  
+  const fetchSpotifyStatus = async () => {
+    try {
+      const response = await fetch('/api/spotify/status');
+      const data = await response.json();
+      if (response.ok) {
+        setSpotifyStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Spotify status:', error);
+    }
+  };
+  
+  const getDeviceIcon = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'computer':
+        return Monitor;
+      case 'smartphone':
+        return Smartphone;
+      default:
+        return Music;
+    }
+  };
   
   // Handle OAuth callback from Spotify
   useEffect(() => {
@@ -120,24 +194,114 @@ export default function AdminOverviewPage() {
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Event Information Panel - NEW for multi-tenant */}
-        <EventInfoPanel />
-        
         {/* Main Control Panels - Side by Side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <StateControlPanel />
           <PageControlPanel />
         </div>
+        
+        {/* Event Information Panel - Collapsible */}
+        <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('eventInfo')}
+            className="w-full flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700/70 transition-colors"
+          >
+            <h3 className="text-lg font-semibold text-white flex items-center">
+              ℹ️ Event Information
+            </h3>
+            <div className="flex items-center gap-3">
+              {eventData && (
+                <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
+                  <Lock className="h-4 w-4 text-purple-400" />
+                  <span className="text-gray-400 text-sm">PIN:</span>
+                  <span className="text-xl font-bold text-white tracking-wider font-mono">{eventData.pin}</span>
+                </div>
+              )}
+              {expandedSections.eventInfo ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
+          </button>
+          
+          {expandedSections.eventInfo && (
+            <div className="bg-gray-900">
+              <EventInfoPanel showHeader={false} />
+            </div>
+          )}
+        </div>
 
         {/* Spotify Status - Only show when event is Standby or Live */}
         {(state.status === 'standby' || state.status === 'live') && (
-          <SpotifyErrorBoundary>
-            <SpotifyStatusDisplay />
-          </SpotifyErrorBoundary>
+          <div className="border border-gray-700 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection('spotifyStatus')}
+              className="w-full flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700/70 transition-colors"
+            >
+              <h3 className="text-lg font-semibold text-white flex items-center">
+                🎵 Spotify Status
+              </h3>
+              <div className="flex items-center gap-3">
+                {spotifyStatus?.connected && spotifyStatus?.device && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 rounded-lg">
+                    {(() => {
+                      const DeviceIcon = getDeviceIcon(spotifyStatus.device.type);
+                      return <DeviceIcon className="w-4 h-4 text-gray-400" />;
+                    })()}
+                    <span className="text-xs text-gray-300">{spotifyStatus.device.name}</span>
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <Volume2 className="w-3 h-3" />
+                      <span className="text-xs">{spotifyStatus.device.volume_percent}%</span>
+                    </div>
+                  </div>
+                )}
+                {spotifyStatus?.connected === false && (
+                  <span className="text-sm text-gray-400 px-3 py-1.5 bg-gray-700/50 rounded-lg">Not Connected</span>
+                )}
+                {expandedSections.spotifyStatus ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </div>
+            </button>
+            
+            {expandedSections.spotifyStatus && (
+              <div className="bg-gray-900">
+                <SpotifyErrorBoundary>
+                  <SpotifyStatusDisplay showHeader={false} />
+                </SpotifyErrorBoundary>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Request Management - Full Width */}
-        <RequestManagementPanel />
+        <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('songRequests')}
+            className="w-full flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700/70 transition-colors"
+          >
+            <h3 className="text-lg font-semibold text-white flex items-center">
+              🎶 Song Requests
+            </h3>
+            {expandedSections.songRequests ? (
+              <ChevronUp className="w-5 h-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
+          
+          {expandedSections.songRequests && (
+            <div className="bg-gray-900">
+              <RequestManagementPanel showHeader={false} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
