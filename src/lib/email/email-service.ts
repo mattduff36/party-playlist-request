@@ -5,11 +5,15 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend only if API key is provided
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@partyplaylist.app';
 const APP_NAME = 'Party Playlist';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+const EMAIL_ENABLED = !!RESEND_API_KEY;
 
 export interface EmailVerificationData {
   username: string;
@@ -33,6 +37,13 @@ export interface WelcomeEmailData {
  */
 export async function sendVerificationEmail(data: EmailVerificationData): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!EMAIL_ENABLED || !resend) {
+      console.warn('⚠️ Email service not configured. Verification email not sent.');
+      console.log(`📧 Would have sent verification email to: ${data.email}`);
+      console.log(`🔗 Verification URL: ${APP_URL}/auth/verify-email?token=${data.verificationToken}`);
+      return { success: false, error: 'Email service not configured' };
+    }
+
     const verificationUrl = `${APP_URL}/auth/verify-email?token=${data.verificationToken}`;
     
     const { error } = await resend.emails.send({
@@ -110,6 +121,13 @@ export async function sendVerificationEmail(data: EmailVerificationData): Promis
  */
 export async function sendPasswordResetEmail(data: PasswordResetData): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!EMAIL_ENABLED || !resend) {
+      console.warn('⚠️ Email service not configured. Password reset email not sent.');
+      console.log(`📧 Would have sent password reset email to: ${data.email}`);
+      console.log(`🔗 Reset URL: ${APP_URL}/auth/reset-password?token=${data.resetToken}`);
+      return { success: false, error: 'Email service not configured' };
+    }
+
     const resetUrl = `${APP_URL}/auth/reset-password?token=${data.resetToken}`;
     
     const { error } = await resend.emails.send({
@@ -191,6 +209,12 @@ export async function sendPasswordResetEmail(data: PasswordResetData): Promise<{
  */
 export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!EMAIL_ENABLED || !resend) {
+      console.warn('⚠️ Email service not configured. Welcome email not sent.');
+      console.log(`📧 Would have sent welcome email to: ${data.email}`);
+      return { success: false, error: 'Email service not configured' };
+    }
+
     const dashboardUrl = `${APP_URL}/${data.username}/admin/overview`;
     
     const { error } = await resend.emails.send({

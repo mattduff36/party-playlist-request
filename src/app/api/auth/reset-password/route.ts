@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/neon-client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 /**
  * POST /api/auth/reset-password
