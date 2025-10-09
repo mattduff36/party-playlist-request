@@ -568,11 +568,21 @@ function DisplayPage({ username }: { username: string }) {
     return () => clearTimeout(timeoutId);
   }, [currentMessage]);
 
-  // Generate QR code with username-specific URL
+  // Generate QR code with username-specific URL (with bypass token)
   useEffect(() => {
     const generateQR = async () => {
       try {
-        const requestUrl = `${window.location.origin}/${username}/request`;
+        // Base request URL
+        let requestUrl = `${window.location.origin}/${username}/request`;
+        
+        // Add bypass token if available (for no-PIN QR code access)
+        if (globalState.bypassToken) {
+          requestUrl += `?bt=${globalState.bypassToken}`;
+          console.log('📱 QR Code generated with bypass token for no-PIN access');
+        } else {
+          console.log('⚠️ QR Code generated without bypass token - PIN will be required');
+        }
+        
         const url = await QRCode.toDataURL(requestUrl, {
           width: 200,
           margin: 2,
@@ -588,7 +598,7 @@ function DisplayPage({ username }: { username: string }) {
     };
 
     generateQR();
-  }, [username]);
+  }, [username, globalState.bypassToken]);
 
   // ===== REMOVED OLD STATE MANAGEMENT =====
   // All state is now managed by GlobalEventProvider

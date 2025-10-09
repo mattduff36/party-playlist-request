@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
         version,
         config,
         active_admin_id,
-        updated_at
+        updated_at,
+        pin,
+        bypass_token
       FROM events
       WHERE user_id = ${userId}
       ORDER BY updated_at DESC
@@ -84,6 +86,8 @@ export async function GET(req: NextRequest) {
         activeAdminId: event.active_admin_id,
         config: event.config,
         updatedAt: event.updated_at,
+        pin: event.pin,
+        bypassToken: event.bypass_token, // For QR codes on display page
       }
     });
 

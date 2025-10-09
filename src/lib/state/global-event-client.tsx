@@ -26,6 +26,8 @@ export interface GlobalEventState {
   eventId: string | null;
   activeAdminId: string | null;
   adminName: string | null;
+  pin: string | null;
+  bypassToken: string | null;
   
   // Page control
   pagesEnabled: {
@@ -61,7 +63,7 @@ export type GlobalEventAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_CONNECTION'; payload: boolean }
   | { type: 'SET_EVENT_STATE'; payload: Partial<GlobalEventState> }
-  | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: any; adminId?: string; adminName?: string } }
+  | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: any; adminId?: string; adminName?: string; pin?: string; bypassToken?: string } }
   | { type: 'RESET_STATE' };
 
 // Get or create default event ID
@@ -78,6 +80,8 @@ const initialState: GlobalEventState = {
   eventId: getDefaultEventId(),
   activeAdminId: null,
   adminName: null,
+  pin: null,
+  bypassToken: null,
   pagesEnabled: {
     requests: false,
     display: false,
@@ -157,14 +161,16 @@ function globalEventReducer(state: GlobalEventState, action: GlobalEventAction):
       return { ...state, ...action.payload };
       
     case 'UPDATE_EVENT':
-      const { status, version, config, adminId, adminName } = action.payload;
+      const { status, version, config, adminId, adminName, pin, bypassToken } = action.payload;
       
       console.log('🔄 [UPDATE_EVENT] Reducer called with:', {
         status,
         version,
         config,
         pages_enabled: config?.pages_enabled,
-        extractedPagesEnabled: config?.pages_enabled
+        extractedPagesEnabled: config?.pages_enabled,
+        pin,
+        bypassToken
       });
       
       const newState = {
@@ -175,13 +181,17 @@ function globalEventReducer(state: GlobalEventState, action: GlobalEventAction):
         pagesEnabled: config?.pages_enabled || state.pagesEnabled,
         activeAdminId: adminId || null,
         adminName: adminName || null,
+        pin: pin || state.pin,
+        bypassToken: bypassToken || state.bypassToken,
         lastUpdated: new Date(),
         error: null,
       };
       
       console.log('✅ [UPDATE_EVENT] New state:', {
         status: newState.status,
-        pagesEnabled: newState.pagesEnabled
+        pagesEnabled: newState.pagesEnabled,
+        pin: newState.pin,
+        bypassToken: newState.bypassToken
       });
       
       return newState;
@@ -505,6 +515,8 @@ function createActions(
             version: result.event.version,
             config: result.event.config,
             adminId: result.event.activeAdminId,
+            pin: result.event.pin,
+            bypassToken: result.event.bypassToken,
           },
         });
         console.log('✅ State updated successfully');
