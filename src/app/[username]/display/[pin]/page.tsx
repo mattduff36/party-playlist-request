@@ -42,7 +42,7 @@ export default function DisplayWithPinPage() {
 
       const data = await response.json();
       
-      if (data.valid) {
+      if (data.success) {
         console.log('✅ PIN verified, authenticating display...');
         
         // Store authentication in sessionStorage
@@ -55,7 +55,7 @@ export default function DisplayWithPinPage() {
         // Redirect to main display page (without PIN in URL)
         router.push(`/${username}/display`);
       } else {
-        setError('Invalid PIN');
+        setError(data.error || 'Invalid PIN');
         setVerifying(false);
       }
     } catch (error) {
