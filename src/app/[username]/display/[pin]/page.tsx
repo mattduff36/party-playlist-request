@@ -83,11 +83,17 @@ export default function DisplayWithPinPage() {
           <div className="text-6xl mb-4">🔒</div>
           <h1 className="text-3xl font-bold text-white mb-4">Invalid PIN</h1>
           <p className="text-gray-200 mb-6">{error}</p>
+          <p className="text-gray-300 text-sm mb-4">
+            Get the correct PIN from the admin panel and use: <br />
+            <code className="bg-black/30 px-2 py-1 rounded mt-2 inline-block">
+              /{username}/display/[PIN]
+            </code>
+          </p>
           <button
-            onClick={() => router.push(`/${username}/display`)}
+            onClick={() => router.push('/login')}
             className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
           >
-            Try Again
+            Go to Admin Login
           </button>
         </div>
       </div>
