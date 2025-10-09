@@ -90,11 +90,11 @@ export async function POST(req: NextRequest) {
     const randomQuery = POPULAR_SONGS[Math.floor(Math.random() * POPULAR_SONGS.length)];
     console.log(`🎲 [${requestId}] Selected random query: "${randomQuery}"`);
 
-    // Search for the song on Spotify
+    // Search for the song on Spotify (with userId for multi-tenant)
     console.log(`🔍 [${requestId}] Searching Spotify for: "${randomQuery}"`);
     let searchResult;
     try {
-      searchResult = await spotifyService.searchTracks(randomQuery, 10);
+      searchResult = await spotifyService.searchTracks(randomQuery, 10, userId);
       console.log(`✅ [${requestId}] Search completed (${Date.now() - startTime}ms)`);
     } catch (error) {
       console.log(`❌ [${requestId}] Search failed (${Date.now() - startTime}ms):`, error);
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     });
     console.log(`✅ [${requestId}] Request created successfully (${Date.now() - startTime}ms total)`);
 
-    // 🚀 PUSHER: Trigger real-time event for new request submission
+    // 🚀 PUSHER: Trigger real-time event for new request submission (with userId)
     try {
       await triggerRequestSubmitted({
         id: newRequest.id,
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         track_uri: selectedTrack.uri,
         requester_nickname: 'PartyPlaylist Suggestion',
         submitted_at: new Date().toISOString()
-      });
+      }, userId); // Pass userId for multi-tenant Pusher channel
       console.log(`🎉 [${requestId}] Pusher event sent for random request: ${selectedTrack.name}`);
     } catch (pusherError) {
       console.error(`❌ [${requestId}] Failed to send Pusher event:`, pusherError);
