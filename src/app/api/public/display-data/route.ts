@@ -34,12 +34,12 @@ export async function GET(req: NextRequest) {
     // Get event settings
     const settings = await getEventSettings();
 
-    // Get current playback
+    // Get current playback (with userId for multi-tenant)
     let currentTrack = null;
     let upcomingSongs = [];
     
     try {
-      const playbackState = await spotifyService.getCurrentPlayback();
+      const playbackState = await spotifyService.getCurrentPlayback(userId);
       
       if (playbackState && playbackState.item) {
         // Album art is already in the playback response
@@ -56,15 +56,28 @@ export async function GET(req: NextRequest) {
         };
       }
 
-      // Get queue (upcoming songs) - these come from approved requests
+      // Get queue from Spotify API (with userId) and match with approved requests
+      const queueData = await spotifyService.getQueue(userId);
       const approvedRequests = await getRequestsByStatus('approved', 20, 0, userId);
-      upcomingSongs = approvedRequests.map(req => ({
-        name: req.track_name,
-        artists: req.artist_name.split(', '),
-        album: req.album_name,
-        uri: req.track_uri,
-        requester_nickname: req.requester_nickname
-      }));
+      
+      if (queueData && queueData.queue) {
+        upcomingSongs = queueData.queue.map((track: any) => {
+          // Match with approved request to get requester nickname
+          const matchingRequest = approvedRequests.find(req => req.track_uri === track.uri);
+          
+          return {
+            name: track.name,
+            artists: Array.isArray(track.artists) 
+              ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name)
+              : [],
+            album: track.album?.name || '',
+            uri: track.uri,
+            requester_nickname: matchingRequest?.requester_nickname || null
+          };
+        });
+        
+        console.log(`✅ Loaded ${upcomingSongs.length} upcoming songs from Spotify queue for user ${userId}`);
+      }
     } catch (error) {
       console.error('Error fetching Spotify data:', error);
       // Continue without playback data
