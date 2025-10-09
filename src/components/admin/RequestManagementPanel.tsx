@@ -8,7 +8,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter } from 'lucide-react';
+import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter, RotateCcw } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface RequestManagementPanelProps {
@@ -142,6 +142,54 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     setSelectedRequests(new Set());
   };
 
+  const handleResubmit = async (requestId: string) => {
+    try {
+      console.log('🔄 Re-submitting request:', requestId);
+      
+      // Find the request in our local state
+      const request = requests?.find(r => r.id === requestId);
+      
+      if (!request) {
+        console.error('❌ Request not found:', requestId);
+        return;
+      }
+      
+      // Delete the old rejected request
+      console.log('🗑️ Deleting old rejected request...');
+      await handleDelete(requestId);
+      
+      // Re-submit as a new pending request
+      console.log('📤 Re-submitting as new pending request...');
+      const response = await fetch('/api/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          track_uri: request.track_uri,
+          track_name: request.track_name,
+          artist_name: request.artist_name,
+          album_name: request.album_name,
+          duration_ms: request.duration_ms,
+          requester_nickname: request.requester_nickname || 'Anonymous',
+          username: window.location.pathname.split('/')[1] // Get username from URL
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Request re-submitted successfully');
+        // Refresh data to show the new pending request
+        await refreshData();
+      } else {
+        const error = await response.text();
+        console.error('❌ Failed to re-submit request:', error);
+      }
+    } catch (error) {
+      console.error('❌ Error re-submitting request:', error);
+    }
+  };
+
   const handleAddRandomSong = async () => {
     if (isAddingRandomSong) return;
     
@@ -158,6 +206,10 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Random song added:', result.request.track.name);
+        
+        // Refresh data to show the new pending request immediately
+        // Pusher should also update, but this ensures instant feedback
+        await refreshData();
       } else {
         const error = await response.text();
         console.error('❌ Failed to add random song:', error);
@@ -372,11 +424,11 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                     {request.status === 'rejected' && (
                       <>
                         <button
-                          onClick={() => handleApprove(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
-                          title="Approve"
+                          onClick={() => handleResubmit(request.id)}
+                          className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          title="Re-submit"
                         >
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <RotateCcw className="w-4 h-4 text-white" />
                         </button>
                       </>
                     )}
