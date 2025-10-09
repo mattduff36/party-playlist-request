@@ -62,7 +62,7 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center space-x-4">
               <Link
-                href="/auth/login"
+                href="/login"
                 className="text-white hover:text-[#1DB954] transition-colors font-medium"
               >
                 Log In
@@ -109,7 +109,7 @@ export default function LandingPage() {
               Get Started →
             </Link>
             <Link
-              href="/auth/login"
+              href="/login"
               className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 border border-white/20"
             >
               Sign In
