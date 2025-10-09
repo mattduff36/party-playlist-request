@@ -495,10 +495,19 @@ function createActions(
         }
         
         console.log('📡 API response status:', response.status);
+        console.log('📡 API response URL:', response.url);
         
         if (!response.ok) {
-          const errorData = await response.json();
-          console.error('❌ API error:', errorData);
+          let errorData;
+          try {
+            errorData = await response.json();
+            console.error('❌ API error:', errorData);
+          } catch (e) {
+            // Response body is not JSON
+            const text = await response.text();
+            console.error('❌ API error (not JSON):', text);
+            throw new Error(`Failed to load event state: ${response.status} ${response.statusText}`);
+          }
           throw new Error(errorData.error || 'Failed to load event state');
         }
 
