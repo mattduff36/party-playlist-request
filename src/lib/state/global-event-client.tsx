@@ -159,17 +159,32 @@ function globalEventReducer(state: GlobalEventState, action: GlobalEventAction):
     case 'UPDATE_EVENT':
       const { status, version, config, adminId, adminName } = action.payload;
       
-      return {
+      console.log('🔄 [UPDATE_EVENT] Reducer called with:', {
+        status,
+        version,
+        config,
+        pages_enabled: config?.pages_enabled,
+        extractedPagesEnabled: config?.pages_enabled
+      });
+      
+      const newState = {
         ...state,
         status,
         version,
         config,
-        pagesEnabled: config.pages_enabled,
+        pagesEnabled: config?.pages_enabled || state.pagesEnabled,
         activeAdminId: adminId || null,
         adminName: adminName || null,
         lastUpdated: new Date(),
         error: null,
       };
+      
+      console.log('✅ [UPDATE_EVENT] New state:', {
+        status: newState.status,
+        pagesEnabled: newState.pagesEnabled
+      });
+      
+      return newState;
       
     case 'RESET_STATE':
       return initialState;
@@ -479,6 +494,8 @@ function createActions(
 
         const result = await response.json();
         console.log('✅ API response data:', result);
+        console.log('✅ Config from API:', result.event.config);
+        console.log('✅ pages_enabled from config:', result.event.config?.pages_enabled);
         
         // Update local state with server response
         dispatch({

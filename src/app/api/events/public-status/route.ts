@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         updated_at
       FROM events
       WHERE user_id = ${userId}
-      ORDER BY created_at DESC
+      ORDER BY updated_at DESC
       LIMIT 1
     `;
 
@@ -89,8 +89,11 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error getting public event status:', error);
+    console.error('❌ Error details:', error instanceof Error ? error.message : String(error));
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json({ 
-      error: 'Failed to get event status' 
+      error: 'Failed to get event status',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
