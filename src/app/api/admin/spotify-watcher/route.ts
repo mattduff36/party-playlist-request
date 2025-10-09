@@ -54,7 +54,7 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
     // Get all users with valid Spotify connections
     const { sql } = await import('@/lib/db/neon-client');
     const usersWithSpotify = await sql`
-      SELECT user_id, username 
+      SELECT u.id as user_id, u.username 
       FROM users u
       WHERE EXISTS (
         SELECT 1 FROM spotify_connections sc 
