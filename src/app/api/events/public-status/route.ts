@@ -1,0 +1,97 @@
+/**
+ * Public Event Status API Endpoint
+ * 
+ * Allows unauthenticated users to fetch event status for public display/request pages
+ * Uses username to identify which user's event to fetch
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@/lib/db/neon-client';
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const username = searchParams.get('username');
+
+    if (!username) {
+      return NextResponse.json({ 
+        error: 'Username is required' 
+      }, { status: 400 });
+    }
+
+    console.log(`📊 [public-status] Fetching event status for username: ${username}`);
+
+    // Get user ID from username
+    const userResult = await sql`
+      SELECT id FROM users WHERE username = ${username} LIMIT 1
+    `;
+
+    if (userResult.length === 0) {
+      return NextResponse.json({ 
+        error: 'User not found' 
+      }, { status: 404 });
+    }
+
+    const userId = userResult[0].id;
+
+    // Get event for this user
+    const eventResult = await sql`
+      SELECT 
+        id,
+        status,
+        version,
+        config,
+        active_admin_id,
+        updated_at
+      FROM events
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    if (eventResult.length === 0) {
+      // Return default offline state if no event exists
+      return NextResponse.json({
+        success: true,
+        event: {
+          id: null,
+          status: 'offline',
+          version: 0,
+          activeAdminId: null,
+          config: {
+            pages_enabled: {
+              requests: false,
+              display: false,
+            },
+            event_title: 'Party DJ Requests',
+            welcome_message: 'Welcome to the party!',
+            secondary_message: 'Request your favorite songs',
+            tertiary_message: 'Have fun!',
+          },
+          updatedAt: new Date().toISOString(),
+        }
+      });
+    }
+
+    const event = eventResult[0];
+
+    return NextResponse.json({
+      success: true,
+      event: {
+        id: event.id,
+        status: event.status,
+        version: event.version,
+        activeAdminId: event.active_admin_id,
+        config: event.config,
+        updatedAt: event.updated_at,
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting public event status:', error);
+    return NextResponse.json({ 
+      error: 'Failed to get event status' 
+    }, { status: 500 });
+  }
+}
+

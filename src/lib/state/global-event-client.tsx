@@ -446,8 +446,29 @@ function createActions(
         const eventId = getState().eventId || getDefaultEventId();
         console.log('📡 Fetching event status for eventId:', eventId);
         
-        // Make API call to get current event state
-        const response = await fetch('/api/event/status');
+        // Check if we're on a public page (/:username/request or /:username/display)
+        const isPublicPage = typeof window !== 'undefined' && 
+          (window.location.pathname.includes('/request') || window.location.pathname.includes('/display'));
+        
+        let response;
+        
+        if (isPublicPage) {
+          // Extract username from URL path (/:username/request or /:username/display)
+          const pathParts = window.location.pathname.split('/');
+          const username = pathParts[1]; // Username is the first path segment
+          
+          if (username && username !== 'api' && username !== 'login' && username !== 'register') {
+            console.log(`🌐 Public page detected, fetching status for username: ${username}`);
+            response = await fetch(`/api/events/public-status?username=${encodeURIComponent(username)}`);
+          } else {
+            // Fallback to authenticated endpoint
+            response = await fetch('/api/event/status');
+          }
+        } else {
+          // Admin/authenticated pages use the authenticated endpoint
+          response = await fetch('/api/event/status');
+        }
+        
         console.log('📡 API response status:', response.status);
         
         if (!response.ok) {
@@ -513,18 +534,37 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
     // Fetch userId and subscribe to user-specific channel
     const setupPusher = async () => {
       try {
-        // Get authenticated user's ID
+        let userId: string | null = null;
+
+        // First, try to get authenticated user's ID
         const authResponse = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!authResponse.ok) {
-          console.warn('⚠️ Not authenticated, skipping Pusher setup');
-          return;
+        if (authResponse.ok) {
+          const authData = await authResponse.json();
+          userId = authData.user?.id; // ✅ Fixed: API returns 'id', not 'user_id'
         }
 
-        const authData = await authResponse.json();
-        const userId = authData.user?.id; // ✅ Fixed: API returns 'id', not 'user_id'
+        // If not authenticated, check if we're on a public page
+        if (!userId) {
+          const isPublicPage = window.location.pathname.includes('/request') || window.location.pathname.includes('/display');
+          if (isPublicPage) {
+            // Extract username from URL path (/:username/request or /:username/display)
+            const pathParts = window.location.pathname.split('/');
+            const username = pathParts[1];
+            
+            if (username && username !== 'api' && username !== 'login' && username !== 'register') {
+              console.log(`🌐 Public page detected, looking up userId for username: ${username}`);
+              // Look up userId from username via API
+              const userLookupResponse = await fetch(`/api/users/lookup?username=${encodeURIComponent(username)}`);
+              if (userLookupResponse.ok) {
+                const lookupData = await userLookupResponse.json();
+                userId = lookupData.userId;
+              }
+            }
+          }
+        }
 
         if (!userId) {
-          console.warn('⚠️ No userId found in auth response, skipping Pusher setup');
+          console.warn('⚠️ No userId found, skipping Pusher setup');
           return;
         }
 
