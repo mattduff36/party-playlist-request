@@ -624,25 +624,11 @@ function DisplayPage({ username }: { username: string }) {
     };
 
     const fetchNotifications = async () => {
+      // TODO: Implement multi-tenant notifications endpoint
+      // Notifications are currently disabled pending proper multi-tenant implementation
+      console.log('📝 Notifications fetching skipped (multi-tenant refactor needed)');
       try {
-        const response = await fetch(`/api/public/notifications?username=${username}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.notifications && data.notifications.length > 0) {
-            // Mark all notifications as shown immediately since we handle approvals via queue changes
-            for (const notification of data.notifications) {
-              try {
-                await fetch(`/api/public/notifications?username=${username}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ notificationId: notification.id })
-                });
-              } catch (error) {
-                console.error('Error marking notification as shown:', error);
-              }
-            }
-          }
-        }
+        // Keeping error handling for future implementation
       } catch (error) {
         console.error('Error fetching notifications:', error);
       }

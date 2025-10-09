@@ -591,6 +591,7 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
         const { default: Pusher } = await import('pusher-js');
         pusherInstance = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || '', {
           cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
+          authEndpoint: '/api/pusher/auth',
         });
 
         // Subscribe to USER-SPECIFIC channel
