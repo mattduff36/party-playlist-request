@@ -50,40 +50,44 @@ interface RequestItem {
 // Authentication wrapper for multi-tenant display
 export default function UserDisplayPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const username = params.username as string;
-  const displayToken = searchParams.get('dt');
 
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check session storage on mount
+  // Check authentication on mount
   useEffect(() => {
-    const stored = sessionStorage.getItem(`display_auth_${username}`);
-    if (stored) {
-      try {
-        const auth = JSON.parse(stored);
-        if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
-          setAuthenticated(true);
-          setLoading(false);
-          return;
-        }
-      } catch (e) {
-        sessionStorage.removeItem(`display_auth_${username}`);
-      }
-    }
-    
-    // Otherwise check auth
     checkAuth();
-  }, [username, displayToken]);
+  }, [username]);
 
   async function checkAuth() {
     setLoading(true);
     setError(null);
 
     try {
+      // First, check session storage for PIN-based auth
+      const stored = sessionStorage.getItem(`display_auth_${username}`);
+      if (stored) {
+        try {
+          const auth = JSON.parse(stored);
+          // Check if auth is still valid (24 hours)
+          if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
+            console.log('✅ Display authenticated via sessionStorage (PIN-based)');
+            setAuthenticated(true);
+            setLoading(false);
+            return;
+          } else {
+            console.log('⏰ Session expired, clearing...');
+            sessionStorage.removeItem(`display_auth_${username}`);
+          }
+        } catch (e) {
+          console.error('Invalid session data:', e);
+          sessionStorage.removeItem(`display_auth_${username}`);
+        }
+      }
+      
       // Check if user is logged in as the owner
       const meResponse = await fetch('/api/auth/me');
       
@@ -91,7 +95,7 @@ export default function UserDisplayPage() {
         const { user } = await meResponse.json();
         
         if (user.username === username) {
-          console.log(`✅ User ${user.username} accessing display page`);
+          console.log(`✅ User ${user.username} accessing display page (owner)`);
           setAuthenticated(true);
           setLoading(false);
           return;
@@ -102,36 +106,13 @@ export default function UserDisplayPage() {
         }
       }
 
-      // Not logged in, check for display token
-      if (!displayToken) {
-        setError('Login to access your display page, or use a valid display token.');
-        setLoading(false);
-        return;
-      }
-
-      // Verify display token
-      const verifyResponse = await fetch('/api/events/verify-display-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, displayToken })
-      });
-
-      const verifyData = await verifyResponse.json();
-
-      if (verifyResponse.ok) {
-        setAuthenticated(true);
-        sessionStorage.setItem(`display_auth_${username}`, JSON.stringify({
-          token: displayToken,
-          eventId: verifyData.event.id,
-          timestamp: Date.now()
-        }));
-      } else {
-        setError(verifyData.error || 'Invalid or expired display token.');
-      }
+      // Not authenticated - need PIN
+      console.log('🔐 No valid authentication found, need PIN');
+      setError(`To access the display screen, use the URL: /${username}/display/[PIN] (where [PIN] is your 4-digit event PIN from the admin panel)`);
+      setLoading(false);
     } catch (err) {
       console.error('Display auth error:', err);
       setError('Failed to authenticate. Please try again.');
-    } finally {
       setLoading(false);
     }
   }
