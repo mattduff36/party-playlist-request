@@ -449,8 +449,11 @@ class SpotifyService {
     }
   }
 
-  async addToQueue(trackUri: string, userId?: string) {
-    return await this.makeAuthenticatedRequest('POST', `/me/player/queue?uri=${encodeURIComponent(trackUri)}`, undefined, userId);
+  async addToQueue(trackUri: string, deviceId?: string, userId?: string) {
+    const url = deviceId 
+      ? `/me/player/queue?uri=${encodeURIComponent(trackUri)}&device_id=${deviceId}`
+      : `/me/player/queue?uri=${encodeURIComponent(trackUri)}`;
+    return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
   async play(contextUri?: string, trackUris?: string[], userId?: string) {
