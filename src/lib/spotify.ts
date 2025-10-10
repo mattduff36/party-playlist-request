@@ -241,18 +241,8 @@ class SpotifyService {
   }
 
   async refreshAccessToken(userId?: string): Promise<string> {
-    // Check if we should even attempt this call
-    if (isSpotifyPermanentlyDisconnected()) {
-      throw new Error('Spotify is permanently disconnected - manual reconnection required');
-    }
-
-    if (!shouldAttemptSpotifyCall()) {
-      throw new Error('Spotify is in backoff period - retry later');
-    }
-
     const auth = await getSpotifyAuth(userId);
     if (!auth || !auth.refresh_token) {
-      recordSpotifyFailure(`No refresh token available${userId ? ` for user ${userId}` : ''}`);
       throw new Error(`No refresh token available${userId ? ` for user ${userId}` : ''}`);
     }
     
@@ -286,7 +276,6 @@ class SpotifyService {
           });
         }
         
-        recordSpotifyFailure(`Token refresh failed: ${response.status}`);
         throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
       }
 
@@ -307,8 +296,6 @@ class SpotifyService {
       }
       await setSpotifyAuth(updatedAuth, userId);
       
-      // Record success - this resets failure count
-      recordSpotifySuccess();
       console.log(`✅ Access token refreshed for user ${userId}`);
       
       return tokenData.access_token;
@@ -318,8 +305,7 @@ class SpotifyService {
         throw error;
       }
       
-      // Otherwise record and wrap
-      recordSpotifyFailure('Unknown error during token refresh');
+      // Otherwise wrap the error
       throw new Error('Failed to refresh Spotify token');
     }
   }

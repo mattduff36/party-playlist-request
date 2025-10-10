@@ -402,9 +402,6 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // Handle Spotify disconnect
   const handleSpotifyDisconnect = useCallback(async () => {
     try {
-      // Mark Spotify as disconnected in centralized status
-      markSpotifyDisconnected();
-      
       // Immediately update state to reflect disconnected status
       setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
       setStats(prev => prev ? { ...prev, spotify_connected: false } : prev);
