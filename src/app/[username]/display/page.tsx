@@ -828,95 +828,56 @@ function DisplayPage({ username }: { username: string }) {
                 style={{
                   gridColumn: '1 / span 2',
                   gridRow: '1 / span 2',
-                  display: 'flex',
+                  display: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? 'grid' : 'flex',
+                  gridTemplateColumns: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? '1fr 1fr' : undefined,
+                  gridTemplateRows: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? '1fr' : undefined,
                   flexDirection: 'column',
                   gap: '1.5rem'
                 }}
               >
-                {useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? (
-                  // Horizontal Layout: QR Code on left, Now Playing info on right
+                {/* Now Playing Section */}
+                <div 
+                  className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
+                  style={{
+                    flex: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? undefined : 1
+                  }}
+                >
+                  <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
+                  {currentTrack ? (
+                    <div className="text-center">
+                      {currentTrack.image_url && (
+                        <img 
+                          src={currentTrack.image_url} 
+                          alt="Album Art" 
+                          className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
+                        />
+                      )}
+                      <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
+                      <p className="text-lg text-gray-300 mb-2">
+                        {currentTrack.artists && currentTrack.artists.length > 0 
+                          ? currentTrack.artists.filter(a => a).join(', ') 
+                          : 'Unknown Artist'}
+                      </p>
+                      <p className="text-sm text-gray-400 mb-3">{currentTrack.album || 'Unknown Album'}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400 text-lg">
+                      No song currently playing
+                    </div>
+                  )}
+                </div>
+
+                {/* QR Code Section */}
+                {eventSettings.show_qr_code && qrCodeUrl && (
                   <div 
-                    className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex items-center gap-8 min-w-0 h-full"
+                    className="bg-white rounded-2xl p-6 text-center flex flex-col justify-center items-center min-w-0"
+                    style={{
+                      flex: useHorizontalLayout ? undefined : 1
+                    }}
                   >
-                    {/* QR Code Section */}
-                    <div className="flex-shrink-0 bg-white rounded-xl p-4 flex flex-col items-center justify-center">
-                      <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" style={{ aspectRatio: '1/1' }} />
-                      <p className="text-black text-sm font-semibold mt-2">Scan the QR code to make</p>
-                      <p className="text-black text-sm font-semibold">a request, or visit:</p>
-                      <p className="text-black text-xs font-mono mt-1">partyplaylist.co.uk/</p>
-                      <p className="text-black text-xs font-mono">[username]/request</p>
-                    </div>
-
-                    {/* Now Playing Section */}
-                    <div className="flex-1 flex flex-col justify-center min-w-0">
-                      <h2 className="text-2xl font-semibold mb-4 text-center">🎵 Now Playing</h2>
-                      {currentTrack ? (
-                        <div className="flex items-center gap-6">
-                          {currentTrack.image_url && (
-                            <img 
-                              src={currentTrack.image_url} 
-                              alt="Album Art" 
-                              className="w-32 h-32 rounded-lg shadow-lg flex-shrink-0"
-                            />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-3xl font-bold mb-2 leading-tight truncate">{currentTrack.name}</h3>
-                            <p className="text-xl text-gray-300 mb-1 truncate">
-                              {currentTrack.artists && currentTrack.artists.length > 0 
-                                ? currentTrack.artists.filter(a => a).join(', ') 
-                                : 'Unknown Artist'}
-                            </p>
-                            <p className="text-base text-gray-400 truncate">{currentTrack.album || 'Unknown Album'}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center text-gray-400 text-lg">
-                          No song currently playing
-                        </div>
-                      )}
-                    </div>
+                    <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
+                    <p className="text-black text-lg font-semibold">Request your song now!</p>
                   </div>
-                ) : (
-                  // Vertical Layout: Original stacked design
-                  <>
-                    <div 
-                      className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0 flex-1"
-                    >
-                      <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
-                      {currentTrack ? (
-                        <div className="text-center">
-                          {currentTrack.image_url && (
-                            <img 
-                              src={currentTrack.image_url} 
-                              alt="Album Art" 
-                              className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
-                            />
-                          )}
-                          <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
-                          <p className="text-lg text-gray-300 mb-2">
-                            {currentTrack.artists && currentTrack.artists.length > 0 
-                              ? currentTrack.artists.filter(a => a).join(', ') 
-                              : 'Unknown Artist'}
-                          </p>
-                          <p className="text-sm text-gray-400 mb-3">{currentTrack.album || 'Unknown Album'}</p>
-                        </div>
-                      ) : (
-                        <div className="text-center text-gray-400 text-lg">
-                          No song currently playing
-                        </div>
-                      )}
-                    </div>
-
-                    {/* QR Code */}
-                    {eventSettings.show_qr_code && qrCodeUrl && (
-                      <div 
-                        className="bg-white rounded-2xl p-6 text-center flex flex-col justify-center items-center min-w-0 flex-1"
-                      >
-                        <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
-                        <p className="text-black text-lg font-semibold">Request your song now!</p>
-                      </div>
-                    )}
-                  </>
                 )}
               </div>
 
