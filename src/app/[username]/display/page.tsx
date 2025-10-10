@@ -823,27 +823,39 @@ function DisplayPage({ username }: { username: string }) {
               transition: 'grid-template-columns 1s ease-in-out, grid-template-rows 1s ease-in-out, margin-right 1s ease-in-out'
             }}
           >
-              {/* Now Playing - Dynamic Layout Wrapper */}
-              <div
+              {/* Now Playing Section */}
+              <div 
+                className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
                 style={{
                   gridColumn: '1 / span 2',
-                  gridRow: '1 / span 2',
-                  display: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? 'grid' : 'flex',
-                  gridTemplateColumns: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? '1fr 1fr' : undefined,
-                  gridTemplateRows: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? '1fr' : undefined,
-                  flexDirection: 'column',
-                  gap: '1.5rem'
+                  gridRow: '1'
                 }}
               >
-                {/* Now Playing Section */}
-                <div 
-                  className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
-                  style={{
-                    flex: useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? undefined : 1
-                  }}
-                >
-                  <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
-                  {currentTrack ? (
+                <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
+                {currentTrack ? (
+                  useHorizontalLayout ? (
+                    // Horizontal layout: Album art left, details right
+                    <div className="flex items-center gap-8 justify-center">
+                      {currentTrack.image_url && (
+                        <img 
+                          src={currentTrack.image_url} 
+                          alt="Album Art" 
+                          className="rounded-lg shadow-lg flex-shrink-0"
+                          style={{ width: '40%', height: 'auto', maxWidth: '300px' }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0 text-left">
+                        <h3 className="text-4xl font-bold mb-4 leading-tight">{currentTrack.name}</h3>
+                        <p className="text-2xl text-gray-300 mb-3">
+                          {currentTrack.artists && currentTrack.artists.length > 0 
+                            ? currentTrack.artists.filter(a => a).join(', ') 
+                            : 'Unknown Artist'}
+                        </p>
+                        <p className="text-xl text-gray-400">{currentTrack.album || 'Unknown Album'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Vertical layout: Centered
                     <div className="text-center">
                       {currentTrack.image_url && (
                         <img 
@@ -860,26 +872,48 @@ function DisplayPage({ username }: { username: string }) {
                       </p>
                       <p className="text-sm text-gray-400 mb-3">{currentTrack.album || 'Unknown Album'}</p>
                     </div>
-                  ) : (
-                    <div className="text-center text-gray-400 text-lg">
-                      No song currently playing
-                    </div>
-                  )}
-                </div>
-
-                {/* QR Code Section */}
-                {eventSettings.show_qr_code && qrCodeUrl && (
-                  <div 
-                    className="bg-white rounded-2xl p-6 text-center flex flex-col justify-center items-center min-w-0"
-                    style={{
-                      flex: useHorizontalLayout ? undefined : 1
-                    }}
-                  >
-                    <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
-                    <p className="text-black text-lg font-semibold">Request your song now!</p>
+                  )
+                ) : (
+                  <div className="text-center text-gray-400 text-lg">
+                    No song currently playing
                   </div>
                 )}
               </div>
+
+              {/* QR Code Section */}
+              {eventSettings.show_qr_code && qrCodeUrl && (
+                <div 
+                  className="bg-white rounded-2xl p-6 flex items-center justify-center min-w-0"
+                  style={{
+                    gridColumn: '1 / span 2',
+                    gridRow: '2'
+                  }}
+                >
+                  {useHorizontalLayout ? (
+                    // Horizontal layout: QR code left, text right
+                    <div className="flex items-center gap-8 w-full justify-center">
+                      <img 
+                        src={qrCodeUrl} 
+                        alt="QR Code" 
+                        className="flex-shrink-0"
+                        style={{ width: '40%', height: 'auto', maxWidth: '300px', aspectRatio: '1/1' }}
+                      />
+                      <div className="flex-1 text-left">
+                        <p className="text-black text-2xl font-semibold mb-2">Scan the QR code to make</p>
+                        <p className="text-black text-2xl font-semibold mb-4">a request, or visit:</p>
+                        <p className="text-black text-xl font-mono">partyplaylist.co.uk/</p>
+                        <p className="text-black text-xl font-mono">[username]/request</p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Vertical layout: Centered
+                    <div className="text-center flex flex-col items-center">
+                      <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
+                      <p className="text-black text-lg font-semibold">Request your song now!</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Up Next */}
               <div 
