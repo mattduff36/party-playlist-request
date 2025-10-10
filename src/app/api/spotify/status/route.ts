@@ -10,7 +10,24 @@ import { getConnectionStatusMessage, isSpotifyPermanentlyDisconnected } from '@/
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if Spotify is permanently disconnected
+    // MULTI-TENANT: Need userId from authenticated session or username param
+    const { requireAuth } = await import('@/middleware/auth');
+    const auth = requireAuth(request);
+    
+    if (!auth.authenticated || !auth.user) {
+      return NextResponse.json({
+        connected: false,
+        is_playing: false,
+        current_track: null,
+        device: null,
+        error: 'Authentication required',
+        last_updated: new Date().toISOString()
+      }, { status: 401 });
+    }
+
+    const userId = auth.user.user_id;
+
+    // Check if THIS USER is permanently disconnected
     if (isSpotifyPermanentlyDisconnected()) {
       return NextResponse.json({
         connected: false,
@@ -24,8 +41,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check if connected and get status
-    const isConnected = await spotifyService.isConnectedAndValid();
+    // Check if THIS USER is connected and get status (MULTI-TENANT!)
+    const isConnected = await spotifyService.isConnectedAndValid(userId);
     
     if (!isConnected) {
       return NextResponse.json({
@@ -40,9 +57,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get current playback status
-    const playback = await spotifyService.getCurrentPlayback();
-    const queue = await spotifyService.getQueue();
+    // Get current playback status (MULTI-TENANT!)
+    const playback = await spotifyService.getCurrentPlayback(userId);
+    const queue = await spotifyService.getQueue(userId);
 
     return NextResponse.json({
       connected: true,

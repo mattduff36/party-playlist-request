@@ -4,10 +4,32 @@ import { getEventSettings, getRequestsByStatus } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
-    // Get event settings and current playback (no auth required for display)
+    // Extract username from query params for multi-tenant support
+    const { searchParams } = new URL(req.url);
+    const username = searchParams.get('username');
+    
+    if (!username) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    // Get user_id from username
+    const { getPool } = await import('@/lib/db');
+    const pool = getPool();
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    // Get event settings and current playback (MULTI-TENANT!)
     const [eventSettings, playbackState] = await Promise.all([
-      getEventSettings(),
-      spotifyService.getCurrentPlayback().catch(() => null)
+      getEventSettings(), // TODO: This should be user-specific too!
+      spotifyService.getCurrentPlayback(userId).catch(() => null)
     ]);
     
     // Process current track with album art from existing data
@@ -29,12 +51,12 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Get queue data with album art from existing data and approved requests
+    // Get queue data with album art from existing data and approved requests (MULTI-TENANT!)
     let upcomingSongs = [];
     try {
       const [queueData, approvedRequests] = await Promise.all([
-        spotifyService.getQueue().catch(() => null),
-        getRequestsByStatus('approved', 10).catch(() => [])
+        spotifyService.getQueue(userId).catch(() => null),
+        getRequestsByStatus('approved', 10, 0, userId).catch(() => [])
       ]);
       
       if (queueData?.queue) {

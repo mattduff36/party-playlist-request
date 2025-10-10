@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`🎵 [queue] User ${auth.user.username} (${userId}) getting queue`);
     
-    const playbackState = await spotifyService.getCurrentPlayback();
+    const playbackState = await spotifyService.getCurrentPlayback(userId);
     
     if (!playbackState) {
       return NextResponse.json({

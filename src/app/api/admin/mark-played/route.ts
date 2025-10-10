@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`✅ [mark-played] User ${auth.user.username} (${userId}) marking played requests`);
     
-    // Get current playback state
-    const playbackState = await spotifyService.getCurrentPlayback();
+    // Get current playback state (MULTI-TENANT!)
+    const playbackState = await spotifyService.getCurrentPlayback(userId);
     
     if (!playbackState || !playbackState.item) {
       return NextResponse.json({

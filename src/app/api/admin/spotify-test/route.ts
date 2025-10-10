@@ -21,18 +21,18 @@ export async function GET(req: NextRequest) {
       tests: [] as any[]
     };
     
-    // Test 1: Check if tokens exist
-    console.log('🔍 Test 1: Checking token existence...');
+    // Test 1: Check if tokens exist (MULTI-TENANT!)
+    console.log('🔍 Test 1: Checking token existence for user', userId);
     const testStart1 = Date.now();
     try {
-      const isConnected = await spotifyService.isConnected();
+      const isConnected = await spotifyService.isConnected(userId);
       results.tests.push({
         name: 'Token Existence Check',
         success: true,
         result: isConnected,
         duration: Date.now() - testStart1
       });
-      console.log(`✅ Token check: ${isConnected} (${Date.now() - testStart1}ms)`);
+      console.log(`✅ Token check for user ${userId}: ${isConnected} (${Date.now() - testStart1}ms)`);
     } catch (error) {
       results.tests.push({
         name: 'Token Existence Check',
@@ -40,16 +40,16 @@ export async function GET(req: NextRequest) {
         error: (error as Error).message,
         duration: Date.now() - testStart1
       });
-      console.log(`❌ Token check failed: ${(error as Error).message}`);
+      console.log(`❌ Token check failed for user ${userId}: ${(error as Error).message}`);
     }
     
-    // Test 2: Simple API call - Get user profile (lightweight)
-    console.log('🔍 Test 2: Testing basic Spotify API call...');
+    // Test 2: Simple API call - Get user profile (lightweight) (MULTI-TENANT!)
+    console.log('🔍 Test 2: Testing basic Spotify API call for user', userId);
     const testStart2 = Date.now();
     try {
       const response = await fetch('https://api.spotify.com/v1/me', {
         headers: {
-          'Authorization': `Bearer ${await spotifyService.getAccessToken()}`
+          'Authorization': `Bearer ${await spotifyService.getAccessToken(userId)}`
         },
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
@@ -82,12 +82,12 @@ export async function GET(req: NextRequest) {
       console.log(`❌ Basic API call error: ${(error as Error).message}`);
     }
     
-    // Test 3: Get current playback (the problematic call)
-    console.log('🔍 Test 3: Testing current playback call...');
+    // Test 3: Get current playback (MULTI-TENANT!)
+    console.log('🔍 Test 3: Testing current playback call for user', userId);
     const testStart3 = Date.now();
     try {
       const playback = await Promise.race([
-        spotifyService.getCurrentPlayback(),
+        spotifyService.getCurrentPlayback(userId),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Timeout after 3 seconds')), 3000)
         )

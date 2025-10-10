@@ -28,9 +28,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get current playback from Spotify
-    // TODO: In full multi-tenant, this should use user-specific Spotify tokens
-    const playback = await spotifyService.getCurrentPlayback();
+    const userId = userResult.rows[0].id;
+
+    // Get current playback from Spotify (MULTI-TENANT!)
+    const playback = await spotifyService.getCurrentPlayback(userId);
 
     if (!playback || !playback.item) {
       return NextResponse.json({

@@ -24,13 +24,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`🎵 Queue reorder requested: move item from ${fromIndex} to ${toIndex}`);
     
-    // Get current Spotify queue to work with
+    // Get current Spotify queue to work with (MULTI-TENANT!)
     let currentQueue;
     let currentTrack;
     try {
       const [playbackState, queueData] = await Promise.all([
-        spotifyService.getCurrentPlayback(),
-        spotifyService.getQueue()
+        spotifyService.getCurrentPlayback(userId),
+        spotifyService.getQueue(userId)
       ]);
       
       currentTrack = playbackState?.item;
