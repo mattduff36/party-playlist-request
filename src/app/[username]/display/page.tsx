@@ -1048,7 +1048,7 @@ function DisplayPage({ username }: { username: string }) {
               >
                 {upcomingSongs.length > 0 ? (
                   <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col h-full min-h-0 relative">
-                    <h2 className="text-xl font-semibold mb-4 text-center flex-shrink-0">🎶 Upcoming songs</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-center flex-shrink-0">🎶 Up Next</h2>
                     <div className="space-y-2 overflow-y-auto flex-1 min-h-0 scrollbar-hide" data-up-next-container>
                       {upcomingSongs.map((song, index) => (
                         <div 
@@ -1324,7 +1324,7 @@ function DisplayPage({ username }: { username: string }) {
             >
               {upcomingSongs.length > 0 ? (
                 <div className="bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full relative">
-                  <h2 className="text-sm font-semibold mb-2 text-center">🎶 Upcoming songs</h2>
+                  <h2 className="text-sm font-semibold mb-2 text-center">🎶 Up Next</h2>
                   <div className="space-y-1 overflow-y-auto h-full scrollbar-hide">
                     {upcomingSongs.map((song, index) => (
                       <div 

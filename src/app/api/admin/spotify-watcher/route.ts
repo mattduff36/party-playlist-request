@@ -6,12 +6,12 @@ import { getAllRequests } from '@/lib/db';
 import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 import { shouldAttemptSpotifyCall, isSpotifyPermanentlyDisconnected } from '@/lib/spotify-connection-state';
 
-// Store last known state to detect changes (excluding progress_ms which changes constantly)
-let lastPlaybackState: any = null;
-let lastQueueState: any = null;
+// Store last known state PER USER to detect changes (excluding progress_ms which changes constantly)
+const lastPlaybackStates = new Map<string, any>(); // userId -> lastPlaybackState
+const lastQueueStates = new Map<string, any>();    // userId -> lastQueueState
+const lastQueueChecks = new Map<string, number>(); // userId -> timestamp
 let watcherInterval: NodeJS.Timeout | null = null;
 let lastStatsUpdate = 0;
-let lastQueueCheck = 0; // Track when we last checked the queue
 
 // Helper function to normalize playback state for comparison (exclude progress_ms)
 const normalizePlaybackForComparison = (playback: any) => {
@@ -99,9 +99,12 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
     let queue = null;
     const now = Date.now();
     
-    // Get user-specific last state (we need per-user state tracking)
-    // For now, simplified: check both playback and queue
-    const shouldCheckQueue = now - lastQueueCheck >= queueInterval;
+    // Get THIS USER's last state (PER-USER STATE TRACKING!)
+    const userLastPlayback = lastPlaybackStates.get(userId);
+    const userLastQueue = lastQueueStates.get(userId);
+    const userLastQueueCheck = lastQueueChecks.get(userId) || 0;
+    
+    const shouldCheckQueue = now - userLastQueueCheck >= queueInterval;
     
     try {
       if (shouldCheckQueue) {
@@ -110,11 +113,11 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
           spotifyService.getCurrentPlayback(userId).catch(() => null),
           spotifyService.getQueue(userId).catch(() => null)
         ]);
-        lastQueueCheck = now;
+        lastQueueChecks.set(userId, now);
       } else {
         console.log(`🎵 [${username}] Checking playback only`);
         currentPlayback = await spotifyService.getCurrentPlayback(userId).catch(() => null);
-        queue = lastQueueState ? { queue: lastQueueState } : null;
+        queue = userLastQueue ? { queue: userLastQueue } : null;
       }
     } catch (error) {
       console.error(`❌ [${username}] Error fetching playback:`, error);
@@ -129,20 +132,20 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
       hasPlayback: !!currentPlayback
     });
 
-    // Check if anything meaningful changed
+    // Check if anything meaningful changed (compare to THIS USER's last state!)
     const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
-    const normalizedLastPlayback = normalizePlaybackForComparison(lastPlaybackState);
+    const normalizedLastPlayback = normalizePlaybackForComparison(userLastPlayback);
     
     const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
-    const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(lastQueueState);
+    const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(userLastQueue);
     
     // Critical state changes
     const criticalChanges = {
-      isPlayingChanged: lastPlaybackState?.is_playing !== currentPlayback?.is_playing,
-      trackChanged: lastPlaybackState?.item?.id !== currentPlayback?.item?.id,
-      deviceChanged: lastPlaybackState?.device?.id !== currentPlayback?.device?.id,
-      hasNewPlayback: !lastPlaybackState && currentPlayback,
-      lostPlayback: lastPlaybackState && !currentPlayback
+      isPlayingChanged: userLastPlayback?.is_playing !== currentPlayback?.is_playing,
+      trackChanged: userLastPlayback?.item?.id !== currentPlayback?.item?.id,
+      deviceChanged: userLastPlayback?.device?.id !== currentPlayback?.device?.id,
+      hasNewPlayback: !userLastPlayback && currentPlayback,
+      lostPlayback: userLastPlayback && !currentPlayback
     };
     
     const hasCriticalChanges = Object.values(criticalChanges).some(Boolean);
@@ -192,9 +195,9 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
         console.error(`❌ [${username}] Failed to trigger playback update:`, pusherError);
       }
 
-      // Update stored state
-      lastPlaybackState = currentPlayback;
-      lastQueueState = queue?.queue;
+      // Update stored state FOR THIS USER
+      lastPlaybackStates.set(userId, currentPlayback);
+      lastQueueStates.set(userId, queue?.queue);
     } else {
       console.log(`🎵 [${username}] No meaningful changes`);
     }
