@@ -456,6 +456,15 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
+  async addToPlaylist(playlistId: string, trackUri: string, userId?: string) {
+    return await this.makeAuthenticatedRequest(
+      'POST',
+      `/playlists/${playlistId}/tracks`,
+      { uris: [trackUri] },
+      userId
+    );
+  }
+
   async play(contextUri?: string, trackUris?: string[], userId?: string) {
     const data: any = {};
     if (contextUri) data.context_uri = contextUri;
