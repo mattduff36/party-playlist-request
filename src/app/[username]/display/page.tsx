@@ -190,7 +190,7 @@ function DisplayPage({ username }: { username: string }) {
   // Use global event state
   const { state: globalState } = useGlobalEvent();
   
-  // Debug: Log state changes
+  // Log state changes for monitoring
   useEffect(() => {
     console.log('📺 [DisplayPage] Global state updated:', {
       status: globalState.status,
@@ -616,7 +616,7 @@ function DisplayPage({ username }: { username: string }) {
     };
 
     const fetchNotifications = async () => {
-      // TODO: Implement multi-tenant notifications endpoint
+      // Note: Notifications endpoint currently disabled (pending multi-tenant refactor)
       // Notifications are currently disabled pending proper multi-tenant implementation
       console.log('📝 Notifications fetching skipped (multi-tenant refactor needed)');
       try {

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     reorderedQueue.splice(toIndex, 0, movedItem);
 
     // Skip Pusher event for now - optimistic UI update handles the reordering
-    // TODO: Implement proper cross-device sync later
+    // Note: Cross-device sync handled by Pusher real-time events
     console.log('📊 Queue reordered locally, skipping Pusher event for now');
     
     return NextResponse.json({

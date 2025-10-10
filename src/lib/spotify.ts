@@ -41,7 +41,7 @@ class SpotifyService {
     this.clientSecret = process.env.SPOTIFY_CLIENT_SECRET || '';
     this.redirectUri = process.env.SPOTIFY_REDIRECT_URI || '';
     
-    // Debug: Check if environment variables are set
+    // Check if environment variables are set
     console.log('Spotify service initialized:', {
       hasClientId: !!this.clientId,
       hasClientSecret: !!this.clientSecret,

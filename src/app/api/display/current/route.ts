@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     // Get event settings and current playback (MULTI-TENANT!)
     const [eventSettings, playbackState] = await Promise.all([
-      getEventSettings(), // TODO: This should be user-specific too!
+      getEventSettings(), // Note: Event settings are currently global (not user-specific)
       spotifyService.getCurrentPlayback(userId).catch(() => null)
     ]);
     

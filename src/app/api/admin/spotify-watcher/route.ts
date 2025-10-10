@@ -124,7 +124,7 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
       return;
     }
 
-    // Debug: Log current playback state
+    // Log current playback state for monitoring
     console.log(`🎵 [${username}] Current playback:`, {
       is_playing: currentPlayback?.is_playing,
       track: currentPlayback?.item?.name,

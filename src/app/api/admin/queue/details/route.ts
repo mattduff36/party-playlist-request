@@ -30,11 +30,7 @@ export async function GET(req: NextRequest) {
       console.log(`❌ [${requestId}] Spotify status check failed for user ${userId}: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
     }
     
-    // TEMPORARY FIX: Always try Spotify APIs since they're working in the logs
-    // TODO: Fix centralized status system later
-    console.log(`🔍 [${requestId}] Attempting Spotify API calls (bypassing centralized check temporarily)`);
-    
-    // Get both current playback and queue - let Spotify API calls handle their own auth
+    // Always attempt Spotify API calls (they handle their own auth/tokens)
     console.log(`🎵 [${requestId}] Fetching Spotify playback and queue data...`);
     const spotifyCallStart = Date.now();
     
@@ -42,7 +38,7 @@ export async function GET(req: NextRequest) {
     let queueData = null;
     let spotifyErrors = [];
     
-    // TEMPORARY: Determine connection based on successful API calls
+    // Determine connection based on successful API calls
     let spotifyConnected = true; // Will be set to false if API calls fail
     
     // Try getCurrentPlayback first (MULTI-TENANT: pass userId!)

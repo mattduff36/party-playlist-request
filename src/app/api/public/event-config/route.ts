@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const userId = userResult.rows[0].id;
 
     // Get event settings for the user
-    // TODO: In full implementation, get user-specific settings from user_settings table
+    // Note: Event settings are currently global (not user-specific)
     const settings = await getEventSettings();
 
     return NextResponse.json({

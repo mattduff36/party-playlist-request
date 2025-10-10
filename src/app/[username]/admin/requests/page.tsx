@@ -309,7 +309,7 @@ export default function RequestsPage() {
     refreshData
   } = useAdminData();
 
-  // Debug: Log the functions to make sure they exist
+  // Verify handler functions are properly initialized
   console.log('🔍 RequestsPage: Functions available:', {
     hasHandleApprove: typeof handleApprove === 'function',
     hasHandleReject: typeof handleReject === 'function',
