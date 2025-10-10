@@ -26,20 +26,6 @@ export async function GET(request: NextRequest) {
 
     const userId = auth.user.user_id;
 
-    // Check if THIS USER is permanently disconnected
-    if (isSpotifyPermanentlyDisconnected()) {
-      return NextResponse.json({
-        connected: false,
-        is_playing: false,
-        current_track: null,
-        device: null,
-        error: 'Not connected to Spotify',
-        status_message: getConnectionStatusMessage(),
-        requires_manual_reconnect: true,
-        last_updated: new Date().toISOString()
-      });
-    }
-
     // Check if THIS USER is connected and get status (MULTI-TENANT!)
     const isConnected = await spotifyService.isConnectedAndValid(userId);
     
@@ -50,8 +36,6 @@ export async function GET(request: NextRequest) {
         current_track: null,
         device: null,
         error: 'Not connected to Spotify',
-        status_message: getConnectionStatusMessage(),
-        requires_manual_reconnect: false,
         last_updated: new Date().toISOString()
       });
     }
@@ -97,8 +81,7 @@ export async function GET(request: NextRequest) {
       is_playing: false,
       current_track: null,
       device: null,
-      error: 'Not connected to Spotify',
-      status_message: getConnectionStatusMessage(),
+      error: errorMessage,
       last_updated: new Date().toISOString()
     }, { status: 200 }); // Return 200 for disconnected state - it's not an error
   }
