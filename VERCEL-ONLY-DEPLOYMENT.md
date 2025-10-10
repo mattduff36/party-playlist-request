@@ -6,12 +6,7 @@ Yes! You can deploy everything to Vercel by converting the Express backend to Ve
 
 ## **🏗️ Architecture Change**
 
-**Before (Separate deployments):**
-```
-Frontend (Vercel) ←→ Backend (Railway/Render) ←→ Spotify API
-```
-
-**After (Vercel only):**
+**Current Architecture (Vercel only):**
 ```
 Frontend + API Routes (Vercel) ←→ Spotify API
 ```
