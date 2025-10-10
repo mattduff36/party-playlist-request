@@ -834,17 +834,17 @@ function DisplayPage({ username }: { username: string }) {
                 <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
                 {currentTrack ? (
                   useHorizontalLayout ? (
-                    // Horizontal layout: Album art left, details right
-                    <div className="flex items-center gap-8 justify-center">
+                    // Horizontal layout: Album art left, details right (centered)
+                    <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
                       {currentTrack.image_url && (
                         <img 
                           src={currentTrack.image_url} 
                           alt="Album Art" 
-                          className="rounded-lg shadow-lg flex-shrink-0"
-                          style={{ width: '40%', height: 'auto', maxWidth: '300px' }}
+                          className="rounded-lg shadow-lg"
+                          style={{ width: '300px', height: '300px', objectFit: 'cover' }}
                         />
                       )}
-                      <div className="flex-1 min-w-0 text-left">
+                      <div className="text-left" style={{ width: '300px' }}>
                         <h3 className="text-4xl font-bold mb-4 leading-tight">{currentTrack.name}</h3>
                         <p className="text-2xl text-gray-300 mb-3">
                           {currentTrack.artists && currentTrack.artists.length > 0 
@@ -890,15 +890,14 @@ function DisplayPage({ username }: { username: string }) {
                   }}
                 >
                   {useHorizontalLayout ? (
-                    // Horizontal layout: QR code left, text right
-                    <div className="flex items-center gap-8 w-full justify-center">
+                    // Horizontal layout: QR code left, text right (centered)
+                    <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
                       <img 
                         src={qrCodeUrl} 
                         alt="QR Code" 
-                        className="flex-shrink-0"
-                        style={{ width: '40%', height: 'auto', maxWidth: '300px', aspectRatio: '1/1' }}
+                        style={{ width: '300px', height: '300px', aspectRatio: '1/1' }}
                       />
-                      <div className="flex-1 text-left">
+                      <div className="text-left" style={{ width: '300px' }}>
                         <p className="text-black text-2xl font-semibold mb-2">Scan the QR code to make</p>
                         <p className="text-black text-2xl font-semibold mb-4">a request, or visit:</p>
                         <p className="text-black text-xl font-mono">partyplaylist.co.uk/</p>
