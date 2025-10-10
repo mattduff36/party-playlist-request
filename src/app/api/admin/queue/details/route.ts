@@ -19,27 +19,15 @@ export async function GET(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`✅ [${requestId}] User ${auth.user.username} (${userId}) auth verified (${Date.now() - authStart}ms)`);
     
-    // Check if we have valid Spotify connection using centralized status
-    console.log(`🔍 [${requestId}] Checking Spotify connection status...`);
+    // Check if THIS USER has valid Spotify connection (MULTI-TENANT!)
+    console.log(`🔍 [${requestId}] Checking Spotify connection for user ${userId}...`);
     const statusCheckStart = Date.now();
     let hasValidConnection = false;
     try {
-      hasValidConnection = await getSpotifyConnectionStatus();
-      console.log(`🔍 [${requestId}] Centralized status result: ${hasValidConnection} (${Date.now() - statusCheckStart}ms)`);
+      hasValidConnection = await spotifyService.isConnectedAndValid(userId);
+      console.log(`🔍 [${requestId}] User ${userId} Spotify connection: ${hasValidConnection} (${Date.now() - statusCheckStart}ms)`);
     } catch (statusError) {
-      console.log(`❌ [${requestId}] Centralized status check failed: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
-    }
-    
-    // TEMPORARY DEBUG: Also check the old way to compare
-    try {
-      const directCheck = await spotifyService.isConnectedAndValid();
-      console.log(`🔍 [${requestId}] Direct isConnectedAndValid result: ${directCheck}`);
-      
-      if (hasValidConnection !== directCheck) {
-        console.log(`⚠️ [${requestId}] MISMATCH! Centralized: ${hasValidConnection}, Direct: ${directCheck}`);
-      }
-    } catch (directError) {
-      console.log(`❌ [${requestId}] Direct check failed: ${(directError as Error).message}`);
+      console.log(`❌ [${requestId}] Spotify status check failed for user ${userId}: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
     }
     
     // TEMPORARY FIX: Always try Spotify APIs since they're working in the logs
@@ -57,20 +45,20 @@ export async function GET(req: NextRequest) {
     // TEMPORARY: Determine connection based on successful API calls
     let spotifyConnected = true; // Will be set to false if API calls fail
     
-    // Try getCurrentPlayback first
-    console.log(`🎵 [${requestId}] Calling getCurrentPlayback()...`);
+    // Try getCurrentPlayback first (MULTI-TENANT: pass userId!)
+    console.log(`🎵 [${requestId}] Calling getCurrentPlayback(${userId})...`);
     const playbackStart = Date.now();
     try {
-      playbackState = await spotifyService.getCurrentPlayback();
-      console.log(`✅ [${requestId}] getCurrentPlayback() successful (${Date.now() - playbackStart}ms)`);
+      playbackState = await spotifyService.getCurrentPlayback(userId);
+      console.log(`✅ [${requestId}] getCurrentPlayback() successful for user ${userId} (${Date.now() - playbackStart}ms)`);
       if (playbackState) {
         console.log(`🎵 [${requestId}] Playback state: ${playbackState.is_playing ? 'playing' : 'paused'}, track: ${playbackState.item?.name || 'unknown'}`);
       } else {
-        console.log(`🎵 [${requestId}] No active playback`);
+        console.log(`🎵 [${requestId}] No active playback for user ${userId}`);
       }
     } catch (playbackError) {
       const errorMessage = (playbackError as Error).message;
-      console.log(`❌ [${requestId}] getCurrentPlayback() failed: ${errorMessage} (${Date.now() - playbackStart}ms)`);
+      console.log(`❌ [${requestId}] getCurrentPlayback() failed for user ${userId}: ${errorMessage} (${Date.now() - playbackStart}ms)`);
       spotifyErrors.push(`getCurrentPlayback: ${errorMessage}`);
       
       if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
@@ -79,20 +67,20 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    // Try getQueue second
-    console.log(`🎵 [${requestId}] Calling getQueue()...`);
+    // Try getQueue second (MULTI-TENANT: pass userId!)
+    console.log(`🎵 [${requestId}] Calling getQueue(${userId})...`);
     const queueStart = Date.now();
     try {
-      queueData = await spotifyService.getQueue();
-      console.log(`✅ [${requestId}] getQueue() successful (${Date.now() - queueStart}ms)`);
+      queueData = await spotifyService.getQueue(userId);
+      console.log(`✅ [${requestId}] getQueue() successful for user ${userId} (${Date.now() - queueStart}ms)`);
       if (queueData?.queue) {
-        console.log(`🎵 [${requestId}] Queue has ${queueData.queue.length} items`);
+        console.log(`🎵 [${requestId}] Queue has ${queueData.queue.length} items for user ${userId}`);
       } else {
-        console.log(`🎵 [${requestId}] No queue data`);
+        console.log(`🎵 [${requestId}] No queue data for user ${userId}`);
       }
     } catch (queueError) {
       const errorMessage = (queueError as Error).message;
-      console.log(`❌ [${requestId}] getQueue() failed: ${errorMessage} (${Date.now() - queueStart}ms)`);
+      console.log(`❌ [${requestId}] getQueue() failed for user ${userId}: ${errorMessage} (${Date.now() - queueStart}ms)`);
       spotifyErrors.push(`getQueue: ${errorMessage}`);
       
       if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
