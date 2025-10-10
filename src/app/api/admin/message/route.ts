@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { getEventSettings, updateEventSettings } from '@/lib/db';
-import { triggerEvent, CHANNELS } from '@/lib/pusher';
+import { sql } from '@/lib/db/neon-client';
+import { triggerEvent, getUserChannel } from '@/lib/pusher';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,23 +25,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid message duration' }, { status: 400 });
     }
 
-    // Update the message using the proper database function
-    const updatedSettings = await updateEventSettings({
-      message_text: message_text.trim(),
-      message_duration,
-      message_created_at: new Date()
-    });
+    const messageCreatedAt = new Date().toISOString();
 
-    console.log('✅ Message updated:', { message_text: message_text.trim(), message_duration });
+    // Update the user's event config with the message (MULTI-TENANT)
+    await sql`
+      UPDATE events
+      SET config = jsonb_set(
+            jsonb_set(
+              jsonb_set(
+                config,
+                '{message_text}',
+                to_jsonb(${message_text.trim()}::text)
+              ),
+              '{message_duration}',
+              to_jsonb(${message_duration}::int)
+            ),
+            '{message_created_at}',
+            to_jsonb(${messageCreatedAt}::text)
+          ),
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+    `;
 
-    // Trigger Pusher event for real-time updates (same as page controls)
+    console.log('✅ Message updated:', { message_text: message_text.trim(), message_duration, userId });
+
+    // Trigger Pusher event for real-time updates (USER-SPECIFIC CHANNEL)
     try {
-      await triggerEvent(CHANNELS.PARTY_PLAYLIST, 'message-update', {
+      const userChannel = getUserChannel(userId);
+      await triggerEvent(userChannel, 'message-update', {
         message_text: message_text.trim(),
         message_duration,
-        message_created_at: updatedSettings.message_created_at?.toISOString() || new Date().toISOString()
+        message_created_at: messageCreatedAt,
+        userId
       });
-      console.log('📡 Pusher event sent for message update');
+      console.log(`📡 Pusher event sent for message update to ${userChannel}`);
     } catch (pusherError) {
       console.error('❌ Failed to send Pusher event:', pusherError);
       // Don't fail the request if Pusher fails
@@ -53,7 +70,7 @@ export async function POST(req: NextRequest) {
       data: {
         message_text: message_text.trim(),
         message_duration,
-        message_created_at: updatedSettings.message_created_at?.toISOString() || new Date().toISOString()
+        message_created_at: messageCreatedAt
       }
     });
 
@@ -78,21 +95,36 @@ export async function DELETE(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`💬 [message/delete] User ${auth.user.username} (${userId}) clearing message`);
 
-    // Clear the message using the proper database function
-    await updateEventSettings({
-      message_text: null,
-      message_duration: null,
-      message_created_at: null
-    });
+    // Clear the message from user's event config (MULTI-TENANT)
+    await sql`
+      UPDATE events
+      SET config = jsonb_set(
+            jsonb_set(
+              jsonb_set(
+                config,
+                '{message_text}',
+                'null'::jsonb
+              ),
+              '{message_duration}',
+              'null'::jsonb
+            ),
+            '{message_created_at}',
+            'null'::jsonb
+          ),
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+    `;
 
-    console.log('✅ Message cleared');
+    console.log('✅ Message cleared for user:', userId);
 
-    // Trigger Pusher event for real-time updates (same as page controls)
+    // Trigger Pusher event for real-time updates (USER-SPECIFIC CHANNEL)
     try {
-      await triggerEvent(CHANNELS.PARTY_PLAYLIST, 'message-cleared', {
-        cleared_at: new Date().toISOString()
+      const userChannel = getUserChannel(userId);
+      await triggerEvent(userChannel, 'message-cleared', {
+        cleared_at: new Date().toISOString(),
+        userId
       });
-      console.log('📡 Pusher event sent for message cleared');
+      console.log(`📡 Pusher event sent for message cleared to ${userChannel}`);
     } catch (pusherError) {
       console.error('❌ Failed to send Pusher event:', pusherError);
       // Don't fail the request if Pusher fails
@@ -115,25 +147,49 @@ export async function DELETE(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    // No auth required for getting messages (display page needs this)
-    const settings = await getEventSettings();
+    // Extract username from query params for multi-tenant support
+    const { searchParams } = new URL(req.url);
+    const username = searchParams.get('username');
     
+    if (!username) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    console.log(`📖 [message/get] Fetching message for user: ${username}`);
+
+    // Get user's event config (MULTI-TENANT)
+    const result = await sql`
+      SELECT e.config
+      FROM events e
+      JOIN users u ON e.user_id = u.id
+      WHERE u.username = ${username}
+      LIMIT 1
+    `;
+    
+    if (result.rows.length === 0) {
+      return NextResponse.json({
+        message_text: null,
+        message_duration: null,
+        message_created_at: null,
+        expired: false
+      });
+    }
+
+    const config = result.rows[0].config as any;
+    const messageText = config?.message_text || null;
+    const messageDuration = config?.message_duration || null;
+    const messageCreatedAt = config?.message_created_at || null;
+
     // Check if message has expired
     let isExpired = false;
-    if (settings.message_text && settings.message_duration && settings.message_created_at) {
-      const createdAt = new Date(settings.message_created_at);
-      const expiresAt = new Date(createdAt.getTime() + (settings.message_duration * 1000));
+    if (messageText && messageDuration && messageCreatedAt) {
+      const createdAt = new Date(messageCreatedAt);
+      const expiresAt = new Date(createdAt.getTime() + (messageDuration * 1000));
       isExpired = new Date() > expiresAt;
     }
 
-    // If expired, clear the message
+    // If expired, return null (don't auto-clear for now to avoid race conditions)
     if (isExpired) {
-      await updateEventSettings({
-        message_text: null,
-        message_duration: null,
-        message_created_at: null
-      });
-      
       return NextResponse.json({
         message_text: null,
         message_duration: null,
@@ -143,9 +199,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      message_text: settings.message_text || null,
-      message_duration: settings.message_duration || null,
-      message_created_at: settings.message_created_at?.toISOString() || null,
+      message_text: messageText,
+      message_duration: messageDuration,
+      message_created_at: messageCreatedAt,
       expired: false
     });
 
