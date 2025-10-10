@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Lock } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -183,6 +183,10 @@ function DisplayPage({ username }: { username: string }) {
   const [showingNotification, setShowingNotification] = useState(false);
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
   const [mounted, setMounted] = useState(false);
+  
+  // Track if Now Playing section should use horizontal layout
+  const [useHorizontalLayout, setUseHorizontalLayout] = useState(false);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
@@ -368,6 +372,31 @@ function DisplayPage({ username }: { username: string }) {
   } : null;
   
   const liveProgress = useLiveProgress(playbackState, 1000);
+
+  // Callback ref for grid container - sets up ResizeObserver when element is mounted
+  const gridContainerRef = useCallback((element: HTMLDivElement | null) => {
+    // Clean up existing observer
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+
+    if (!element || deviceType !== 'tv') {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        // Switch to horizontal layout if width is more than 2x the height
+        const shouldBeHorizontal = width >= height * 2;
+        setUseHorizontalLayout(shouldBeHorizontal);
+      }
+    });
+
+    observer.observe(element);
+    resizeObserverRef.current = observer;
+  }, [deviceType]);
 
   // Calculate dynamic font size based on message length and device type
   // Ensures ALL text fits in container without resizing, minimum 0.1rem
@@ -783,6 +812,7 @@ function DisplayPage({ username }: { username: string }) {
 
           {/* Main Content Area - Dynamic Height */}
           <div 
+            ref={gridContainerRef}
             className="flex-1 min-h-0"
             style={{
               display: 'grid',
@@ -793,53 +823,102 @@ function DisplayPage({ username }: { username: string }) {
               transition: 'grid-template-columns 1s ease-in-out, grid-template-rows 1s ease-in-out, margin-right 1s ease-in-out'
             }}
           >
-              {/* Now Playing */}
-              <div 
-                className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
+              {/* Now Playing - Dynamic Layout Wrapper */}
+              <div
                 style={{
                   gridColumn: '1 / span 2',
-                  gridRow: '1'
+                  gridRow: '1 / span 2',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.5rem'
                 }}
               >
-                  <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
-                {currentTrack ? (
-                  <div className="text-center">
-                    {currentTrack.image_url && (
-                      <img 
-                        src={currentTrack.image_url} 
-                        alt="Album Art" 
-                          className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
-                        />
+                {useHorizontalLayout && eventSettings.show_qr_code && qrCodeUrl ? (
+                  // Horizontal Layout: QR Code on left, Now Playing info on right
+                  <div 
+                    className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex items-center gap-8 min-w-0 h-full"
+                  >
+                    {/* QR Code Section */}
+                    <div className="flex-shrink-0 bg-white rounded-xl p-4 flex flex-col items-center justify-center">
+                      <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" style={{ aspectRatio: '1/1' }} />
+                      <p className="text-black text-sm font-semibold mt-2">Scan the QR code to make</p>
+                      <p className="text-black text-sm font-semibold">a request, or visit:</p>
+                      <p className="text-black text-xs font-mono mt-1">partyplaylist.co.uk/</p>
+                      <p className="text-black text-xs font-mono">[username]/request</p>
+                    </div>
+
+                    {/* Now Playing Section */}
+                    <div className="flex-1 flex flex-col justify-center min-w-0">
+                      <h2 className="text-2xl font-semibold mb-4 text-center">🎵 Now Playing</h2>
+                      {currentTrack ? (
+                        <div className="flex items-center gap-6">
+                          {currentTrack.image_url && (
+                            <img 
+                              src={currentTrack.image_url} 
+                              alt="Album Art" 
+                              className="w-32 h-32 rounded-lg shadow-lg flex-shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-3xl font-bold mb-2 leading-tight truncate">{currentTrack.name}</h3>
+                            <p className="text-xl text-gray-300 mb-1 truncate">
+                              {currentTrack.artists && currentTrack.artists.length > 0 
+                                ? currentTrack.artists.filter(a => a).join(', ') 
+                                : 'Unknown Artist'}
+                            </p>
+                            <p className="text-base text-gray-400 truncate">{currentTrack.album || 'Unknown Album'}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400 text-lg">
+                          No song currently playing
+                        </div>
                       )}
-                      <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
-                      <p className="text-lg text-gray-300 mb-2">
-                        {currentTrack.artists && currentTrack.artists.length > 0 
-                          ? currentTrack.artists.filter(a => a).join(', ') 
-                          : 'Unknown Artist'}
-                      </p>
-                      <p className="text-sm text-gray-400 mb-3">{currentTrack.album || 'Unknown Album'}</p>
-                      
+                    </div>
                   </div>
                 ) : (
-                    <div className="text-center text-gray-400 text-lg">
-                    No song currently playing
-                  </div>
+                  // Vertical Layout: Original stacked design
+                  <>
+                    <div 
+                      className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0 flex-1"
+                    >
+                      <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
+                      {currentTrack ? (
+                        <div className="text-center">
+                          {currentTrack.image_url && (
+                            <img 
+                              src={currentTrack.image_url} 
+                              alt="Album Art" 
+                              className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
+                            />
+                          )}
+                          <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
+                          <p className="text-lg text-gray-300 mb-2">
+                            {currentTrack.artists && currentTrack.artists.length > 0 
+                              ? currentTrack.artists.filter(a => a).join(', ') 
+                              : 'Unknown Artist'}
+                          </p>
+                          <p className="text-sm text-gray-400 mb-3">{currentTrack.album || 'Unknown Album'}</p>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400 text-lg">
+                          No song currently playing
+                        </div>
+                      )}
+                    </div>
+
+                    {/* QR Code */}
+                    {eventSettings.show_qr_code && qrCodeUrl && (
+                      <div 
+                        className="bg-white rounded-2xl p-6 text-center flex flex-col justify-center items-center min-w-0 flex-1"
+                      >
+                        <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
+                        <p className="text-black text-lg font-semibold">Request your song now!</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-
-              {/* QR Code */}
-              {eventSettings.show_qr_code && qrCodeUrl && (
-                <div 
-                  className="bg-white rounded-2xl p-6 text-center flex flex-col justify-center items-center min-w-0"
-                  style={{
-                    gridColumn: '1 / span 2',
-                    gridRow: '2'
-                  }}
-                >
-                  <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
-                  <p className="text-black text-lg font-semibold">Request your song now!</p>
-                </div>
-              )}
 
               {/* Up Next */}
               <div 
