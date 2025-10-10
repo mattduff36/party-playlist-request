@@ -898,10 +898,15 @@ function DisplayPage({ username }: { username: string }) {
                         style={{ width: '300px', height: '300px', aspectRatio: '1/1' }}
                       />
                       <div className="text-left" style={{ width: '300px' }}>
-                        <p className="text-black text-2xl font-semibold mb-2">Scan the QR code to make</p>
-                        <p className="text-black text-2xl font-semibold mb-4">a request, or visit:</p>
-                        <p className="text-black text-xl font-mono">partyplaylist.co.uk/</p>
-                        <p className="text-black text-xl font-mono">[username]/request</p>
+                        <p className="text-black text-xl font-semibold mb-4 leading-relaxed">
+                          Scan the QR code to make a request, or visit:
+                        </p>
+                        <p className="text-black text-lg font-bold mb-1">
+                          partyplaylist.co.uk/
+                        </p>
+                        <p className="text-black text-lg font-bold">
+                          {username}/request
+                        </p>
                       </div>
                     </div>
                   ) : (
