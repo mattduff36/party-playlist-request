@@ -99,12 +99,7 @@ Keep the current structure but deploy the backend as Vercel functions:
 - **Pro ($20/month)**: More bandwidth and invocations
 - **Database**: Vercel KV free tier or PlanetScale free
 
-### **Vercel + Railway:**
-- **Vercel**: Free for frontend
-- **Railway**: $5/month for backend
-- **Total**: ~$5/month
-
-**Recommendation**: Start with Vercel-only for simplicity!
+**Recommendation**: Vercel-only deployment is simpler and currently in use!
 
 ## **🔧 Let Me Convert It For You**
 
