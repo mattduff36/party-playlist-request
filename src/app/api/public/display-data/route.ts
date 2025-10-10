@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventSettings, getRequestsByStatus } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
+import { getActiveEvent } from '@/lib/event-service';
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,6 +31,10 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = userResult.rows[0].id;
+
+    // Get active event to retrieve PIN
+    const activeEvent = await getActiveEvent(userId);
+    const eventPin = activeEvent?.pin || null;
 
     // Get event settings
     const settings = await getEventSettings();
@@ -91,6 +96,7 @@ export async function GET(req: NextRequest) {
         tertiary_message: settings.tertiary_message || 'Keep the party going!',
         show_qr_code: settings.show_qr_code ?? true,
         display_refresh_interval: settings.display_refresh_interval || 20,
+        pin: eventPin,
       },
       current_track: currentTrack,
       upcoming_songs: upcomingSongs
