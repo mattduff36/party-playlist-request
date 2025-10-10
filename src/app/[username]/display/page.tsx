@@ -769,7 +769,7 @@ function DisplayPage({ username }: { username: string }) {
   if (deviceType === 'tv') {
     return (
       <div className="h-screen text-white p-6 overflow-hidden" style={gradientStyle}>
-        <div className="max-w-7xl mx-auto h-full flex flex-col">
+        <div className="w-full h-full flex flex-col">
           {/* Header - Fixed Height */}
           <div className="text-center py-4 flex-shrink-0">
             <h1 className="text-5xl font-bold mb-2">{eventSettings.event_title}</h1>
@@ -783,7 +783,7 @@ function DisplayPage({ username }: { username: string }) {
 
           {/* Main Content Area - Dynamic Height */}
           <div 
-            className="flex-1 min-h-0 mb-4"
+            className="flex-1 min-h-0"
             style={{
               display: 'grid',
               gridTemplateColumns: isMessageVisible ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr' : '1fr 1fr 1fr 1fr 0fr 0fr',
@@ -941,7 +941,7 @@ function DisplayPage({ username }: { username: string }) {
 
           {/* Scrolling Messages Bar at Bottom - Fixed Height */}
           {(eventSettings as any).show_scrolling_bar !== false && (
-            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 overflow-hidden flex-shrink-0 h-16">
+            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 overflow-hidden flex-shrink-0 h-16 mt-4">
               <div className="flex items-center h-full">
                 <div className="text-xl mr-3">📢</div>
                 <div className="flex-1 overflow-hidden">
@@ -966,7 +966,7 @@ function DisplayPage({ username }: { username: string }) {
       // Tablet Landscape - Full desktop layout with smaller text
       return (
         <div className="h-screen text-white p-3 overflow-hidden" style={gradientStyle}>
-          <div className="max-w-6xl mx-auto h-full flex flex-col">
+          <div className="w-full h-full flex flex-col">
             {/* Header - Fixed Height */}
             <div className="text-center py-2 flex-shrink-0">
               <h1 className="text-3xl font-bold mb-1">{eventSettings.event_title}</h1>
@@ -980,7 +980,7 @@ function DisplayPage({ username }: { username: string }) {
 
             {/* Main Content Area - Dynamic Height */}
             <div 
-              className="flex-1 min-h-0 mb-3"
+              className="flex-1 min-h-0"
               style={{
                 display: 'grid',
                 gridTemplateColumns: isMessageVisible ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr' : '1fr 1fr 1fr 1fr 0fr 0fr',
@@ -1125,13 +1125,13 @@ function DisplayPage({ username }: { username: string }) {
 
             {/* Scrolling Messages Bar at Bottom - Fixed Height */}
             {(eventSettings as any).show_scrolling_bar !== false && (
-              <div className="bg-black/50 backdrop-blur-sm rounded-xl p-2 overflow-hidden flex-shrink-0 h-12">
+              <div className="bg-black/50 backdrop-blur-sm rounded-xl p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
                 <div className="flex items-center h-full">
                   <div className="text-base mr-2">📢</div>
                   <div className="flex-1 overflow-hidden">
-                    <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
-                      {displayContent}
-                    </div>
+                      <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
+                        {displayContent}
+                      </div>
                   </div>
                 </div>
               </div>
@@ -1218,7 +1218,7 @@ function DisplayPage({ username }: { username: string }) {
 
             {/* Scrolling Messages Bar at Bottom */}
             {(eventSettings as any).show_scrolling_bar !== false && (
-              <div className="bg-black/50 backdrop-blur-sm rounded-xl p-3 overflow-hidden flex-shrink-0 h-14">
+              <div className="bg-black/50 backdrop-blur-sm rounded-xl p-3 overflow-hidden flex-shrink-0 h-14 mt-4">
                 <div className="flex items-center h-full">
                   <div className="text-lg mr-3">📢</div>
                   <div className="flex-1 overflow-hidden">
@@ -1401,7 +1401,7 @@ function DisplayPage({ username }: { username: string }) {
 
           {/* Scrolling Messages Bar at Bottom - Fixed Height */}
           {(eventSettings as any).show_scrolling_bar !== false && (
-            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-1 overflow-hidden flex-shrink-0 h-8">
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-1 overflow-hidden flex-shrink-0 h-8 mt-2">
               <div className="flex items-center h-full">
                 <div className="text-xs mr-1">📢</div>
                 <div className="flex-1 overflow-hidden">
@@ -1494,7 +1494,7 @@ function DisplayPage({ username }: { username: string }) {
 
           {/* Scrolling Messages Bar at Bottom */}
           {(eventSettings as any).show_scrolling_bar !== false && (
-            <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 overflow-hidden flex-shrink-0 h-12">
+            <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
               <div className="flex items-center h-full">
                 <div className="text-sm mr-2">📢</div>
                 <div className="flex-1 overflow-hidden">
