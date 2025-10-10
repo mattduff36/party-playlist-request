@@ -101,16 +101,16 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get track information from Spotify
-    console.log(`🎵 [${requestId}] Getting track info from Spotify...`);
+    // Get track information from Spotify (MULTI-TENANT!)
+    console.log(`🎵 [${requestId}] Getting track info from Spotify for user ${userId}...`);
     let trackInfo;
     try {
       // Extract track ID from URI (spotify:track:ID -> ID)
       const trackId = trackUri.replace('spotify:track:', '');
-      trackInfo = await spotifyService.getTrack(trackId);
-      console.log(`✅ [${requestId}] Track info retrieved (${Date.now() - startTime}ms)`);
+      trackInfo = await spotifyService.getTrack(trackId, userId);
+      console.log(`✅ [${requestId}] Track info retrieved for user ${userId} (${Date.now() - startTime}ms)`);
     } catch (error) {
-      console.log(`❌ [${requestId}] Failed to get track info (${Date.now() - startTime}ms):`, error);
+      console.log(`❌ [${requestId}] Failed to get track info for user ${userId} (${Date.now() - startTime}ms):`, error);
       return NextResponse.json({ 
         error: 'Unable to find track on Spotify. Please check the URL/URI.' 
       }, { status: 400 });
@@ -169,14 +169,14 @@ export async function POST(req: NextRequest) {
     });
     console.log(`✅ [${requestId}] Request created successfully with status: ${initialStatus} (${Date.now() - startTime}ms total)`);
 
-    // 🎵 AUTO-QUEUE: If auto-approved, try to add to Spotify queue
+    // 🎵 AUTO-QUEUE: If auto-approved, try to add to Spotify queue (MULTI-TENANT!)
     let queueSuccess = false;
     if (shouldAutoApprove) {
       try {
-        console.log(`🎵 [${requestId}] Auto-approved request - adding to Spotify queue...`);
-        await spotifyService.addToQueue(trackInfo.uri);
+        console.log(`🎵 [${requestId}] Auto-approved request - adding to Spotify queue for user ${userId}...`);
+        await spotifyService.addToQueue(trackInfo.uri, undefined, userId);
         queueSuccess = true;
-        console.log(`✅ [${requestId}] Successfully added to Spotify queue`);
+        console.log(`✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`);
         
         // Update the request to mark it as added to queue
         await updateRequest(newRequest.id, {

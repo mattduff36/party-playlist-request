@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('q');
     const limit = parseInt(searchParams.get('limit') || '20');
+    const username = searchParams.get('username');
     
     if (!query || query.trim().length < 2) {
       return NextResponse.json({ 
@@ -16,9 +17,24 @@ export async function GET(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // MULTI-TENANT: Get userId from username
+    let userId: string | null = null;
+    if (username) {
+      const { getPool } = await import('@/lib/db');
+      const pool = getPool();
+      const userResult = await pool.query(
+        'SELECT id FROM users WHERE username = $1',
+        [username]
+      );
+
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+      }
+    }
+
     const searchLimit = Math.min(limit || 20, 50);
     
-    const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit);
+    const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit, userId);
     
     // Extract tracks from Spotify API response
     const tracks = searchResult?.tracks?.items || [];

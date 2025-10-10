@@ -40,11 +40,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let playlistSuccess = false;
     let errors: string[] = [];
 
-    // Add to Spotify queue if requested
+    // Add to Spotify queue if requested (MULTI-TENANT!)
     if (add_to_queue) {
       try {
         const deviceSetting = await getSetting('target_device_id');
-        await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined);
+        await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined, userId);
         queueSuccess = true;
         
         // Note: Spotify API doesn't support adding to front of queue directly
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    // Add to playlist if requested
+    // Add to playlist if requested (MULTI-TENANT!)
     if (add_to_playlist) {
       try {
         const playlistSetting = await getSetting('party_playlist_id');
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (!playlistSetting) {
           errors.push('Party playlist not configured');
         } else {
-          await spotifyService.addToPlaylist(playlistSetting, request.track_uri);
+          await spotifyService.addToPlaylist(playlistSetting, request.track_uri, userId);
           playlistSuccess = true;
         }
       } catch (error) {

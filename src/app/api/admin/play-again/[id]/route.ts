@@ -33,10 +33,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let queueSuccess = false;
     let errors: string[] = [];
 
-    // Add to Spotify queue
+    // Add to Spotify queue (MULTI-TENANT!)
     try {
       const deviceSetting = await getSetting('target_device_id');
-      await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined);
+      await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined, userId);
       queueSuccess = true;
       
       console.log(`🎵 Re-added "${request.track_name}" to Spotify queue (play_next: ${play_next})`);

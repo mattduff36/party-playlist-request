@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
 
     // For now, Spotify API only supports adding to the end of the queue
     // We'll implement "play next" functionality by adding to queue
-    // and potentially skipping current track if position is "top"
+    // and potentially skipping current track if position is "top" (MULTI-TENANT!)
     
-    await spotifyService.addToQueue(track_uri, device_id);
+    await spotifyService.addToQueue(track_uri, device_id, userId);
     
     return NextResponse.json({
       success: true,
