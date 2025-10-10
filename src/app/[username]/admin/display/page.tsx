@@ -316,7 +316,7 @@ export default function DisplaySettingsPage() {
             >
               <h3 className="text-lg font-semibold text-white flex items-center">
                 <Palette className="w-5 h-5 mr-2" />
-                Color Theme
+                Colour Theme
               </h3>
               {expandedSections.colorTheme ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -329,10 +329,10 @@ export default function DisplaySettingsPage() {
               <div className="p-4 space-y-6">
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Primary Color */}
+              {/* Primary Colour */}
               <div>
                 <label htmlFor="theme_primary_color" className="block text-sm font-medium text-gray-300 mb-2">
-                  Primary Color
+                  Primary Colour
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
@@ -356,10 +356,10 @@ export default function DisplaySettingsPage() {
                 </p>
               </div>
 
-              {/* Secondary Color */}
+              {/* Secondary Colour */}
               <div>
                 <label htmlFor="theme_secondary_color" className="block text-sm font-medium text-gray-300 mb-2">
-                  Secondary Color
+                  Secondary Colour
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
@@ -383,10 +383,10 @@ export default function DisplaySettingsPage() {
                 </p>
               </div>
 
-              {/* Tertiary Color */}
+              {/* Tertiary Colour */}
               <div>
                 <label htmlFor="theme_tertiary_color" className="block text-sm font-medium text-gray-300 mb-2">
-                  Tertiary Color
+                  Tertiary Colour
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
@@ -413,7 +413,7 @@ export default function DisplaySettingsPage() {
 
             {/* Preview */}
             <div className="mt-4">
-              <p className="text-sm font-medium text-gray-300 mb-2">Color Preview</p>
+              <p className="text-sm font-medium text-gray-300 mb-2">Colour Preview</p>
               <div 
                 className="h-24 rounded-lg"
                 style={{

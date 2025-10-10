@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { getEventSettings, updateEventSettings } from '@/lib/db';
-import { triggerEvent, CHANNELS } from '@/lib/pusher';
+import { triggerEvent, getUserChannel } from '@/lib/pusher';
 
 export async function GET(req: NextRequest) {
   try {
@@ -102,13 +102,15 @@ export async function POST(req: NextRequest) {
       karaoke_mode
     });
     
-    // Trigger Pusher event to notify all clients of settings update
+    // Trigger Pusher event to notify all clients of settings update (USER-SPECIFIC CHANNEL)
     try {
-      await triggerEvent(CHANNELS.PARTY_PLAYLIST, 'settings-update', {
+      const userChannel = getUserChannel(userId);
+      await triggerEvent(userChannel, 'settings-update', {
         settings: updatedSettings,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        userId
       });
-      console.log('📡 Settings update event sent via Pusher');
+      console.log(`📡 Settings update event sent via Pusher to ${userChannel}`);
     } catch (pusherError) {
       console.error('Failed to send Pusher event for settings update:', pusherError);
       // Don't fail the request if Pusher fails
