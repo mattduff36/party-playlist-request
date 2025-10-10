@@ -17,6 +17,7 @@ import NotificationsDropdown from '@/components/admin/NotificationsDropdown';
 import NotificationInitializer from '@/components/admin/NotificationInitializer';
 import EventStateDropdown from '@/components/admin/EventStateDropdown';
 import PageToggleIcons from '@/components/admin/PageToggleIcons';
+import EventTitleEditor from '@/components/admin/EventTitleEditor';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -248,6 +249,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               <div className="flex items-center space-x-4">
                 <EventStateDropdown />
                 <PageToggleIcons />
+                <EventTitleEditor />
             </div>
               <div className="flex items-center space-x-4">
               <SpotifyStatusDropdown />

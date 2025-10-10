@@ -44,7 +44,7 @@ export default function PageToggleIcons() {
         onClick={() => handlePageToggle('requests')}
         disabled={isToggling === 'requests' || !canControlPages}
         className={`
-          relative px-3 py-2 rounded-lg border-2 transition-all
+          relative p-2 rounded-lg border-2 transition-all
           ${requestsEnabled 
             ? 'bg-green-900/20 border-green-600 text-green-400' 
             : 'bg-gray-800 border-gray-600 text-gray-400'
@@ -58,10 +58,7 @@ export default function PageToggleIcons() {
             : `Requests Page: ${requestsEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
       >
-        <div className="flex items-center gap-1.5">
-          <Smartphone className="w-4 h-4" />
-          <span className="text-xs font-medium">Requests</span>
-        </div>
+        <Smartphone className="w-5 h-5" />
       </button>
 
       {/* Display Page Toggle */}
@@ -69,7 +66,7 @@ export default function PageToggleIcons() {
         onClick={() => handlePageToggle('display')}
         disabled={isToggling === 'display' || !canControlPages}
         className={`
-          relative px-3 py-2 rounded-lg border-2 transition-all
+          relative p-2 rounded-lg border-2 transition-all
           ${displayEnabled 
             ? 'bg-green-900/20 border-green-600 text-green-400' 
             : 'bg-gray-800 border-gray-600 text-gray-400'
@@ -83,10 +80,7 @@ export default function PageToggleIcons() {
             : `Display Page: ${displayEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
       >
-        <div className="flex items-center gap-1.5">
-          <Monitor className="w-4 h-4" />
-          <span className="text-xs font-medium">Display</span>
-        </div>
+        <Monitor className="w-5 h-5" />
       </button>
     </>
   );
