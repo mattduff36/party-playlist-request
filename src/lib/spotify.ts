@@ -1,12 +1,5 @@
 import crypto from 'crypto';
 import { getSpotifyAuth, setSpotifyAuth } from './db';
-import { 
-  shouldAttemptSpotifyCall, 
-  recordSpotifySuccess, 
-  recordSpotifyFailure,
-  isSpotifyPermanentlyDisconnected,
-  getConnectionStatusMessage
-} from './spotify-connection-state';
 
 export interface SpotifyTrack {
   id: string;

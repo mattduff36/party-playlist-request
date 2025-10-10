@@ -6,7 +6,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
-import { getConnectionStatusMessage, isSpotifyPermanentlyDisconnected } from '@/lib/spotify-connection-state';
 
 export async function GET(request: NextRequest) {
   try {

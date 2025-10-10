@@ -3,8 +3,6 @@ import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 import { triggerPlaybackUpdate, triggerStatsUpdate } from '@/lib/pusher';
 import { getAllRequests } from '@/lib/db';
-import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
-import { shouldAttemptSpotifyCall, isSpotifyPermanentlyDisconnected } from '@/lib/spotify-connection-state';
 
 // Store last known state PER USER to detect changes (excluding progress_ms which changes constantly)
 const lastPlaybackStates = new Map<string, any>(); // userId -> lastPlaybackState

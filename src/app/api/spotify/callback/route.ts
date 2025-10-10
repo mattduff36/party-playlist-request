@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
-import { resetSpotifyConnectionState } from '@/lib/spotify-connection-state';
 
 // Handle GET request (when Spotify redirects back)
 export async function GET(req: NextRequest) {

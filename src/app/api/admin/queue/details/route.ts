@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
-import { getSpotifyConnectionStatus } from '@/lib/spotify-status';
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();

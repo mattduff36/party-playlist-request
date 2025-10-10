@@ -3,7 +3,6 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { usePusher } from '@/hooks/usePusher';
 import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
-import { markSpotifyDisconnected } from '@/lib/spotify-status-client';
 
 // Types (simplified from the old useAdminData)
 export interface Request {
