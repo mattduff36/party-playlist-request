@@ -439,7 +439,7 @@ export async function verifyRequestOwnership(requestId: string, userId: string):
   return result.rows.length > 0;
 }
 
-export async function updateRequest(id: string, updates: Partial<Request>): Promise<Request | null> {
+export async function updateRequest(id: string, updates: Partial<Request>, userId?: string): Promise<Request | null> {
   const client = getPool();
   
   const setClause = Object.keys(updates)
@@ -448,6 +448,16 @@ export async function updateRequest(id: string, updates: Partial<Request>): Prom
   
   const values = [id, ...Object.values(updates)];
   
+  // If userId provided, ensure ownership (multi-tenant isolation)
+  if (userId) {
+    values.push(userId);
+    const result = await client.query(`
+      UPDATE requests SET ${setClause} WHERE id = $1 AND user_id = $${values.length} RETURNING *
+    `, values);
+    return result.rows[0] || null;
+  }
+  
+  // Legacy: update any (for backward compatibility during migration)
   const result = await client.query(`
     UPDATE requests SET ${setClause} WHERE id = $1 RETURNING *
   `, values);
@@ -504,8 +514,24 @@ export async function getAllRequests(limit = 50, offset = 0, userId?: string): P
   return result.rows;
 }
 
-export async function checkRecentDuplicate(trackUri: string, minutesAgo: number = 30): Promise<Request | null> {
+export async function checkRecentDuplicate(trackUri: string, minutesAgo: number = 30, userId?: string): Promise<Request | null> {
   const client = getPool();
+  
+  // If userId provided, check only for THIS USER's duplicates (multi-tenant isolation)
+  if (userId) {
+    const result = await client.query(
+      `SELECT * FROM requests 
+       WHERE track_uri = $1 
+       AND user_id = $2
+       AND created_at > NOW() - INTERVAL '${minutesAgo} minutes'
+       AND status IN ('pending', 'approved', 'queued')
+       LIMIT 1`,
+      [trackUri, userId]
+    );
+    return result.rows[0] || null;
+  }
+  
+  // Legacy: check global duplicates (for backward compatibility during migration)
   const result = await client.query(
     `SELECT * FROM requests 
      WHERE track_uri = $1 

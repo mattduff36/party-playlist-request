@@ -116,10 +116,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check for recent duplicates using efficient database query
-    console.log(`🔍 [${requestId}] Checking for recent duplicates...`);
-    const recentDuplicate = await checkRecentDuplicate(trackUri, 30);
-    console.log(`✅ [${requestId}] Duplicate check completed (${Date.now() - startTime}ms)`);
+    // Check for recent duplicates using efficient database query (MULTI-TENANT!)
+    console.log(`🔍 [${requestId}] Checking for recent duplicates for user ${userId}...`);
+    const recentDuplicate = await checkRecentDuplicate(trackUri, 30, userId);
+    console.log(`✅ [${requestId}] Duplicate check completed for user ${userId} (${Date.now() - startTime}ms)`);
 
     if (recentDuplicate) {
       console.log(`⚠️ [${requestId}] Duplicate found, rejecting request`);
