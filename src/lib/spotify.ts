@@ -54,11 +54,6 @@ class SpotifyService {
 
   async isConnectedAndValid(userId?: string): Promise<boolean> {
     try {
-      // Quick check: if permanently disconnected, don't even try
-      if (isSpotifyPermanentlyDisconnected()) {
-        return false;
-      }
-
       const auth = await getSpotifyAuth(userId);
       if (!auth || !auth.access_token || !auth.refresh_token) {
         return false;
@@ -66,12 +61,6 @@ class SpotifyService {
       
       // Check if token is expired
       if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
-        // Only attempt refresh if we should try
-        if (!shouldAttemptSpotifyCall()) {
-          // In backoff period, just return false quietly
-          return false;
-        }
-
         console.log('Access token expired, attempting refresh...');
         try {
           await this.refreshAccessToken(userId || auth.user_id);
