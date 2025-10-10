@@ -241,6 +241,7 @@ function DisplayPage({ username }: { username: string }) {
   
   // 🚀 PUSHER: Real-time updates with animation triggers
   const { isConnected, connectionState } = usePusher({
+    username: username, // Pass username for userId lookup on public pages
     onPageControlToggle: (data: any) => {
       console.log('🔄 Display page control changed via Pusher:', data);
       // State is now managed by GlobalEventProvider via Pusher listeners

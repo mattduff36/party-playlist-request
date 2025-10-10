@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createPusherClient, CHANNELS, EVENTS, RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
+import { createPusherClient, EVENTS, RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent, getUserChannel, getAdminChannel } from '@/lib/pusher';
 import type { Channel } from 'pusher-js';
 
 interface UsePusherOptions {
+  username?: string; // Optional username for public pages (display/request pages)
   onRequestApproved?: (data: RequestApprovedEvent) => void;
   onRequestRejected?: (data: RequestRejectedEvent) => void;
   onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
@@ -23,16 +24,58 @@ interface UsePusherOptions {
 export const usePusher = (options: UsePusherOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<string>('initializing');
+  const [userId, setUserId] = useState<string | null>(null);
   const pusherRef = useRef<any>(null);
-  const channelRef = useRef<Channel | null>(null);
+  const userChannelRef = useRef<Channel | null>(null);
+  const adminChannelRef = useRef<Channel | null>(null);
   const optionsRef = useRef(options);
 
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout, options.onSettingsUpdate]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout, options.onSettingsUpdate, options.username]);
+
+  // Fetch userId from session OR from username lookup for public pages
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        // First try authenticated session
+        const authResponse = await fetch('/api/auth/me');
+        if (authResponse.ok) {
+          const data = await authResponse.json();
+          console.log('🔐 usePusher: Got userId from session:', data.user.id);
+          setUserId(data.user.id);
+          return;
+        }
+
+        // If not authenticated, try username lookup (for public pages)
+        if (options.username) {
+          console.log('🌐 usePusher: Not authenticated, looking up userId for username:', options.username);
+          const lookupResponse = await fetch(`/api/users/lookup?username=${options.username}`);
+          if (lookupResponse.ok) {
+            const data = await lookupResponse.json();
+            console.log('🌐 usePusher: Got userId from username lookup:', data.userId);
+            setUserId(data.userId);
+            return;
+          }
+        }
+
+        console.warn('⚠️ usePusher: Could not get userId from session or username');
+      } catch (error) {
+        console.error('❌ usePusher: Failed to get userId:', error);
+      }
+    };
+    fetchUserId();
+  }, [options.username]);
 
   useEffect(() => {
+    if (!userId) {
+      console.log('⏳ usePusher: Waiting for userId before setting up Pusher...');
+      return;
+    }
+
+    console.log('🚀 usePusher: Setting up Pusher for userId:', userId);
+
     // Create Pusher client
     const pusher = createPusherClient();
     pusherRef.current = pusher;
@@ -62,9 +105,11 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       setIsConnected(false);
     });
 
-    // Subscribe to party playlist channel
-    const channel = pusher.subscribe(CHANNELS.PARTY_PLAYLIST);
-    channelRef.current = channel;
+    // Subscribe to USER-SPECIFIC channel
+    const userChannel = getUserChannel(userId);
+    console.log(`📡 usePusher: Subscribing to user channel: ${userChannel}`);
+    const channel = pusher.subscribe(userChannel);
+    userChannelRef.current = channel;
 
     // Bind event listeners using stable references
     channel.bind(EVENTS.REQUEST_APPROVED, (data: RequestApprovedEvent) => {
@@ -130,30 +175,34 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       }
     });
 
-    // Subscribe to admin updates for stats
-    const adminChannel = pusher.subscribe(CHANNELS.ADMIN_UPDATES);
-    adminChannel.bind(EVENTS.STATS_UPDATE, (data: any) => {
+    // Subscribe to ADMIN-SPECIFIC channel for stats
+    const adminChannel = getAdminChannel(userId);
+    console.log(`📡 usePusher: Subscribing to admin channel: ${adminChannel}`);
+    const adminChan = pusher.subscribe(adminChannel);
+    adminChannelRef.current = adminChan;
+
+    adminChan.bind(EVENTS.STATS_UPDATE, (data: any) => {
       console.log('📊 Pusher: Stats update', data);
       if (optionsRef.current.onStatsUpdate) {
         optionsRef.current.onStatsUpdate(data);
       }
     });
 
-    adminChannel.bind(EVENTS.TOKEN_EXPIRED, (data: any) => {
+    adminChan.bind(EVENTS.TOKEN_EXPIRED, (data: any) => {
       console.log('🔒 Pusher: Token expired', data);
       if (optionsRef.current.onTokenExpired) {
         optionsRef.current.onTokenExpired(data);
       }
     });
 
-    adminChannel.bind(EVENTS.ADMIN_LOGIN, (data: any) => {
+    adminChan.bind(EVENTS.ADMIN_LOGIN, (data: any) => {
       console.log('🔐 Pusher: Admin login', data);
       if (optionsRef.current.onAdminLogin) {
         optionsRef.current.onAdminLogin(data);
       }
     });
 
-    adminChannel.bind(EVENTS.ADMIN_LOGOUT, (data: any) => {
+    adminChan.bind(EVENTS.ADMIN_LOGOUT, (data: any) => {
       console.log('🔐 Pusher: Admin logout', data);
       if (optionsRef.current.onAdminLogout) {
         optionsRef.current.onAdminLogout(data);
@@ -162,19 +211,22 @@ export const usePusher = (options: UsePusherOptions = {}) => {
 
     // Cleanup
     return () => {
-      console.log('🧹 Cleaning up Pusher connection');
-      if (channelRef.current) {
-        pusher.unsubscribe(CHANNELS.PARTY_PLAYLIST);
+      console.log('🧹 Cleaning up Pusher connection for userId:', userId);
+      if (userChannelRef.current) {
+        pusher.unsubscribe(userChannel);
       }
-      pusher.unsubscribe(CHANNELS.ADMIN_UPDATES);
+      if (adminChannelRef.current) {
+        pusher.unsubscribe(adminChannel);
+      }
       pusher.disconnect();
     };
-  }, []); // Empty dependency array - only run once!
+  }, [userId]); // Re-run when userId changes
 
   return {
     isConnected,
     connectionState,
     pusher: pusherRef.current,
-    channel: channelRef.current,
+    userChannel: userChannelRef.current,
+    adminChannel: adminChannelRef.current,
   };
 };

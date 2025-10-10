@@ -167,6 +167,7 @@ export default function UserRequestPage() {
 
   // Listen for request updates via Pusher
   usePusher({
+    username: username, // Pass username for userId lookup on public pages
     onPageControlToggle: (data: any) => {
       console.log('🔄 Page control changed via Pusher:', data);
     },
