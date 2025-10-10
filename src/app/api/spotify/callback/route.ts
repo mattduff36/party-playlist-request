@@ -127,9 +127,9 @@ export async function POST(req: NextRequest) {
       console.error('🚨 CRITICAL: Failed to check database after token save:', dbError);
     }
     
-    // Verify tokens were saved by checking immediately
+    // Verify tokens were saved by checking immediately (MULTI-TENANT!)
     try {
-      const isNowConnected = await spotifyService.isConnected();
+      const isNowConnected = await spotifyService.isConnected(userId);
       console.log('Post-save connection check:', isNowConnected);
     } catch (verifyError) {
       console.log('Failed to verify connection after save:', verifyError.message);
@@ -146,9 +146,7 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Reset connection state - Spotify is now connected!
-    resetSpotifyConnectionState();
-    console.log('✅ Spotify connection state reset - ready for API calls');
+    console.log('✅ Spotify authentication complete - ready for API calls');
     
     return NextResponse.json({
       success: true,
