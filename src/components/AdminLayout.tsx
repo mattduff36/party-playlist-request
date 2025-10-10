@@ -249,11 +249,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               <div className="flex items-center space-x-4">
                 <EventStateDropdown />
                 <PageToggleIcons />
+              </div>
+              <div className="flex-1 flex justify-center">
                 <EventTitleEditor />
-            </div>
+              </div>
               <div className="flex items-center space-x-4">
-              <SpotifyStatusDropdown />
-              <NotificationsDropdown />
+                <SpotifyStatusDropdown />
+                <NotificationsDropdown />
               </div>
             </div>
             
