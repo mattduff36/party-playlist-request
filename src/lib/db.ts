@@ -172,6 +172,40 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Multi-tenant user settings table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_settings (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        event_title TEXT DEFAULT 'Party DJ Requests',
+        dj_name TEXT DEFAULT '',
+        venue_info TEXT DEFAULT '',
+        welcome_message TEXT DEFAULT 'Request your favorite songs!',
+        secondary_message TEXT DEFAULT 'Your requests will be reviewed by the DJ',
+        tertiary_message TEXT DEFAULT 'Keep the party going!',
+        show_qr_code BOOLEAN DEFAULT TRUE,
+        display_refresh_interval INTEGER DEFAULT 20,
+        admin_polling_interval INTEGER DEFAULT 15,
+        display_polling_interval INTEGER DEFAULT 10,
+        now_playing_polling_interval INTEGER DEFAULT 5,
+        sse_update_interval INTEGER DEFAULT 2,
+        request_limit INTEGER DEFAULT 10,
+        auto_approve BOOLEAN DEFAULT FALSE,
+        decline_explicit BOOLEAN DEFAULT FALSE,
+        force_polling BOOLEAN DEFAULT FALSE,
+        requests_page_enabled BOOLEAN DEFAULT TRUE,
+        display_page_enabled BOOLEAN DEFAULT TRUE,
+        message_text TEXT DEFAULT NULL,
+        message_duration INTEGER DEFAULT NULL,
+        message_created_at TIMESTAMP DEFAULT NULL,
+        theme_primary_color TEXT DEFAULT NULL,
+        theme_secondary_color TEXT DEFAULT NULL,
+        theme_tertiary_color TEXT DEFAULT NULL,
+        show_scrolling_bar BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Migration: Update status constraint to include 'played'
     try {
       await client.query(`
@@ -734,9 +768,28 @@ export async function cleanupExpiredOAuthSessions(): Promise<void> {
   await client.query('DELETE FROM oauth_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
 }
 
-// Event Settings functions
-export async function getEventSettings(): Promise<EventSettings> {
+// Event Settings functions (MULTI-TENANT!)
+export async function getEventSettings(userId?: string): Promise<EventSettings> {
   const client = getPool();
+  
+  // If userId provided, get user-specific settings
+  if (userId) {
+    const result = await client.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
+    
+    if (result.rows.length === 0) {
+      // Create default user settings if none exist
+      await client.query(`
+        INSERT INTO user_settings (user_id) VALUES ($1)
+        ON CONFLICT (user_id) DO NOTHING
+      `, [userId]);
+      const newResult = await client.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
+      return { id: 0, ...newResult.rows[0] };
+    }
+    
+    return { id: 0, ...result.rows[0] };
+  }
+  
+  // Fallback to global settings (legacy)
   const result = await client.query('SELECT * FROM event_settings WHERE id = 1');
   
   if (result.rows.length === 0) {
@@ -752,31 +805,58 @@ export async function getEventSettings(): Promise<EventSettings> {
   return result.rows[0];
 }
 
-export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>): Promise<EventSettings> {
+export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {
   const client = getPool();
   
   const fields = Object.keys(settings).filter(key => settings[key as keyof typeof settings] !== undefined);
   const values = fields.map(field => settings[field as keyof typeof settings]);
-  const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
   
   console.log('💾 [DB] updateEventSettings called with:', {
     fieldsCount: fields.length,
     fields: fields,
-    values: values
+    values: values,
+    userId: userId
   });
   
   if (fields.length === 0) {
     console.log('⚠️ [DB] No fields to update, returning current settings');
-    return getEventSettings();
+    return getEventSettings(userId);
   }
   
+  // If userId provided, update user-specific settings
+  if (userId) {
+    // First ensure user settings exist
+    await client.query(`
+      INSERT INTO user_settings (user_id) VALUES ($1)
+      ON CONFLICT (user_id) DO NOTHING
+    `, [userId]);
+    
+    const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const query = `
+      UPDATE user_settings 
+      SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
+      WHERE user_id = $${fields.length + 1}
+    `;
+    
+    console.log('💾 [DB] Executing user-specific query:', query);
+    console.log('💾 [DB] With values:', [...values, userId]);
+    
+    await client.query(query, [...values, userId]);
+    
+    console.log('✅ [DB] User-specific event settings updated successfully');
+    
+    return getEventSettings(userId);
+  }
+  
+  // Fallback to global settings (legacy)
+  const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
   const query = `
     UPDATE event_settings 
     SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
     WHERE id = 1
   `;
   
-  console.log('💾 [DB] Executing query:', query);
+  console.log('💾 [DB] Executing global query:', query);
   console.log('💾 [DB] With values:', values);
   
   await client.query(query, values);

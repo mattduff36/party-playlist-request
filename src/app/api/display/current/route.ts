@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
 
     const userId = userResult.rows[0].id;
 
-    // Get event settings and current playback (MULTI-TENANT!)
+    // Get user-specific event settings and current playback (MULTI-TENANT!)
     const [eventSettings, playbackState] = await Promise.all([
-      getEventSettings(), // Note: Event settings are currently global (not user-specific)
+      getEventSettings(userId),
       spotifyService.getCurrentPlayback(userId).catch(() => null)
     ]);
     
@@ -96,7 +96,19 @@ export async function GET(req: NextRequest) {
     
     // Return minimal data even if there's an error
     try {
-      const eventSettings = await getEventSettings();
+      // Try to get userId from username for settings
+      const { searchParams } = new URL(req.url);
+      const username = searchParams.get('username');
+      let userId: string | undefined;
+      
+      if (username) {
+        const { getPool } = await import('@/lib/db');
+        const pool = getPool();
+        const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+        userId = userResult.rows[0]?.id;
+      }
+      
+      const eventSettings = await getEventSettings(userId);
       return NextResponse.json({
         event_settings: eventSettings,
         current_track: null,

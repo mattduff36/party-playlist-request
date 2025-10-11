@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
     const activeEvent = await getActiveEvent(userId);
     const eventPin = activeEvent?.pin || null;
 
-    // Get event settings
-    const settings = await getEventSettings();
+    // Get user-specific event settings
+    const settings = await getEventSettings(userId);
 
     // Get current playback (with userId for multi-tenant)
     let currentTrack = null;

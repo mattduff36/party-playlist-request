@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) fetching settings`);
     
-    const settings = await getEventSettings();
+    const settings = await getEventSettings(userId);
     
     return NextResponse.json(settings);
   } catch (error) {
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       theme_tertiary_color,
       show_scrolling_bar,
       karaoke_mode
-    });
+    }, userId);
     
     // Trigger Pusher event to notify all clients of settings update (USER-SPECIFIC CHANNEL)
     try {

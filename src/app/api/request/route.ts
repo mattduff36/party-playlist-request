@@ -130,9 +130,9 @@ export async function POST(req: NextRequest) {
 
     const ipHash = hashIP(clientIP);
 
-    // Check event settings
-    console.log(`⚙️ [${requestId}] Checking event settings...`);
-    const eventSettings = await getEventSettings();
+    // Check user-specific event settings
+    console.log(`⚙️ [${requestId}] Checking event settings for user ${userId}...`);
+    const eventSettings = await getEventSettings(userId);
     const shouldAutoApprove = eventSettings.auto_approve;
     const shouldDeclineExplicit = (eventSettings as any).decline_explicit || false;
     console.log(`🔧 [${requestId}] Auto-approve: ${shouldAutoApprove}, Decline explicit: ${shouldDeclineExplicit}`);
