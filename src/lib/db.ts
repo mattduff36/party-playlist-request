@@ -808,62 +808,79 @@ export async function getEventSettings(userId?: string): Promise<EventSettings> 
 export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {
   const client = getPool();
   
-  const fields = Object.keys(settings).filter(key => settings[key as keyof typeof settings] !== undefined);
-  const values = fields.map(field => settings[field as keyof typeof settings]);
-  
-  console.log('💾 [DB] updateEventSettings called with:', {
-    fieldsCount: fields.length,
-    fields: fields,
-    values: values,
-    userId: userId
-  });
-  
-  if (fields.length === 0) {
-    console.log('⚠️ [DB] No fields to update, returning current settings');
-    return getEventSettings(userId);
-  }
-  
-  // If userId provided, update user-specific settings
-  if (userId) {
-    // First ensure user settings exist
-    await client.query(`
-      INSERT INTO user_settings (user_id) VALUES ($1)
-      ON CONFLICT (user_id) DO NOTHING
-    `, [userId]);
+  try {
+    const fields = Object.keys(settings).filter(key => settings[key as keyof typeof settings] !== undefined);
+    const values = fields.map(field => settings[field as keyof typeof settings]);
     
+    console.log('💾 [DB] updateEventSettings called with:', {
+      fieldsCount: fields.length,
+      fields: fields,
+      values: values,
+      userId: userId
+    });
+    
+    if (fields.length === 0) {
+      console.log('⚠️ [DB] No fields to update, returning current settings');
+      return getEventSettings(userId);
+    }
+    
+    // If userId provided, update user-specific settings
+    if (userId) {
+      console.log('💾 [DB] Ensuring user_settings row exists for userId:', userId);
+      
+      // First ensure user settings exist
+      try {
+        await client.query(`
+          INSERT INTO user_settings (user_id) VALUES ($1)
+          ON CONFLICT (user_id) DO NOTHING
+        `, [userId]);
+        console.log('✅ [DB] User settings row ensured');
+      } catch (insertError) {
+        console.error('❌ [DB] Failed to ensure user_settings row:', insertError);
+        throw new Error(`Failed to create user settings: ${insertError instanceof Error ? insertError.message : 'Unknown error'}`);
+      }
+      
+      const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      const query = `
+        UPDATE user_settings 
+        SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
+        WHERE user_id = $${fields.length + 1}
+      `;
+      
+      console.log('💾 [DB] Executing user-specific query:', query);
+      console.log('💾 [DB] With values:', [...values, userId]);
+      
+      try {
+        await client.query(query, [...values, userId]);
+        console.log('✅ [DB] User-specific event settings updated successfully');
+      } catch (updateError) {
+        console.error('❌ [DB] Failed to update user_settings:', updateError);
+        throw new Error(`Failed to update settings: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+      }
+      
+      return getEventSettings(userId);
+    }
+    
+    // Fallback to global settings (legacy)
     const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
     const query = `
-      UPDATE user_settings 
+      UPDATE event_settings 
       SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
-      WHERE user_id = $${fields.length + 1}
+      WHERE id = 1
     `;
     
-    console.log('💾 [DB] Executing user-specific query:', query);
-    console.log('💾 [DB] With values:', [...values, userId]);
+    console.log('💾 [DB] Executing global query:', query);
+    console.log('💾 [DB] With values:', values);
     
-    await client.query(query, [...values, userId]);
+    await client.query(query, values);
     
-    console.log('✅ [DB] User-specific event settings updated successfully');
+    console.log('✅ [DB] Event settings updated successfully');
     
-    return getEventSettings(userId);
+    return getEventSettings();
+  } catch (error) {
+    console.error('❌ [DB] updateEventSettings error:', error);
+    throw error;
   }
-  
-  // Fallback to global settings (legacy)
-  const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
-  const query = `
-    UPDATE event_settings 
-    SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
-    WHERE id = 1
-  `;
-  
-  console.log('💾 [DB] Executing global query:', query);
-  console.log('💾 [DB] With values:', values);
-  
-  await client.query(query, values);
-  
-  console.log('✅ [DB] Event settings updated successfully');
-  
-  return getEventSettings();
 }
 
 // Utility functions
