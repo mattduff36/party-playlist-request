@@ -105,16 +105,22 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
     const shouldCheckQueue = now - userLastQueueCheck >= queueInterval;
     
     try {
-      if (shouldCheckQueue) {
-        console.log(`🎵 [${username}] Checking both playback AND queue`);
-        [currentPlayback, queue] = await Promise.all([
-          spotifyService.getCurrentPlayback(userId).catch(() => null),
-          spotifyService.getQueue(userId).catch(() => null)
-        ]);
+      // First, always get current playback
+      currentPlayback = await spotifyService.getCurrentPlayback(userId).catch(() => null);
+      
+      // Check if track changed - if so, ALWAYS fetch fresh queue regardless of interval
+      const trackChanged = userLastPlayback?.item?.id !== currentPlayback?.item?.id;
+      
+      if (shouldCheckQueue || trackChanged) {
+        if (trackChanged) {
+          console.log(`🎵 [${username}] Track changed! Fetching fresh queue...`);
+        } else {
+          console.log(`🎵 [${username}] Queue interval reached, checking queue`);
+        }
+        queue = await spotifyService.getQueue(userId).catch(() => null);
         lastQueueChecks.set(userId, now);
       } else {
-        console.log(`🎵 [${username}] Checking playback only`);
-        currentPlayback = await spotifyService.getCurrentPlayback(userId).catch(() => null);
+        console.log(`🎵 [${username}] Checking playback only (reusing queue)`);
         queue = userLastQueue ? { queue: userLastQueue } : null;
       }
     } catch (error) {
