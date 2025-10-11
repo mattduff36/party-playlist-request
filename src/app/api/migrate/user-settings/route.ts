@@ -7,9 +7,15 @@ export async function POST(req: NextRequest) {
     
     console.log('🔧 Running user_settings table migration...');
     
-    // Create user_settings table if it doesn't exist
+    // Drop the old user_settings table if it exists (it has wrong schema)
+    console.log('🗑️ Dropping old user_settings table if it exists...');
+    await pool.query('DROP TABLE IF EXISTS user_settings CASCADE');
+    console.log('✅ Old table dropped');
+    
+    // Create new user_settings table with correct schema
+    console.log('📝 Creating new user_settings table...');
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_settings (
+      CREATE TABLE user_settings (
         user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         event_title TEXT DEFAULT 'Party DJ Requests',
         dj_name TEXT DEFAULT '',
