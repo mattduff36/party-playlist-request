@@ -39,18 +39,10 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   useEffect(() => {
     const fetchUserId = async () => {
       try {
-        // First try authenticated session
-        const authResponse = await fetch('/api/auth/me');
-        if (authResponse.ok) {
-          const data = await authResponse.json();
-          console.log('🔐 usePusher: Got userId from session:', data.user.id);
-          setUserId(data.user.id);
-          return;
-        }
-
-        // If not authenticated, try username lookup (for public pages)
+        // If username is provided (public pages like display), ALWAYS use username lookup
+        // This ensures multi-tenant isolation even when admin is logged in
         if (options.username) {
-          console.log('🌐 usePusher: Not authenticated, looking up userId for username:', options.username);
+          console.log('🌐 usePusher: Public page detected, looking up userId for username:', options.username);
           const lookupResponse = await fetch(`/api/users/lookup?username=${options.username}`);
           if (lookupResponse.ok) {
             const data = await lookupResponse.json();
@@ -58,6 +50,16 @@ export const usePusher = (options: UsePusherOptions = {}) => {
             setUserId(data.userId);
             return;
           }
+          console.warn('⚠️ usePusher: Username lookup failed for:', options.username);
+        }
+
+        // For admin pages (no username), use authenticated session
+        const authResponse = await fetch('/api/auth/me');
+        if (authResponse.ok) {
+          const data = await authResponse.json();
+          console.log('🔐 usePusher: Got userId from session:', data.user.id);
+          setUserId(data.user.id);
+          return;
         }
 
         console.warn('⚠️ usePusher: Could not get userId from session or username');
