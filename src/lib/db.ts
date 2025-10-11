@@ -828,13 +828,23 @@ export async function updateEventSettings(settings: Partial<Omit<EventSettings, 
     if (userId) {
       console.log('💾 [DB] Ensuring user_settings row exists for userId:', userId);
       
-      // First ensure user settings exist
+      // First check if user settings exist
       try {
-        await client.query(`
-          INSERT INTO user_settings (user_id) VALUES ($1)
-          ON CONFLICT (user_id) DO NOTHING
-        `, [userId]);
-        console.log('✅ [DB] User settings row ensured');
+        const checkResult = await client.query(
+          'SELECT user_id FROM user_settings WHERE user_id = $1',
+          [userId]
+        );
+        
+        if (checkResult.rows.length === 0) {
+          console.log('💾 [DB] Creating new user_settings row...');
+          await client.query(
+            'INSERT INTO user_settings (user_id) VALUES ($1)',
+            [userId]
+          );
+          console.log('✅ [DB] User settings row created');
+        } else {
+          console.log('✅ [DB] User settings row already exists');
+        }
       } catch (insertError) {
         console.error('❌ [DB] Failed to ensure user_settings row:', insertError);
         throw new Error(`Failed to create user settings: ${insertError instanceof Error ? insertError.message : 'Unknown error'}`);
