@@ -8,12 +8,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Lock, RefreshCw, Volume2, Monitor, Smartphone, Music } from 'lucide-react';
+import { ChevronDown, ChevronUp, Volume2, Monitor, Smartphone, Music } from 'lucide-react';
 import StateControlPanel from '@/components/admin/StateControlPanel';
 import PageControlPanel from '@/components/admin/PageControlPanel';
 import SpotifyStatusDisplay from '@/components/admin/SpotifyStatusDisplay';
 import RequestManagementPanel from '@/components/admin/RequestManagementPanel';
-import EventInfoPanel from '@/components/admin/EventInfoPanel';
 import { SpotifyErrorBoundary } from '@/components/error/SpotifyErrorBoundary';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
@@ -22,13 +21,9 @@ export default function AdminOverviewPage() {
   
   // Collapsible sections state
   const [expandedSections, setExpandedSections] = useState({
-    eventInfo: true,
     spotifyStatus: true,
     songRequests: true,
   });
-  
-  // Event data for header display
-  const [eventData, setEventData] = useState<any>(null);
   
   // Spotify status for header display
   const [spotifyStatus, setSpotifyStatus] = useState<any>(null);
@@ -40,13 +35,6 @@ export default function AdminOverviewPage() {
     }));
   };
   
-  // Fetch event data for PIN display
-  useEffect(() => {
-    if (state?.status === 'live' || state?.status === 'standby') {
-      fetchEventData();
-    }
-  }, [state?.status]);
-  
   // Fetch Spotify status for header display
   useEffect(() => {
     if (state?.status === 'live' || state?.status === 'standby') {
@@ -55,20 +43,6 @@ export default function AdminOverviewPage() {
       return () => clearInterval(interval);
     }
   }, [state?.status]);
-  
-  const fetchEventData = async () => {
-    try {
-      const response = await fetch('/api/events/current', {
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setEventData(data.event);
-      }
-    } catch (error) {
-      console.error('Failed to fetch event:', error);
-    }
-  };
   
   const fetchSpotifyStatus = async () => {
     try {
@@ -198,39 +172,6 @@ export default function AdminOverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <StateControlPanel />
           <PageControlPanel />
-        </div>
-        
-        {/* Event Information Panel - Collapsible */}
-        <div className="border border-gray-700 rounded-lg overflow-hidden">
-          <button
-            type="button"
-            onClick={() => toggleSection('eventInfo')}
-            className="w-full flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700/70 transition-colors"
-          >
-            <h3 className="text-lg font-semibold text-white flex items-center">
-              ℹ️ Event Information
-            </h3>
-            <div className="flex items-center gap-3">
-              {eventData && (
-                <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
-                  <Lock className="h-4 w-4 text-purple-400" />
-                  <span className="text-gray-400 text-sm">PIN:</span>
-                  <span className="text-xl font-bold text-white tracking-wider font-mono">{eventData.pin}</span>
-                </div>
-              )}
-              {expandedSections.eventInfo ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
-              )}
-            </div>
-          </button>
-          
-          {expandedSections.eventInfo && (
-            <div className="bg-gray-900">
-              <EventInfoPanel showHeader={false} />
-            </div>
-          )}
         </div>
 
         {/* Spotify Status - Only show when event is Standby or Live */}

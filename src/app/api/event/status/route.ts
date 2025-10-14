@@ -158,6 +158,33 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
+    // If status changed to offline, clean up all requests
+    if (status === 'offline') {
+      try {
+        const { sql } = await import('@/lib/db/neon-client');
+        const deleteResult = await sql`
+          DELETE FROM requests
+          WHERE user_id = ${userId}
+          RETURNING id
+        `;
+        
+        const deletedCount = deleteResult.length;
+        console.log(`🧹 Event set to offline: Deleted ${deletedCount} requests for user ${userId}`);
+        
+        // Broadcast cleanup event via Pusher
+        try {
+          const { triggerRequestsCleanup } = await import('@/lib/pusher');
+          await triggerRequestsCleanup(userId);
+          console.log(`📡 Pusher cleanup event sent for user ${userId}`);
+        } catch (pusherError) {
+          console.error('❌ Failed to send Pusher cleanup event:', pusherError);
+        }
+      } catch (cleanupError) {
+        console.error('❌ Failed to cleanup requests on offline:', cleanupError);
+        // Don't fail the status change if cleanup fails
+      }
+    }
+
     // Trigger Pusher event for real-time synchronization (USER-SPECIFIC CHANNEL)
     try {
       await triggerStateUpdate({

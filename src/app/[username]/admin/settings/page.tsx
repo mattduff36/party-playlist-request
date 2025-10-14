@@ -1,13 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw, Copy, CheckCircle, Monitor, QrCode, Lock, Loader2 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 export default function SettingsPage() {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
   const router = useRouter();
+  const pathname = usePathname();
+  const { state } = useGlobalEvent();
+  const username = pathname?.split('/')[1] || '';
   
   const [formData, setFormData] = useState({
     event_title: '',
@@ -16,8 +20,47 @@ export default function SettingsPage() {
     decline_explicit: false,
   });
   
+  const [event, setEvent] = useState<any>(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
+  const [copied, setCopied] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+
+  // Fetch event when component mounts OR when event status changes to Live/Standby
+  useEffect(() => {
+    const fetchEvent = async () => {
+      // Only fetch if event is Live or Standby (event is ON)
+      if (state?.status === 'live' || state?.status === 'standby') {
+        try {
+          const response = await fetch('/api/events/current', {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setEvent(data.event);
+          }
+        } catch (error) {
+          console.error('Failed to fetch event:', error);
+        }
+      } else {
+        setEvent(null);
+      }
+      setLoadingEvent(false);
+    };
+
+    fetchEvent();
+  }, [state?.status]);
+
+  // Copy to clipboard helper
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
 
   // Handle Spotify connection
   const handleSpotifyConnect = async () => {
@@ -238,6 +281,132 @@ export default function SettingsPage() {
         </form>
       </div>
 
+
+      {/* Event Information */}
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">ℹ️ Event Information</h3>
+        
+        {loadingEvent ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-purple-500 mr-3" />
+            <span className="text-gray-400">Loading event info...</span>
+          </div>
+        ) : !event || state?.status === 'offline' ? (
+          <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-600">
+            <p className="text-gray-400 text-center">
+              {state?.status === 'offline' 
+                ? 'No active event - Set event to Live or Standby to view information'
+                : 'No active event'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Event PIN */}
+            <div className="flex items-center justify-between p-4 bg-purple-900/20 border border-purple-600/50 rounded-lg">
+              <div>
+                <h4 className="text-white font-medium mb-1">Event PIN</h4>
+                <p className="text-gray-400 text-sm">Guests need this PIN to access the request page</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Lock className="h-5 w-5 text-purple-400" />
+                <span className="text-3xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
+              </div>
+            </div>
+
+            {/* Request URL */}
+            <div className="space-y-3">
+              <label className="block text-gray-300 font-medium">Request Page URL</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={`${window.location.origin}/${username}/request`}
+                  readOnly
+                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+                />
+                <button
+                  onClick={() => copyToClipboard(`${window.location.origin}/${username}/request`, 'requestUrl')}
+                  className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  title="Copy URL"
+                >
+                  {copied === 'requestUrl' ? (
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                  ) : (
+                    <Copy className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              <p className="text-gray-500 text-xs">
+                Guests will need to enter the PIN when they visit this URL
+              </p>
+            </div>
+
+            {/* QR Code URL (with bypass token) */}
+            <div className="space-y-3">
+              <label className="block text-gray-300 font-medium flex items-center">
+                <QrCode className="h-5 w-5 mr-2 text-purple-400" />
+                QR Code URL (No PIN Required)
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={`${window.location.origin}/${username}/request?bt=${event.bypass_token}`}
+                  readOnly
+                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+                />
+                <button
+                  onClick={() => copyToClipboard(`${window.location.origin}/${username}/request?bt=${event.bypass_token}`, 'qrUrl')}
+                  className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  title="Copy URL"
+                >
+                  {copied === 'qrUrl' ? (
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                  ) : (
+                    <Copy className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              <p className="text-gray-500 text-xs">
+                Use this URL to generate QR codes - guests won't need the PIN
+              </p>
+            </div>
+
+            {/* Display Screen URL */}
+            <div className="space-y-3 border-t border-gray-700 pt-6">
+              <label className="block text-gray-300 font-medium flex items-center">
+                <Monitor className="h-5 w-5 mr-2 text-purple-400" />
+                Display Screen URL
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={`${window.location.origin}/${username}/display/${event.pin}`}
+                  readOnly
+                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+                />
+                <button
+                  onClick={() => copyToClipboard(`${window.location.origin}/${username}/display/${event.pin}`, 'displayUrl')}
+                  className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  title="Copy URL"
+                >
+                  {copied === 'displayUrl' ? (
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                  ) : (
+                    <Copy className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              <p className="text-gray-500 text-xs">
+                Open this URL on your display screen (TV, projector, etc.) - Uses event PIN for access
+              </p>
+            </div>
+
+            {/* Event Expiry */}
+            <div className="text-center text-gray-500 text-xs border-t border-gray-700 pt-4">
+              Event expires: {new Date(event.expires_at).toLocaleString()}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Spotify Setup */}
       <div className="bg-gray-800 rounded-lg p-6">

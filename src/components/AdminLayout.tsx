@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
   Home,
@@ -9,7 +9,9 @@ import {
   Play,
   Settings,
   Monitor,
-  Eye
+  Eye,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import SpotifyStatusDropdown from '@/components/admin/SpotifyStatusDropdown';
@@ -18,6 +20,9 @@ import NotificationInitializer from '@/components/admin/NotificationInitializer'
 import EventStateDropdown from '@/components/admin/EventStateDropdown';
 import PageToggleIcons from '@/components/admin/PageToggleIcons';
 import EventTitleEditor from '@/components/admin/EventTitleEditor';
+import SpotifyConnectionModal from '@/components/admin/SpotifyConnectionModal';
+import TokenExpiryWarning from '@/components/admin/TokenExpiryWarning';
+import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -28,9 +33,14 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showSpotifyModal, setShowSpotifyModal] = useState(false);
+  const [eventPin, setEventPin] = useState<string | null>(null);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
+  const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
   
   // Get admin data for notifications
   const { stats } = useAdminData();
+  const { state } = useGlobalEvent();
 
   // Determine active tab based on pathname
   const getActiveTab = () => {
@@ -83,6 +93,119 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       href: `${baseRoute}/admin/display`
     },
   ];
+
+  // Fetch event data for PIN and display URL
+  useEffect(() => {
+    const fetchEventData = async () => {
+      if (state?.status === 'live' || state?.status === 'standby') {
+        try {
+          const response = await fetch('/api/events/current', {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const event = data.event;
+            setEventPin(event.pin);
+            setDisplayUrl(`${window.location.origin}/${displayUsername}/display/${event.pin}`);
+          }
+        } catch (error) {
+          console.error('Failed to fetch event:', error);
+        }
+      } else {
+        setEventPin(null);
+        setDisplayUrl(null);
+      }
+    };
+
+    fetchEventData();
+  }, [state?.status, displayUsername]);
+
+  // Check Spotify connection on mount
+  useEffect(() => {
+    const checkSpotifyConnection = async () => {
+      try {
+        const response = await fetch('/api/spotify/status');
+        const data = await response.json();
+        
+        // Show modal if not connected
+        if (!data.connected) {
+          // Small delay to let the UI load first
+          setTimeout(() => setShowSpotifyModal(true), 1000);
+        }
+      } catch (error) {
+        console.error('Failed to check Spotify status:', error);
+      }
+    };
+
+    checkSpotifyConnection();
+  }, []);
+
+  // Monitor token expiry
+  useEffect(() => {
+    const getTokenExpiry = () => {
+      // Try to get token from cookie
+      const cookies = document.cookie.split(';');
+      const authCookie = cookies.find(c => c.trim().startsWith('auth_token='));
+      
+      if (!authCookie) {
+        console.log('No auth token found');
+        return null;
+      }
+
+      const token = authCookie.split('=')[1];
+      
+      try {
+        // Decode JWT token (client-side, just to read expiry - not for validation)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        if (payload.exp) {
+          // exp is in seconds, convert to milliseconds
+          const expiryMs = payload.exp * 1000;
+          console.log('Token expires at:', new Date(expiryMs).toLocaleString());
+          return expiryMs;
+        }
+      } catch (error) {
+        console.error('Failed to decode token:', error);
+      }
+      
+      return null;
+    };
+
+    const expiry = getTokenExpiry();
+    if (expiry) {
+      setTokenExpiry(expiry);
+    }
+  }, []);
+
+  // Handle session extension
+  const handleExtendSession = async () => {
+    try {
+      const response = await fetch('/api/auth/refresh-session', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Session extended successfully');
+        
+        // Decode new token to get new expiry
+        const token = data.token;
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        if (payload.exp) {
+          const expiryMs = payload.exp * 1000;
+          setTokenExpiry(expiryMs);
+          console.log('New token expires at:', new Date(expiryMs).toLocaleString());
+        }
+      } else {
+        console.error('Failed to extend session');
+      }
+    } catch (error) {
+      console.error('Error extending session:', error);
+      throw error;
+    }
+  };
 
   // Logout function (calls JWT logout)
   const handleLogout = () => {
@@ -145,14 +268,20 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               );
             })}
           </div>
-          <div className="px-3 pt-4 border-t border-gray-700">
-              <button
-                onClick={handleLogout}
-              className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
+          <div className="px-3 pt-4 border-t border-gray-700 space-y-2">
+            {/* Open Display Screen Button */}
+            {displayUrl && (
+              <a
+                href={displayUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-purple-600 hover:text-white transition-colors"
               >
-                <LogOut className="w-5 h-5 mr-3" />
-              <span>Logout</span>
-              </button>
+                <Monitor className="w-5 h-5 mr-3" />
+                <span>Open Display</span>
+                <ExternalLink className="w-4 h-4 ml-auto" />
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -167,10 +296,17 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
         <h1 className="text-lg font-bold text-white">{displayUsername}</h1>
       </div>
       <div className="flex items-center space-x-2">
+        {eventPin && (
+          <div className="flex items-center space-x-1 bg-purple-900/20 border border-purple-600/50 rounded-lg px-2 py-1">
+            <Lock className="h-3 w-3 text-purple-400" />
+            <span className="text-xs font-mono font-bold text-white">{eventPin}</span>
+          </div>
+        )}
         <NotificationsDropdown />
         <button
           onClick={handleLogout}
-          className="p-2 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors"
+          className="p-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
+          title="Logout"
         >
           <LogOut className="w-5 h-5" />
         </button>
@@ -253,9 +389,23 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               <div className="flex-1 flex justify-center">
                 <EventTitleEditor />
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <SpotifyStatusDropdown />
                 <NotificationsDropdown />
+                {eventPin && (
+                  <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
+                    <Lock className="h-4 w-4 text-purple-400" />
+                    <span className="text-gray-400 text-sm">PIN:</span>
+                    <span className="text-xl font-bold text-white tracking-wider font-mono">{eventPin}</span>
+                  </div>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
               </div>
             </div>
             
@@ -268,6 +418,17 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
         <BottomNav />
         <LogoutModal />
+        <SpotifyConnectionModal 
+          isOpen={showSpotifyModal} 
+          onClose={() => setShowSpotifyModal(false)} 
+        />
+        {/* Token expiry warning - only show if event is NOT offline */}
+        {tokenExpiry && state?.status !== 'offline' && (
+          <TokenExpiryWarning 
+            expiryTime={tokenExpiry}
+            onExtendSession={handleExtendSession}
+          />
+        )}
       </div>
     </>
   );

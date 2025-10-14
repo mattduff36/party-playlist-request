@@ -457,6 +457,22 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('PUT', `/me/player/volume?volume_percent=${volumePercent}`, undefined, userId);
   }
 
+  async getAvailableDevices(userId?: string) {
+    return await this.makeAuthenticatedRequest('GET', '/me/player/devices', undefined, userId);
+  }
+
+  async transferPlayback(deviceId: string, play: boolean = false, userId?: string) {
+    return await this.makeAuthenticatedRequest('PUT', '/me/player', {
+      device_ids: [deviceId],
+      play
+    }, userId);
+  }
+
+  async resumePlayback(deviceId?: string, userId?: string) {
+    const url = deviceId ? `/me/player/play?device_id=${deviceId}` : '/me/player/play';
+    return await this.makeAuthenticatedRequest('PUT', url, undefined, userId);
+  }
+
   async searchTracks(query: string, limit = 20, userId?: string) {
     const params = new URLSearchParams({
       q: query,

@@ -131,6 +131,19 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       refreshRequests();
       refreshStats();
     },
+    onForceLogout: (data: any) => {
+      console.log('⚠️ Admin: Force logout received!', data);
+      // Clear local storage and redirect to login
+      localStorage.removeItem('admin_token');
+      alert(data.message || 'You have been logged out because this session was transferred to another device.');
+      window.location.href = '/login';
+    },
+    onRequestsCleanup: (data: any) => {
+      console.log('🧹 Admin: Requests cleanup received!', data);
+      // Refresh requests to show empty list
+      refreshRequests();
+      refreshStats();
+    },
     onStatsUpdate: (data: any) => {
       console.log('📊 Admin: Stats update via Pusher!', data);
       // Update stats directly from Pusher event

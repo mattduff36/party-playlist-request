@@ -11,34 +11,36 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = auth.user.user_id;
-    console.log(`🎵 [playback/pause] User ${auth.user.username} (${userId}) pausing playback`);
+    const { device_id, play } = await req.json();
+
+    if (!device_id) {
+      return NextResponse.json(
+        { error: 'device_id is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`🎵 [transfer-playback] User ${auth.user.username} transferring playback to device ${device_id}`);
     
-    await spotifyService.pause(userId);
+    await spotifyService.transferPlayback(device_id, play || false, userId);
     
     return NextResponse.json({
       success: true,
-      message: 'Playback paused'
+      message: 'Playback transferred successfully'
     });
 
   } catch (error) {
-    if (error instanceof Error && error.message.includes('token')) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
+    console.error('Error transferring playback:', error);
     
-    console.error('Error pausing playback:', error);
-    
-    // Provide more detailed error information
-    let errorMessage = 'Failed to pause playback';
+    let errorMessage = 'Failed to transfer playback';
     if (error instanceof Error) {
       errorMessage = error.message;
       
-      // Handle common Spotify playback errors
+      // Handle common Spotify errors
       if (error.message.includes('NO_ACTIVE_DEVICE')) {
-        errorMessage = 'No active Spotify device found. Please start playing music on a Spotify device first.';
+        errorMessage = 'Selected device is not available. Please open Spotify on the device first.';
       } else if (error.message.includes('PREMIUM_REQUIRED')) {
         errorMessage = 'Spotify Premium is required for playback control.';
-      } else if (error.message.includes('403')) {
-        errorMessage = 'Insufficient permissions for playback control. Please re-authenticate with Spotify.';
       }
     }
     
@@ -48,3 +50,4 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 }
+

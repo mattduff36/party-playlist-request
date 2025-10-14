@@ -9,6 +9,8 @@ export const users = pgTable('users', {
   password_hash: text('password_hash').notNull(),
   display_name: text('display_name'),
   role: text('role').notNull().default('user'),
+  active_session_id: text('active_session_id'),
+  active_session_created_at: timestamp('active_session_created_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

@@ -19,6 +19,8 @@ interface UsePusherOptions {
   onAdminLogin?: (data: any) => void;
   onAdminLogout?: (data: any) => void;
   onSettingsUpdate?: (data: any) => void;
+  onForceLogout?: (data: any) => void;
+  onRequestsCleanup?: (data: any) => void;
 }
 
 export const usePusher = (options: UsePusherOptions = {}) => {
@@ -33,7 +35,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout, options.onSettingsUpdate, options.username]);
+  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout, options.onSettingsUpdate, options.onForceLogout, options.onRequestsCleanup, options.username]);
 
   // Fetch userId from session OR from username lookup for public pages
   useEffect(() => {
@@ -208,6 +210,20 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       console.log('🔐 Pusher: Admin logout', data);
       if (optionsRef.current.onAdminLogout) {
         optionsRef.current.onAdminLogout(data);
+      }
+    });
+
+    adminChan.bind(EVENTS.FORCE_LOGOUT, (data: any) => {
+      console.log('⚠️ Pusher: Force logout', data);
+      if (optionsRef.current.onForceLogout) {
+        optionsRef.current.onForceLogout(data);
+      }
+    });
+
+    adminChan.bind(EVENTS.REQUESTS_CLEANUP, (data: any) => {
+      console.log('🧹 Pusher: Requests cleanup', data);
+      if (optionsRef.current.onRequestsCleanup) {
+        optionsRef.current.onRequestsCleanup(data);
       }
     });
 

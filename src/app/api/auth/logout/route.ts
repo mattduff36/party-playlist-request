@@ -13,6 +13,16 @@ export async function POST(req: NextRequest) {
       console.log(`👋 User ${auth.user.username} logging out, cleaning up event state...`);
       
       try {
+        // Clear active session
+        await sql`
+          UPDATE users
+          SET active_session_id = NULL,
+              active_session_created_at = NULL
+          WHERE id = ${userId}
+        `;
+        
+        console.log(`✅ Session cleared for user ${userId}`);
+        
         // Set event to offline and disable pages
         await sql`
           UPDATE events
@@ -31,6 +41,26 @@ export async function POST(req: NextRequest) {
         `;
         
         console.log(`✅ Event disabled for user ${userId} on logout`);
+        
+        // Delete all requests for this user
+        const deleteResult = await sql`
+          DELETE FROM requests
+          WHERE user_id = ${userId}
+          RETURNING id
+        `;
+        
+        const deletedCount = deleteResult.length;
+        console.log(`🧹 Deleted ${deletedCount} requests for user ${userId} on logout`);
+        
+        // Broadcast cleanup event via Pusher
+        try {
+          const { triggerRequestsCleanup } = await import('@/lib/pusher');
+          await triggerRequestsCleanup(userId);
+          console.log(`📡 Pusher cleanup event sent for user ${userId}`);
+        } catch (pusherError) {
+          console.error('❌ Failed to send Pusher cleanup event:', pusherError);
+          // Don't fail logout if Pusher fails
+        }
       } catch (dbError) {
         console.error('❌ Failed to clean up event on logout:', dbError);
         // Don't fail logout if cleanup fails

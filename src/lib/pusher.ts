@@ -107,6 +107,7 @@ export const EVENTS = {
   REQUEST_REJECTED: 'request-rejected',
   REQUEST_SUBMITTED: 'request-submitted',
   REQUEST_DELETED: 'request-deleted',
+  REQUESTS_CLEANUP: 'requests-cleanup',
   PLAYBACK_UPDATE: 'playback-update',
   STATS_UPDATE: 'stats-update',
   QUEUE_UPDATE: 'queue-update',
@@ -115,6 +116,8 @@ export const EVENTS = {
   TOKEN_EXPIRED: 'token-expired',
   ADMIN_LOGIN: 'admin-login',
   ADMIN_LOGOUT: 'admin-logout',
+  SESSION_TRANSFERRED: 'session-transferred',
+  FORCE_LOGOUT: 'force-logout',
 } as const;
 
 // Helper function to trigger events
@@ -149,6 +152,21 @@ export const triggerRequestRejected = async (data: RequestRejectedEvent & { user
 export const triggerRequestDeleted = async (data: RequestDeletedEvent & { userId: string }) => {
   const userChannel = getUserChannel(data.userId);
   await triggerEvent(userChannel, EVENTS.REQUEST_DELETED, data);
+};
+
+export const triggerRequestsCleanup = async (userId: string) => {
+  const adminChannel = getAdminChannel(userId);
+  const userChannel = getUserChannel(userId);
+  
+  const data = {
+    message: 'All requests have been cleared',
+    timestamp: new Date().toISOString(),
+    userId
+  };
+  
+  // Notify both admin and public channels
+  await triggerEvent(adminChannel, EVENTS.REQUESTS_CLEANUP, data);
+  await triggerEvent(userChannel, EVENTS.REQUESTS_CLEANUP, data);
 };
 
 export const triggerRequestSubmitted = async (data: RequestSubmittedEvent & { userId: string }) => {
@@ -247,4 +265,15 @@ export interface PageControlUpdateEvent {
 export const triggerPageControlUpdate = async (data: PageControlUpdateEvent) => {
   const userChannel = getUserChannel(data.userId);
   await triggerEvent(userChannel, EVENTS.PAGE_CONTROL_TOGGLE, data);
+};
+
+// Force logout event (for session transfer)
+export const triggerForceLogout = async (userId: string, sessionId: string, reason: string = 'Session transferred') => {
+  const adminChannel = getAdminChannel(userId);
+  await triggerEvent(adminChannel, EVENTS.FORCE_LOGOUT, {
+    userId,
+    sessionId,
+    reason,
+    message: 'You have been logged out because this session was transferred to another device.'
+  });
 };

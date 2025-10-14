@@ -114,6 +114,48 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
       if (shouldCheckQueue || trackChanged) {
         if (trackChanged) {
           console.log(`🎵 [${username}] Track changed! Fetching fresh queue...`);
+          
+          // Auto-mark the new playing track as "played" if it matches an approved request
+          if (currentPlayback?.item?.uri) {
+            try {
+              const { sql } = await import('@/lib/db/neon-client');
+              
+              // Find the oldest approved request matching this track URI
+              const matchingRequest = await sql`
+                UPDATE requests
+                SET status = 'played',
+                    played_at = NOW()
+                WHERE id = (
+                  SELECT id FROM requests
+                  WHERE user_id = ${userId}
+                    AND track_uri = ${currentPlayback.item.uri}
+                    AND status = 'approved'
+                  ORDER BY created_at ASC
+                  LIMIT 1
+                )
+                RETURNING id, track_name, artist_name, track_uri
+              `;
+              
+              if (matchingRequest.length > 0) {
+                const req = matchingRequest[0];
+                console.log(`✅ [${username}] Auto-marked request as played: "${req.track_name}" by ${req.artist_name}`);
+                
+                // Broadcast the status change via Pusher
+                try {
+                  const { triggerEvent, getAdminChannel, EVENTS } = await import('@/lib/pusher');
+                  await triggerEvent(getAdminChannel(userId), EVENTS.STATS_UPDATE, {
+                    message: `Song "${req.track_name}" marked as played`,
+                    userId
+                  });
+                } catch (pusherError) {
+                  console.error(`❌ [${username}] Failed to send auto-mark Pusher event:`, pusherError);
+                }
+              }
+            } catch (markError) {
+              console.error(`❌ [${username}] Error auto-marking song as played:`, markError);
+              // Don't fail the watcher if auto-mark fails
+            }
+          }
         } else {
           console.log(`🎵 [${username}] Queue interval reached, checking queue`);
         }
