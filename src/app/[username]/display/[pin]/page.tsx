@@ -67,9 +67,9 @@ export default function DisplayWithPinPage() {
 
   if (verifying) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#191414] to-[#0a0a0a] flex items-center justify-center">
         <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl text-center">
-          <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-[#1DB954] animate-spin mx-auto mb-4" />
           <p className="text-white text-lg">Verifying PIN...</p>
         </div>
       </div>
@@ -78,8 +78,8 @@ export default function DisplayWithPinPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center">
-        <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl text-center max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-[#191414] to-[#0a0a0a] flex items-center justify-center">
+        <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl text-center max-w-md border border-white/10">
           <div className="text-6xl mb-4">🔒</div>
           <h1 className="text-3xl font-bold text-white mb-4">Invalid PIN</h1>
           <p className="text-gray-200 mb-6">{error}</p>
@@ -91,7 +91,7 @@ export default function DisplayWithPinPage() {
           </p>
           <button
             onClick={() => router.push('/login')}
-            className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+            className="px-6 py-3 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold rounded-lg transition-colors"
           >
             Go to Admin Login
           </button>

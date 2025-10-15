@@ -53,7 +53,7 @@ const DisplayContent: React.FC<DisplayContentProps> = ({
   lastUpdate,
 }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-gradient-to-br from-[#191414] to-[#0a0a0a]">
       {/* Header */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
         <div className="text-center mb-6 sm:mb-8 lg:mb-12">
@@ -78,7 +78,7 @@ const DisplayContent: React.FC<DisplayContentProps> = ({
                 {/* Progress Bar */}
                 <div className="w-full bg-gray-700 rounded-full h-1 sm:h-2 lg:h-3 mb-2 sm:mb-3 lg:mb-4">
                   <div
-                    className="bg-blue-500 h-1 sm:h-2 lg:h-3 rounded-full transition-all duration-1000"
+                    className="bg-[#1DB954] h-1 sm:h-2 lg:h-3 rounded-full transition-all duration-1000"
                     style={{ width: formatProgress(nowPlaying.progress_ms, nowPlaying.duration_ms) }}
                   ></div>
                 </div>
@@ -89,7 +89,7 @@ const DisplayContent: React.FC<DisplayContentProps> = ({
                 </div>
                 
                 <div className="mt-2 sm:mt-3 lg:mt-4">
-                  <span className={`inline-block w-2 h-2 sm:w-3 sm:h-3 lg:w-4 lg:h-4 rounded-full ${nowPlaying.is_playing ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                  <span className={`inline-block w-2 h-2 sm:w-3 sm:h-3 lg:w-4 lg:h-4 rounded-full ${nowPlaying.is_playing ? 'bg-[#1DB954]' : 'bg-red-500'}`}></span>
                   <span className="ml-2 text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl text-gray-300">
                     {nowPlaying.is_playing ? 'Playing' : 'Paused'}
                   </span>
@@ -114,10 +114,10 @@ const DisplayContent: React.FC<DisplayContentProps> = ({
                 <div
                   key={request.id}
                   className={`bg-white/10 backdrop-blur-sm rounded-lg p-3 sm:p-4 lg:p-6 ${
-                    request.status === 'approved' ? 'border-l-2 sm:border-l-4 border-green-500' :
+                    request.status === 'approved' ? 'border-l-2 sm:border-l-4 border-[#1DB954]' :
                     request.status === 'rejected' ? 'border-l-2 sm:border-l-4 border-red-500' :
-                    request.status === 'played' ? 'border-l-2 sm:border-l-4 border-blue-500' :
-                    'border-l-2 sm:border-l-4 border-yellow-500'
+                    request.status === 'played' ? 'border-l-2 sm:border-l-4 border-[#1ed760]' :
+                    'border-l-2 sm:border-l-4 border-gray-500'
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
@@ -136,10 +136,10 @@ const DisplayContent: React.FC<DisplayContentProps> = ({
                       <div className="text-white font-semibold text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl truncate">{request.requester_nickname}</div>
                       <div className="text-gray-400 text-xs sm:text-sm md:text-base lg:text-lg">{formatDuration(request.duration_ms)}</div>
                       <div className={`text-xs sm:text-sm md:text-base lg:text-lg font-semibold ${
-                        request.status === 'approved' ? 'text-green-400' :
+                        request.status === 'approved' ? 'text-[#1DB954]' :
                         request.status === 'rejected' ? 'text-red-400' :
-                        request.status === 'played' ? 'text-blue-400' :
-                        'text-yellow-400'
+                        request.status === 'played' ? 'text-[#1ed760]' :
+                        'text-gray-400'
                       }`}>
                         {request.status === 'approved' ? '✅ Approved' :
                          request.status === 'rejected' ? '❌ Rejected' :

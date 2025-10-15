@@ -10,6 +10,7 @@ interface SpotifyConnectionModalProps {
 
 export default function SpotifyConnectionModal({ isOpen, onClose }: SpotifyConnectionModalProps) {
   const [connecting, setConnecting] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   // Prevent scroll when modal is open
   useEffect(() => {
@@ -50,6 +51,13 @@ export default function SpotifyConnectionModal({ isOpen, onClose }: SpotifyConne
       console.error('Error connecting to Spotify:', err);
       setConnecting(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (dontShowAgain) {
+      localStorage.setItem('spotify_modal_dismissed', 'true');
+    }
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -101,31 +109,44 @@ export default function SpotifyConnectionModal({ isOpen, onClose }: SpotifyConne
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 bg-gray-700/30 rounded-b-lg flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={connecting}
-            className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConnect}
-            disabled={connecting}
-            className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {connecting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <Music2 className="w-4 h-4" />
-                Connect Spotify
-              </>
-            )}
-          </button>
+        <div className="px-6 py-4 bg-gray-700/30 rounded-b-lg">
+          {/* Don't show again checkbox */}
+          <label className="flex items-center space-x-2 mb-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={dontShowAgain}
+              onChange={(e) => setDontShowAgain(e.target.checked)}
+              className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+            />
+            <span className="text-sm text-gray-400">Don't show this again</span>
+          </label>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancel}
+              disabled={connecting}
+              className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConnect}
+              disabled={connecting}
+              className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              {connecting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Music2 className="w-4 h-4" />
+                  Connect Spotify
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

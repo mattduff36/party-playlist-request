@@ -379,15 +379,9 @@ export default function UserRequestPage() {
     }
   };
 
-  // Dynamic theme colors
-  const themeColors = {
-    primary: (eventSettings as any)?.theme_primary_color || '#9333ea',
-    secondary: (eventSettings as any)?.theme_secondary_color || '#3b82f6',
-    tertiary: (eventSettings as any)?.theme_tertiary_color || '#4f46e5',
-  };
-  
+  // Use site-wide black and green theme
   const gradientStyle = {
-    background: `linear-gradient(to bottom right, ${themeColors.primary}, ${themeColors.secondary}, ${themeColors.tertiary})`
+    background: 'linear-gradient(to bottom right, #191414, #0a0a0a)'
   };
 
   // PIN Entry Screen
@@ -396,7 +390,7 @@ export default function UserRequestPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4" style={gradientStyle}>
         <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-white/20">
           <div className="flex flex-col items-center mb-8">
-            <Music2 className="h-16 w-16 text-yellow-400 mb-4" />
+            <Music2 className="h-16 w-16 text-[#1DB954] mb-4" />
             <h1 className="text-3xl font-bold text-center text-white">
               {username}'s Party Playlist
             </h1>
@@ -423,7 +417,7 @@ export default function UserRequestPage() {
                 id="pin"
                 maxLength={4}
                 pattern="[0-9]{4}"
-                className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none text-white text-center text-2xl tracking-widest font-mono"
+                className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:ring-2 focus:ring-[#1DB954] focus:border-transparent outline-none text-white text-center text-2xl tracking-widest font-mono"
                 placeholder="••••"
                 value={pin}
                 onChange={(e) => {
@@ -438,7 +432,7 @@ export default function UserRequestPage() {
 
             <button
               type="submit"
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={verifying || pin.length !== 4}
             >
               {verifying ? (
@@ -504,16 +498,10 @@ export default function UserRequestPage() {
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <div className="text-center pt-4 pb-1">
-          <div className="flex justify-center mb-2">
-            <div className="h-12 w-12 text-yellow-400 text-4xl">🎵</div>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-white mb-2">
+        <div className="text-center pt-3 pb-2">
+          <h1 className="text-xl font-semibold text-white">
             {eventSettings?.event_title || 'Party DJ Requests'}
           </h1>
-          <p className="text-sm text-gray-400 mb-2">
-            {eventSettings?.welcome_message || 'Request your favorite songs and let\'s keep the party going!'}
-          </p>
         </div>
 
         {/* Status Messages */}
@@ -540,110 +528,88 @@ export default function UserRequestPage() {
         )}
 
         {/* Main Content */}
-        <div className="flex-1 flex items-start justify-center px-4 py-8 pt-16">
-          <div className="max-w-xl w-full space-y-6">
+        <div className="flex-1 flex items-start justify-center px-3 py-4">
+          <div className="max-w-xl w-full space-y-3">
             {/* Name Input */}
-            <div className="bg-white/10 backdrop-blur-md rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-white mb-4">👤 Your Name</h2>
+            <div className="bg-white/10 backdrop-blur-md rounded-lg p-4">
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder="Enter your name..."
-                className="w-full px-4 py-3 text-lg bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                placeholder="👤 Your name"
+                className="w-full px-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                style={{ fontSize: '16px' }}
                 required
               />
             </div>
 
             {/* Search Section */}
-            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-6 transition-opacity ${!nickname.trim() ? 'opacity-50 pointer-events-none' : ''}`}>
-              <h2 className="text-2xl font-bold text-white mb-4">🔍 Search for Songs</h2>
-              
-              {!nickname.trim() && (
-                <div className="text-center py-4 mb-4">
-                  <p className="text-gray-300 text-sm">Please enter your name first to search for songs</p>
-                </div>
-              )}
-              
-              <div className="relative mb-4">
+            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity ${!nickname.trim() ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={nickname.trim() ? "Search by song title, artist, album, or paste Spotify link..." : "Enter your name first..."}
-                  className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  placeholder={nickname.trim() ? "Search songs, artists, or paste Spotify link" : "Enter your name first"}
+                  className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                  style={{ fontSize: '16px' }}
                   disabled={!nickname.trim()}
                 />
               </div>
 
               {isSearching && nickname.trim() && (
                 <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1DB954] mx-auto"></div>
                   <p className="text-gray-300 mt-2">Searching...</p>
                 </div>
               )}
 
               {/* Search Results */}
               {searchResults.length > 0 && nickname.trim() && (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-2 max-h-64 overflow-y-auto mt-3">
                   {searchResults.map((track) => (
-                    <div
+                    <button
                       key={track.id}
-                      className="bg-white/20 rounded-lg p-4 hover:bg-white/30 transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        submitRequest(track);
+                      }}
+                      disabled={isSubmitting || !nickname.trim()}
+                      className="w-full bg-white/20 rounded-lg p-3 hover:bg-white/30 active:bg-white/40 transition-colors disabled:opacity-50 text-left touch-manipulation"
                     >
-                      <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-3">
                         {track.image && (
                           <img
                             src={track.image}
                             alt={track.album}
-                            className="w-12 h-12 rounded-lg object-cover"
+                            className="w-12 h-12 rounded object-cover flex-shrink-0"
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-medium truncate">
+                          <h3 className="text-white font-medium truncate text-sm">
                             {track.name}
                             {track.explicit && (
-                              <span className="ml-2 text-xs bg-red-500 text-white px-2 py-1 rounded">
-                                EXPLICIT
+                              <span className="ml-2 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">
+                                E
                               </span>
                             )}
                           </h3>
-                          <p className="text-gray-300 text-sm truncate">
+                          <p className="text-gray-300 text-xs truncate">
                             {track.artists.join(', ')} • {track.album}
                           </p>
                           <p className="text-gray-400 text-xs">
                             {formatDuration(track.duration_ms)}
                           </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            submitRequest(track);
-                          }}
-                          disabled={isSubmitting || !nickname.trim()}
-                          className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          Request
-                        </button>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Instructions */}
-      <div className="text-center text-gray-300 px-4 pb-8">
-        <p className="mb-2">
-          💡 <strong>Tip:</strong> Search for songs by title, artist, or paste Spotify links directly
-        </p>
-        <p className="text-sm">
-          {eventSettings?.secondary_message || 'Your requests will be reviewed by the DJ before being added to the queue'}
-        </p>
       </div>
       
       {/* Notification Toasts */}

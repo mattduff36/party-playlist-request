@@ -44,14 +44,76 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
 
     setIsTransitioning(true);
     try {
-      // If going to offline or standby, disable pages
-      // If going to offline, also disconnect Spotify
-      if (newStatus === 'offline' || newStatus === 'standby') {
-        console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'} pages...`);
+      // If going to LIVE, enable both pages
+      if (newStatus === 'live') {
+        console.log('🎉 Going LIVE: Enabling Requests and Display pages...');
         
-        // Disconnect from Spotify only when going offline
+        const enablePromises = [];
+        
+        if (!state.pagesEnabled.requests) {
+          console.log('✅ Enabling Requests page...');
+          enablePromises.push(
+            fetch('/api/event/pages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ page: 'requests', enabled: true })
+            })
+          );
+        }
+        
+        if (!state.pagesEnabled.display) {
+          console.log('✅ Enabling Display page...');
+          enablePromises.push(
+            fetch('/api/event/pages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ page: 'display', enabled: true })
+            })
+          );
+        }
+
+        if (enablePromises.length > 0) {
+          try {
+            await Promise.all(enablePromises);
+            console.log('✅ Pages enabled');
+          } catch (pageError) {
+            console.error('❌ Failed to enable pages:', pageError);
+            // Continue anyway
+          }
+        }
+      }
+      
+      // If going to offline or standby, disable pages
+      // If going to offline, also pause Spotify and disconnect
+      if (newStatus === 'offline' || newStatus === 'standby') {
+        console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Pausing Spotify, disconnecting, and disabling' : 'Disabling'} pages...`);
+        
+        // Pause and disconnect from Spotify only when going offline
         if (newStatus === 'offline') {
           try {
+            // First, pause the currently playing song (if any)
+            try {
+              console.log('⏸️ Pausing Spotify playback...');
+              await fetch('/api/admin/playback/pause', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+              });
+              console.log('✅ Spotify paused');
+            } catch (pauseError) {
+              console.warn('⚠️ Could not pause Spotify (may already be paused):', pauseError);
+              // Continue anyway - not critical
+            }
+
+            // Then disconnect
             await fetch('/api/spotify/disconnect', {
               method: 'POST',
               headers: {

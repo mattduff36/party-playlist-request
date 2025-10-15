@@ -11,7 +11,8 @@ import {
   Monitor,
   Eye,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Wand2
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import SpotifyStatusDropdown from '@/components/admin/SpotifyStatusDropdown';
@@ -22,6 +23,7 @@ import PageToggleIcons from '@/components/admin/PageToggleIcons';
 import EventTitleEditor from '@/components/admin/EventTitleEditor';
 import SpotifyConnectionModal from '@/components/admin/SpotifyConnectionModal';
 import TokenExpiryWarning from '@/components/admin/TokenExpiryWarning';
+import SetupModal from '@/components/admin/SetupModal';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface AdminLayoutProps {
@@ -34,6 +36,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const pathname = usePathname();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showSpotifyModal, setShowSpotifyModal] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
   const [eventPin, setEventPin] = useState<string | null>(null);
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
@@ -68,17 +71,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       badge: stats?.pending_requests && stats.pending_requests > 0 ? stats.pending_requests : undefined
     },
     { 
-      id: 'requests', 
-      label: 'Requests', 
-      icon: Music, 
-      href: `${baseRoute}/admin/requests`,
-      badge: stats?.pending_requests && stats.pending_requests > 0 ? stats.pending_requests : undefined
-    },
-    { 
-      id: 'settings', 
-      label: 'Settings', 
-      icon: Settings, 
-      href: `${baseRoute}/admin/settings`
+      id: 'display', 
+      label: 'Display', 
+      icon: Eye, 
+      href: `${baseRoute}/admin/display`
     },
     { 
       id: 'spotify', 
@@ -87,10 +83,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       href: `${baseRoute}/admin/spotify`
     },
     { 
-      id: 'display', 
-      label: 'Display', 
-      icon: Eye, 
-      href: `${baseRoute}/admin/display`
+      id: 'settings', 
+      label: 'Settings', 
+      icon: Settings, 
+      href: `${baseRoute}/admin/settings`
     },
   ];
 
@@ -127,10 +123,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
         const response = await fetch('/api/spotify/status');
         const data = await response.json();
         
-        // Show modal if not connected
+        // Show modal if not connected and user hasn't dismissed it
         if (!data.connected) {
-          // Small delay to let the UI load first
-          setTimeout(() => setShowSpotifyModal(true), 1000);
+          const dismissed = localStorage.getItem('spotify_modal_dismissed');
+          if (!dismissed) {
+            // Small delay to let the UI load first
+            setTimeout(() => setShowSpotifyModal(true), 1000);
+          }
         }
       } catch (error) {
         console.error('Failed to check Spotify status:', error);
@@ -246,7 +245,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               return (
                 <button
                   key={item.id}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => {
+                    if ('onClick' in item && item.onClick) {
+                      item.onClick();
+                    } else if ('href' in item && item.href) {
+                      router.push(item.href);
+                    }
+                  }}
                   className={`w-full flex items-center justify-between px-4 py-3 mb-2 rounded-lg text-left transition-colors ${
                     isActive
                       ? 'bg-purple-600 text-white'
@@ -279,9 +284,16 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               >
                 <Monitor className="w-5 h-5 mr-3" />
                 <span>Open Display</span>
-                <ExternalLink className="w-4 h-4 ml-auto" />
               </a>
             )}
+            {/* Setup Button */}
+            <button
+              onClick={() => setShowSetupModal(true)}
+              className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-purple-600 hover:text-white transition-colors"
+            >
+              <Wand2 className="w-5 h-5 mr-3" />
+              <span>Setup</span>
+            </button>
           </div>
         </div>
       </div>
@@ -324,7 +336,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
           return (
             <button
               key={item.id}
-              onClick={() => router.push(item.href)}
+              onClick={() => {
+                if ('onClick' in item && item.onClick) {
+                  item.onClick();
+                } else if ('href' in item && item.href) {
+                  router.push(item.href);
+                }
+              }}
               className={`flex flex-col items-center justify-center flex-1 h-full relative ${
                 isActive ? 'text-purple-400' : 'text-gray-400'
               }`}
@@ -384,14 +402,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             <div className="hidden md:flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
               <div className="flex items-center space-x-4">
                 <EventStateDropdown />
+                <SpotifyStatusDropdown />
                 <PageToggleIcons />
               </div>
               <div className="flex-1 flex justify-center">
                 <EventTitleEditor />
               </div>
               <div className="flex items-center space-x-3">
-                <SpotifyStatusDropdown />
-                <NotificationsDropdown />
                 {eventPin && (
                   <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
                     <Lock className="h-4 w-4 text-purple-400" />
@@ -399,6 +416,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                     <span className="text-xl font-bold text-white tracking-wider font-mono">{eventPin}</span>
                   </div>
                 )}
+                <NotificationsDropdown />
                 <button
                   onClick={handleLogout}
                   className="p-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
@@ -421,6 +439,11 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
         <SpotifyConnectionModal 
           isOpen={showSpotifyModal} 
           onClose={() => setShowSpotifyModal(false)} 
+        />
+        <SetupModal 
+          isOpen={showSetupModal} 
+          onClose={() => setShowSetupModal(false)}
+          username={displayUsername}
         />
         {/* Token expiry warning - only show if event is NOT offline */}
         {tokenExpiry && state?.status !== 'offline' && (

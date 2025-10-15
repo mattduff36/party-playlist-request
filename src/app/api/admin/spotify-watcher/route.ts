@@ -122,14 +122,14 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
               const { sql } = await import('@/lib/db/neon-client');
               
               // Find the oldest approved request matching this track URI
+              // Note: Production requests table doesn't have user_id column
               const matchingRequest = await sql`
                 UPDATE requests
                 SET status = 'played',
                     played_at = NOW()
                 WHERE id = (
                   SELECT id FROM requests
-                  WHERE user_id = ${userId}
-                    AND track_uri = ${currentPlayback.item.uri}
+                  WHERE track_uri = ${currentPlayback.item.uri}
                     AND status = 'approved'
                   ORDER BY created_at ASC
                   LIMIT 1
