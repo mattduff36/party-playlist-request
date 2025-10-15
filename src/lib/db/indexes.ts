@@ -76,7 +76,7 @@ export class DatabaseIndexer {
         description: 'Fast ordering by update time'
       },
 
-      // Requests table indexes
+      // Requests table indexes (CRITICAL for performance)
       {
         name: 'idx_requests_event_id',
         table: 'requests',
@@ -87,7 +87,7 @@ export class DatabaseIndexer {
         name: 'idx_requests_status',
         table: 'requests',
         columns: ['status'],
-        description: 'Fast lookup by request status (pending/approved/rejected/played)'
+        description: 'CRITICAL: Fast lookup by request status (pending/approved/rejected/played)'
       },
       {
         name: 'idx_requests_created_at',
@@ -111,7 +111,19 @@ export class DatabaseIndexer {
         name: 'idx_requests_status_created',
         table: 'requests',
         columns: ['status', 'created_at'],
-        description: 'Composite index for status-based time queries'
+        description: 'CRITICAL: Composite index for status-based time queries (Spotify watcher)'
+      },
+      {
+        name: 'idx_requests_status_approved_at',
+        table: 'requests',
+        columns: ['status', 'approved_at'],
+        description: 'CRITICAL: Optimize approved request queries ordered by approved_at'
+      },
+      {
+        name: 'idx_requests_track_uri_status',
+        table: 'requests',
+        columns: ['track_uri', 'status'],
+        description: 'CRITICAL: Fast lookup for duplicate checking and auto-mark as played'
       },
       {
         name: 'idx_requests_submitted_by',
@@ -240,6 +252,8 @@ export class DatabaseIndexer {
       'idx_requests_event_status',
       'idx_requests_event_created',
       'idx_requests_status_created',
+      'idx_requests_status_approved_at', // NEW
+      'idx_requests_track_uri_status', // NEW
       'idx_requests_submitted_by',
       'idx_requests_idempotency_key',
       'idx_requests_approved_at',

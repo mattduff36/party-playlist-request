@@ -19,14 +19,16 @@ export const users = pgTable('users', {
 export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
   user_id: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  pin: text('pin').notNull().unique(),
   status: text('status', { 
     enum: ['offline', 'standby', 'live'] 
   }).notNull().default('offline'),
-  version: integer('version').notNull().default(0),
-  active_admin_id: uuid('active_admin_id').references(() => admins.id),
-  device_id: text('device_id'),
   config: jsonb('config').notNull().default('{}'),
+  active_admin_id: uuid('active_admin_id').references(() => admins.id),
+  version: integer('version').notNull().default(0),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  device_id: text('device_id'),
 });
 
 // Admins table - Admin user management

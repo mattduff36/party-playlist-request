@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const playback = await spotifyService.getCurrentPlayback(userId);
     const queue = await spotifyService.getQueue(userId);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       connected: true,
       is_playing: playback?.is_playing || false,
       current_track: playback?.item ? {
@@ -64,6 +64,12 @@ export async function GET(request: NextRequest) {
       error: null,
       last_updated: new Date().toISOString()
     });
+    
+    // OPTIMIZATION: Add cache headers (10 seconds for rapidly changing data)
+    response.headers.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=20');
+    response.headers.set('CDN-Cache-Control', 'private, max-age=10');
+    
+    return response;
 
   } catch (error) {
     // Don't log errors for expected disconnection states

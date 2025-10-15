@@ -36,6 +36,23 @@ export async function GET(req: NextRequest) {
     const { getDatabaseService } = await import('@/lib/db/database-service');
     const dbService = getDatabaseService();
     
+    // Verify the user actually exists in the database (JWT might be stale)
+    const { sql } = await import('@/lib/db/neon-client');
+    const userCheck = await sql`SELECT id FROM users WHERE id = ${userId}`;
+    
+    if (userCheck.length === 0) {
+      console.error(`❌ User ${userId} from JWT does not exist in database. Token is stale.`);
+      return NextResponse.json(
+        { error: 'Invalid authentication token. Please log in again.' },
+        { 
+          status: 401,
+          headers: {
+            'Set-Cookie': 'auth_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict'
+          }
+        }
+      );
+    }
+    
     // Get current event status for THIS user
     const event = await dbService.getEvent(userId);
     
@@ -77,7 +94,7 @@ export async function GET(req: NextRequest) {
       });
     }
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       event: {
         id: event.id,
@@ -88,6 +105,12 @@ export async function GET(req: NextRequest) {
         updatedAt: event.updated_at,
       }
     });
+    
+    // OPTIMIZATION: Add cache headers (30 seconds - event status changes less frequently)
+    response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+    response.headers.set('CDN-Cache-Control', 'private, max-age=30');
+    
+    return response;
 
   } catch (error) {
     console.error('Error getting event status:', error);

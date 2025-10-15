@@ -80,7 +80,8 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     setAllRequests(filteredRequests);
   }, [requests, filterStatus, searchQuery]);
 
-  const formatDuration = (ms: number) => {
+  const formatDuration = (ms: number | undefined | null) => {
+    if (!ms || isNaN(ms)) return '--:--';
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;

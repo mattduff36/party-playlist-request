@@ -247,8 +247,11 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error(`❌ [${requestId}] Error submitting request (${Date.now() - startTime}ms):`, error);
+    console.error(`❌ [${requestId}] Error stack:`, (error as Error).stack);
+    console.error(`❌ [${requestId}] Error message:`, (error as Error).message);
     return NextResponse.json({ 
-      error: 'Failed to submit request. Please try again.' 
+      error: 'Failed to submit request. Please try again.',
+      debug: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     }, { status: 500 });
   }
 }

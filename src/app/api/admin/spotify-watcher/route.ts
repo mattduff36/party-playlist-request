@@ -8,6 +8,7 @@ import { getAllRequests } from '@/lib/db';
 const lastPlaybackStates = new Map<string, any>(); // userId -> lastPlaybackState
 const lastQueueStates = new Map<string, any>();    // userId -> lastQueueState
 const lastQueueChecks = new Map<string, number>(); // userId -> timestamp
+const lastStatsStates = new Map<string, any>();    // userId -> lastStatsState (for change detection)
 let watcherInterval: NodeJS.Timeout | null = null;
 let lastStatsUpdate = 0;
 
@@ -199,12 +200,9 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
     if (playbackChanged || queueChanged || hasCriticalChanges) {
       console.log(`🎵 [${username}] MEANINGFUL changes detected!`);
       
-      // Get THIS USER's approved requests
-      const { getAllRequests: getUserRequests } = await import('@/lib/db');
-      const allRequests = await getUserRequests();
-      const userApprovedRequests = allRequests.filter(r => 
-        r.status === 'approved' && r.user_id === userId
-      );
+      // OPTIMIZED: Get ONLY approved requests with single targeted query
+      const { getRequestsByStatus } = await import('@/lib/db');
+      const userApprovedRequests = await getRequestsByStatus('approved', 100, 0);
 
       // Enhance queue items with requester information
       const enhancedQueue = (queue?.queue || []).map((track: any) => {
@@ -248,29 +246,38 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
       console.log(`🎵 [${username}] No meaningful changes`);
     }
 
-    // Update stats only every 30 seconds
+    // Update stats only every 30 seconds AND only if values changed
     if (now - lastStatsUpdate > 30000) {
-      console.log(`📊 [${username}] Updating stats (30s interval)`);
+      console.log(`📊 [${username}] Calculating stats (30s interval)`);
       const { getAllRequests: getUserRequests } = await import('@/lib/db');
-      const allRequests = await getUserRequests();
-      const userRequests = allRequests.filter(r => r.user_id === userId);
+      // OPTIMIZED: Get all requests with single query (still needed for stats)
+      const allRequests = await getUserRequests(1000, 0); // Increased limit for stats
       
       const stats = {
-        total_requests: userRequests.length,
-        pending_requests: userRequests.filter(r => r.status === 'pending').length,
-        approved_requests: userRequests.filter(r => r.status === 'approved').length,
-        rejected_requests: userRequests.filter(r => r.status === 'rejected').length,
-        played_requests: userRequests.filter(r => r.status === 'played').length,
-        unique_requesters: new Set(userRequests.map(r => r.requester_nickname || 'Anonymous')).size,
+        total_requests: allRequests.length,
+        pending_requests: allRequests.filter(r => r.status === 'pending').length,
+        approved_requests: allRequests.filter(r => r.status === 'approved').length,
+        rejected_requests: allRequests.filter(r => r.status === 'rejected').length,
+        played_requests: allRequests.filter(r => r.status === 'played').length,
+        unique_requesters: new Set(allRequests.map(r => r.requester_nickname || 'Anonymous')).size,
         spotify_connected: isConnected
       };
 
-      // Trigger stats update for THIS USER
-      try {
-        console.log(`📡 [${username}] Sending stats update to Pusher`);
-        await triggerStatsUpdate({...stats, userId});
-      } catch (pusherError) {
-        console.error(`❌ [${username}] Failed to trigger stats update:`, pusherError);
+      // OPTIMIZATION: Only trigger update if stats actually changed
+      const lastStats = lastStatsStates.get(userId);
+      const statsChanged = !lastStats || JSON.stringify(lastStats) !== JSON.stringify(stats);
+      
+      if (statsChanged) {
+        // Trigger stats update for THIS USER
+        try {
+          console.log(`📡 [${username}] Stats changed - sending update to Pusher`);
+          await triggerStatsUpdate({...stats, userId});
+          lastStatsStates.set(userId, stats);
+        } catch (pusherError) {
+          console.error(`❌ [${username}] Failed to trigger stats update:`, pusherError);
+        }
+      } else {
+        console.log(`📊 [${username}] Stats unchanged - skipping Pusher event`);
       }
       
       lastStatsUpdate = now;

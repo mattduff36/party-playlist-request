@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Music2, AlertCircle, Loader2 } from 'lucide-react';
+import SessionTransferModal from '@/components/admin/SessionTransferModal';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +12,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferData, setTransferData] = useState<any>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -32,6 +35,14 @@ export default function LoginPage() {
         return;
       }
 
+      // Check if session transfer is required
+      if (data.requiresTransfer) {
+        setTransferData({ ...data, password });
+        setShowTransferModal(true);
+        setLoading(false);
+        return;
+      }
+
       // Check if super admin - redirect to super admin panel
       if (data.user?.role === 'superadmin') {
         router.push('/superadmin');
@@ -44,6 +55,43 @@ export default function LoginPage() {
       setError('Network error. Please try again.');
       setLoading(false);
     }
+  }
+
+  async function handleTransferSession() {
+    if (!transferData) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/transfer-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: transferData.username,
+          password: transferData.password,
+        }),
+      });
+
+      if (!response.ok) {
+        setError('Failed to transfer session');
+        setLoading(false);
+        setShowTransferModal(false);
+        return;
+      }
+
+      // Session transferred successfully
+      setShowTransferModal(false);
+      router.push(`/${transferData.username}/admin/overview`);
+    } catch (err) {
+      setError('Network error during transfer');
+      setLoading(false);
+      setShowTransferModal(false);
+    }
+  }
+
+  function handleCancelTransfer() {
+    setShowTransferModal(false);
+    setTransferData(null);
+    setLoading(false);
   }
 
   return (
@@ -140,6 +188,14 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Session Transfer Modal */}
+      <SessionTransferModal
+        isOpen={showTransferModal && !!transferData}
+        onTransfer={handleTransferSession}
+        onCancel={handleCancelTransfer}
+        sessionInfo={transferData?.sessionInfo}
+      />
     </div>
   );
 }

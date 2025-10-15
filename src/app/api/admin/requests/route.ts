@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
              status === 'rejected' ? counts.rejected : 0;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       requests,
       pagination: {
         total,
@@ -43,6 +43,11 @@ export async function GET(req: NextRequest) {
         has_more: total > offset + limit
       }
     });
+    
+    // OPTIMIZATION: Add cache headers (15 seconds - requests change frequently but not constantly)
+    response.headers.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
+    
+    return response;
 
   } catch (error) {
     if (error instanceof Error && error.message.includes('token')) {

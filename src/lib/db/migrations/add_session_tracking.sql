@@ -12,3 +12,4 @@ CREATE INDEX IF NOT EXISTS idx_users_active_session ON users(active_session_id) 
 COMMENT ON COLUMN users.active_session_id IS 'Unique identifier for the current active admin session';
 COMMENT ON COLUMN users.active_session_created_at IS 'Timestamp when the current session was created';
 
+

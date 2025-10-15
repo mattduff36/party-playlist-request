@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
     const spotifyConnected = await spotifyService.isConnectedAndValid(userId);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       total_requests: counts.total,
       pending_requests: counts.pending,
       approved_requests: counts.approved,
@@ -59,6 +59,11 @@ export async function GET(req: NextRequest) {
       top_artists: topArtists,
       spotify_connected: spotifyConnected
     });
+    
+    // OPTIMIZATION: Add cache headers (20 seconds - stats are aggregated and change slowly)
+    response.headers.set('Cache-Control', 'private, max-age=20, stale-while-revalidate=40');
+    
+    return response;
 
   } catch (error) {
     if (error instanceof Error && error.message.includes('token')) {

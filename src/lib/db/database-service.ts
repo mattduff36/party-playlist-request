@@ -99,19 +99,39 @@ export class DatabaseService {
       async (client) => {
         const drizzle = getConnectionPoolManager().getDrizzle(PoolType.WRITE_ONLY);
         
+        // Generate PIN if not provided (required in production database)
+        const pin = eventData.pin || this.generateSecurePIN();
+        
         const result = await drizzle
           .insert(events)
           .values({
-            status: 'offline',
-            version: 0,
-            config: {},
-            ...eventData,
+            user_id: eventData.user_id!,
+            pin: pin,
+            status: eventData.status || 'offline',
+            version: eventData.version || 0,
+            config: eventData.config || {},
+            active_admin_id: eventData.active_admin_id,
+            device_id: eventData.device_id,
           })
           .returning();
         
         return result[0];
       }
     );
+  }
+
+  // Helper function to generate secure PIN
+  private generateSecurePIN(): string {
+    const AVOIDED_PATTERNS = [
+      '1234', '4321', '0000', '1111', '2222', '3333', '4444', '5555', 
+      '6666', '7777', '8888', '9999', '1212', '6969', '0420'
+    ];
+    
+    let pin: string;
+    do {
+      pin = Math.floor(1000 + Math.random() * 9000).toString();
+    } while (AVOIDED_PATTERNS.includes(pin));
+    return pin;
   }
 
   async updateEvent(eventId: string, updates: Partial<Event>, userId: string): Promise<Event> {

@@ -435,18 +435,16 @@ export async function createRequest(request: Omit<Request, 'id' | 'created_at'>)
   const client = getPool();
   const id = crypto.randomUUID();
   
+  // Production database uses minimal schema - many columns don't exist yet
   const result = await client.query(`
     INSERT INTO requests (
       id, track_uri, track_name, artist_name, album_name, 
-      duration_ms, requester_ip_hash, requester_nickname, user_session_id,
-      status, spotify_added_to_queue, spotify_added_to_playlist, user_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      requester_nickname, status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *
   `, [
     id, request.track_uri, request.track_name, request.artist_name, 
-    request.album_name, request.duration_ms, request.requester_ip_hash, 
-    request.requester_nickname, request.user_session_id, request.status, false, false,
-    request.user_id || null
+    request.album_name, request.requester_nickname, request.status
   ]);
 
   return result.rows[0];
@@ -499,7 +497,8 @@ export async function updateRequest(id: string, updates: Partial<Request>, userI
   return result.rows[0] || null;
 }
 
-export async function getRequestsByStatus(status: string, limit = 50, offset = 0, userId?: string): Promise<Request[]> {
+// DEPRECATED: Use new getRequestsByStatus below
+export async function getRequestsByStatusOld(status: string, limit = 50, offset = 0, userId?: string): Promise<Request[]> {
   const client = getPool();
   
   // For approved requests, order by approved_at ASC (oldest approved first - play order)
@@ -511,16 +510,7 @@ export async function getRequestsByStatus(status: string, limit = 50, offset = 0
     orderBy = 'approved_at DESC'; // Most recently played first
   }
   
-  // If userId provided, filter by it for multi-tenant isolation
-  if (userId) {
-    const result = await client.query(
-      `SELECT * FROM requests WHERE status = $1 AND user_id = $2 ORDER BY ${orderBy} LIMIT $3 OFFSET $4`,
-      [status, userId, limit, offset]
-    );
-    return result.rows;
-  }
-  
-  // Legacy: return all (for backward compatibility during migration)
+  // Single-tenant: ignore userId (not in schema)
   const result = await client.query(
     `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
     [status, limit, offset]
@@ -528,17 +518,9 @@ export async function getRequestsByStatus(status: string, limit = 50, offset = 0
   return result.rows;
 }
 
+// DEPRECATED: Use getRequestsByUserId or getRequestsByStatus instead
 export async function getAllRequests(limit = 50, offset = 0, userId?: string): Promise<Request[]> {
   const client = getPool();
-  
-  // If userId provided, filter by it for multi-tenant isolation
-  if (userId) {
-    const result = await client.query(
-      'SELECT * FROM requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
-      [userId, limit, offset]
-    );
-    return result.rows;
-  }
   
   // Legacy: return all (for backward compatibility during migration)
   const result = await client.query(
@@ -548,59 +530,82 @@ export async function getAllRequests(limit = 50, offset = 0, userId?: string): P
   return result.rows;
 }
 
+// OPTIMIZED: Get requests filtered by user ID and optionally by status
+export async function getRequestsByUserId(
+  userId: string, 
+  options?: {
+    status?: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
+    limit?: number;
+    offset?: number;
+  }
+): Promise<Request[]> {
+  const client = getPool();
+  const { status, limit = 50, offset = 0 } = options || {};
+  
+  // For single-tenant systems (current schema), userId is not in requests table
+  // Instead, all requests belong to the single user
+  if (status) {
+    const result = await client.query(
+      'SELECT * FROM requests WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+      [status, limit, offset]
+    );
+    return result.rows;
+  }
+  
+  const result = await client.query(
+    'SELECT * FROM requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+    [limit, offset]
+  );
+  return result.rows;
+}
+
+// OPTIMIZED: Get requests by status only (for current single-tenant schema)
+export async function getRequestsByStatus(
+  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played',
+  limit = 50,
+  offset = 0
+): Promise<Request[]> {
+  const client = getPool();
+  
+  // For approved requests, order by approved_at ASC (oldest approved first - play order)
+  // For other statuses, order by created_at DESC (newest first)
+  let orderBy = 'created_at DESC';
+  if (status === 'approved') {
+    orderBy = 'approved_at ASC';
+  } else if (status === 'played') {
+    orderBy = 'approved_at DESC'; // Most recently played first
+  }
+  
+  const result = await client.query(
+    `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
+    [status, limit, offset]
+  );
+  return result.rows;
+}
+
+// OPTIMIZED: Check for recent duplicates (single-tenant schema)
 export async function checkRecentDuplicate(trackUri: string, minutesAgo: number = 30, userId?: string): Promise<Request | null> {
   const client = getPool();
   
-  // If userId provided, check only for THIS USER's duplicates (multi-tenant isolation)
-  if (userId) {
-    const result = await client.query(
-      `SELECT * FROM requests 
-       WHERE track_uri = $1 
-       AND user_id = $2
-       AND created_at > NOW() - INTERVAL '${minutesAgo} minutes'
-       AND status IN ('pending', 'approved', 'queued')
-       LIMIT 1`,
-      [trackUri, userId]
-    );
-    return result.rows[0] || null;
-  }
-  
-  // Legacy: check global duplicates (for backward compatibility during migration)
+  // Single-tenant: ignore userId (not in schema)
+  // OPTIMIZATION: Use parameterized interval instead of string interpolation
   const result = await client.query(
     `SELECT * FROM requests 
      WHERE track_uri = $1 
-     AND created_at > NOW() - INTERVAL '${minutesAgo} minutes'
+     AND created_at > NOW() - INTERVAL '1 minute' * $2
      AND status IN ('pending', 'approved', 'queued')
      LIMIT 1`,
-    [trackUri]
+    [trackUri, minutesAgo]
   );
   return result.rows[0] || null;
 }
 
+// OPTIMIZED: Get counts with single query (single-tenant schema)
 export async function getRequestsCount(userId?: string): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
   const client = getPool();
   
-  // If userId provided, filter by it for multi-tenant isolation
-  if (userId) {
-    const result = await client.query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'pending') as pending,
-        COUNT(*) FILTER (WHERE status = 'approved') as approved,
-        COUNT(*) FILTER (WHERE status = 'rejected') as rejected
-      FROM requests
-      WHERE user_id = $1
-    `, [userId]);
-    
-    return {
-      total: parseInt(result.rows[0].total),
-      pending: parseInt(result.rows[0].pending),
-      approved: parseInt(result.rows[0].approved),
-      rejected: parseInt(result.rows[0].rejected)
-    };
-  }
-  
-  // Legacy: count all (for backward compatibility during migration)
+  // Single-tenant: ignore userId (not in schema)
+  // OPTIMIZATION: Single query with FILTER for all counts
   const result = await client.query(`
     SELECT 
       COUNT(*) as total,

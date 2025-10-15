@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/react';
 import ServerStartup from '@/components/ServerStartup';
 import MobileCacheBuster from '@/components/MobileCacheBuster';
 import { GlobalEventProvider } from '@/lib/state/global-event-client';
+import { QueryProvider } from '@/providers/QueryProvider';
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,11 +22,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} antialiased bg-gray-50 min-h-screen`}>
-        <GlobalEventProvider>
-          <MobileCacheBuster />
-          <ServerStartup />
-          {children}
-        </GlobalEventProvider>
+        <QueryProvider>
+          <GlobalEventProvider>
+            <MobileCacheBuster />
+            <ServerStartup />
+            {children}
+          </GlobalEventProvider>
+        </QueryProvider>
         <Analytics />
       </body>
     </html>
