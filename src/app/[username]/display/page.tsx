@@ -186,7 +186,7 @@ function DisplayPage({ username }: { username: string }) {
   
   // Track if Now Playing section should use horizontal layout
   const [useHorizontalLayout, setUseHorizontalLayout] = useState(false);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const nowPlayingResizeObserverRef = useRef<ResizeObserver | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
@@ -373,12 +373,13 @@ function DisplayPage({ username }: { username: string }) {
   
   const liveProgress = useLiveProgress(playbackState, 1000);
 
-  // Callback ref for grid container - sets up ResizeObserver when element is mounted
-  const gridContainerRef = useCallback((element: HTMLDivElement | null) => {
+  // Callback ref for Now Playing section - sets up ResizeObserver to detect layout changes
+  // This is now reactive to isMessageVisible changes (notice board appearing/disappearing)
+  const nowPlayingRef = useCallback((element: HTMLDivElement | null) => {
     // Clean up existing observer
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-      resizeObserverRef.current = null;
+    if (nowPlayingResizeObserverRef.current) {
+      nowPlayingResizeObserverRef.current.disconnect();
+      nowPlayingResizeObserverRef.current = null;
     }
 
     if (!element || deviceType !== 'tv') {
@@ -390,13 +391,14 @@ function DisplayPage({ username }: { username: string }) {
         const { width, height } = entry.contentRect;
         // Switch to horizontal layout if width is more than 2x the height
         const shouldBeHorizontal = width >= height * 2;
+        console.log(`📐 Now Playing dimensions: ${Math.round(width)}x${Math.round(height)}, ratio: ${(width/height).toFixed(2)}, horizontal: ${shouldBeHorizontal}`);
         setUseHorizontalLayout(shouldBeHorizontal);
       }
     });
 
     observer.observe(element);
-    resizeObserverRef.current = observer;
-  }, [deviceType]);
+    nowPlayingResizeObserverRef.current = observer;
+  }, [deviceType, isMessageVisible]); // Re-observe when notice board state changes
 
   // Calculate dynamic font size based on message length and device type
   // Ensures ALL text fits in container without resizing, minimum 0.1rem
@@ -812,7 +814,6 @@ function DisplayPage({ username }: { username: string }) {
 
           {/* Main Content Area - Dynamic Height */}
           <div 
-            ref={gridContainerRef}
             className="flex-1 min-h-0"
             style={{
               display: 'grid',
@@ -825,6 +826,7 @@ function DisplayPage({ username }: { username: string }) {
           >
               {/* Now Playing Section */}
               <div 
+                ref={nowPlayingRef}
                 className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
                 style={{
                   gridColumn: '1 / span 2',
