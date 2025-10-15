@@ -36,11 +36,13 @@ export async function GET(req: NextRequest) {
         id, 
         username, 
         email, 
-        status as account_status,
+        display_name,
         role,
-        created_at, 
-        last_login
+        created_at,
+        updated_at,
+        active_session_created_at
       FROM users
+      WHERE 1=1
     `;
     const params: any[] = [];
     let paramCount = 0;
@@ -52,12 +54,7 @@ export async function GET(req: NextRequest) {
       params.push(`%${search}%`);
     }
 
-    // Add status filter
-    if (status !== 'all') {
-      paramCount++;
-      query += ` AND status = $${paramCount}`;
-      params.push(status);
-    }
+    // Note: status filter removed as the users table doesn't have a status column
 
     // Add pagination
     query += ` ORDER BY created_at DESC`;
@@ -71,6 +68,19 @@ export async function GET(req: NextRequest) {
     // Execute query
     const result = await pool.query(query, params);
 
+    // Transform the results to match frontend expectations
+    const users = result.rows.map((user: any) => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      account_status: 'active', // Default to active since we don't have a status column
+      email_verified: true, // Default to true since we don't have email verification
+      is_super_admin: user.role === 'superadmin',
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      last_login: user.active_session_created_at // Use session created as proxy for last login
+    }));
+
     // Get total count
     let countQuery = 'SELECT COUNT(*) FROM users WHERE 1=1';
     const countParams: any[] = [];
@@ -82,17 +92,11 @@ export async function GET(req: NextRequest) {
       countParams.push(`%${search}%`);
     }
 
-    if (status !== 'all') {
-      countParamCount++;
-      countQuery += ` AND status = $${countParamCount}`;
-      countParams.push(status);
-    }
-
     const countResult = await pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].count);
 
     return NextResponse.json({
-      users: result.rows,
+      users,
       pagination: {
         total,
         limit,
@@ -204,12 +208,12 @@ export async function POST(req: NextRequest) {
         password_hash, 
         display_name,
         role,
-        status,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING 
-        id, username, email, role, status, created_at`,
-      [username, email, passwordHash, username, role, 'active']
+        id, username, email, role, created_at`,
+      [username, email, passwordHash, username, role]
     );
 
     console.log(`✅ Super admin ${auth.user.username} created user: ${username}`);

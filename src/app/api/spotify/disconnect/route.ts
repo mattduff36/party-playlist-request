@@ -17,7 +17,7 @@ async function handleDisconnect(req: NextRequest) {
     console.log(`✅ [spotify/disconnect] User ${auth.user.username} (${userId}) disconnecting Spotify`);
     
     console.log('🗑️ [spotify/disconnect] Clearing Spotify authentication from database...');
-    await clearSpotifyAuth();
+    await clearSpotifyAuth(userId); // Multi-tenant: Pass userId to only disconnect this user
     console.log('✅ [spotify/disconnect] Spotify authentication cleared successfully');
     
     const response = {

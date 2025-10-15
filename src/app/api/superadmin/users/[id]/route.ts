@@ -34,10 +34,11 @@ export async function GET(
         id, 
         username, 
         email, 
-        status as account_status,
+        display_name,
         role,
         created_at,
-        last_login
+        updated_at,
+        active_session_created_at
       FROM users
       WHERE id = $1`,
       [id]
@@ -50,7 +51,16 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ user: result.rows[0] });
+    // Transform to match frontend expectations
+    const user = {
+      ...result.rows[0],
+      account_status: 'active',
+      email_verified: true,
+      is_super_admin: result.rows[0].role === 'superadmin',
+      last_login: result.rows[0].active_session_created_at
+    };
+
+    return NextResponse.json({ user });
 
   } catch (error) {
     console.error('❌ Error fetching user:', error);
@@ -148,19 +158,7 @@ export async function PUT(
       values.push(passwordHash);
     }
 
-    if (account_status !== undefined) {
-      // Validate status
-      if (!['pending', 'active', 'suspended'].includes(account_status)) {
-        return NextResponse.json(
-          { error: 'Invalid account status' },
-          { status: 400 }
-        );
-      }
-
-      paramCount++;
-      updates.push(`status = $${paramCount}`);
-      values.push(account_status);
-    }
+    // Note: account_status removed as the users table doesn't have a status column
 
     if (is_super_admin !== undefined) {
       const role = is_super_admin ? 'superadmin' : 'user';
@@ -168,6 +166,10 @@ export async function PUT(
       updates.push(`role = $${paramCount}`);
       values.push(role);
     }
+
+    // Always update the updated_at timestamp
+    paramCount++;
+    updates.push(`updated_at = NOW()`);
 
     // Check if there are any updates
     if (updates.length === 0) {
@@ -187,16 +189,25 @@ export async function PUT(
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
       RETURNING 
-        id, username, email, status as account_status, role, created_at, last_login
+        id, username, email, display_name, role, created_at, updated_at, active_session_created_at
     `;
 
     const result = await pool.query(updateQuery, values);
+
+    // Transform to match frontend expectations
+    const updatedUser = {
+      ...result.rows[0],
+      account_status: 'active',
+      email_verified: true,
+      is_super_admin: result.rows[0].role === 'superadmin',
+      last_login: result.rows[0].active_session_created_at
+    };
 
     console.log(`✅ Super admin ${auth.user.username} updated user: ${user.username}`);
 
     return NextResponse.json({
       success: true,
-      user: result.rows[0]
+      user: updatedUser
     });
 
   } catch (error) {

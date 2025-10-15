@@ -181,10 +181,11 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // If status changed to offline, clean up all requests
+    // If status changed to offline, clean up all requests for THIS user
     if (status === 'offline') {
       try {
         const { sql } = await import('@/lib/db/neon-client');
+        // SECURITY: Delete only THIS user's requests (multi-tenant isolation)
         const deleteResult = await sql`
           DELETE FROM requests
           WHERE user_id = ${userId}
@@ -192,9 +193,9 @@ export async function POST(req: NextRequest) {
         `;
         
         const deletedCount = deleteResult.length;
-        console.log(`🧹 Event set to offline: Deleted ${deletedCount} requests for user ${userId}`);
+        console.log(`🧹 [SECURITY] Event set to offline: Deleted ${deletedCount} requests for user ${userId} (multi-tenant isolation enforced)`);
         
-        // Broadcast cleanup event via Pusher
+        // Broadcast cleanup event via Pusher (user-specific channel)
         try {
           const { triggerRequestsCleanup } = await import('@/lib/pusher');
           await triggerRequestsCleanup(userId);
@@ -204,6 +205,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (cleanupError) {
         console.error('❌ Failed to cleanup requests on offline:', cleanupError);
+        console.error('Error details:', cleanupError);
         // Don't fail the status change if cleanup fails
       }
     }

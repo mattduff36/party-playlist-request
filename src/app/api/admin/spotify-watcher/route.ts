@@ -121,8 +121,7 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
             try {
               const { sql } = await import('@/lib/db/neon-client');
               
-              // Find the oldest approved request matching this track URI
-              // Note: Production requests table doesn't have user_id column
+              // SECURITY: Find the oldest approved request matching this track URI for THIS user only (multi-tenant isolation)
               const matchingRequest = await sql`
                 UPDATE requests
                 SET status = 'played',
@@ -131,6 +130,7 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
                   SELECT id FROM requests
                   WHERE track_uri = ${currentPlayback.item.uri}
                     AND status = 'approved'
+                    AND user_id = ${userId}
                   ORDER BY created_at ASC
                   LIMIT 1
                 )
@@ -202,7 +202,7 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
       
       // OPTIMIZED: Get ONLY approved requests with single targeted query
       const { getRequestsByStatus } = await import('@/lib/db');
-      const userApprovedRequests = await getRequestsByStatus('approved', 100, 0);
+      const userApprovedRequests = await getRequestsByStatus('approved', 100, 0, userId);
 
       // Enhance queue items with requester information
       const enhancedQueue = (queue?.queue || []).map((track: any) => {
@@ -251,7 +251,7 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
       console.log(`📊 [${username}] Calculating stats (30s interval)`);
       const { getAllRequests: getUserRequests } = await import('@/lib/db');
       // OPTIMIZED: Get all requests with single query (still needed for stats)
-      const allRequests = await getUserRequests(1000, 0); // Increased limit for stats
+      const allRequests = await getUserRequests(1000, 0, userId); // Multi-tenant: Pass userId
       
       const stats = {
         total_requests: allRequests.length,

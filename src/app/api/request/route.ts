@@ -150,6 +150,13 @@ export async function POST(req: NextRequest) {
     const initialStatus = shouldAutoApprove ? 'approved' : 'pending';
     const approvedAt = shouldAutoApprove ? new Date().toISOString() : undefined;
 
+    // SECURITY: Ensure user_id is present (multi-tenant isolation)
+    if (!userId) {
+      return NextResponse.json({ 
+        error: 'Username is required for request submission' 
+      }, { status: 400 });
+    }
+
     console.log(`💾 [${requestId}] Creating database request with status: ${initialStatus}...`);
     const newRequest = await createRequest({
       track_uri: trackInfo.uri,
@@ -165,8 +172,7 @@ export async function POST(req: NextRequest) {
       approved_by: shouldAutoApprove ? 'Auto-Approval System' : undefined,
       spotify_added_to_queue: false,
       spotify_added_to_playlist: false,
-      user_id: userId || undefined // Multi-tenant: Link request to user
-    });
+    }, userId); // SECURITY: Pass userId as second parameter for multi-tenant isolation
     console.log(`✅ [${requestId}] Request created successfully with status: ${initialStatus} (${Date.now() - startTime}ms total)`);
 
     // 🎵 AUTO-QUEUE: If auto-approved, try to add to Spotify queue (MULTI-TENANT!)

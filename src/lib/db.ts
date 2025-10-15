@@ -431,20 +431,28 @@ export async function initializeDatabase() {
 }
 
 // Request operations
-export async function createRequest(request: Omit<Request, 'id' | 'created_at'>): Promise<Request> {
+export async function createRequest(
+  request: Omit<Request, 'id' | 'created_at'>, 
+  userId: string
+): Promise<Request> {
   const client = getPool();
   const id = crypto.randomUUID();
   
-  // Production database uses minimal schema - many columns don't exist yet
+  // SECURITY: Always require user_id for multi-tenant isolation
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
+  
+  // Production database includes user_id for proper multi-tenant isolation
   const result = await client.query(`
     INSERT INTO requests (
       id, track_uri, track_name, artist_name, album_name, 
-      requester_nickname, status
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      requester_nickname, status, user_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `, [
     id, request.track_uri, request.track_name, request.artist_name, 
-    request.album_name, request.requester_nickname, request.status
+    request.album_name, request.requester_nickname, request.status, userId
   ]);
 
   return result.rows[0];
@@ -522,10 +530,14 @@ export async function getRequestsByStatusOld(status: string, limit = 50, offset 
 export async function getAllRequests(limit = 50, offset = 0, userId?: string): Promise<Request[]> {
   const client = getPool();
   
-  // Legacy: return all (for backward compatibility during migration)
+  // SECURITY: ALWAYS filter by user_id for multi-tenant isolation
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
+  
   const result = await client.query(
-    'SELECT * FROM requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-    [limit, offset]
+    'SELECT * FROM requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+    [userId, limit, offset]
   );
   return result.rows;
 }
@@ -563,9 +575,15 @@ export async function getRequestsByUserId(
 export async function getRequestsByStatus(
   status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played',
   limit = 50,
-  offset = 0
+  offset = 0,
+  userId?: string
 ): Promise<Request[]> {
   const client = getPool();
+  
+  // SECURITY: ALWAYS filter by user_id for multi-tenant isolation
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
   
   // For approved requests, order by approved_at ASC (oldest approved first - play order)
   // For other statuses, order by created_at DESC (newest first)
@@ -577,25 +595,30 @@ export async function getRequestsByStatus(
   }
   
   const result = await client.query(
-    `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
-    [status, limit, offset]
+    `SELECT * FROM requests WHERE user_id = $1 AND status = $2 ORDER BY ${orderBy} LIMIT $3 OFFSET $4`,
+    [userId, status, limit, offset]
   );
   return result.rows;
 }
 
-// OPTIMIZED: Check for recent duplicates (single-tenant schema)
+// OPTIMIZED: Check for recent duplicates (multi-tenant schema)
 export async function checkRecentDuplicate(trackUri: string, minutesAgo: number = 30, userId?: string): Promise<Request | null> {
   const client = getPool();
   
-  // Single-tenant: ignore userId (not in schema)
+  // SECURITY: ALWAYS filter by user_id for multi-tenant isolation
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
+  
   // OPTIMIZATION: Use parameterized interval instead of string interpolation
   const result = await client.query(
-    `SELECT * FROM requests 
-     WHERE track_uri = $1 
-     AND created_at > NOW() - INTERVAL '1 minute' * $2
+    `SELECT * FROM requests
+     WHERE user_id = $1 
+     AND track_uri = $2 
+     AND created_at > NOW() - INTERVAL '1 minute' * $3
      AND status IN ('pending', 'approved', 'queued')
      LIMIT 1`,
-    [trackUri, minutesAgo]
+    [userId, trackUri, minutesAgo]
   );
   return result.rows[0] || null;
 }
@@ -604,8 +627,12 @@ export async function checkRecentDuplicate(trackUri: string, minutesAgo: number 
 export async function getRequestsCount(userId?: string): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
   const client = getPool();
   
-  // Single-tenant: ignore userId (not in schema)
-  // OPTIMIZATION: Single query with FILTER for all counts
+  // SECURITY: ALWAYS filter by user_id for multi-tenant isolation
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
+  
+  // OPTIMIZATION: Single query with FILTER for all counts, scoped to user
   const result = await client.query(`
     SELECT 
       COUNT(*) as total,
@@ -613,7 +640,8 @@ export async function getRequestsCount(userId?: string): Promise<{ total: number
       COUNT(*) FILTER (WHERE status = 'approved') as approved,
       COUNT(*) FILTER (WHERE status = 'rejected') as rejected
     FROM requests
-  `);
+    WHERE user_id = $1
+  `, [userId]);
   
   return {
     total: parseInt(result.rows[0].total),
@@ -700,15 +728,13 @@ export async function setSpotifyAuth(auth: SpotifyAuth, userId: string): Promise
   `, [userId, auth.access_token, auth.refresh_token, auth.expires_at, auth.scope, auth.token_type]);
 }
 
-export async function clearSpotifyAuth(userId?: string): Promise<void> {
-  const client = getPool();
-  
-  if (userId) {
-    await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
-  } else {
-    // Fallback for single-tenant compatibility
-    await client.query('DELETE FROM spotify_auth');
+export async function clearSpotifyAuth(userId: string): Promise<void> {
+  if (!userId) {
+    throw new Error('userId is required for multi-tenant data isolation');
   }
+  
+  const client = getPool();
+  await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
 }
 
 // OAuth session management
