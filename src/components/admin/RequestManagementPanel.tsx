@@ -24,7 +24,8 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     handleDelete,
     handlePlayAgain,
     loading,
-    refreshData
+    refreshData,
+    playbackState
   } = useAdminData();
 
   const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'played' | 'all'>('all');
@@ -194,6 +195,12 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
   const handleAddRandomSong = async () => {
     if (isAddingRandomSong) return;
     
+    // Check if Spotify is connected
+    if (!playbackState?.spotify_connected) {
+      alert('Please connect your Spotify account first to add random songs.');
+      return;
+    }
+    
     setIsAddingRandomSong(true);
     try {
       const response = await fetch('/api/admin/add-random-song', {
@@ -212,11 +219,17 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
         // Pusher should also update, but this ensures instant feedback
         await refreshData();
       } else {
-        const error = await response.text();
+        const error = await response.json().catch(() => ({ error: 'Failed to add random song' }));
         console.error('❌ Failed to add random song:', error);
+        
+        // Show user-friendly error message
+        if (error.error) {
+          alert(`Failed to add random song: ${error.error}`);
+        }
       }
     } catch (error) {
       console.error('❌ Error adding random song:', error);
+      alert('An error occurred while adding a random song. Please try again.');
     } finally {
       setIsAddingRandomSong(false);
     }
@@ -282,13 +295,13 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           
           <button
             onClick={handleAddRandomSong}
-            disabled={isAddingRandomSong}
+            disabled={isAddingRandomSong || !playbackState?.spotify_connected}
             className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-              isAddingRandomSong 
-                ? 'bg-purple-400 cursor-not-allowed' 
+              isAddingRandomSong || !playbackState?.spotify_connected
+                ? 'bg-purple-400 cursor-not-allowed opacity-50' 
                 : 'bg-purple-600 hover:bg-purple-700'
             }`}
-            title="Add Random Song"
+            title={!playbackState?.spotify_connected ? 'Connect Spotify to add random songs' : 'Add a random popular song to requests'}
           >
             <Shuffle className={`w-4 h-4 ${isAddingRandomSong ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">
