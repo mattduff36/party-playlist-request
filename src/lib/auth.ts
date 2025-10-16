@@ -106,3 +106,43 @@ export function getCookieOptions(isProduction: boolean) {
     path: '/'
   };
 }
+
+/**
+ * Middleware to require superadmin authentication
+ * Returns { authorized: true, user } on success, or { authorized: false, error } on failure
+ */
+export async function requireSuperAdmin(req: Request): Promise<{ authorized: boolean; user?: JWTPayload; error?: string }> {
+  try {
+    // Extract token from cookies
+    const cookieHeader = req.headers.get('cookie');
+    let token: string | null = null;
+
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+      const authCookie = cookies.find(c => c.startsWith('auth_token='));
+      if (authCookie) {
+        token = authCookie.split('=')[1];
+      }
+    }
+
+    if (!token) {
+      return { authorized: false, error: 'Not authenticated' };
+    }
+
+    // Verify token
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return { authorized: false, error: 'Invalid or expired token' };
+    }
+
+    // Check if user is superadmin
+    if (decoded.role !== 'superadmin') {
+      return { authorized: false, error: 'Insufficient permissions - superadmin required' };
+    }
+
+    return { authorized: true, user: decoded };
+  } catch (error) {
+    console.error('❌ requireSuperAdmin error:', error);
+    return { authorized: false, error: 'Authentication failed' };
+  }
+}

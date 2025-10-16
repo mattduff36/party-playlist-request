@@ -1,12 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Shield, Users, LogOut, Loader2 } from 'lucide-react';
+import { Shield, Users, LogOut, Loader2, Radio } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [username, setUsername] = useState('');
@@ -101,10 +102,26 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           <div className="flex items-center space-x-4 mb-6">
             <Link
               href="/superadmin"
-              className="flex items-center space-x-2 px-4 py-2 bg-black/50 hover:bg-[#1DB954]/20 backdrop-blur-md rounded-lg transition-all duration-300 border border-[#1DB954]/30 text-white"
+              className={`flex items-center space-x-2 px-4 py-2 backdrop-blur-md rounded-lg transition-all duration-300 ${
+                pathname === '/superadmin'
+                  ? 'bg-[#1DB954]/30 border-2 border-[#1DB954] text-white'
+                  : 'bg-black/50 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-white'
+              }`}
             >
               <Users className="w-5 h-5 text-[#1DB954]" />
               <span>User Management</span>
+            </Link>
+            
+            <Link
+              href="/superadmin/party-test"
+              className={`flex items-center space-x-2 px-4 py-2 backdrop-blur-md rounded-lg transition-all duration-300 ${
+                pathname === '/superadmin/party-test'
+                  ? 'bg-[#1DB954]/30 border-2 border-[#1DB954] text-white'
+                  : 'bg-black/50 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-white'
+              }`}
+            >
+              <Radio className="w-5 h-5 text-[#1DB954]" />
+              <span>Party Simulator</span>
             </Link>
           </div>
         </div>
