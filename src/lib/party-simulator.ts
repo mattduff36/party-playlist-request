@@ -155,18 +155,30 @@ class PartySimulator {
    * Schedule the next request(s)
    */
   private scheduleNextRequest(): void {
-    if (!this.config || !this.stats.isRunning) return;
+    // Check if we should continue BEFORE scheduling
+    if (!this.config || !this.stats.isRunning) {
+      console.log('🛑 Stopping scheduler: isRunning =', this.stats.isRunning);
+      return;
+    }
 
     const delay = this.config.requestInterval;
     const isBurst = this.config.burstMode && Math.random() < 0.2; // 20% chance of burst
 
     this.intervalId = setTimeout(async () => {
+      // Double-check we're still running AFTER the delay
+      if (!this.config || !this.stats.isRunning) {
+        console.log('🛑 Simulation stopped during delay, not sending request');
+        return;
+      }
+
       try {
         if (isBurst) {
           // Send 2-4 requests in quick succession
           const burstCount = Math.floor(Math.random() * 3) + 2;
           console.log(`💥 Burst mode: sending ${burstCount} requests`);
           for (let i = 0; i < burstCount; i++) {
+            // Check we're still running before each burst request
+            if (!this.stats.isRunning) break;
             await this.sendRequest();
             // Small delay between burst requests (500ms - 2s)
             await new Promise(resolve => setTimeout(resolve, Math.random() * 1500 + 500));
@@ -178,8 +190,12 @@ class PartySimulator {
         // Log but don't stop the simulation on error
         console.error('❌ Error in simulation loop (will continue):', error);
       } finally {
-        // ALWAYS schedule next request, even if this one failed
-        this.scheduleNextRequest();
+        // ALWAYS schedule next request IF still running
+        if (this.stats.isRunning) {
+          this.scheduleNextRequest();
+        } else {
+          console.log('🛑 Not scheduling next request - simulation stopped');
+        }
       }
     }, delay);
   }

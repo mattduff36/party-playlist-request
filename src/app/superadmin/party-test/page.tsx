@@ -39,7 +39,7 @@ export default function PartyTestPage() {
   const [config, setConfig] = useState({
     targetUrl: '',
     requestPin: '',
-    requestInterval: 30000, // 30 seconds
+    requestInterval: 300000, // 5 minutes (default)
     uniqueRequesters: 5,
     burstMode: false,
     explicitSongs: false
@@ -226,21 +226,25 @@ export default function PartyTestPage() {
                   <Clock className="w-4 h-4" />
                   <span>Request Interval</span>
                 </span>
-                <span className="text-[#1DB954] font-mono">{config.requestInterval / 1000}s</span>
+                <span className="text-[#1DB954] font-mono">
+                  {config.requestInterval >= 60000 
+                    ? `${Math.round(config.requestInterval / 60000)}m` 
+                    : `${config.requestInterval / 1000}s`}
+                </span>
               </label>
               <input
                 type="range"
-                min="5000"
-                max="120000"
-                step="5000"
+                min="60000"
+                max="1800000"
+                step="60000"
                 value={config.requestInterval}
                 onChange={(e) => setConfig({ ...config, requestInterval: parseInt(e.target.value) })}
                 disabled={stats.isRunning}
                 className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>Fast (5s)</span>
-                <span>Slow (2m)</span>
+                <span>Fast (1m)</span>
+                <span>Slow (30m)</span>
               </div>
             </div>
 

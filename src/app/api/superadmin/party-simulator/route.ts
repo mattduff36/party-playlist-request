@@ -55,9 +55,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!requestInterval || requestInterval < 5000) {
+    if (!requestInterval || requestInterval < 60000) {
       return NextResponse.json(
-        { error: 'Request interval must be at least 5 seconds (5000ms)' },
+        { error: 'Request interval must be at least 1 minute (60000ms)' },
+        { status: 400 }
+      );
+    }
+
+    if (requestInterval > 1800000) {
+      return NextResponse.json(
+        { error: 'Request interval must be at most 30 minutes (1800000ms)' },
         { status: 400 }
       );
     }
