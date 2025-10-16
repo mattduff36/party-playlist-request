@@ -25,7 +25,7 @@ interface SetupFormData {
 }
 
 export default function SetupModal({ isOpen, onClose, username }: SetupModalProps) {
-  const { stats } = useAdminData();
+  const { stats, updateEventSettings } = useAdminData();
   const [step, setStep] = useState(1);
   const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -64,25 +64,14 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
     setError(null);
 
     try {
-      // Save event settings
-      const response = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          event_title: formData.eventTitle,
-          welcome_message: formData.welcomeMessage,
-          auto_decline_explicit: formData.autoDeclineExplicit,
-          auto_approve_requests: formData.autoApprove,
-          max_requests_per_user: formData.maxRequestsPerUser
-        })
+      // Save event settings using AdminDataContext
+      await updateEventSettings({
+        event_title: formData.eventTitle,
+        welcome_message: formData.welcomeMessage,
+        decline_explicit: formData.autoDeclineExplicit,
+        auto_approve: formData.autoApprove,
+        request_limit: formData.maxRequestsPerUser === 0 ? null : formData.maxRequestsPerUser
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save settings');
-      }
 
       // Check Spotify connection status again
       await checkSpotifyConnection();
