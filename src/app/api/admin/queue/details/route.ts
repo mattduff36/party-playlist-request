@@ -21,24 +21,43 @@ export async function GET(req: NextRequest) {
     // Check if THIS USER has valid Spotify connection (MULTI-TENANT!)
     console.log(`🔍 [${requestId}] Checking Spotify connection for user ${userId}...`);
     const statusCheckStart = Date.now();
-    let hasValidConnection = false;
+    let spotifyConnected = false;
     try {
-      hasValidConnection = await spotifyService.isConnectedAndValid(userId);
-      console.log(`🔍 [${requestId}] User ${userId} Spotify connection: ${hasValidConnection} (${Date.now() - statusCheckStart}ms)`);
+      spotifyConnected = await spotifyService.isConnectedAndValid(userId);
+      console.log(`🔍 [${requestId}] User ${userId} Spotify connection: ${spotifyConnected} (${Date.now() - statusCheckStart}ms)`);
     } catch (statusError) {
       console.log(`❌ [${requestId}] Spotify status check failed for user ${userId}: ${(statusError as Error).message} (${Date.now() - statusCheckStart}ms)`);
+      spotifyConnected = false;
     }
     
-    // Always attempt Spotify API calls (they handle their own auth/tokens)
+    // If not connected, return early with disconnected status
+    if (!spotifyConnected) {
+      console.log(`⚠️ [${requestId}] User ${userId} not connected to Spotify, returning early`);
+      return NextResponse.json({
+        current_track: null,
+        queue: [],
+        device: null,
+        is_playing: false,
+        shuffle_state: false,
+        repeat_state: 'off',
+        spotify_connected: false,
+        debug: {
+          request_id: requestId,
+          has_valid_connection: false,
+          spotify_errors: ['Not connected to Spotify'],
+          total_duration: Date.now() - startTime,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // User is connected, attempt Spotify API calls
     console.log(`🎵 [${requestId}] Fetching Spotify playback and queue data...`);
     const spotifyCallStart = Date.now();
     
     let playbackState = null;
     let queueData = null;
     let spotifyErrors = [];
-    
-    // Determine connection based on successful API calls
-    let spotifyConnected = true; // Will be set to false if API calls fail
     
     // Try getCurrentPlayback first (MULTI-TENANT: pass userId!)
     console.log(`🎵 [${requestId}] Calling getCurrentPlayback(${userId})...`);
@@ -55,11 +74,6 @@ export async function GET(req: NextRequest) {
       const errorMessage = (playbackError as Error).message;
       console.log(`❌ [${requestId}] getCurrentPlayback() failed for user ${userId}: ${errorMessage} (${Date.now() - playbackStart}ms)`);
       spotifyErrors.push(`getCurrentPlayback: ${errorMessage}`);
-      
-      if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        spotifyConnected = false;
-        console.log(`🔄 [${requestId}] Auth error in getCurrentPlayback, marking as disconnected`);
-      }
     }
     
     // Try getQueue second (MULTI-TENANT: pass userId!)
@@ -77,11 +91,6 @@ export async function GET(req: NextRequest) {
       const errorMessage = (queueError as Error).message;
       console.log(`❌ [${requestId}] getQueue() failed for user ${userId}: ${errorMessage} (${Date.now() - queueStart}ms)`);
       spotifyErrors.push(`getQueue: ${errorMessage}`);
-      
-      if (errorMessage.includes('token') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        spotifyConnected = false;
-        console.log(`🔄 [${requestId}] Auth error in getQueue, marking as disconnected`);
-      }
     }
     
     console.log(`🎵 [${requestId}] Spotify API calls completed (${Date.now() - spotifyCallStart}ms total)`);
@@ -144,10 +153,10 @@ export async function GET(req: NextRequest) {
       is_playing: playbackState?.is_playing || false,
       shuffle_state: playbackState?.shuffle_state || false,
       repeat_state: playbackState?.repeat_state || 'off',
-      spotify_connected: spotifyConnected,
+      spotify_connected: spotifyConnected, // Now always true here since we return early if false
       debug: {
         request_id: requestId,
-        has_valid_connection: hasValidConnection,
+        has_valid_connection: spotifyConnected,
         spotify_errors: spotifyErrors,
         total_duration: Date.now() - startTime,
         timestamp: new Date().toISOString()
