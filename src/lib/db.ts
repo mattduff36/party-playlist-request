@@ -343,20 +343,70 @@ export async function initializeDatabase() {
       console.log('ℹ️ This might be expected if column already exists');
     }
 
-    // Migration: Add duration_ms column to requests if it doesn't exist
+    // Migration: Add missing columns to requests table for existing databases
     try {
-      console.log('🔧 Starting duration_ms column migration...');
+      console.log('🔧 Starting requests table schema migration...');
       
+      // Add duration_ms if missing
       await client.query(`
         ALTER TABLE requests 
         ADD COLUMN IF NOT EXISTS duration_ms INTEGER DEFAULT 0;
       `);
-      console.log('✅ duration_ms column added to requests table');
+      console.log('✅ duration_ms column added/verified');
       
-      console.log('✅ Duration column migration completed successfully');
+      // Add requester_ip_hash if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS requester_ip_hash TEXT DEFAULT '';
+      `);
+      console.log('✅ requester_ip_hash column added/verified');
+      
+      // Add requester_nickname if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS requester_nickname TEXT DEFAULT NULL;
+      `);
+      console.log('✅ requester_nickname column added/verified');
+      
+      // Add approved_at if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP DEFAULT NULL;
+      `);
+      console.log('✅ approved_at column added/verified');
+      
+      // Add approved_by if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS approved_by TEXT DEFAULT NULL;
+      `);
+      console.log('✅ approved_by column added/verified');
+      
+      // Add rejection_reason if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS rejection_reason TEXT DEFAULT NULL;
+      `);
+      console.log('✅ rejection_reason column added/verified');
+      
+      // Add spotify_added_to_queue if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS spotify_added_to_queue BOOLEAN DEFAULT FALSE;
+      `);
+      console.log('✅ spotify_added_to_queue column added/verified');
+      
+      // Add spotify_added_to_playlist if missing
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS spotify_added_to_playlist BOOLEAN DEFAULT FALSE;
+      `);
+      console.log('✅ spotify_added_to_playlist column added/verified');
+      
+      console.log('✅ Requests table schema migration completed successfully');
     } catch (migrationError) {
-      console.error('❌ Duration column migration failed:', migrationError);
-      console.log('ℹ️ This might be expected if column already exists');
+      console.error('❌ Requests table schema migration failed:', migrationError);
+      console.log('ℹ️ This might be expected if columns already exist');
     }
 
     // Migration: Add display customization columns to event_settings
