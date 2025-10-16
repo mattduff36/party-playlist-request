@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 
 interface SimulationConfig {
   targetUrl: string; // The request page URL
+  requestPin?: string; // Optional PIN for protected request pages
   requestInterval: number; // Time between requests in ms (e.g., 30000 = 30s)
   uniqueRequesters: number; // Number of different people (1-20)
   burstMode: boolean; // If true, sends multiple requests at once occasionally
@@ -196,8 +197,11 @@ class PartySimulator {
 
       console.log(`🎵 Simulating request from "${requesterName}": ${song.query}`);
 
+      // Extract base URL from target URL
+      const baseUrl = this.config.targetUrl.replace('/request', '');
+
       // First, search for the song
-      const searchResponse = await fetch(`${this.config.targetUrl.replace('/request', '')}/api/search?q=${encodeURIComponent(song.query)}`, {
+      const searchResponse = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(song.query)}`, {
         method: 'GET'
       });
 
@@ -218,24 +222,33 @@ class PartySimulator {
       // Generate a realistic session ID
       const sessionId = randomUUID();
 
+      // Prepare request body
+      const requestBody: any = {
+        trackUri: track.uri,
+        trackName: track.name,
+        artistName: track.artists.map((a: any) => a.name).join(', '),
+        albumName: track.album?.name || '',
+        requesterNickname: requesterName,
+        userSessionId: sessionId
+      };
+
+      // Add PIN if provided
+      if (this.config.requestPin) {
+        requestBody.pin = this.config.requestPin;
+      }
+
       // Submit the request
-      const requestResponse = await fetch(this.config.targetUrl.replace('/request', '/api/request'), {
+      const requestResponse = await fetch(`${baseUrl}/api/request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          trackUri: track.uri,
-          trackName: track.name,
-          artistName: track.artists.map((a: any) => a.name).join(', '),
-          albumName: track.album?.name || '',
-          requesterNickname: requesterName,
-          userSessionId: sessionId
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!requestResponse.ok) {
-        throw new Error(`Request failed: ${requestResponse.status}`);
+        const errorData = await requestResponse.json().catch(() => ({}));
+        throw new Error(`Request failed: ${requestResponse.status} - ${errorData.error || 'Unknown error'}`);
       }
 
       this.stats.requestsSent++;

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { targetUrl, requestInterval, uniqueRequesters, burstMode, explicitSongs } = body;
+    const { targetUrl, requestPin, requestInterval, uniqueRequesters, burstMode, explicitSongs } = body;
 
     // Validate inputs
     if (!targetUrl || !targetUrl.includes('/request')) {
@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
     // Start simulation
     partySimulator.start({
       targetUrl,
+      requestPin: requestPin || undefined,
       requestInterval,
       uniqueRequesters,
       burstMode: !!burstMode,
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
 
     console.log('🎉 Party simulation started by superadmin:', {
       targetUrl,
+      hasPin: !!requestPin,
       requestInterval,
       uniqueRequesters,
       burstMode,

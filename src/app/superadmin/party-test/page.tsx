@@ -38,6 +38,7 @@ export default function PartyTestPage() {
 
   const [config, setConfig] = useState({
     targetUrl: '',
+    requestPin: '',
     requestInterval: 30000, // 30 seconds
     uniqueRequesters: 5,
     burstMode: false,
@@ -191,11 +192,30 @@ export default function PartyTestPage() {
                 value={config.targetUrl}
                 onChange={(e) => setConfig({ ...config, targetUrl: e.target.value })}
                 disabled={stats.isRunning}
-                placeholder="http://localhost:3000/testuser2/request"
+                placeholder="https://partyplaylist.com/testuser2/request"
                 className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] disabled:opacity-50"
               />
               <p className="text-xs text-gray-400 mt-1">
-                Copy the request page URL from your test user's party
+                Copy the request page URL from your party (works with localhost or production)
+              </p>
+            </div>
+
+            {/* Request PIN */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Request PIN (Optional)
+              </label>
+              <input
+                type="text"
+                value={config.requestPin}
+                onChange={(e) => setConfig({ ...config, requestPin: e.target.value })}
+                disabled={stats.isRunning}
+                placeholder="1234"
+                maxLength={4}
+                className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] disabled:opacity-50"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Leave blank if your request page doesn't require a PIN
               </p>
             </div>
 
