@@ -206,18 +206,28 @@ class PartySimulator {
       console.log(`🔍 Extracted username: ${username}, base URL: ${baseUrl}`);
 
       // First, search for the song with username parameter
-      const searchResponse = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`, {
+      const searchUrl = `${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`;
+      console.log(`🔍 Searching: ${searchUrl}`);
+      
+      const searchResponse = await fetch(searchUrl, {
         method: 'GET'
       });
 
+      console.log(`🔍 Search response: ${searchResponse.status} ${searchResponse.statusText}`);
+
       if (!searchResponse.ok) {
-        throw new Error(`Search failed: ${searchResponse.status}`);
+        const errorText = await searchResponse.text();
+        console.error(`❌ Search failed: ${searchResponse.status} - ${errorText}`);
+        throw new Error(`Search failed: ${searchResponse.status} - ${errorText}`);
       }
 
       const searchData = await searchResponse.json();
+      console.log(`🔍 Search returned ${searchData?.tracks?.items?.length || 0} tracks`);
+      
       const tracks = searchData?.tracks?.items || [];
 
       if (tracks.length === 0) {
+        console.error(`❌ No tracks found for query: ${song.query}`);
         throw new Error('No tracks found');
       }
 
