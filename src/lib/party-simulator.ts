@@ -197,11 +197,16 @@ class PartySimulator {
 
       console.log(`🎵 Simulating request from "${requesterName}": ${song.query}`);
 
-      // Extract base URL from target URL
-      const baseUrl = this.config.targetUrl.replace('/request', '');
+      // Extract base URL and username from target URL
+      // URL format: https://domain.com/username/request
+      const urlParts = this.config.targetUrl.split('/');
+      const username = urlParts[urlParts.length - 2]; // Get username (second-to-last part)
+      const baseUrl = urlParts.slice(0, urlParts.length - 2).join('/'); // Get base URL without /username/request
 
-      // First, search for the song
-      const searchResponse = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(song.query)}`, {
+      console.log(`🔍 Extracted username: ${username}, base URL: ${baseUrl}`);
+
+      // First, search for the song with username parameter
+      const searchResponse = await fetch(`${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`, {
         method: 'GET'
       });
 
@@ -224,12 +229,13 @@ class PartySimulator {
 
       // Prepare request body
       const requestBody: any = {
-        trackUri: track.uri,
+        track_uri: track.uri,
         trackName: track.name,
         artistName: track.artists.map((a: any) => a.name).join(', '),
         albumName: track.album?.name || '',
-        requesterNickname: requesterName,
-        userSessionId: sessionId
+        requester_nickname: requesterName,
+        user_session_id: sessionId,
+        username: username // Required for multi-tenant support
       };
 
       // Add PIN if provided
