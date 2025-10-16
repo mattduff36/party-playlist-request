@@ -473,6 +473,45 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('PUT', url, undefined, userId);
   }
 
+  /**
+   * Get app-only access token using Client Credentials flow
+   * This is for public API calls that don't require user authorization
+   */
+  private appAccessToken: string | null = null;
+  private appTokenExpiry: Date | null = null;
+
+  async getAppAccessToken(): Promise<string> {
+    // Reuse token if it's still valid (with 5 minute buffer)
+    if (this.appAccessToken && this.appTokenExpiry && this.appTokenExpiry > new Date(Date.now() + 5 * 60 * 1000)) {
+      return this.appAccessToken;
+    }
+
+    console.log('🔑 Getting app-only access token via Client Credentials...');
+
+    const response = await fetch(`${this.authURL}/api/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials'
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get app access token: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    this.appAccessToken = data.access_token;
+    this.appTokenExpiry = new Date(Date.now() + (data.expires_in * 1000));
+    
+    console.log('✅ App access token obtained');
+    return this.appAccessToken;
+  }
+
   async searchTracks(query: string, limit = 20, userId?: string) {
     const params = new URLSearchParams({
       q: query,
@@ -480,7 +519,33 @@ class SpotifyService {
       limit: limit.toString()
     });
     
-    return await this.makeAuthenticatedRequest('GET', `/search?${params.toString()}`, undefined, userId);
+    // Try user-authenticated search first if userId provided
+    if (userId) {
+      try {
+        return await this.makeAuthenticatedRequest('GET', `/search?${params.toString()}`, undefined, userId);
+      } catch (error) {
+        console.log('⚠️ User-authenticated search failed, falling back to app-only search');
+      }
+    }
+
+    // Fall back to app-only search (Client Credentials)
+    console.log('🔍 Using app-only search (no user auth required)');
+    const appToken = await this.getAppAccessToken();
+    const url = `${this.baseURL}/search?${params.toString()}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${appToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Spotify search failed: ${response.status} ${errorText}`);
+    }
+
+    return await response.json();
   }
 
   async getTrack(trackId: string, userId?: string) {
