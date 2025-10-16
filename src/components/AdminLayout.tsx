@@ -21,7 +21,7 @@ import NotificationInitializer from '@/components/admin/NotificationInitializer'
 import EventStateDropdown from '@/components/admin/EventStateDropdown';
 import PageToggleIcons from '@/components/admin/PageToggleIcons';
 import EventTitleEditor from '@/components/admin/EventTitleEditor';
-import SpotifyConnectionModal from '@/components/admin/SpotifyConnectionModal';
+import SetupPartyModal from '@/components/admin/SetupPartyModal';
 import TokenExpiryWarning from '@/components/admin/TokenExpiryWarning';
 import SetupModal from '@/components/admin/SetupModal';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
@@ -35,7 +35,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showSpotifyModal, setShowSpotifyModal] = useState(false);
+  const [showSetupPartyModal, setShowSetupPartyModal] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [eventPin, setEventPin] = useState<string | null>(null);
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
@@ -116,27 +116,23 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     fetchEventData();
   }, [state?.status, displayUsername]);
 
-  // Check Spotify connection on mount
+  // Show setup party modal on first login
   useEffect(() => {
-    const checkSpotifyConnection = async () => {
-      try {
-        const response = await fetch('/api/spotify/status');
-        const data = await response.json();
-        
-        // Show modal if not connected and user hasn't dismissed it
-        if (!data.connected) {
-          const dismissed = localStorage.getItem('spotify_modal_dismissed');
-          if (!dismissed) {
-            // Small delay to let the UI load first
-            setTimeout(() => setShowSpotifyModal(true), 1000);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check Spotify status:', error);
+    const checkFirstLogin = () => {
+      const hasSeenSetupPrompt = localStorage.getItem('party_setup_prompt_seen');
+      
+      console.log('🎉 Setup prompt check:', { hasSeenSetupPrompt });
+      
+      if (!hasSeenSetupPrompt) {
+        // Small delay to let the UI load first
+        setTimeout(() => {
+          console.log('🎉 Showing setup party modal');
+          setShowSetupPartyModal(true);
+        }, 1000);
       }
     };
 
-    checkSpotifyConnection();
+    checkFirstLogin();
   }, []);
 
   // Monitor token expiry
@@ -436,9 +432,17 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
         <BottomNav />
         <LogoutModal />
-        <SpotifyConnectionModal 
-          isOpen={showSpotifyModal} 
-          onClose={() => setShowSpotifyModal(false)} 
+        <SetupPartyModal 
+          isOpen={showSetupPartyModal}
+          onConfirm={() => {
+            localStorage.setItem('party_setup_prompt_seen', 'true');
+            setShowSetupPartyModal(false);
+            setShowSetupModal(true);
+          }}
+          onClose={() => {
+            localStorage.setItem('party_setup_prompt_seen', 'true');
+            setShowSetupPartyModal(false);
+          }}
         />
         <SetupModal 
           isOpen={showSetupModal} 

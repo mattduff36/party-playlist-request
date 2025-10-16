@@ -82,38 +82,78 @@ export default function AdminOverviewPage() {
     }
 
     if (code && oauthState) {
+      // Prevent duplicate processing (React strict mode, hot reload, etc.)
+      const processedKey = `oauth_processed_${oauthState}`;
+      if (sessionStorage.getItem(processedKey)) {
+        console.log('OAuth callback already processed, skipping...');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+      
+      // Mark as being processed
+      sessionStorage.setItem(processedKey, 'true');
       console.log('Processing Spotify callback...');
       handleSpotifyCallback(code, oauthState);
     }
   }, []);
 
   const handleSpotifyCallback = async (code: string, oauthState: string) => {
-    const storedState = localStorage.getItem('spotify_state');
-    const codeVerifier = localStorage.getItem('spotify_code_verifier');
-
     console.log('Processing Spotify callback:', {
       hasCode: !!code,
-      hasState: !!oauthState,
-      hasStoredState: !!storedState,
-      hasCodeVerifier: !!codeVerifier,
-      stateMatches: oauthState === storedState
+      hasState: !!oauthState
     });
 
-    if (!storedState || oauthState !== storedState) {
-      console.error('State mismatch - possible CSRF attack');
-      localStorage.removeItem('spotify_state');
-      localStorage.removeItem('spotify_code_verifier');
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
+    // Try to get code_verifier from server-side OAuth session first
+    let codeVerifier: string | null = null;
+    
+    try {
+      // Fetch OAuth session data from server
+      const sessionResponse = await fetch(`/api/spotify/oauth-session?state=${oauthState}`, {
+        credentials: 'include'
+      });
+      
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        codeVerifier = sessionData.code_verifier;
+        console.log('Retrieved code_verifier from server-side OAuth session');
+      }
+    } catch (error) {
+      console.log('Could not fetch server-side OAuth session, falling back to localStorage');
+    }
+
+    // Fallback to localStorage for backwards compatibility
+    if (!codeVerifier) {
+      const storedState = localStorage.getItem('spotify_state');
+      codeVerifier = localStorage.getItem('spotify_code_verifier');
+
+      console.log('Using localStorage OAuth data:', {
+        hasStoredState: !!storedState,
+        hasCodeVerifier: !!codeVerifier,
+        stateMatches: oauthState === storedState
+      });
+
+      if (!storedState || oauthState !== storedState) {
+        console.error('State mismatch - possible CSRF attack');
+        localStorage.removeItem('spotify_state');
+        localStorage.removeItem('spotify_code_verifier');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
     }
 
     if (!codeVerifier) {
-      console.error('No code verifier found in localStorage');
+      console.error('No code verifier found in server session or localStorage');
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
 
     try {
+      console.log('🔄 Sending POST request to /api/spotify/callback with:', {
+        hasCode: !!code,
+        hasState: !!oauthState,
+        hasCodeVerifier: !!codeVerifier
+      });
+      
       // JWT auth is handled by HTTP-only cookies automatically
       const response = await fetch('/api/spotify/callback', {
         method: 'POST',
@@ -128,24 +168,34 @@ export default function AdminOverviewPage() {
         })
       });
 
+      console.log('📡 Received response from callback:', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText
+      });
+
       if (response.ok) {
-        console.log('✅ Spotify connected successfully!');
+        const data = await response.json();
+        console.log('✅ Spotify connected successfully!', data);
         // Clean up OAuth data
         localStorage.removeItem('spotify_state');
         localStorage.removeItem('spotify_code_verifier');
         // Clear URL parameters
         window.history.replaceState({}, document.title, window.location.pathname);
         // Force a refresh of the page to show updated status
+        console.log('🔄 Reloading page to show updated Spotify status...');
         window.location.reload();
       } else {
         const errorData = await response.json();
-        console.error('Failed to exchange code for token:', errorData);
+        console.error('❌ Failed to exchange code for token:', errorData);
+        alert(`Spotify connection failed: ${errorData.error || 'Unknown error'}`);
         localStorage.removeItem('spotify_state');
         localStorage.removeItem('spotify_code_verifier');
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (error) {
-      console.error('Error during Spotify callback:', error);
+      console.error('❌ Error during Spotify callback:', error);
+      alert(`Spotify connection error: ${error.message}`);
       localStorage.removeItem('spotify_state');
       localStorage.removeItem('spotify_code_verifier');
       window.history.replaceState({}, document.title, window.location.pathname);

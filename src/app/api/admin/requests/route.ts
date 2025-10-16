@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
       }
     });
     
-    // OPTIMIZATION: Add cache headers (15 seconds - requests change frequently but not constantly)
-    response.headers.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
+    // No cache - requests change frequently and we need real-time updates
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
     
     return response;
 

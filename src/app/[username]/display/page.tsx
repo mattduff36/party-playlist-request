@@ -722,7 +722,7 @@ function DisplayPage({ username }: { username: string }) {
   // Show "Party Not Started" when offline
   if (isOffline) {
     console.log('🎉 DisplayPage: Party Not Started (offline)');
-    return <PartyNotStarted variant="display" eventConfig={globalState.config} />;
+    return <PartyNotStarted variant="display" />;
   }
   
   // Show "Display Disabled" when in standby or live but display is disabled
@@ -771,7 +771,9 @@ function DisplayPage({ username }: { username: string }) {
   const currentScrollingMessage = messages[currentMessageIndex] || eventSettings.welcome_message;
 
   // Determine what to show in the scrolling message area (no more approval notifications in scrolling text)
-  const displayContent = messages.join(' • ') + ' • ' + messages.join(' • ');
+  // Create continuous scroll by repeating messages with proper spacing (6 spaces + bullet + 6 spaces)
+  const messagesText = messages.join('      •      ');
+  const displayContent = messagesText + '      •      ' + messagesText;
   const messageTextColor = 'text-white';
 
   // Connection status for display dots

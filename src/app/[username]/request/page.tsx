@@ -7,6 +7,7 @@ import { usePusher } from '@/hooks/usePusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
 import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import PartyNotStarted from '@/components/PartyNotStarted';
 
 interface Track {
   id: string;
@@ -461,18 +462,7 @@ export default function UserRequestPage() {
   if (authenticated && globalState) {
     // Event is offline
     if (globalState.status === 'offline') {
-      return (
-        <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
-          <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl max-w-md w-full mx-4 text-center">
-            <div className="text-6xl mb-6">🎵</div>
-            <h1 className="text-3xl font-bold text-white mb-4">Party Not Started</h1>
-            <p className="text-gray-300 mb-4">
-              The DJ hasn't started the party yet. Check back soon!
-            </p>
-            <p className="text-sm text-gray-400">@{username}</p>
-          </div>
-        </div>
-      );
+      return <PartyNotStarted variant="request" />;
     }
 
     // Requests page is disabled

@@ -21,7 +21,7 @@ interface SetupFormData {
   welcomeMessage: string;
   autoDeclineExplicit: boolean;
   autoApprove: boolean;
-  maxRequestsPerUser: number;
+  maxRequestsPerUser: string;
 }
 
 export default function SetupModal({ isOpen, onClose, username }: SetupModalProps) {
@@ -36,7 +36,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
     welcomeMessage: 'Welcome to the Party!',
     autoDeclineExplicit: true,
     autoApprove: false,
-    maxRequestsPerUser: 10
+    maxRequestsPerUser: '10'
   });
 
   // Check Spotify connection status
@@ -64,13 +64,15 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
     setError(null);
 
     try {
+      const maxRequests = parseInt(formData.maxRequestsPerUser);
+      
       // Save event settings using AdminDataContext
       await updateEventSettings({
         event_title: formData.eventTitle,
         welcome_message: formData.welcomeMessage,
         decline_explicit: formData.autoDeclineExplicit,
         auto_approve: formData.autoApprove,
-        request_limit: formData.maxRequestsPerUser === 0 ? null : formData.maxRequestsPerUser
+        request_limit: maxRequests === 0 ? null : maxRequests
       });
 
       // Check Spotify connection status again
@@ -193,12 +195,19 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   <span className="text-gray-400 text-sm ml-2">(Type 0 for unlimited)</span>
                 </label>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={formData.maxRequestsPerUser}
-                  onChange={(e) => setFormData({ ...formData, maxRequestsPerUser: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only allow numbers
+                    if (value === '' || /^\d+$/.test(value)) {
+                      setFormData({ ...formData, maxRequestsPerUser: value });
+                    }
+                  }}
                   placeholder="10"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
@@ -213,7 +222,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
               {/* Apply Button */}
               <button
                 onClick={handleSaveSettings}
-                disabled={isSaving}
+                disabled={isSaving || formData.maxRequestsPerUser === ''}
                 className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (

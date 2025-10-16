@@ -38,12 +38,9 @@ export async function GET(req: NextRequest) {
       // Continue without server-side storage - localStorage will be the only option
     }
     
-    return NextResponse.json({
-      auth_url: authData.url,
-      state: authData.state,
-      code_challenge: authData.codeChallenge,
-      code_verifier: authData.codeVerifier // Still return for client-side backup
-    });
+    // Redirect to Spotify authorization URL
+    console.log('🔀 [spotify/auth] Redirecting to Spotify authorization...');
+    return NextResponse.redirect(authData.url);
 
   } catch (error) {
     console.error('❌ [spotify/auth] Error in Spotify auth endpoint:', error);

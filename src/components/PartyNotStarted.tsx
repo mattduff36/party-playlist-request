@@ -1,58 +1,87 @@
 import React from 'react';
 
 interface PartyNotStartedProps {
-  variant: 'home' | 'display';
-  eventConfig?: {
-    event_title?: string;
-    welcome_message?: string;
-    secondary_message?: string;
-    tertiary_message?: string;
-  };
+  variant: 'display' | 'request';
 }
 
-const PartyNotStarted: React.FC<PartyNotStartedProps> = ({ variant, eventConfig }) => {
+const PartyNotStarted: React.FC<PartyNotStartedProps> = ({ variant }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative p-4 sm:p-6 lg:p-8">
-      <div className="text-center px-4 py-8 max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl 2xl:max-w-6xl mx-auto">
-        {/* Music Note Icon */}
-        <div className="flex justify-center mb-6 sm:mb-8 lg:mb-12">
-          <div className="text-6xl sm:text-8xl lg:text-9xl xl:text-[12rem] text-gray-400 opacity-60">🎵</div>
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center relative overflow-hidden">
+      {/* Background Pattern - Subtle */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'radial-gradient(circle, #1DB954 1px, transparent 1px)',
+          backgroundSize: '50px 50px'
+        }}></div>
+      </div>
+
+      <div className="relative z-10 text-center px-4 py-8 max-w-4xl mx-auto">
+        {/* Music Note Icon with Spotify Green Glow */}
+        <div className="flex justify-center mb-8">
+          <div className="relative">
+            <div className="absolute inset-0 blur-3xl bg-[#1DB954] opacity-30 rounded-full"></div>
+            <div className="relative text-8xl md:text-9xl text-[#1DB954] opacity-90">🎵</div>
+          </div>
         </div>
         
-        {/* Main Title */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl font-bold text-white mb-3 sm:mb-4 lg:mb-6 leading-tight">
-          {eventConfig?.event_title || 'PartyPlaylist.co.uk'}
+        {/* Main Branding */}
+        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-tight">
+          Party Playlist
         </h1>
         
-        {/* Subtitle */}
-        <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl 2xl:text-6xl font-semibold text-yellow-400 mb-4 sm:mb-6 lg:mb-8">
-          Be your own DJ!
-        </h2>
+        {/* Tagline */}
+        <p className="text-2xl md:text-3xl lg:text-4xl font-semibold mb-8">
+          <span className="text-white">Let Your Guests</span>
+          <br />
+          <span className="text-[#1DB954]">Choose The Music</span>
+        </p>
         
         {/* Status Message */}
-        <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl text-gray-300 mb-6 sm:mb-8 lg:mb-12">
-          {eventConfig?.welcome_message || 'Requests are not active at the moment.'}
-        </p>
-
-        {/* Additional Info */}
-        <div className="space-y-3 sm:space-y-4 lg:space-y-6 text-gray-400 text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto">
-          <p>
-            This app allows you to host interactive music request parties. Guests can request songs from Spotify, and you, as the DJ, can manage the queue in real-time.
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 md:p-8 mb-8 border border-[#1DB954]/20">
+          <p className="text-xl md:text-2xl text-gray-300 mb-4">
+            {variant === 'display' 
+              ? "No Event Currently Active" 
+              : "Party Not Started Yet"}
           </p>
-          <p>
-            To start a new party, an admin needs to log in to the admin panel.
+          <p className="text-base md:text-lg text-gray-400">
+            {variant === 'display'
+              ? "This screen will show live music updates when an event is running"
+              : "The DJ hasn't started the party yet. Check back soon!"}
           </p>
         </div>
+
+        {/* Features - Compact */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-8">
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-[#1DB954]/10">
+            <div className="text-3xl mb-2">🎧</div>
+            <h3 className="text-sm font-semibold text-[#1DB954] mb-1">Spotify Integration</h3>
+            <p className="text-xs text-gray-400">Real-time queue management</p>
+          </div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-[#1DB954]/10">
+            <div className="text-3xl mb-2">📱</div>
+            <h3 className="text-sm font-semibold text-[#1DB954] mb-1">Guest Requests</h3>
+            <p className="text-xs text-gray-400">Simple song submission</p>
+          </div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-[#1DB954]/10">
+            <div className="text-3xl mb-2">⚡</div>
+            <h3 className="text-sm font-semibold text-[#1DB954] mb-1">Live Updates</h3>
+            <p className="text-xs text-gray-400">Instant notifications</p>
+          </div>
+        </div>
+
+        {/* Call to Action */}
+        <div className="space-y-4">
+          <p className="text-gray-400 text-sm md:text-base">
+            Perfect for parties, weddings, bars, and events
+          </p>
+          <a 
+            href="/"
+            className="inline-block bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-black font-bold py-3 px-8 rounded-full text-base md:text-lg hover:shadow-lg hover:shadow-[#1DB954]/50 transition-all duration-300 transform hover:scale-105"
+          >
+            Learn More at PartyPlaylist.co.uk
+          </a>
+        </div>
       </div>
-      
-      {/* Very faint admin link for beta testing - bottom right corner */}
-      <a 
-        href="/admin" 
-        className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-400 text-xs sm:text-sm lg:text-base opacity-20 hover:opacity-40 transition-all duration-300 border border-gray-600"
-        title="Admin Access"
-      >
-        admin
-      </a>
     </div>
   );
 };

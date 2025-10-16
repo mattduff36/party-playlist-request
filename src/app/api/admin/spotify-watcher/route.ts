@@ -50,26 +50,28 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
   try {
     console.log('🎵 Spotify watcher: Starting multi-tenant check...', new Date().toISOString());
     
-    // Get all users with valid Spotify connections
+    // Get all users with valid Spotify connections AND active events (live or standby)
     const { sql } = await import('@/lib/db/neon-client');
     const usersWithSpotify = await sql`
-      SELECT u.id as user_id, u.username 
+      SELECT u.id as user_id, u.username, e.status as event_status
       FROM users u
+      INNER JOIN events e ON e.user_id = u.id
       WHERE EXISTS (
         SELECT 1 FROM spotify_auth sa 
         WHERE sa.user_id = u.id 
         AND sa.access_token IS NOT NULL 
         AND sa.refresh_token IS NOT NULL
       )
+      AND e.status IN ('live', 'standby')
       LIMIT 10
     `;
     
     if (usersWithSpotify.length === 0) {
-      console.log('⏸️ No users with Spotify connections found');
+      console.log('⏸️ No users with active events and Spotify connections found');
       return;
     }
     
-    console.log(`🎵 Checking Spotify for ${usersWithSpotify.length} user(s)`);
+    console.log(`🎵 Checking Spotify for ${usersWithSpotify.length} user(s) with active events`);
     
     // Check each user's Spotify separately
     for (const { user_id, username } of usersWithSpotify) {

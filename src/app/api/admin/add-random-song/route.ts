@@ -123,9 +123,12 @@ export async function POST(req: NextRequest) {
       track_name: selectedTrack.name,
       artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
       album_name: selectedTrack.album?.name || 'Unknown Album',
+      duration_ms: selectedTrack.duration_ms || 0,
       requester_ip_hash: 'admin_random', // Special identifier for admin-generated requests
       requester_nickname: 'PartyPlaylist Suggestion',
-      status: 'pending'
+      status: 'pending',
+      spotify_added_to_queue: false,
+      spotify_added_to_playlist: false
     }, userId); // Multi-tenant: Pass userId as second parameter
     console.log(`✅ [${requestId}] Request created successfully (${Date.now() - startTime}ms total)`);
 

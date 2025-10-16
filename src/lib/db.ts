@@ -477,13 +477,16 @@ export async function createRequest(
   // Production database includes user_id for proper multi-tenant isolation
   const result = await client.query(`
     INSERT INTO requests (
-      id, track_uri, track_name, artist_name, album_name, 
-      requester_nickname, status, user_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      id, track_uri, track_name, artist_name, album_name, duration_ms,
+      requester_ip_hash, requester_nickname, user_session_id, status, 
+      spotify_added_to_queue, spotify_added_to_playlist, user_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
   `, [
     id, request.track_uri, request.track_name, request.artist_name, 
-    request.album_name, request.requester_nickname, request.status, userId
+    request.album_name, request.duration_ms || 0, request.requester_ip_hash || '',
+    request.requester_nickname, request.user_session_id, request.status, 
+    request.spotify_added_to_queue || false, request.spotify_added_to_playlist || false, userId
   ]);
 
   return result.rows[0];
