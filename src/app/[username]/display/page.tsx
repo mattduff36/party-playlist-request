@@ -121,7 +121,7 @@ export default function UserDisplayPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-purple-500 mx-auto mb-4" />
+          <Loader2 className="h-12 w-12 animate-spin text-[#1DB954] mx-auto mb-4" />
           <p className="text-lg">Loading display page...</p>
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function UserDisplayPage() {
           {error.includes('logged in as') && (
             <button
               onClick={() => router.push('/login')}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 mb-3"
+              className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 mb-3"
             >
               <Lock className="inline h-5 w-5 mr-2" />
               Switch Account
@@ -690,9 +690,9 @@ function DisplayPage({ username }: { username: string }) {
 
   // Dynamic theme colors (defined early for use in all return statements)
   const themeColors = {
-    primary: (eventSettings as any)?.theme_primary_color || '#9333ea',
-    secondary: (eventSettings as any)?.theme_secondary_color || '#3b82f6',
-    tertiary: (eventSettings as any)?.theme_tertiary_color || '#4f46e5',
+    primary: (eventSettings as any)?.theme_primary_color || '#1DB954',
+    secondary: (eventSettings as any)?.theme_secondary_color || '#191414',
+    tertiary: (eventSettings as any)?.theme_tertiary_color || '#1ed760',
   };
   
   const gradientStyle = {
@@ -805,10 +805,10 @@ function DisplayPage({ username }: { username: string }) {
           <div className="text-center py-4 flex-shrink-0">
             <h1 className="text-5xl font-bold mb-2">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-              <p className="text-xl text-purple-200">DJ {eventSettings.dj_name}</p>
+              <p className="text-xl text-[#1ed760]">DJ {eventSettings.dj_name}</p>
             )}
             {eventSettings.venue_info && (
-              <p className="text-lg text-blue-200 mt-1">{eventSettings.venue_info}</p>
+              <p className="text-lg text-gray-300 mt-1">{eventSettings.venue_info}</p>
             )}
           </div>
 
@@ -953,7 +953,7 @@ function DisplayPage({ username }: { username: string }) {
                           }`}
                         >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <div className="text-xl font-bold text-purple-300 flex-shrink-0 w-8">
+                            <div className="text-xl font-bold text-[#1DB954] flex-shrink-0 w-8">
                           🎵
                         </div>
                             <div className="flex-1 min-w-0">
@@ -965,7 +965,7 @@ function DisplayPage({ username }: { username: string }) {
                       </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-3">
-                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                              <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
                                 {song.requester_nickname}
                               </div>
                             </div>
@@ -1056,10 +1056,10 @@ function DisplayPage({ username }: { username: string }) {
             <div className="text-center py-2 flex-shrink-0">
               <h1 className="text-3xl font-bold mb-1">{eventSettings.event_title}</h1>
               {eventSettings.dj_name && (
-                <p className="text-base text-purple-200">DJ {eventSettings.dj_name}</p>
+                <p className="text-base text-[#1ed760]">DJ {eventSettings.dj_name}</p>
               )}
               {eventSettings.venue_info && (
-                <p className="text-sm text-blue-200">{eventSettings.venue_info}</p>
+                <p className="text-sm text-gray-300">{eventSettings.venue_info}</p>
               )}
             </div>
 
@@ -1152,7 +1152,7 @@ function DisplayPage({ username }: { username: string }) {
                           </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-2">
-                              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                              <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-2 py-1 rounded-full text-xs font-bold">
                                 {song.requester_nickname}
                               </div>
                             </div>
@@ -1233,7 +1233,7 @@ function DisplayPage({ username }: { username: string }) {
             <div className="text-center py-3 flex-shrink-0">
               <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-                <p className="text-sm text-purple-200">DJ {eventSettings.dj_name}</p>
+                <p className="text-sm text-[#1ed760]">DJ {eventSettings.dj_name}</p>
             )}
           </div>
 
@@ -1285,7 +1285,7 @@ function DisplayPage({ username }: { username: string }) {
                       </div>
                       {song.requester_nickname && (
                         <div className="flex-shrink-0 ml-3">
-                          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                          <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-3 py-1 rounded-full text-sm font-bold">
                             {song.requester_nickname}
                           </div>
                         </div>
@@ -1333,10 +1333,10 @@ function DisplayPage({ username }: { username: string }) {
           <div className="text-center py-1 flex-shrink-0">
             <h1 className="text-lg font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-              <p className="text-xs text-purple-200">DJ {eventSettings.dj_name}</p>
+              <p className="text-xs text-[#1ed760]">DJ {eventSettings.dj_name}</p>
             )}
             {eventSettings.venue_info && (
-              <p className="text-xs text-blue-200">{eventSettings.venue_info}</p>
+              <p className="text-xs text-gray-300">{eventSettings.venue_info}</p>
             )}
           </div>
 
@@ -1428,7 +1428,7 @@ function DisplayPage({ username }: { username: string }) {
                         </div>
                         {song.requester_nickname && (
                           <div className="flex-shrink-0 ml-1">
-                            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1 py-0.5 rounded-full text-xs font-bold">
+                            <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-1 py-0.5 rounded-full text-xs font-bold">
                               {song.requester_nickname}
                             </div>
                           </div>
@@ -1509,7 +1509,7 @@ function DisplayPage({ username }: { username: string }) {
           <div className="text-center flex-shrink-0 mb-3">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
           {eventSettings.dj_name && (
-              <p className="text-xs text-purple-200">DJ {eventSettings.dj_name}</p>
+              <p className="text-xs text-[#1ed760]">DJ {eventSettings.dj_name}</p>
           )}
         </div>
 
@@ -1561,7 +1561,7 @@ function DisplayPage({ username }: { username: string }) {
                     </div>
                     {song.requester_nickname && (
                       <div className="flex-shrink-0 ml-2">
-                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                        <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-2 py-1 rounded-full text-xs font-bold">
                           {song.requester_nickname}
                         </div>
                       </div>

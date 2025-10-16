@@ -68,7 +68,7 @@ export interface EventSettings {
   now_playing_polling_interval: number;
   sse_update_interval: number;
   // Admin settings
-  request_limit: number;
+  request_limit: number | null;
   auto_approve: boolean;
   force_polling: boolean;
   // Page control settings
@@ -78,6 +78,13 @@ export interface EventSettings {
   message_text: string | null;
   message_duration: number | null;
   message_created_at: Date | null;
+  // Theme customization
+  theme_primary_color: string | null;
+  theme_secondary_color: string | null;
+  theme_tertiary_color: string | null;
+  show_scrolling_bar: boolean;
+  qr_boost_duration: number | null;
+  karaoke_mode: boolean;
   updated_at: string;
 }
 
@@ -201,6 +208,8 @@ export async function initializeDatabase() {
         theme_secondary_color TEXT DEFAULT NULL,
         theme_tertiary_color TEXT DEFAULT NULL,
         show_scrolling_bar BOOLEAN DEFAULT TRUE,
+        qr_boost_duration INTEGER DEFAULT 5,
+        karaoke_mode BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -352,19 +361,19 @@ export async function initializeDatabase() {
       
       await client.query(`
         ALTER TABLE event_settings 
-        ADD COLUMN IF NOT EXISTS theme_primary_color TEXT DEFAULT '#9333ea';
+        ADD COLUMN IF NOT EXISTS theme_primary_color TEXT DEFAULT '#1DB954';
       `);
       console.log('✅ theme_primary_color column added');
       
       await client.query(`
         ALTER TABLE event_settings 
-        ADD COLUMN IF NOT EXISTS theme_secondary_color TEXT DEFAULT '#3b82f6';
+        ADD COLUMN IF NOT EXISTS theme_secondary_color TEXT DEFAULT '#191414';
       `);
       console.log('✅ theme_secondary_color column added');
       
       await client.query(`
         ALTER TABLE event_settings 
-        ADD COLUMN IF NOT EXISTS theme_tertiary_color TEXT DEFAULT '#4f46e5';
+        ADD COLUMN IF NOT EXISTS theme_tertiary_color TEXT DEFAULT '#1ed760';
       `);
       console.log('✅ theme_tertiary_color column added');
       
@@ -383,6 +392,28 @@ export async function initializeDatabase() {
       console.log('✅ Display customization columns migration completed successfully');
     } catch (migrationError) {
       console.error('❌ Display customization columns migration failed:', migrationError);
+      console.log('ℹ️ This might be expected if columns already exist');
+    }
+
+    // Migration: Add display customization columns to user_settings
+    try {
+      console.log('🔧 Starting user_settings display customization migration...');
+      
+      await client.query(`
+        ALTER TABLE user_settings 
+        ADD COLUMN IF NOT EXISTS qr_boost_duration INTEGER DEFAULT 5;
+      `);
+      console.log('✅ qr_boost_duration column added to user_settings');
+      
+      await client.query(`
+        ALTER TABLE user_settings 
+        ADD COLUMN IF NOT EXISTS karaoke_mode BOOLEAN DEFAULT FALSE;
+      `);
+      console.log('✅ karaoke_mode column added to user_settings');
+      
+      console.log('✅ User settings display customization columns migration completed successfully');
+    } catch (migrationError) {
+      console.error('❌ User settings display customization columns migration failed:', migrationError);
       console.log('ℹ️ This might be expected if columns already exist');
     }
 

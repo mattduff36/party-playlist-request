@@ -51,14 +51,68 @@ export default function EventStateDropdown() {
 
     setIsTransitioning(true);
     try {
+      // If going to LIVE, enable both pages sequentially
+      if (newStatus === 'live') {
+        console.log('🎉 Going LIVE: Enabling Requests and Display pages...');
+        
+        // Enable requests page first
+        if (!state.pagesEnabled.requests) {
+          try {
+            console.log('✅ Enabling Requests page...');
+            await fetch('/api/event/pages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ page: 'requests', enabled: true })
+            });
+            // Small delay to prevent race condition
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (error) {
+            console.error('❌ Failed to enable Requests page:', error);
+          }
+        }
+        
+        // Then enable display page
+        if (!state.pagesEnabled.display) {
+          try {
+            console.log('✅ Enabling Display page...');
+            await fetch('/api/event/pages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ page: 'display', enabled: true })
+            });
+            console.log('✅ Pages enabled');
+          } catch (error) {
+            console.error('❌ Failed to enable Display page:', error);
+          }
+        }
+      }
+
       // If going to offline or standby, disable pages
       // If going to offline, also disconnect Spotify
       if (newStatus === 'offline' || newStatus === 'standby') {
         console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'} pages...`);
         
-        // Disconnect from Spotify only when going offline
+        // Disconnect from Spotify and stop watcher only when going offline
         if (newStatus === 'offline') {
           try {
+            // Stop Spotify watcher first
+            await fetch('/api/admin/spotify-watcher', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ action: 'stop' })
+            });
+            console.log('✅ Spotify watcher stopped');
+
+            // Then disconnect from Spotify
             await fetch('/api/spotify/disconnect', {
               method: 'POST',
               headers: {
@@ -72,43 +126,39 @@ export default function EventStateDropdown() {
           }
         }
 
-        // Disable pages if they're enabled
-        const disablePromises = [];
-        
+        // Disable pages sequentially to prevent race condition
         if (state.pagesEnabled.requests) {
-          console.log('🔌 Disabling Requests page...');
-          disablePromises.push(
-            fetch('/api/event/pages', {
+          try {
+            console.log('🔌 Disabling Requests page...');
+            await fetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              credentials: 'include', // JWT auth via cookies
+              credentials: 'include',
               body: JSON.stringify({ page: 'requests', enabled: false })
-            })
-          );
+            });
+            // Small delay to prevent race condition
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (error) {
+            console.error('❌ Failed to disable Requests page:', error);
+          }
         }
         
         if (state.pagesEnabled.display) {
-          console.log('🔌 Disabling Display page...');
-          disablePromises.push(
-            fetch('/api/event/pages', {
+          try {
+            console.log('🔌 Disabling Display page...');
+            await fetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              credentials: 'include', // JWT auth via cookies
+              credentials: 'include',
               body: JSON.stringify({ page: 'display', enabled: false })
-            })
-          );
-        }
-
-        if (disablePromises.length > 0) {
-          try {
-            await Promise.all(disablePromises);
+            });
             console.log('✅ Pages disabled');
-          } catch (pageError) {
-            console.error('❌ Failed to disable pages:', pageError);
+          } catch (error) {
+            console.error('❌ Failed to disable Display page:', error);
           }
         }
       }

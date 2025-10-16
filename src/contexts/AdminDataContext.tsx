@@ -461,6 +461,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     };
 
     initializeAdmin();
+
+    // Cleanup: Stop Spotify watcher when component unmounts
+    return () => {
+      console.log('🛑 AdminDataContext: Cleaning up, stopping Spotify watcher...');
+      fetch('/api/admin/spotify-watcher', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'stop' })
+      }).catch(error => {
+        console.error('Failed to stop Spotify watcher:', error);
+      });
+    };
   }, [refreshRequests, refreshPlaybackState, refreshEventSettings, refreshStats]); // Stable dependencies
 
   // No more periodic refresh - Pusher handles real-time updates!

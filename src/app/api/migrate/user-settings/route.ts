@@ -7,15 +7,10 @@ export async function POST(req: NextRequest) {
     
     console.log('🔧 Running user_settings table migration...');
     
-    // Drop the old user_settings table if it exists (it has wrong schema)
-    console.log('🗑️ Dropping old user_settings table if it exists...');
-    await pool.query('DROP TABLE IF EXISTS user_settings CASCADE');
-    console.log('✅ Old table dropped');
-    
-    // Create new user_settings table with correct schema
-    console.log('📝 Creating new user_settings table...');
+    // Create table if it doesn't exist
+    console.log('📝 Creating user_settings table if not exists...');
     await pool.query(`
-      CREATE TABLE user_settings (
+      CREATE TABLE IF NOT EXISTS user_settings (
         user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         event_title TEXT DEFAULT 'Party DJ Requests',
         dj_name TEXT DEFAULT '',
@@ -42,12 +37,37 @@ export async function POST(req: NextRequest) {
         theme_secondary_color TEXT DEFAULT NULL,
         theme_tertiary_color TEXT DEFAULT NULL,
         show_scrolling_bar BOOLEAN DEFAULT TRUE,
+        qr_boost_duration INTEGER DEFAULT 5,
+        karaoke_mode BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     
     console.log('✅ user_settings table created/verified');
+    
+    // Add missing columns to existing table
+    console.log('🔧 Adding missing columns if they don\'t exist...');
+    
+    try {
+      await pool.query(`
+        ALTER TABLE user_settings 
+        ADD COLUMN IF NOT EXISTS qr_boost_duration INTEGER DEFAULT 5
+      `);
+      console.log('✅ qr_boost_duration column added/verified');
+    } catch (e) {
+      console.log('ℹ️ qr_boost_duration column already exists or error:', e);
+    }
+    
+    try {
+      await pool.query(`
+        ALTER TABLE user_settings 
+        ADD COLUMN IF NOT EXISTS karaoke_mode BOOLEAN DEFAULT FALSE
+      `);
+      console.log('✅ karaoke_mode column added/verified');
+    } catch (e) {
+      console.log('ℹ️ karaoke_mode column already exists or error:', e);
+    }
     
     // Check if table has rows
     const result = await pool.query('SELECT COUNT(*) as count FROM user_settings');

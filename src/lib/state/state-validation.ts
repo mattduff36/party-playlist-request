@@ -432,11 +432,11 @@ export class StateValidator {
     }
 
     // Validate request limit
-    if (config.request_limit !== undefined) {
+    if (config.request_limit !== undefined && config.request_limit !== null) {
       if (typeof config.request_limit !== 'number' || config.request_limit < 0) {
         errors.push({
           field: 'config.request_limit',
-          message: 'Request limit must be a non-negative number',
+          message: 'Request limit must be a non-negative number or null for unlimited',
           code: 'INVALID_REQUEST_LIMIT',
           severity: 'error',
         });

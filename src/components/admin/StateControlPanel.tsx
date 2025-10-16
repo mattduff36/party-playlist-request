@@ -44,47 +44,44 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
 
     setIsTransitioning(true);
     try {
-      // If going to LIVE, enable both pages
+      // If going to LIVE, enable both pages sequentially
       if (newStatus === 'live') {
         console.log('🎉 Going LIVE: Enabling Requests and Display pages...');
         
-        const enablePromises = [];
-        
+        // Enable requests page first
         if (!state.pagesEnabled.requests) {
-          console.log('✅ Enabling Requests page...');
-          enablePromises.push(
-            fetch('/api/event/pages', {
+          try {
+            console.log('✅ Enabling Requests page...');
+            await fetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
               credentials: 'include',
               body: JSON.stringify({ page: 'requests', enabled: true })
-            })
-          );
+            });
+            // Small delay to prevent race condition
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (error) {
+            console.error('❌ Failed to enable Requests page:', error);
+          }
         }
         
+        // Then enable display page
         if (!state.pagesEnabled.display) {
-          console.log('✅ Enabling Display page...');
-          enablePromises.push(
-            fetch('/api/event/pages', {
+          try {
+            console.log('✅ Enabling Display page...');
+            await fetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
               credentials: 'include',
               body: JSON.stringify({ page: 'display', enabled: true })
-            })
-          );
-        }
-
-        if (enablePromises.length > 0) {
-          try {
-            await Promise.all(enablePromises);
+            });
             console.log('✅ Pages enabled');
-          } catch (pageError) {
-            console.error('❌ Failed to enable pages:', pageError);
-            // Continue anyway
+          } catch (error) {
+            console.error('❌ Failed to enable Display page:', error);
           }
         }
       }
@@ -128,44 +125,39 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
           }
         }
 
-        // Disable pages if they're enabled
-        const disablePromises = [];
-        
+        // Disable pages sequentially to prevent race condition
         if (state.pagesEnabled.requests) {
-          console.log('🔌 Disabling Requests page...');
-          disablePromises.push(
-            fetch('/api/event/pages', {
+          try {
+            console.log('🔌 Disabling Requests page...');
+            await fetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              credentials: 'include', // JWT auth via cookies
+              credentials: 'include',
               body: JSON.stringify({ page: 'requests', enabled: false })
-            })
-          );
+            });
+            // Small delay to prevent race condition
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (error) {
+            console.error('❌ Failed to disable Requests page:', error);
+          }
         }
         
         if (state.pagesEnabled.display) {
-          console.log('🔌 Disabling Display page...');
-          disablePromises.push(
-            fetch('/api/event/pages', {
+          try {
+            console.log('🔌 Disabling Display page...');
+            await fetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              credentials: 'include', // JWT auth via cookies
+              credentials: 'include',
               body: JSON.stringify({ page: 'display', enabled: false })
-            })
-          );
-        }
-
-        if (disablePromises.length > 0) {
-          try {
-            await Promise.all(disablePromises);
+            });
             console.log('✅ Pages disabled');
-          } catch (pageError) {
-            console.error('❌ Failed to disable pages:', pageError);
-            // Continue anyway
+          } catch (error) {
+            console.error('❌ Failed to disable Display page:', error);
           }
         }
       }

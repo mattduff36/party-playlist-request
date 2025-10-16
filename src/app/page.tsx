@@ -98,7 +98,7 @@ export default function LandingPage() {
           
           <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto">
             Create interactive playlist experiences for your parties, events, and venues. 
-            Professional DJ tools made simple. Let the good times roll! 🎉
+            Professional DJ tools made simple. Let the good times roll!
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -116,9 +116,6 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <p className="text-sm text-gray-500">
-            ✨ Professional DJ tools • Connect Spotify in seconds
-          </p>
         </div>
       </div>
 

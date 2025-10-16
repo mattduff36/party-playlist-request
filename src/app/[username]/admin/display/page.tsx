@@ -18,9 +18,9 @@ export default function DisplaySettingsPage() {
     qr_boost_duration: 5, // seconds
     
     // UI Customization
-    theme_primary_color: '#9333ea', // purple-600
-    theme_secondary_color: '#3b82f6', // blue-500
-    theme_tertiary_color: '#4f46e5', // indigo-600
+    theme_primary_color: '#1DB954', // Spotify green
+    theme_secondary_color: '#191414', // Black
+    theme_tertiary_color: '#1ed760', // Light green
     show_scrolling_bar: true,
     
     // Advanced features
@@ -61,9 +61,9 @@ export default function DisplaySettingsPage() {
         tertiary_message: (eventSettings as any).tertiary_message || '',
         show_qr_code: (eventSettings as any).show_qr_code ?? true,
         qr_boost_duration: (eventSettings as any).qr_boost_duration || 5,
-        theme_primary_color: (eventSettings as any).theme_primary_color || '#9333ea',
-        theme_secondary_color: (eventSettings as any).theme_secondary_color || '#3b82f6',
-        theme_tertiary_color: (eventSettings as any).theme_tertiary_color || '#4f46e5',
+        theme_primary_color: (eventSettings as any).theme_primary_color || '#1DB954',
+        theme_secondary_color: (eventSettings as any).theme_secondary_color || '#191414',
+        theme_tertiary_color: (eventSettings as any).theme_tertiary_color || '#1ed760',
         show_scrolling_bar: (eventSettings as any).show_scrolling_bar ?? true,
         karaoke_mode: (eventSettings as any).karaoke_mode || false,
       });

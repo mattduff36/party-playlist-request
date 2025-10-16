@@ -143,7 +143,7 @@ export interface EventConfig {
   secondary_message?: string;
   tertiary_message?: string;
   show_qr_code?: boolean;
-  request_limit?: number;
+  request_limit?: number | null;
   auto_approve?: boolean;
   decline_explicit?: boolean;
   message_text?: string;
