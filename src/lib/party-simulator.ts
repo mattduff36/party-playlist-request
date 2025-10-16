@@ -161,21 +161,26 @@ class PartySimulator {
     const isBurst = this.config.burstMode && Math.random() < 0.2; // 20% chance of burst
 
     this.intervalId = setTimeout(async () => {
-      if (isBurst) {
-        // Send 2-4 requests in quick succession
-        const burstCount = Math.floor(Math.random() * 3) + 2;
-        console.log(`💥 Burst mode: sending ${burstCount} requests`);
-        for (let i = 0; i < burstCount; i++) {
+      try {
+        if (isBurst) {
+          // Send 2-4 requests in quick succession
+          const burstCount = Math.floor(Math.random() * 3) + 2;
+          console.log(`💥 Burst mode: sending ${burstCount} requests`);
+          for (let i = 0; i < burstCount; i++) {
+            await this.sendRequest();
+            // Small delay between burst requests (500ms - 2s)
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 1500 + 500));
+          }
+        } else {
           await this.sendRequest();
-          // Small delay between burst requests (500ms - 2s)
-          await new Promise(resolve => setTimeout(resolve, Math.random() * 1500 + 500));
         }
-      } else {
-        await this.sendRequest();
+      } catch (error) {
+        // Log but don't stop the simulation on error
+        console.error('❌ Error in simulation loop (will continue):', error);
+      } finally {
+        // ALWAYS schedule next request, even if this one failed
+        this.scheduleNextRequest();
       }
-
-      // Schedule next request
-      this.scheduleNextRequest();
     }, delay);
   }
 
