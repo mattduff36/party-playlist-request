@@ -343,6 +343,22 @@ export async function initializeDatabase() {
       console.log('ℹ️ This might be expected if column already exists');
     }
 
+    // Migration: Add duration_ms column to requests if it doesn't exist
+    try {
+      console.log('🔧 Starting duration_ms column migration...');
+      
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS duration_ms INTEGER DEFAULT 0;
+      `);
+      console.log('✅ duration_ms column added to requests table');
+      
+      console.log('✅ Duration column migration completed successfully');
+    } catch (migrationError) {
+      console.error('❌ Duration column migration failed:', migrationError);
+      console.log('ℹ️ This might be expected if column already exists');
+    }
+
     // Migration: Add display customization columns to event_settings
     try {
       console.log('🔧 Starting display customization migration...');
