@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const username = searchParams.get('username');
     
+    console.log(`🔍 [API /api/search] Query: "${query}", Username: ${username}, Limit: ${limit}`);
+    
     if (!query || query.trim().length < 2) {
+      console.log('❌ [API /api/search] Query too short');
       return NextResponse.json({ 
         error: 'Search query must be at least 2 characters long' 
       }, { status: 400 });
@@ -34,10 +37,12 @@ export async function GET(req: NextRequest) {
 
     const searchLimit = Math.min(limit || 20, 50);
     
+    console.log(`🔍 [API /api/search] Calling spotifyService.searchTracks with userId: ${userId}`);
     const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit, userId);
     
     // Extract tracks from Spotify API response
     const tracks = searchResult?.tracks?.items || [];
+    console.log(`🔍 [API /api/search] Found ${tracks.length} tracks`);
     
     return NextResponse.json({
       tracks: tracks,
