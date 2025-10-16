@@ -222,9 +222,11 @@ class PartySimulator {
       }
 
       const searchData = await searchResponse.json();
-      console.log(`🔍 Search returned ${searchData?.tracks?.items?.length || 0} tracks`);
+      console.log(`🔍 Search data:`, JSON.stringify(searchData).substring(0, 200));
       
-      const tracks = searchData?.tracks?.items || [];
+      // The API returns { tracks: [...], query, total }, not { tracks: { items: [...] } }
+      const tracks = searchData?.tracks || [];
+      console.log(`🔍 Search returned ${tracks.length} tracks`);
 
       if (tracks.length === 0) {
         console.error(`❌ No tracks found for query: ${song.query}`);
