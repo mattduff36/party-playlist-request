@@ -219,7 +219,16 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
         // Pusher should also update, but this ensures instant feedback
         await refreshData();
       } else {
-        const error = await response.json().catch(() => ({ error: 'Failed to add random song' }));
+        console.error('❌ Random song request failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url
+        });
+        
+        const error = await response.json().catch((parseError) => {
+          console.error('❌ Failed to parse error response as JSON:', parseError);
+          return { error: 'Failed to add random song (invalid response)' };
+        });
         console.error('❌ Failed to add random song:', error);
         
         // Show user-friendly error message
