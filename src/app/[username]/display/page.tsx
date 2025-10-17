@@ -1067,9 +1067,9 @@ function DisplayPage({ username }: { username: string }) {
                         <p className="text-black text-lg font-bold mb-4">
                           {username}/request
                         </p>
-                        {eventSettings.pin && (
+                        {globalState.pin && (
                           <p className="text-black text-xl font-semibold">
-                            and enter PIN <span className="font-mono font-bold text-2xl">{eventSettings.pin}</span>
+                            and enter PIN <span className="font-mono font-bold text-2xl">{globalState.pin}</span>
                           </p>
                         )}
                       </div>
