@@ -882,7 +882,12 @@ function DisplayPage({ username }: { username: string }) {
   ].filter(msg => msg && msg.trim() !== '') : [];
   
   const messagesText = messages.length > 0 ? messages.join('                               ') : '';
-  const displayContent = messagesText ? `                               ${messagesText}                               ${messagesText}                               ` : '';
+  const displayContent = messagesText ? `                               ${messagesText}                               ` : '';
+  
+  // Calculate dynamic animation duration based on content length
+  const baseDuration = 20; // Base duration in seconds
+  const characterMultiplier = 0.1; // 0.1 seconds per character
+  const dynamicDuration = Math.max(baseDuration, messagesText.length * characterMultiplier);
 
   const messageTextColor = 'text-white';
 
@@ -1147,7 +1152,12 @@ function DisplayPage({ username }: { username: string }) {
                 <div className="text-xl mr-3">📢</div>
                 <div className="flex-1 overflow-hidden">
                     {displayContent && (
-                      <div className={`animate-marquee whitespace-nowrap text-lg font-medium ${messageTextColor}`}>
+                      <div 
+                        className={`whitespace-nowrap text-lg font-medium ${messageTextColor}`}
+                        style={{
+                          animation: `marquee ${dynamicDuration}s linear infinite`
+                        }}
+                      >
                         {displayContent}
                       </div>
                     )}
@@ -1337,7 +1347,12 @@ function DisplayPage({ username }: { username: string }) {
                   <div className="text-base mr-2">📢</div>
                   <div className="flex-1 overflow-hidden">
                       {displayContent && (
-                        <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
+                        <div 
+                          className={`whitespace-nowrap text-sm font-medium ${messageTextColor}`}
+                          style={{
+                            animation: `marquee ${dynamicDuration}s linear infinite`
+                          }}
+                        >
                           {displayContent}
                         </div>
                       )}
@@ -1432,7 +1447,12 @@ function DisplayPage({ username }: { username: string }) {
                   <div className="text-lg mr-3">📢</div>
                   <div className="flex-1 overflow-hidden">
                     {displayContent && (
-                      <div className={`animate-marquee whitespace-nowrap text-base font-medium ${messageTextColor}`}>
+                      <div 
+                        className={`whitespace-nowrap text-base font-medium ${messageTextColor}`}
+                        style={{
+                          animation: `marquee ${dynamicDuration}s linear infinite`
+                        }}
+                      >
                         {displayContent}
                       </div>
                     )}
