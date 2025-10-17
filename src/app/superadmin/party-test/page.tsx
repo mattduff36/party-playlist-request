@@ -269,6 +269,21 @@ export default function PartyTestPage() {
         </div>
       )}
 
+      {/* Serverless Warning */}
+      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4 mb-6">
+        <div className="flex items-start space-x-3">
+          <AlertCircle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-yellow-300 font-semibold mb-1">⚠️ Serverless Limitation</p>
+            <p className="text-yellow-200/80 text-sm">
+              The party simulator uses setTimeout which doesn't persist in Vercel's serverless environment. 
+              The simulation will start but stop after the first request. This works perfectly in local development. 
+              For production testing, use the "Add Request" and "Add Burst" buttons to manually trigger requests while the simulation is running.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Error Alert */}
       {error && (
         <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-6 flex items-center justify-between">
