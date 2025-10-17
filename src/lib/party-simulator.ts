@@ -224,9 +224,9 @@ class PartySimulator {
         console.error(`❌ [${this.instanceId}] Burst request ${i + 1} failed:`, error);
       }
       
-      // Longer delay between burst requests (1s - 2s) to avoid rate limiting
+      // 4 second delay between burst requests for reliable testing
       if (i < burstCount - 1) {
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
+        await new Promise(resolve => setTimeout(resolve, 4000));
       }
     }
   }
