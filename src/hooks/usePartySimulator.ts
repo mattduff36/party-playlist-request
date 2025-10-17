@@ -28,6 +28,7 @@ export function usePartySimulator() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const configRef = useRef<SimulationConfig | null>(null);
   const usedRequestersRef = useRef<Set<string>>(new Set());
+  const isRunningRef = useRef<boolean>(false);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -181,7 +182,13 @@ export function usePartySimulator() {
   const selectRequester = useCallback((): string => {
     if (!configRef.current) return 'Guest';
 
-    const activeRequesters = stats.activeRequesters;
+    // Get active requesters from the current stats or generate them if not available
+    let activeRequesters = stats.activeRequesters;
+    
+    if (activeRequesters.length === 0 && configRef.current) {
+      // Fallback: generate requesters based on config
+      activeRequesters = generateRequesterNames(configRef.current.uniqueRequesters);
+    }
     
     if (activeRequesters.length === 0) return 'Guest';
 
@@ -222,6 +229,8 @@ export function usePartySimulator() {
 
     const activeRequesters = generateRequesterNames(config.uniqueRequesters);
     
+    isRunningRef.current = true;
+    
     setStats({
       isRunning: true,
       requestsSent: 0,
@@ -243,7 +252,7 @@ export function usePartySimulator() {
 
     // Start the interval
     intervalRef.current = setInterval(async () => {
-      if (!configRef.current || !stats.isRunning) {
+      if (!configRef.current || !isRunningRef.current) {
         console.log(`🛑 [Client] Simulation stopped, clearing interval`);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -259,7 +268,7 @@ export function usePartySimulator() {
           console.log(`💥 [Client] Burst mode: sending ${burstCount} requests`);
           
           for (let i = 0; i < burstCount; i++) {
-            if (!configRef.current || !stats.isRunning) break;
+            if (!configRef.current || !isRunningRef.current) break;
             
             try {
               await sendRequest();
@@ -283,7 +292,7 @@ export function usePartySimulator() {
 
     // Send first request within 10 seconds
     setTimeout(async () => {
-      if (configRef.current && stats.isRunning) {
+      if (configRef.current && isRunningRef.current) {
         try {
           await sendRequest();
         } catch (error) {
@@ -295,6 +304,8 @@ export function usePartySimulator() {
 
   const stopSimulation = useCallback(() => {
     console.log(`🛑 [Client] stopSimulation() called`);
+    
+    isRunningRef.current = false;
     
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
