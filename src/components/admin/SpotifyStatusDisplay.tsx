@@ -195,36 +195,14 @@ export default function SpotifyStatusDisplay({ className = '', showHeader = true
   };
 
   // Handle connect button click - redirect directly to Spotify auth
-  const handleConnect = async () => {
+  const handleConnect = () => {
     setIsConnecting(true);
     setError(null);
     
-    try {
-      // Get Spotify authorization URL (JWT auth via cookies)
-      const response = await fetch('/api/spotify/auth', {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to initiate Spotify connection');
-        setIsConnecting(false);
-        return;
-      }
-
-      const data = await response.json();
-      
-      // Store OAuth data in localStorage for callback
-      localStorage.setItem('spotify_state', data.state);
-      localStorage.setItem('spotify_code_verifier', data.code_verifier);
-      
-      // Redirect to Spotify authorization
-      window.location.href = data.auth_url;
-    } catch (err) {
-      console.error('Error connecting to Spotify:', err);
-      setError('Failed to connect to Spotify. Please try again.');
-      setIsConnecting(false);
-    }
+    // Simply navigate to the auth endpoint - it handles the redirect server-side
+    // OAuth session data is now stored server-side, no need for localStorage
+    console.log('🔗 Redirecting to Spotify authorization...');
+    window.location.href = '/api/spotify/auth';
   };
 
   // Auto-refresh status every 5 seconds, but stop if permanently disconnected
