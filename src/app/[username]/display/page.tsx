@@ -881,8 +881,8 @@ function DisplayPage({ username }: { username: string }) {
     eventSettings.tertiary_message
   ].filter(msg => msg && msg.trim() !== '') : [];
   
-  const messagesText = messages.length > 0 ? messages.join(' •────────────• ') : '';
-  const displayContent = messagesText ? `${messagesText} •────────────• ${messagesText}` : '';
+  const messagesText = messages.length > 0 ? messages.join('                               ') : '';
+  const displayContent = messagesText ? `                               ${messagesText}                               ${messagesText}                               ` : '';
 
   const messageTextColor = 'text-white';
 
