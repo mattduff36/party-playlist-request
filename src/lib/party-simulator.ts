@@ -389,9 +389,19 @@ class PartySimulator {
   }
 }
 
-// Singleton instance
-console.log('🔥 Creating PartySimulator singleton instance');
-export const partySimulator = new PartySimulator();
+// Singleton instance - use global to persist across hot-reloads in development
+const globalForSimulator = global as unknown as {
+  partySimulator: PartySimulator | undefined;
+};
+
+if (!globalForSimulator.partySimulator) {
+  console.log('🔥 Creating NEW PartySimulator singleton instance');
+  globalForSimulator.partySimulator = new PartySimulator();
+} else {
+  console.log('♻️ Reusing existing PartySimulator singleton instance');
+}
+
+export const partySimulator = globalForSimulator.partySimulator;
 
 export type { SimulationConfig, SimulationStats };
 
