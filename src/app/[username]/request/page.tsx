@@ -594,7 +594,7 @@ export default function UserRequestPage() {
 
         {/* Main Content */}
         <div className="flex-1 flex items-start justify-center px-3 py-4">
-          <div className="max-w-xl w-full space-y-3">
+          <div className="max-w-xl w-full flex flex-col h-full space-y-3">
             {/* Name Input */}
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-4">
               <input
@@ -610,7 +610,10 @@ export default function UserRequestPage() {
                 style={{ 
                   fontSize: '16px',
                   transform: 'translateZ(0)', // Prevent iOS zoom
-                  WebkitAppearance: 'none' // Remove iOS styling
+                  WebkitAppearance: 'none', // Remove iOS styling
+                  WebkitTextSizeAdjust: '100%', // Prevent iOS zoom
+                  textSizeAdjust: '100%', // Prevent iOS zoom
+                  zoom: '1' // Prevent iOS zoom
                 }}
                 required
               />
@@ -623,7 +626,7 @@ export default function UserRequestPage() {
             </div>
 
             {/* Search Section */}
-            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity ${!nickname.trim() || !isNicknameValid ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity flex flex-col flex-1 ${!nickname.trim() || !isNicknameValid ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
                 <input
@@ -641,7 +644,10 @@ export default function UserRequestPage() {
                   style={{ 
                     fontSize: '16px',
                     transform: 'translateZ(0)', // Prevent iOS zoom
-                    WebkitAppearance: 'none' // Remove iOS styling
+                    WebkitAppearance: 'none', // Remove iOS styling
+                    WebkitTextSizeAdjust: '100%', // Prevent iOS zoom
+                    textSizeAdjust: '100%', // Prevent iOS zoom
+                    zoom: '1' // Prevent iOS zoom
                   }}
                   disabled={!nickname.trim() || !isNicknameValid}
                   onBlur={() => {
@@ -660,7 +666,7 @@ export default function UserRequestPage() {
 
               {/* Search Results */}
               {searchResults.length > 0 && nickname.trim() && isNicknameValid && (
-                <div className="space-y-2 max-h-64 overflow-y-auto mt-3">
+                <div className="space-y-2 flex-1 overflow-y-auto mt-3" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                   {searchResults.map((track) => (
                     <button
                       key={track.id}
