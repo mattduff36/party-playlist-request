@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { getRequest, updateRequest, getSetting, createNotification } from '@/lib/db';
+import { getRequest, updateRequest, getSetting, createNotification, getEventSettings } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestApproved } from '@/lib/pusher';
+import { messageQueue } from '@/lib/message-queue';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -112,6 +113,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       } catch (pusherError) {
         console.error('❌ Failed to send Pusher event:', pusherError);
         // Don't fail the request if Pusher fails
+      }
+
+      // 📢 AUTO-MESSAGE: Queue Notice Board message if enabled
+      try {
+        const eventSettings = await getEventSettings(userId);
+        
+        if (eventSettings.show_approval_messages) {
+          const requesterName = request.requester_nickname || 'Anonymous';
+          const artistName = request.artist_name || 'Unknown Artist';
+          const trackName = request.track_name;
+          
+          const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nParty Playlist!`;
+          
+          console.log(`📢 [admin/approve] Queueing auto-approval message: "${messageText.substring(0, 50)}..."`);
+          
+          // Add message to queue (8 seconds duration to avoid auto-close)
+          await messageQueue.addMessage(userId, messageText, 8);
+          
+          console.log(`✅ [admin/approve] Auto-approval message queued successfully`);
+        }
+      } catch (messageError) {
+        console.error('❌ Failed to queue auto-approval message:', messageError);
+        // Don't fail the approval if message fails
       }
     }
 

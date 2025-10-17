@@ -59,7 +59,8 @@ export async function POST(req: NextRequest) {
       theme_secondary_color,
       theme_tertiary_color,
       show_scrolling_bar,
-      karaoke_mode
+      karaoke_mode,
+      show_approval_messages
     } = body;
     
     console.log('📝 Updating event settings:', {
@@ -99,7 +100,8 @@ export async function POST(req: NextRequest) {
       theme_secondary_color,
       theme_tertiary_color,
       show_scrolling_bar,
-      karaoke_mode
+      karaoke_mode,
+      show_approval_messages
     }, userId);
     
     // Trigger Pusher event to notify all clients of settings update (USER-SPECIFIC CHANNEL)

@@ -41,6 +41,7 @@ export interface EventSettings {
   tertiary_message: string;
   show_qr_code: boolean;
   display_refresh_interval: number;
+  show_approval_messages?: boolean;
 }
 
 export interface Stats {

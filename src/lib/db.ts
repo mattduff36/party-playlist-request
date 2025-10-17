@@ -85,6 +85,7 @@ export interface EventSettings {
   show_scrolling_bar: boolean;
   qr_boost_duration: number | null;
   karaoke_mode: boolean;
+  show_approval_messages: boolean;
   updated_at: string;
 }
 
@@ -210,6 +211,7 @@ export async function initializeDatabase() {
         show_scrolling_bar BOOLEAN DEFAULT TRUE,
         qr_boost_duration INTEGER DEFAULT 5,
         karaoke_mode BOOLEAN DEFAULT FALSE,
+        show_approval_messages BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

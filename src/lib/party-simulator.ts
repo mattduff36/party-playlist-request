@@ -190,6 +190,48 @@ class PartySimulator {
   }
 
   /**
+   * Manually trigger a single request (for testing/demo purposes)
+   */
+  async triggerManualRequest(): Promise<void> {
+    if (!this.config || !this.stats.isRunning) {
+      throw new Error('Simulation is not running');
+    }
+
+    console.log(`🎯 [${this.instanceId}] Manual single request triggered`);
+    try {
+      await this.sendRequest();
+    } catch (error) {
+      console.error(`❌ [${this.instanceId}] Manual request failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Manually trigger a burst of requests (for testing/demo purposes)
+   */
+  async triggerManualBurst(): Promise<void> {
+    if (!this.config || !this.stats.isRunning) {
+      throw new Error('Simulation is not running');
+    }
+
+    const burstCount = Math.floor(Math.random() * 3) + 2; // 2-4 requests
+    console.log(`💥 [${this.instanceId}] Manual burst triggered: ${burstCount} requests`);
+
+    for (let i = 0; i < burstCount; i++) {
+      try {
+        await this.sendRequest();
+      } catch (error) {
+        console.error(`❌ [${this.instanceId}] Burst request ${i + 1} failed:`, error);
+      }
+      
+      // Small delay between burst requests (200ms - 1s)
+      if (i < burstCount - 1) {
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 800 + 200));
+      }
+    }
+  }
+
+  /**
    * Schedule the next request(s)
    * @param isFirstRequest - If true, schedules the first request within 10 seconds
    */

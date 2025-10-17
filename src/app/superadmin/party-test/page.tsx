@@ -14,7 +14,9 @@ import {
   ExternalLink,
   AlertCircle,
   Terminal,
-  CheckCircle2
+  CheckCircle2,
+  Plus,
+  Sparkles
 } from 'lucide-react';
 
 interface SimulationLog {
@@ -61,6 +63,7 @@ export default function PartyTestPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [manualTriggerLoading, setManualTriggerLoading] = useState(false);
 
   // Poll for stats every 2 seconds when running
   useEffect(() => {
@@ -138,6 +141,58 @@ export default function PartyTestPage() {
     }
   };
 
+  const handleManualRequest = async () => {
+    if (manualTriggerLoading || !stats.isRunning) return;
+    
+    setManualTriggerLoading(true);
+    try {
+      const response = await fetch('/api/superadmin/party-simulator/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ type: 'single' })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to trigger request');
+      }
+      
+      // Stats will update via polling
+      await fetchStats();
+    } catch (error: any) {
+      setError(error.message || 'Network error');
+    } finally {
+      setManualTriggerLoading(false);
+    }
+  };
+
+  const handleManualBurst = async () => {
+    if (manualTriggerLoading || !stats.isRunning) return;
+    
+    setManualTriggerLoading(true);
+    try {
+      const response = await fetch('/api/superadmin/party-simulator/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ type: 'burst' })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to trigger burst');
+      }
+      
+      // Stats will update via polling
+      await fetchStats();
+    } catch (error: any) {
+      setError(error.message || 'Network error');
+    } finally {
+      setManualTriggerLoading(false);
+    }
+  };
+
   const getSuccessRate = () => {
     if (stats.requestsSent === 0) return 0;
     return Math.round((stats.requestsSuccessful / stats.requestsSent) * 100);
@@ -171,13 +226,38 @@ export default function PartyTestPage() {
 
       {/* Status Banner */}
       {stats.isRunning && (
-        <div className="bg-[#1DB954]/20 border-2 border-[#1DB954] rounded-xl p-4 mb-6 flex items-center space-x-3">
-          <Radio className="w-6 h-6 text-[#1DB954] animate-pulse" />
-          <div>
-            <p className="text-white font-bold">Simulation Running</p>
-            <p className="text-gray-300 text-sm">
-              Duration: {formatDuration(stats.startedAt)} • Last request: {formatTimestamp(stats.lastRequestAt)}
-            </p>
+        <div className="bg-[#1DB954]/20 border-2 border-[#1DB954] rounded-xl p-4 mb-6 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Radio className="w-6 h-6 text-[#1DB954] animate-pulse" />
+            <div>
+              <p className="text-white font-bold">Simulation Running</p>
+              <p className="text-gray-300 text-sm">
+                Duration: {formatDuration(stats.startedAt)} • Last request: {formatTimestamp(stats.lastRequestAt)}
+              </p>
+            </div>
+          </div>
+          
+          {/* Manual Trigger Buttons */}
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleManualRequest}
+              disabled={manualTriggerLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200"
+              title="Manually trigger a single random request"
+            >
+              <Plus className={`w-4 h-4 ${manualTriggerLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Add Request</span>
+            </button>
+            
+            <button
+              onClick={handleManualBurst}
+              disabled={manualTriggerLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200"
+              title="Manually trigger a burst of 2-4 random requests"
+            >
+              <Sparkles className={`w-4 h-4 ${manualTriggerLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Add Burst</span>
+            </button>
           </div>
         </div>
       )}

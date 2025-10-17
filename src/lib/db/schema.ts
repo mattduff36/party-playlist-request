@@ -156,4 +156,5 @@ export interface EventConfig {
   theme_tertiary_color?: string;
   show_scrolling_bar?: boolean;
   karaoke_mode?: boolean;
+  show_approval_messages?: boolean;
 }

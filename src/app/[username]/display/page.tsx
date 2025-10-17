@@ -1011,18 +1011,22 @@ function DisplayPage({ username }: { username: string }) {
                       <div className={`text-center px-4 overflow-hidden transition-opacity duration-300 ${
                         showMessageText ? 'opacity-100' : 'opacity-0'
                       }`}>
-                        <p 
+                        <div 
                           className="text-white font-medium leading-tight"
                           style={{ 
                             fontSize: getMessageFontSize(currentMessage.text, 'tv'),
-                            lineHeight: '1.2',
+                            lineHeight: '1.3',
                             wordBreak: 'normal',
                             overflowWrap: 'normal',
-                            whiteSpace: 'normal'
+                            whiteSpace: 'pre-line'
                           }}
                         >
-                          {currentMessage.text}
-                        </p>
+                          {currentMessage.text.split('\n').map((line, index) => (
+                            <div key={index} style={{ fontSize: index === 0 ? '1.5em' : '1em' }}>
+                              {line || '\u00A0'}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1195,18 +1199,22 @@ function DisplayPage({ username }: { username: string }) {
                       <div className={`text-center px-3 overflow-hidden transition-opacity duration-300 ${
                         showMessageText ? 'opacity-100' : 'opacity-0'
                       }`}>
-                        <p 
+                        <div 
                           className="text-white font-medium leading-tight"
                           style={{ 
                             fontSize: getMessageFontSize(currentMessage.text, 'tablet'),
-                            lineHeight: '1.2',
+                            lineHeight: '1.3',
                             wordBreak: 'normal',
                             overflowWrap: 'normal',
-                            whiteSpace: 'normal'
+                            whiteSpace: 'pre-line'
                           }}
                         >
-                          {currentMessage.text}
-                        </p>
+                          {currentMessage.text.split('\n').map((line, index) => (
+                            <div key={index} style={{ fontSize: index === 0 ? '1.5em' : '1em' }}>
+                              {line || '\u00A0'}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1471,18 +1479,22 @@ function DisplayPage({ username }: { username: string }) {
                     <div className={`text-center px-2 overflow-hidden transition-opacity duration-300 ${
                       showMessageText ? 'opacity-100' : 'opacity-0'
                     }`}>
-                      <p 
+                      <div 
                         className="text-white font-medium leading-tight"
                         style={{ 
                           fontSize: getMessageFontSize(currentMessage.text, 'mobile'),
-                          lineHeight: '1.1',
+                          lineHeight: '1.3',
                           wordBreak: 'normal',
                           overflowWrap: 'normal',
-                          whiteSpace: 'normal'
+                          whiteSpace: 'pre-line'
                         }}
                       >
-                        {currentMessage.text}
-                      </p>
+                        {currentMessage.text.split('\n').map((line, index) => (
+                          <div key={index} style={{ fontSize: index === 0 ? '1.5em' : '1em' }}>
+                            {line || '\u00A0'}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

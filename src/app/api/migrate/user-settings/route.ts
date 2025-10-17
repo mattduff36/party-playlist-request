@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         show_scrolling_bar BOOLEAN DEFAULT TRUE,
         qr_boost_duration INTEGER DEFAULT 5,
         karaoke_mode BOOLEAN DEFAULT FALSE,
+        show_approval_messages BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -67,6 +68,16 @@ export async function POST(req: NextRequest) {
       console.log('✅ karaoke_mode column added/verified');
     } catch (e) {
       console.log('ℹ️ karaoke_mode column already exists or error:', e);
+    }
+    
+    try {
+      await pool.query(`
+        ALTER TABLE user_settings 
+        ADD COLUMN IF NOT EXISTS show_approval_messages BOOLEAN DEFAULT FALSE
+      `);
+      console.log('✅ show_approval_messages column added/verified');
+    } catch (e) {
+      console.log('ℹ️ show_approval_messages column already exists or error:', e);
     }
     
     // Check if table has rows

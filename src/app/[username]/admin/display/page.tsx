@@ -25,6 +25,9 @@ export default function DisplaySettingsPage() {
     
     // Advanced features
     karaoke_mode: false, // Disabled for now
+    
+    // Notice Board features
+    show_approval_messages: false,
   });
   
   // Notice Board (Message System) state
@@ -66,6 +69,7 @@ export default function DisplaySettingsPage() {
         theme_tertiary_color: (eventSettings as any).theme_tertiary_color || '#1ed760',
         show_scrolling_bar: (eventSettings as any).show_scrolling_bar ?? true,
         karaoke_mode: (eventSettings as any).karaoke_mode || false,
+        show_approval_messages: (eventSettings as any).show_approval_messages || false,
       });
     }
   }, [eventSettings]);
@@ -449,6 +453,26 @@ export default function DisplaySettingsPage() {
             </p>
             
             <div className="space-y-4">
+              {/* Auto-Approval Messages Setting */}
+              <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-purple-500/30 mb-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="show_approval_messages"
+                    name="show_approval_messages"
+                    checked={formData.show_approval_messages}
+                    onChange={handleCheckboxChange}
+                    className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                  />
+                  <label htmlFor="show_approval_messages" className="ml-3 text-base font-semibold text-white">
+                    Show Requests when Approved
+                  </label>
+                </div>
+                <p className="text-gray-400 text-sm mt-2 ml-8">
+                  Automatically display a 10-second Notice Board message when a request is approved, showing the requester's name and song details.
+                </p>
+              </div>
+
               {/* Message Text Input */}
               <div>
                 <label htmlFor="message_text" className="block text-sm font-medium text-gray-300 mb-2">
