@@ -69,6 +69,7 @@ export default function UserRequestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [nickname, setNickname] = useState('');
   const [nicknameError, setNicknameError] = useState('');
   const [isNicknameValid, setIsNicknameValid] = useState(true);
@@ -84,6 +85,20 @@ export default function UserRequestPage() {
     if (document.activeElement && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
+  };
+
+  // Modal handlers
+  const handleMakeAnotherRequest = () => {
+    setShowSuccessModal(false);
+    setRequestStatus('idle');
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleImDone = () => {
+    setShowSuccessModal(false);
+    setRequestStatus('idle');
+    window.location.href = 'https://partyplaylist.co.uk/';
   };
   
   // User session and notification states
@@ -165,17 +180,21 @@ export default function UserRequestPage() {
     }
   };
 
-  // Handle clicking anywhere to dismiss notifications
+  // Auto-dismiss notifications after 3 seconds
   useEffect(() => {
-    const handleGlobalClick = () => {
-      if (notifications.length > 0) {
+    if (notifications.length > 0) {
+      const timer = setTimeout(() => {
         setNotifications([]);
-      }
-    };
+      }, 3000);
 
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
+      return () => clearTimeout(timer);
+    }
   }, [notifications.length]);
+
+  // Handle clicking notifications to dismiss
+  const dismissNotification = (notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  };
 
   // Listen for request updates via Pusher
   usePusher({
@@ -424,6 +443,7 @@ export default function UserRequestPage() {
       if (response.data.success) {
         setRequestStatus('success');
         setStatusMessage(response.data.message);
+        setShowSuccessModal(true);
         
         if (response.data.request?.id) {
           setUserRequests(prev => new Set([...prev, response.data.request!.id]));
@@ -569,13 +589,30 @@ export default function UserRequestPage() {
           </h1>
         </div>
 
-        {/* Status Messages */}
-        {requestStatus === 'success' && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-            <div className="bg-green-500 text-white px-8 py-6 rounded-2xl shadow-2xl border-4 border-green-400 max-w-md mx-4 transform animate-bounce">
-              <div className="flex items-center justify-center">
-                <span className="text-4xl mr-4">✅</span>
-                <span className="text-xl font-bold text-center">{statusMessage}</span>
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-fade-in">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Thank you for your request!</h3>
+              <p className="text-gray-600 mb-8">It has been submitted successfully.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleMakeAnotherRequest}
+                  className="flex-1 bg-[#1DB954] text-white py-3 px-6 rounded-lg font-semibold hover:bg-[#1ed760] transition-colors"
+                >
+                  Make another Request
+                </button>
+                <button
+                  onClick={handleImDone}
+                  className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                >
+                  I'm done
+                </button>
               </div>
             </div>
           </div>
@@ -712,43 +749,52 @@ export default function UserRequestPage() {
       </div>
       
       {/* Notification Toasts */}
-      <div className="fixed top-6 right-6 z-50 space-y-3">
+      {/* Push Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-3">
         {notifications.map((notification) => (
           <div
             key={notification.id}
-            className={`
-              transform transition-all duration-500 ease-in-out
-              bg-gradient-to-r ${
-                notification.type === 'play_next' 
-                  ? 'from-green-500 to-emerald-600' 
-                  : 'from-blue-500 to-purple-600'
-              }
-              text-white px-8 py-6 rounded-xl shadow-2xl max-w-md min-w-[320px]
-              animate-slide-in-right border-2 border-white/20
-            `}
+            onClick={() => dismissNotification(notification.id)}
+            className="bg-white rounded-lg shadow-lg border border-gray-200 max-w-sm w-full p-4 cursor-pointer hover:shadow-xl transition-all duration-200 animate-slide-down"
           >
-            <div className="flex items-start space-x-4">
+            <div className="flex items-start space-x-3">
               <div className="flex-shrink-0">
                 {notification.type === 'play_next' ? (
-                  <div className="w-10 h-10 text-4xl flex items-center justify-center">⚡</div>
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
                 ) : (
-                  <div className="w-10 h-10 text-4xl flex items-center justify-center">✅</div>
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-lg mb-1">
+                <div className="font-semibold text-gray-900 text-sm mb-1">
                   {notification.type === 'play_next' ? 'Playing Next!' : 'Request Approved!'}
                 </div>
-                <div className="text-base opacity-95 font-medium truncate">
+                <div className="text-sm text-gray-700 font-medium truncate">
                   {notification.trackName}
                 </div>
-                <div className="text-sm opacity-80 truncate">
+                <div className="text-xs text-gray-500 truncate">
                   by {notification.artistName}
                 </div>
-                <div className="text-xs opacity-60 mt-2">
-                  Click anywhere to dismiss
-                </div>
               </div>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissNotification(notification.id);
+                }}
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         ))}
