@@ -331,7 +331,7 @@ export default function PartyTestPage() {
               {!stats.isRunning ? (
                 <button
                   onClick={handleStart}
-                  disabled={loading || !config.targetUrl}
+                  disabled={loading || !config.username}
                   className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-[#1DB954]/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Play className="w-5 h-5" />
@@ -348,9 +348,9 @@ export default function PartyTestPage() {
                 </button>
               )}
 
-              {config.targetUrl && (
+              {config.username && (
                 <a
-                  href={config.targetUrl}
+                  href={`${config.environment === 'local' ? 'http://localhost:3000' : 'https://partyplaylist.co.uk'}/${config.username}/request`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center space-x-2 px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors border border-white/20"
