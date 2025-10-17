@@ -885,10 +885,10 @@ function DisplayPage({ username }: { username: string }) {
   const displayContent = messagesText;
   
   // Calculate animation duration based on total character count
-  const baseDuration = 15; // Base duration in seconds
-  const characterMultiplier = 0.05; // 0.05 seconds per character
+  const baseDuration = 30; // Base duration in seconds (doubled from 15)
+  const characterMultiplier = 0.1; // 0.1 seconds per character (doubled from 0.05)
   const totalCharacters = messagesText.length;
-  const dynamicDuration = Math.max(baseDuration, totalCharacters * characterMultiplier);
+  const dynamicDuration = Math.max(baseDuration, totalCharacters * characterMultiplier) + 1; // Add 1 second buffer
 
   const messageTextColor = 'text-white';
 
