@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Lock } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -879,11 +879,11 @@ function DisplayPage({ username }: { username: string }) {
 
   // Admin status and page controls are handled above - this is the main display content
 
-  const messages = [
+  const messages = useMemo(() => [
     eventSettings.welcome_message,
     eventSettings.secondary_message,
     eventSettings.tertiary_message
-  ].filter(msg => msg.trim() !== '');
+  ].filter(msg => msg.trim() !== ''), [eventSettings.welcome_message, eventSettings.secondary_message, eventSettings.tertiary_message]);
 
   // Individual message scrolling logic
   useEffect(() => {
