@@ -45,12 +45,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { targetUrl, requestPin, requestInterval, uniqueRequesters, burstMode, explicitSongs } = body;
+    const { environment, username, requestPin, requestInterval, uniqueRequesters, burstMode, explicitSongs } = body;
 
     // Validate inputs
-    if (!targetUrl || !targetUrl.includes('/request')) {
+    if (!environment || !['local', 'production'].includes(environment)) {
       return NextResponse.json(
-        { error: 'Valid target URL with /request path is required' },
+        { error: 'Environment must be "local" or "production"' },
+        { status: 400 }
+      );
+    }
+
+    if (!username || username.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Username is required' },
         { status: 400 }
       );
     }
@@ -78,7 +85,8 @@ export async function POST(req: NextRequest) {
 
     // Start simulation
     partySimulator.start({
-      targetUrl,
+      environment: environment as 'local' | 'production',
+      username: username.trim(),
       requestPin: requestPin || undefined,
       requestInterval,
       uniqueRequesters,
@@ -86,7 +94,13 @@ export async function POST(req: NextRequest) {
       explicitSongs: !!explicitSongs
     });
 
+    const targetUrl = environment === 'local' 
+      ? `http://localhost:3000/${username}/request`
+      : `https://partyplaylist.co.uk/${username}/request`;
+
     console.log('🎉 Party simulation started by superadmin:', {
+      environment,
+      username,
       targetUrl,
       hasPin: !!requestPin,
       requestInterval,

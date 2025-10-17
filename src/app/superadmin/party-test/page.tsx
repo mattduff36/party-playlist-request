@@ -37,7 +37,8 @@ export default function PartyTestPage() {
   });
 
   const [config, setConfig] = useState({
-    targetUrl: '',
+    environment: 'local' as 'local' | 'production',
+    username: '',
     requestPin: '',
     requestInterval: 300000, // 5 minutes (default)
     uniqueRequesters: 5,
@@ -182,21 +183,40 @@ export default function PartyTestPage() {
           <h2 className="text-2xl font-bold text-white mb-6">Configuration</h2>
 
           <div className="space-y-6">
-            {/* Target URL */}
+            {/* Environment Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Target Request Page URL
+                Environment
+              </label>
+              <select
+                value={config.environment}
+                onChange={(e) => setConfig({ ...config, environment: e.target.value as 'local' | 'production' })}
+                disabled={stats.isRunning}
+                className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#1DB954] disabled:opacity-50"
+              >
+                <option value="local" className="bg-gray-900">Local (localhost:3000)</option>
+                <option value="production" className="bg-gray-900">Production (partyplaylist.co.uk)</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Choose where to send test requests
+              </p>
+            </div>
+
+            {/* Username */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Username
               </label>
               <input
-                type="url"
-                value={config.targetUrl}
-                onChange={(e) => setConfig({ ...config, targetUrl: e.target.value })}
+                type="text"
+                value={config.username}
+                onChange={(e) => setConfig({ ...config, username: e.target.value })}
                 disabled={stats.isRunning}
-                placeholder="https://partyplaylist.com/testuser2/request"
+                placeholder="testuser1"
                 className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] disabled:opacity-50"
               />
               <p className="text-xs text-gray-400 mt-1">
-                Copy the request page URL from your party (works with localhost or production)
+                The user account to test (e.g., testuser1, testuser2, etc.)
               </p>
             </div>
 
@@ -215,7 +235,7 @@ export default function PartyTestPage() {
                 className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] disabled:opacity-50"
               />
               <p className="text-xs text-gray-400 mt-1">
-                Leave blank if your request page doesn't require a PIN
+                Leave blank if the event doesn't require a PIN
               </p>
             </div>
 

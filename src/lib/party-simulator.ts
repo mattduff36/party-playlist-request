@@ -7,7 +7,8 @@
 import { randomUUID } from 'crypto';
 
 interface SimulationConfig {
-  targetUrl: string; // The request page URL
+  environment: 'local' | 'production'; // Local or production environment
+  username: string; // Username to test (e.g., 'testuser1')
   requestPin?: string; // Optional PIN for protected request pages
   requestInterval: number; // Time between requests in ms (e.g., 30000 = 30s)
   uniqueRequesters: number; // Number of different people (1-20)
@@ -104,8 +105,12 @@ class PartySimulator {
       throw new Error('Simulation is already running');
     }
 
-    if (!config.targetUrl) {
-      throw new Error('Target URL is required');
+    if (!config.username) {
+      throw new Error('Username is required');
+    }
+
+    if (!config.environment) {
+      throw new Error('Environment is required');
     }
 
     this.config = config;
@@ -120,15 +125,31 @@ class PartySimulator {
     };
     this.usedRequesters = new Set();
 
+    const targetUrl = this.getTargetUrl();
     console.log('🎉 Party simulation started:', {
-      targetUrl: config.targetUrl,
+      environment: config.environment,
+      username: config.username,
+      targetUrl,
       interval: config.requestInterval,
       requesters: config.uniqueRequesters,
       burstMode: config.burstMode
     });
 
-    // Start sending requests
-    this.scheduleNextRequest();
+    // Start sending requests - first request within 10 seconds
+    this.scheduleNextRequest(true);
+  }
+
+  /**
+   * Get the target URL based on environment and username
+   */
+  private getTargetUrl(): string {
+    if (!this.config) return '';
+    
+    const baseUrl = this.config.environment === 'local' 
+      ? 'http://localhost:3000' 
+      : 'https://partyplaylist.co.uk';
+    
+    return `${baseUrl}/${this.config.username}/request`;
   }
 
   /**
@@ -153,16 +174,21 @@ class PartySimulator {
 
   /**
    * Schedule the next request(s)
+   * @param isFirstRequest - If true, schedules the first request within 10 seconds
    */
-  private scheduleNextRequest(): void {
+  private scheduleNextRequest(isFirstRequest: boolean = false): void {
     // Check if we should continue BEFORE scheduling
     if (!this.config || !this.stats.isRunning) {
       console.log('🛑 Stopping scheduler: isRunning =', this.stats.isRunning);
       return;
     }
 
-    const delay = this.config.requestInterval;
-    const isBurst = this.config.burstMode && Math.random() < 0.2; // 20% chance of burst
+    // First request happens within 10 seconds, subsequent requests use configured interval
+    const delay = isFirstRequest 
+      ? Math.floor(Math.random() * 10000) // Random delay 0-10 seconds
+      : this.config.requestInterval;
+    
+    const isBurst = !isFirstRequest && this.config.burstMode && Math.random() < 0.2; // 20% chance of burst (not on first request)
 
     this.intervalId = setTimeout(async () => {
       // Double-check we're still running AFTER the delay
@@ -179,20 +205,32 @@ class PartySimulator {
           for (let i = 0; i < burstCount; i++) {
             // Check we're still running before each burst request
             if (!this.stats.isRunning) break;
-            await this.sendRequest();
+            
+            // Wrap each request in try-catch to prevent any errors from stopping the loop
+            try {
+              await this.sendRequest();
+            } catch (error) {
+              console.error('❌ Burst request failed (continuing):', error);
+            }
+            
             // Small delay between burst requests (500ms - 2s)
             await new Promise(resolve => setTimeout(resolve, Math.random() * 1500 + 500));
           }
         } else {
-          await this.sendRequest();
+          // Wrap single request in try-catch
+          try {
+            await this.sendRequest();
+          } catch (error) {
+            console.error('❌ Request failed (continuing):', error);
+          }
         }
       } catch (error) {
-        // Log but don't stop the simulation on error
-        console.error('❌ Error in simulation loop (will continue):', error);
+        // Extra safety net - log but don't stop the simulation on ANY error
+        console.error('❌ Unexpected error in simulation loop (will continue):', error);
       } finally {
         // ALWAYS schedule next request IF still running
         if (this.stats.isRunning) {
-          this.scheduleNextRequest();
+          this.scheduleNextRequest(false); // Subsequent requests use normal interval
         } else {
           console.log('🛑 Not scheduling next request - simulation stopped');
         }
@@ -218,13 +256,13 @@ class PartySimulator {
 
       console.log(`🎵 Simulating request from "${requesterName}": ${song.query}`);
 
-      // Extract base URL and username from target URL
-      // URL format: https://domain.com/username/request
-      const urlParts = this.config.targetUrl.split('/');
-      const username = urlParts[urlParts.length - 2]; // Get username (second-to-last part)
-      const baseUrl = urlParts.slice(0, urlParts.length - 2).join('/'); // Get base URL without /username/request
+      // Build URLs using config
+      const baseUrl = this.config.environment === 'local' 
+        ? 'http://localhost:3000' 
+        : 'https://partyplaylist.co.uk';
+      const username = this.config.username;
 
-      console.log(`🔍 Extracted username: ${username}, base URL: ${baseUrl}`);
+      console.log(`🔍 Target: ${this.config.environment} - ${username}`);
 
       // First, search for the song with username parameter
       const searchUrl = `${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`;
