@@ -61,6 +61,7 @@ export default function UserRequestPage() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Request Form State
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,22 +124,31 @@ export default function UserRequestPage() {
 
   // Check session storage on mount
   useEffect(() => {
-    const stored = sessionStorage.getItem(`event_auth_${username}`);
-    if (stored) {
-      try {
-        const auth = JSON.parse(stored);
-        if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
-          setAuthenticated(true);
+    const checkAuth = async () => {
+      const stored = sessionStorage.getItem(`event_auth_${username}`);
+      if (stored) {
+        try {
+          const auth = JSON.parse(stored);
+          if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
+            setAuthenticated(true);
+          }
+        } catch (e) {
+          sessionStorage.removeItem(`event_auth_${username}`);
         }
-      } catch (e) {
-        sessionStorage.removeItem(`event_auth_${username}`);
       }
-    }
+      // Add small delay to show loading screen
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 1500);
+    };
+
+    checkAuth();
   }, [username]);
 
   const verifyAccess = async (pinValue?: string, token?: string) => {
     setVerifying(true);
     setPinError('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('/api/events/verify-pin', {
@@ -160,12 +170,18 @@ export default function UserRequestPage() {
           authMethod: data.authMethod,
           timestamp: Date.now()
         }));
+        // Add delay to show loading screen
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
       } else {
         setPinError(data.error || 'Access denied');
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Verification error:', error);
       setPinError('Connection error. Please try again.');
+      setIsLoading(false);
     } finally {
       setVerifying(false);
     }
@@ -479,6 +495,39 @@ export default function UserRequestPage() {
   const gradientStyle = {
     background: 'linear-gradient(to bottom right, #191414, #0a0a0a)'
   };
+
+  // Loading Screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={gradientStyle}>
+        <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-white/20 text-center">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 bg-[#1DB954] rounded-full flex items-center justify-center mb-6 animate-pulse">
+              <Music2 className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {verifying ? 'Verifying Access...' : 'Loading...'}
+            </h1>
+            <p className="text-gray-300 text-sm">
+              {verifying ? 'Please wait while we verify your access' : 'Preparing your experience'}
+            </p>
+          </div>
+          
+          <div className="flex justify-center mb-6">
+            <div className="flex space-x-2">
+              <div className="w-3 h-3 bg-[#1DB954] rounded-full animate-bounce"></div>
+              <div className="w-3 h-3 bg-[#1DB954] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-3 h-3 bg-[#1DB954] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+          </div>
+          
+          <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+            <div className="h-full bg-[#1DB954] rounded-full animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // PIN Entry Screen
   if (!authenticated) {
