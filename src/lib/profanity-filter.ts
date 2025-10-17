@@ -15,7 +15,7 @@ const EXTREME_WORDS = [
   'retard', 'retarded',
   'whore', 'slut',
   'bitch', 'bastard',
-  'prick', 'cock', 'dick', 'pussy', 'arse', 'ass',
+  'prick', 'pussy', 'arse', 'ass',
   'wanker', 'bollocks', 'twat',
   'shit', 'shite', 'shitty',
   'piss', 'pissed'
@@ -35,7 +35,9 @@ const MODERATE_WORDS = [
   'tosser',
   'knob',
   'minger',
-  'minge'
+  'minge',
+  'cock',
+  'dick'
 ];
 
 /**

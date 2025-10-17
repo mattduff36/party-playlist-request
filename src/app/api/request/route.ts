@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
         const eventSettings = await getEventSettings(userId);
         
         if (eventSettings.show_approval_messages) {
-          const requesterName = requester_nickname || 'Anonymous';
+          const requesterName = validatedNickname || 'Anonymous';
           const artistName = trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist';
           const trackName = trackInfo.name;
           
