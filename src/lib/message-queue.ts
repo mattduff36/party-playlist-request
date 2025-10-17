@@ -16,7 +16,7 @@ class MessageQueue {
   private processing: Set<string> = new Set();
   private currentMessageEnd: Map<string, number> = new Map();
 
-  async addMessage(userId: string, messageText: string, duration: number = 8): Promise<void> {
+  async addMessage(userId: string, messageText: string, duration: number = 10): Promise<void> {
     const message: QueuedMessage = {
       userId,
       messageText,
@@ -92,8 +92,14 @@ class MessageQueue {
     const messageCreatedAt = new Date().toISOString();
 
     try {
+      console.log(`📤 [MessageQueue] Sending message to user ${userId}:`, {
+        text: messageText.substring(0, 50) + '...',
+        duration,
+        created_at: messageCreatedAt
+      });
+
       // Update the event config with the message using direct SQL
-      await sql`
+      const result = await sql`
         UPDATE events
         SET config = jsonb_set(
               jsonb_set(
@@ -112,6 +118,12 @@ class MessageQueue {
         WHERE user_id = ${userId}
       `;
 
+      if (result.count === 0) {
+        throw new Error(`No event found for user ${userId}`);
+      }
+
+      console.log(`✅ [MessageQueue] Database updated for user ${userId}`);
+
       // Trigger Pusher event for real-time message update
       const userChannel = getUserChannel(userId);
       await triggerEvent(userChannel, 'message-update', {
@@ -121,9 +133,9 @@ class MessageQueue {
         timestamp: Date.now()
       });
 
-      console.log(`✅ [MessageQueue] Message sent successfully to user ${userId}`);
+      console.log(`✅ [MessageQueue] Message sent successfully to user ${userId} via Pusher`);
     } catch (error) {
-      console.error(`❌ [MessageQueue] Failed to send message:`, error);
+      console.error(`❌ [MessageQueue] Failed to send message to user ${userId}:`, error);
       throw error;
     }
   }

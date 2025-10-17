@@ -265,8 +265,8 @@ export async function POST(req: NextRequest) {
           
           console.log(`📢 [${requestId}] Queueing auto-approval message: "${messageText.substring(0, 50)}..."`);
           
-          // Add message to queue (8 seconds duration to avoid auto-close)
-          await messageQueue.addMessage(userId, messageText, 8);
+          // Add message to queue (10 seconds duration as documented)
+          await messageQueue.addMessage(userId, messageText, 10);
           
           console.log(`✅ [${requestId}] Auto-approval message queued successfully`);
         }

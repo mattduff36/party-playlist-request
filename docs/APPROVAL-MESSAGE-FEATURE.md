@@ -107,14 +107,14 @@ Party Playlist!
 
 ### Message Duration
 
-Fixed at 8 seconds (reduced from 10 to avoid auto-close automation triggering).
+Fixed at 10 seconds as documented and configured.
 
 ### Message Queueing
 
 The system includes intelligent message queueing to handle multiple simultaneous approvals:
 
 - **Queue System**: Messages are queued per user to prevent overlapping
-- **Sequential Display**: Each message displays for its full 8-second duration before the next one appears
+- **Sequential Display**: Each message displays for its full 10-second duration before the next one appears
 - **No Overlap**: If multiple requests are approved at once, messages queue up automatically
 - **Automatic Processing**: The queue processes messages in the order they were approved
 

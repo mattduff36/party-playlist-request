@@ -225,25 +225,33 @@ function DisplayPage({ username }: { username: string }) {
   // Handle notice board animation when message changes - two-phase approach
   useEffect(() => {
     if (currentMessage) {
+      console.log('🎬 Starting notice board animation for message:', currentMessage.text.substring(0, 50) + '...');
+      
       // Message is appearing
       // Phase 1: Horizontal expansion (columns: 0fr→1fr, 2fr→1fr)
+      console.log('🎬 Phase 1: Horizontal expansion');
       setIsMessageVisible(true);
       
       // Phase 2: After 1s, do vertical animation + fade in text
       const phase2Timer = setTimeout(() => {
+        console.log('🎬 Phase 2: Vertical expansion + text fade-in');
         setIsVerticalExpanded(true);
         setShowMessageText(true);
       }, 1000);
       
       return () => clearTimeout(phase2Timer);
     } else {
+      console.log('🎬 Starting notice board collapse animation');
+      
       // Message is disappearing - reverse order
       // Phase 1: Fade out text + vertical animation
+      console.log('🎬 Phase 1: Text fade-out + vertical collapse');
       setShowMessageText(false);
       setIsVerticalExpanded(false);
       
       // Phase 2: After 1s, collapse horizontally
       const collapseTimer = setTimeout(() => {
+        console.log('🎬 Phase 2: Horizontal collapse');
         setIsMessageVisible(false);
       }, 1000);
       
@@ -356,11 +364,26 @@ function DisplayPage({ username }: { username: string }) {
     },
     onMessageUpdate: (data: any) => {
       console.log('💬 PUSHER: Message updated!', data);
-      setCurrentMessage({
+      
+      // Validate message data
+      if (!data.message_text || !data.message_duration || !data.message_created_at) {
+        console.error('❌ Invalid message data received:', data);
+        return;
+      }
+      
+      const messageData = {
         text: data.message_text,
         duration: data.message_duration,
         created_at: data.message_created_at
+      };
+      
+      console.log('✅ Setting current message:', {
+        text: messageData.text.substring(0, 50) + '...',
+        duration: messageData.duration,
+        created_at: messageData.created_at
       });
+      
+      setCurrentMessage(messageData);
     },
     onMessageCleared: (data: any) => {
       console.log('💬 PUSHER: Message cleared!', data);
@@ -565,30 +588,42 @@ function DisplayPage({ username }: { username: string }) {
   }, [deviceType]);
 
   // Auto-expire messages based on duration
+  // Fixed: Account for animation time and network delays
   useEffect(() => {
     if (!currentMessage || !currentMessage.duration || !currentMessage.created_at) {
       return;
     }
 
     const createdAt = new Date(currentMessage.created_at);
-    const expiresAt = new Date(createdAt.getTime() + (currentMessage.duration * 1000));
     const now = new Date();
     
-    // If already expired, clear immediately
-    if (now >= expiresAt) {
-      console.log('💬 Message expired immediately, clearing...');
-      setCurrentMessage(null);
-      return;
-    }
-
-    // Set timeout for future expiration
-    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-    console.log(`💬 Message will expire in ${Math.round(timeUntilExpiry / 1000)} seconds`);
+    // Add grace period for network delays (2 seconds)
+    const gracePeriod = 2000;
+    const adjustedCreatedAt = new Date(createdAt.getTime() - gracePeriod);
+    const expiresAt = new Date(adjustedCreatedAt.getTime() + (currentMessage.duration * 1000));
+    
+    // Animation takes 2 seconds to complete (1s horizontal + 1s vertical)
+    const animationDuration = 2000;
+    
+    // Calculate when to start the expiration timer (after animation completes)
+    const animationEndTime = now.getTime() + animationDuration;
+    const messageEndTime = expiresAt.getTime();
+    
+    // If message would expire before animation completes, extend it
+    const effectiveExpiryTime = Math.max(animationEndTime, messageEndTime);
+    const timeUntilExpiry = effectiveExpiryTime - now.getTime();
+    
+    // Ensure minimum display time of 10 seconds from when animation completes
+    const minDisplayTime = 10000; // 10 seconds
+    const finalExpiryTime = Math.max(effectiveExpiryTime, animationEndTime + minDisplayTime);
+    const finalTimeUntilExpiry = finalExpiryTime - now.getTime();
+    
+    console.log(`💬 Message timing: animation ends in ${Math.round(animationDuration / 1000)}s, expires in ${Math.round(finalTimeUntilExpiry / 1000)}s`);
     
     const timeoutId = setTimeout(() => {
-      console.log('💬 Message expired, clearing...');
+      console.log('💬 Message expired after full display time, clearing...');
       setCurrentMessage(null);
-    }, timeUntilExpiry);
+    }, finalTimeUntilExpiry);
 
     return () => clearTimeout(timeoutId);
   }, [currentMessage]);
