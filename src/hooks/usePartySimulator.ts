@@ -4,7 +4,6 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { randomUUID } from 'crypto';
 import {
   SimulationConfig,
   SimulationStats,
@@ -98,7 +97,7 @@ export function usePartySimulator() {
       const track = tracks[0];
 
       // Generate a realistic session ID
-      const sessionId = randomUUID();
+      const sessionId = crypto.randomUUID();
 
       // Prepare request body
       const requestBody: any = {
@@ -183,6 +182,8 @@ export function usePartySimulator() {
     if (!configRef.current) return 'Guest';
 
     const activeRequesters = stats.activeRequesters;
+    
+    if (activeRequesters.length === 0) return 'Guest';
 
     // 70% chance to pick someone who hasn't requested yet
     // 30% chance to pick someone who has (repeat requester)
