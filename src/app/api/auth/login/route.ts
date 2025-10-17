@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for existing active session
-    if (user.active_session_id && user.active_session_created_at) {
+    // Check for existing active session (skip for superadmin - they can have multiple sessions)
+    if (user.role !== 'superadmin' && user.active_session_id && user.active_session_created_at) {
       console.log(`⚠️ User ${user.username} has an existing active session`);
       return NextResponse.json(
         { 
