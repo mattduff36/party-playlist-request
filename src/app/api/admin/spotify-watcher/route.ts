@@ -105,7 +105,7 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
     const userLastQueue = lastQueueStates.get(userId);
     const userLastQueueCheck = lastQueueChecks.get(userId) || 0;
     
-    const shouldCheckQueue = now - userLastQueueCheck >= queueInterval;
+    const shouldCheckQueue = queueInterval === 0 || now - userLastQueueCheck >= queueInterval;
     
     try {
       // First, always get current playback
@@ -359,6 +359,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Manual check completed'
+      });
+    }
+
+    if (action === 'refresh-queue') {
+      // Trigger immediate queue refresh for specific user after approval
+      const { userId } = body;
+      if (!userId) {
+        return NextResponse.json({ error: 'userId required for queue refresh' }, { status: 400 });
+      }
+      
+      console.log(`🔄 Immediate queue refresh triggered for user ${userId}`);
+      
+      // Get user info for logging
+      const { sql } = await import('@/lib/db/neon-client');
+      const userResult = await sql`SELECT username FROM users WHERE id = ${userId}`;
+      const username = userResult[0]?.username || 'unknown';
+      
+      // Force immediate queue check for this specific user
+      await watchSingleUserSpotify(userId, username, 0); // 0 = force queue check
+      
+      return NextResponse.json({
+        success: true,
+        message: `Queue refresh completed for user ${username}`,
+        userId
       });
     }
 

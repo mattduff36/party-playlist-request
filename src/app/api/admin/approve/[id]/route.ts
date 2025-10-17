@@ -115,6 +115,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Don't fail the request if Pusher fails
       }
 
+      // 🔄 IMMEDIATE QUEUE REFRESH: Trigger immediate queue check to update Up Next list
+      try {
+        console.log(`🔄 Triggering immediate queue refresh for user ${userId}`);
+        const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/spotify-watcher`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SYSTEM_STARTUP_TOKEN || 'startup-system-token'}`
+          },
+          body: JSON.stringify({
+            action: 'refresh-queue',
+            userId: userId
+          })
+        });
+        
+        if (refreshResponse.ok) {
+          console.log(`✅ Immediate queue refresh triggered for user ${userId}`);
+        } else {
+          console.log(`⚠️ Queue refresh failed for user ${userId}, will update via normal polling`);
+        }
+      } catch (refreshError) {
+        console.error('❌ Failed to trigger immediate queue refresh:', refreshError);
+        // Don't fail the request if queue refresh fails - normal polling will handle it
+      }
+
       // 📢 AUTO-MESSAGE: Queue Notice Board message if enabled
       try {
         const eventSettings = await getEventSettings(userId);
