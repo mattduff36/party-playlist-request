@@ -156,6 +156,7 @@ class PartySimulator {
    * Stop the simulation
    */
   stop(): void {
+    console.log('🛑 stop() called, stack trace:', new Error().stack);
     if (this.intervalId) {
       clearTimeout(this.intervalId);
       this.intervalId = null;
@@ -229,10 +230,12 @@ class PartySimulator {
         console.error('❌ Unexpected error in simulation loop (will continue):', error);
       } finally {
         // ALWAYS schedule next request IF still running
-        if (this.stats.isRunning) {
+        console.log(`📊 finally block: isRunning=${this.stats.isRunning}, hasConfig=${!!this.config}`);
+        if (this.stats.isRunning && this.config) {
+          console.log(`✅ Scheduling next request in ${this.config.requestInterval}ms...`);
           this.scheduleNextRequest(false); // Subsequent requests use normal interval
         } else {
-          console.log('🛑 Not scheduling next request - simulation stopped');
+          console.log('🛑 Not scheduling next request - simulation stopped or no config');
         }
       }
     }, delay);
