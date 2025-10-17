@@ -836,7 +836,7 @@ function DisplayPage({ username }: { username: string }) {
     // No manual status checks needed - Pusher handles real-time updates automatically
     
     // No more polling - Pusher handles real-time updates!
-  }, [username, fetchDisplayData]); // Re-fetch when username changes
+  }, [username]); // Re-fetch when username changes
 
   // Message rotation is now handled by the individual scrolling system below
 
