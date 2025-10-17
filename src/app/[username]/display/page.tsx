@@ -189,6 +189,11 @@ function DisplayPage({ username }: { username: string }) {
   const [useHorizontalLayout, setUseHorizontalLayout] = useState(false);
   const nowPlayingResizeObserverRef = useRef<ResizeObserver | null>(null);
   const [isClient, setIsClient] = useState(false);
+  
+  // Debouncing and stability for layout changes
+  const layoutChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLayoutStateRef = useRef<boolean>(false);
+  const isAnimatingRef = useRef<boolean>(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
   
@@ -202,6 +207,24 @@ function DisplayPage({ username }: { username: string }) {
       pagesEnabled: globalState.pagesEnabled,
     });
   }, [globalState.status, globalState.pagesEnabled]);
+
+  // Cleanup ResizeObserver on component unmount
+  useEffect(() => {
+    return () => {
+      // Clean up ResizeObserver on unmount
+      if (nowPlayingResizeObserverRef.current) {
+        console.log('🧹 Cleaning up ResizeObserver on component unmount');
+        nowPlayingResizeObserverRef.current.disconnect();
+        nowPlayingResizeObserverRef.current = null;
+      }
+      
+      // Clean up any pending layout change timeouts
+      if (layoutChangeTimeoutRef.current) {
+        clearTimeout(layoutChangeTimeoutRef.current);
+        layoutChangeTimeoutRef.current = null;
+      }
+    };
+  }, []);
   
   // Helper function to sanitize requester names for display
   const sanitizeName = (name?: string): string => {
@@ -227,6 +250,9 @@ function DisplayPage({ username }: { username: string }) {
     if (currentMessage) {
       console.log('🎬 Starting notice board animation for message:', currentMessage.text.substring(0, 50) + '...');
       
+      // Set animation flag to prevent layout changes during animation
+      isAnimatingRef.current = true;
+      
       // Message is appearing
       // Phase 1: Horizontal expansion (columns: 0fr→1fr, 2fr→1fr)
       console.log('🎬 Phase 1: Horizontal expansion');
@@ -237,11 +263,23 @@ function DisplayPage({ username }: { username: string }) {
         console.log('🎬 Phase 2: Vertical expansion + text fade-in');
         setIsVerticalExpanded(true);
         setShowMessageText(true);
+        
+        // Clear animation flag after animation completes
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+          console.log('🎬 Animation complete, layout changes re-enabled');
+        }, 1000); // Additional 1s for vertical animation
       }, 1000);
       
-      return () => clearTimeout(phase2Timer);
+      return () => {
+        clearTimeout(phase2Timer);
+        isAnimatingRef.current = false;
+      };
     } else {
       console.log('🎬 Starting notice board collapse animation');
+      
+      // Set animation flag during collapse
+      isAnimatingRef.current = true;
       
       // Message is disappearing - reverse order
       // Phase 1: Fade out text + vertical animation
@@ -253,9 +291,18 @@ function DisplayPage({ username }: { username: string }) {
       const collapseTimer = setTimeout(() => {
         console.log('🎬 Phase 2: Horizontal collapse');
         setIsMessageVisible(false);
+        
+        // Clear animation flag after collapse completes
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+          console.log('🎬 Collapse animation complete, layout changes re-enabled');
+        }, 1000); // Additional 1s for horizontal collapse
       }, 1000);
       
-      return () => clearTimeout(collapseTimer);
+      return () => {
+        clearTimeout(collapseTimer);
+        isAnimatingRef.current = false;
+      };
     }
   }, [currentMessage]);
   
@@ -413,26 +460,62 @@ function DisplayPage({ username }: { username: string }) {
   const nowPlayingRef = useCallback((element: HTMLDivElement | null) => {
     // Clean up existing observer
     if (nowPlayingResizeObserverRef.current) {
+      console.log('🧹 Cleaning up existing ResizeObserver');
       nowPlayingResizeObserverRef.current.disconnect();
       nowPlayingResizeObserverRef.current = null;
     }
 
+    // Clear any pending layout change timeouts
+    if (layoutChangeTimeoutRef.current) {
+      clearTimeout(layoutChangeTimeoutRef.current);
+      layoutChangeTimeoutRef.current = null;
+    }
+
     if (!element || deviceType !== 'tv') {
+      console.log('📱 Skipping ResizeObserver setup - not TV device or no element');
       return;
     }
 
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        // Switch to horizontal layout if width is more than 2x the height
-        const shouldBeHorizontal = width >= height * 2;
-        console.log(`📐 Now Playing dimensions: ${Math.round(width)}x${Math.round(height)}, ratio: ${(width/height).toFixed(2)}, horizontal: ${shouldBeHorizontal}`);
-        setUseHorizontalLayout(shouldBeHorizontal);
-      }
-    });
+    try {
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          
+          // Add hysteresis to prevent rapid switching
+          // Different thresholds for switching to horizontal vs vertical
+          const currentIsHorizontal = lastLayoutStateRef.current;
+          const horizontalThreshold = currentIsHorizontal ? 1.8 : 2.2; // Hysteresis: 1.8 to switch to vertical, 2.2 to switch to horizontal
+          const shouldBeHorizontal = width >= height * horizontalThreshold;
+          
+          // Only proceed if layout actually needs to change and we're not animating
+          if (shouldBeHorizontal !== currentIsHorizontal && !isAnimatingRef.current) {
+            console.log(`📐 Now Playing dimensions: ${Math.round(width)}x${Math.round(height)}, ratio: ${(width/height).toFixed(2)}, threshold: ${horizontalThreshold}, horizontal: ${shouldBeHorizontal}`);
+            
+            // Clear any existing timeout
+            if (layoutChangeTimeoutRef.current) {
+              clearTimeout(layoutChangeTimeoutRef.current);
+            }
+            
+            // Debounce layout changes to prevent rapid switching
+            layoutChangeTimeoutRef.current = setTimeout(() => {
+              // Double-check we're still not animating and dimensions haven't changed significantly
+              if (!isAnimatingRef.current) {
+                console.log(`📐 Applying layout change: ${shouldBeHorizontal ? 'horizontal' : 'vertical'}`);
+                setUseHorizontalLayout(shouldBeHorizontal);
+                lastLayoutStateRef.current = shouldBeHorizontal;
+              }
+              layoutChangeTimeoutRef.current = null;
+            }, 150); // 150ms debounce
+          }
+        }
+      });
 
-    observer.observe(element);
-    nowPlayingResizeObserverRef.current = observer;
+      observer.observe(element);
+      nowPlayingResizeObserverRef.current = observer;
+      console.log('👀 ResizeObserver setup complete');
+    } catch (error) {
+      console.error('❌ Error setting up ResizeObserver:', error);
+    }
   }, [deviceType, isMessageVisible]); // Re-observe when notice board state changes
 
   // Calculate dynamic font size based on message length and device type
