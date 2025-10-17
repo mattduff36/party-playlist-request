@@ -262,7 +262,7 @@ class PartySimulator {
         : PARTY_SONGS.filter(s => !s.explicit);
       const song = availableSongs[Math.floor(Math.random() * availableSongs.length)];
 
-      console.log(`🎵 Simulating request from "${requesterName}": ${song.query}`);
+      console.log(`🎵 [${this.instanceId}] Simulating request from "${requesterName}": ${song.query}`);
 
       // Build URLs using config
       const baseUrl = this.config.environment === 'local' 
@@ -270,7 +270,7 @@ class PartySimulator {
         : 'https://partyplaylist.co.uk';
       const username = this.config.username;
 
-      console.log(`🔍 Target: ${this.config.environment} - ${username}`);
+      console.log(`🔍 [${this.instanceId}] Target: ${this.config.environment} - ${username}`);
 
       // First, search for the song with username parameter
       const searchUrl = `${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`;
@@ -340,13 +340,18 @@ class PartySimulator {
       this.stats.requestsSuccessful++;
       this.stats.lastRequestAt = new Date().toISOString();
       
-      console.log(`✅ Request sent successfully by ${requesterName}: ${track.name}`);
+      console.log(`✅ [${this.instanceId}] Request sent successfully by ${requesterName}: ${track.name}`);
 
     } catch (error) {
       this.stats.requestsSent++;
       this.stats.requestsFailed++;
       this.stats.lastRequestAt = new Date().toISOString();
-      console.error('❌ Failed to send simulated request:', error);
+      console.error(`❌ [${this.instanceId}] Failed to send simulated request:`, error);
+      // Log more details about the error
+      if (error instanceof Error) {
+        console.error(`❌ [${this.instanceId}] Error message:`, error.message);
+        console.error(`❌ [${this.instanceId}] Error stack:`, error.stack);
+      }
     }
   }
 
