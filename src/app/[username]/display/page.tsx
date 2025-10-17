@@ -926,7 +926,7 @@ function DisplayPage({ username }: { username: string }) {
     };
 
     startMessageScrolling();
-  }, [currentMessageIndex, messages, isMessageScrolling]);
+  }, [currentMessageIndex, messages]);
 
   const messageTextColor = 'text-white';
 
