@@ -1,3 +1,9 @@
+/**
+ * NOTE: This server-side simulator only works in local development.
+ * Production uses client-side implementation due to serverless limitations.
+ * See: docs/PARTY-SIMULATOR-SERVERLESS-ISSUE.md
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth';
 import { partySimulator } from '@/lib/party-simulator';

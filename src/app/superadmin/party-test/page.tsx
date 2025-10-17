@@ -18,41 +18,26 @@ import {
   Plus,
   Sparkles
 } from 'lucide-react';
-
-interface SimulationLog {
-  timestamp: string;
-  requester: string;
-  song: string;
-  artist: string;
-  status: 'success' | 'failed';
-  error?: string;
-}
-
-interface SimulationStats {
-  isRunning: boolean;
-  requestsSent: number;
-  requestsSuccessful: number;
-  requestsFailed: number;
-  startedAt: string | null;
-  lastRequestAt: string | null;
-  activeRequesters: string[];
-  logs: SimulationLog[];
-}
+import { usePartySimulator } from '@/hooks/usePartySimulator';
+import { SimulationConfig } from '@/lib/party-simulator-shared';
 
 export default function PartyTestPage() {
-  const [stats, setStats] = useState<SimulationStats>({
-    isRunning: false,
-    requestsSent: 0,
-    requestsSuccessful: 0,
-    requestsFailed: 0,
-    startedAt: null,
-    lastRequestAt: null,
-    activeRequesters: [],
-    logs: []
-  });
+  // Environment detection
+  const isProduction = typeof window !== 'undefined' && 
+                      window.location.hostname !== 'localhost';
+  const useClientSide = isProduction;
 
-  const [config, setConfig] = useState({
-    environment: 'local' as 'local' | 'production',
+  // Client-side simulator hook
+  const {
+    stats,
+    startSimulation: startClientSimulation,
+    stopSimulation: stopClientSimulation,
+    triggerManualRequest: triggerClientManualRequest,
+    triggerManualBurst: triggerClientManualBurst
+  } = usePartySimulator();
+
+  const [config, setConfig] = useState<SimulationConfig>({
+    environment: isProduction ? 'production' : 'local',
     username: '',
     requestPin: '',
     requestInterval: 300000, // 5 minutes (default)
@@ -65,14 +50,16 @@ export default function PartyTestPage() {
   const [error, setError] = useState('');
   const [manualTriggerLoading, setManualTriggerLoading] = useState(false);
 
-  // Poll for stats every 2 seconds when running
+  // Server-side stats polling (only for local development)
   useEffect(() => {
+    if (useClientSide) return; // Skip server polling in production
+
     const interval = setInterval(() => {
       fetchStats();
     }, 2000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [useClientSide]);
 
   const fetchStats = async () => {
     try {
@@ -98,24 +85,30 @@ export default function PartyTestPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/superadmin/party-simulator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(config)
-      });
+      if (useClientSide) {
+        // Client-side implementation
+        startClientSimulation(config);
+      } else {
+        // Server-side implementation (local development)
+        const response = await fetch('/api/superadmin/party-simulator', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(config)
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        const errorMsg = response.status === 500 
-          ? `Server error (500): ${data.error || 'Failed to start simulation'}. Check server logs for details.`
-          : (data.error || 'Failed to start simulation');
-        setError(errorMsg);
-        return;
+        if (!response.ok) {
+          const errorMsg = response.status === 500 
+            ? `Server error (500): ${data.error || 'Failed to start simulation'}. Check server logs for details.`
+            : (data.error || 'Failed to start simulation');
+          setError(errorMsg);
+          return;
+        }
+
+        setStats(data.stats);
       }
-
-      setStats(data.stats);
     } catch (error: any) {
       setError(`Network error: ${error.message || 'Could not connect to server'}`);
     } finally {
@@ -128,19 +121,25 @@ export default function PartyTestPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/superadmin/party-simulator', {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      if (useClientSide) {
+        // Client-side implementation
+        stopClientSimulation();
+      } else {
+        // Server-side implementation (local development)
+        const response = await fetch('/api/superadmin/party-simulator', {
+          method: 'DELETE',
+          credentials: 'include'
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        setError(data.error || 'Failed to stop simulation');
-        return;
+        if (!response.ok) {
+          setError(data.error || 'Failed to stop simulation');
+          return;
+        }
+
+        setStats(data.stats);
       }
-
-      setStats(data.stats);
     } catch (error: any) {
       setError(error.message || 'Network error');
     } finally {
@@ -153,20 +152,26 @@ export default function PartyTestPage() {
     
     setManualTriggerLoading(true);
     try {
-      const response = await fetch('/api/superadmin/party-simulator/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ type: 'single' })
-      });
+      if (useClientSide) {
+        // Client-side implementation
+        await triggerClientManualRequest();
+      } else {
+        // Server-side implementation (local development)
+        const response = await fetch('/api/superadmin/party-simulator/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ type: 'single' })
+        });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || 'Failed to trigger request');
+        if (!response.ok) {
+          const data = await response.json();
+          setError(data.error || 'Failed to trigger request');
+        }
+        
+        // Stats will update via polling
+        await fetchStats();
       }
-      
-      // Stats will update via polling
-      await fetchStats();
     } catch (error: any) {
       setError(error.message || 'Network error');
     } finally {
@@ -179,20 +184,26 @@ export default function PartyTestPage() {
     
     setManualTriggerLoading(true);
     try {
-      const response = await fetch('/api/superadmin/party-simulator/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ type: 'burst' })
-      });
+      if (useClientSide) {
+        // Client-side implementation
+        await triggerClientManualBurst();
+      } else {
+        // Server-side implementation (local development)
+        const response = await fetch('/api/superadmin/party-simulator/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ type: 'burst' })
+        });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || 'Failed to trigger burst');
+        if (!response.ok) {
+          const data = await response.json();
+          setError(data.error || 'Failed to trigger burst');
+        }
+        
+        // Stats will update via polling
+        await fetchStats();
       }
-      
-      // Stats will update via polling
-      await fetchStats();
     } catch (error: any) {
       setError(error.message || 'Network error');
     } finally {
@@ -269,20 +280,34 @@ export default function PartyTestPage() {
         </div>
       )}
 
-      {/* Serverless Warning */}
-      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4 mb-6">
-        <div className="flex items-start space-x-3">
-          <AlertCircle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-yellow-300 font-semibold mb-1">⚠️ Serverless Limitation</p>
-            <p className="text-yellow-200/80 text-sm">
-              The party simulator uses setTimeout which doesn't persist in Vercel's serverless environment. 
-              The simulation will start but stop after the first request. This works perfectly in local development. 
-              For production testing, use the "Add Request" and "Add Burst" buttons to manually trigger requests while the simulation is running.
-            </p>
+      {/* Mode Indicator */}
+      {useClientSide ? (
+        <div className="bg-green-500/20 border border-green-500/50 rounded-xl p-4 mb-6">
+          <div className="flex items-start space-x-3">
+            <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-green-300 font-semibold mb-1">✅ Running in Client-Side Mode (Production)</p>
+              <p className="text-green-200/80 text-sm">
+                The simulation runs in your browser using setInterval, which works reliably in production. 
+                Keep this browser tab open for continuous simulation. The simulation will stop if you close the tab.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4 mb-6">
+          <div className="flex items-start space-x-3">
+            <Radio className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-blue-300 font-semibold mb-1">🖥️ Running in Server-Side Mode (Local Development)</p>
+              <p className="text-blue-200/80 text-sm">
+                The simulation runs on the server using setTimeout, which works perfectly in local development 
+                but not in Vercel's serverless environment. This mode is ideal for development and testing.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (
