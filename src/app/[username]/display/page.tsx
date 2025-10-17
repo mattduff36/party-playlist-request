@@ -803,24 +803,7 @@ function DisplayPage({ username }: { username: string }) {
     // No more polling - Pusher handles real-time updates!
   }, [username]); // Re-fetch when username changes
 
-  // Rotate messages
-  useEffect(() => {
-    if (!eventSettings) return;
-
-    const messages = [
-      eventSettings.welcome_message,
-      eventSettings.secondary_message,
-      eventSettings.tertiary_message
-    ].filter(msg => msg.trim() !== '');
-
-    if (messages.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
-    }, 5000); // Change message every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [eventSettings]);
+  // Message rotation is now handled by the individual scrolling system below
 
   // Dynamic theme colors (defined early for use in all return statements)
   const themeColors = {
