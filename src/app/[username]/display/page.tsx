@@ -882,12 +882,13 @@ function DisplayPage({ username }: { username: string }) {
   ].filter(msg => msg && msg.trim() !== '') : [];
   
   const messagesText = messages.length > 0 ? messages.join('                               ') : '';
-  const displayContent = messagesText ? `                               ${messagesText}                               ` : '';
+  const displayContent = messagesText;
   
-  // Calculate dynamic animation duration based on content length
-  const baseDuration = 20; // Base duration in seconds
-  const characterMultiplier = 0.1; // 0.1 seconds per character
-  const dynamicDuration = Math.max(baseDuration, messagesText.length * characterMultiplier);
+  // Calculate animation duration based on total character count
+  const baseDuration = 15; // Base duration in seconds
+  const characterMultiplier = 0.05; // 0.05 seconds per character
+  const totalCharacters = messagesText.length;
+  const dynamicDuration = Math.max(baseDuration, totalCharacters * characterMultiplier);
 
   const messageTextColor = 'text-white';
 
