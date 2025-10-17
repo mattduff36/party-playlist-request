@@ -879,11 +879,14 @@ function DisplayPage({ username }: { username: string }) {
 
   // Admin status and page controls are handled above - this is the main display content
 
-  const messages = useMemo(() => [
-    eventSettings.welcome_message,
-    eventSettings.secondary_message,
-    eventSettings.tertiary_message
-  ].filter(msg => msg.trim() !== ''), [eventSettings.welcome_message, eventSettings.secondary_message, eventSettings.tertiary_message]);
+  const messages = useMemo(() => {
+    if (!eventSettings) return [];
+    return [
+      eventSettings.welcome_message,
+      eventSettings.secondary_message,
+      eventSettings.tertiary_message
+    ].filter(msg => msg && msg.trim() !== '');
+  }, [eventSettings?.welcome_message, eventSettings?.secondary_message, eventSettings?.tertiary_message]);
 
   // Individual message scrolling logic
   useEffect(() => {
