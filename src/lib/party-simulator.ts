@@ -84,6 +84,7 @@ const PARTY_SONGS = [
 ];
 
 class PartySimulator {
+  private instanceId: string = Math.random().toString(36).substring(7);
   private config: SimulationConfig | null = null;
   private stats: SimulationStats = {
     isRunning: false,
@@ -96,6 +97,10 @@ class PartySimulator {
   };
   private intervalId: NodeJS.Timeout | null = null;
   private usedRequesters: Set<string> = new Set();
+
+  constructor() {
+    console.log(`🆔 PartySimulator instance created: ${this.instanceId}`);
+  }
 
   /**
    * Start the party simulation
@@ -126,7 +131,7 @@ class PartySimulator {
     this.usedRequesters = new Set();
 
     const targetUrl = this.getTargetUrl();
-    console.log('🎉 Party simulation started:', {
+    console.log(`🎉 [${this.instanceId}] Party simulation started:`, {
       environment: config.environment,
       username: config.username,
       targetUrl,
@@ -156,14 +161,14 @@ class PartySimulator {
    * Stop the simulation
    */
   stop(): void {
-    console.log('🛑 stop() called, stack trace:', new Error().stack);
+    console.log(`🛑 [${this.instanceId}] stop() called, stack trace:`, new Error().stack);
     if (this.intervalId) {
       clearTimeout(this.intervalId);
       this.intervalId = null;
     }
     this.stats.isRunning = false;
     this.config = null;
-    console.log('🛑 Party simulation stopped');
+    console.log(`🛑 [${this.instanceId}] Party simulation stopped`);
   }
 
   /**
@@ -180,7 +185,7 @@ class PartySimulator {
   private scheduleNextRequest(isFirstRequest: boolean = false): void {
     // Check if we should continue BEFORE scheduling
     if (!this.config || !this.stats.isRunning) {
-      console.log('🛑 Stopping scheduler: isRunning =', this.stats.isRunning);
+      console.log(`🛑 [${this.instanceId}] Stopping scheduler: isRunning =`, this.stats.isRunning);
       return;
     }
 
@@ -194,7 +199,7 @@ class PartySimulator {
     this.intervalId = setTimeout(async () => {
       // Double-check we're still running AFTER the delay
       if (!this.config || !this.stats.isRunning) {
-        console.log('🛑 Simulation stopped during delay, not sending request');
+        console.log(`🛑 [${this.instanceId}] Simulation stopped during delay, not sending request`);
         return;
       }
 
@@ -230,12 +235,12 @@ class PartySimulator {
         console.error('❌ Unexpected error in simulation loop (will continue):', error);
       } finally {
         // ALWAYS schedule next request IF still running
-        console.log(`📊 finally block: isRunning=${this.stats.isRunning}, hasConfig=${!!this.config}`);
+        console.log(`📊 [${this.instanceId}] finally block: isRunning=${this.stats.isRunning}, hasConfig=${!!this.config}`);
         if (this.stats.isRunning && this.config) {
-          console.log(`✅ Scheduling next request in ${this.config.requestInterval}ms...`);
+          console.log(`✅ [${this.instanceId}] Scheduling next request in ${this.config.requestInterval}ms...`);
           this.scheduleNextRequest(false); // Subsequent requests use normal interval
         } else {
-          console.log('🛑 Not scheduling next request - simulation stopped or no config');
+          console.log(`🛑 [${this.instanceId}] Not scheduling next request - simulation stopped or no config`);
         }
       }
     }, delay);
@@ -380,6 +385,7 @@ class PartySimulator {
 }
 
 // Singleton instance
+console.log('🔥 Creating PartySimulator singleton instance');
 export const partySimulator = new PartySimulator();
 
 export type { SimulationConfig, SimulationStats };
