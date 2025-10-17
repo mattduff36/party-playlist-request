@@ -909,7 +909,7 @@ function DisplayPage({ username }: { username: string }) {
     };
 
     startMessageScrolling();
-  }, [currentMessageIndex, messages]);
+  }, [messages]);
 
   const messageTextColor = 'text-white';
 
