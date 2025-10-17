@@ -1,0 +1,25 @@
+# robots.txt for Party Playlist
+# https://partyplaylist.co.uk
+
+User-agent: *
+
+# Allow public pages
+Allow: /
+Allow: /login
+Allow: /register
+
+# Disallow all user-specific/authenticated routes
+Disallow: /*/admin/
+Disallow: /*/display/
+Disallow: /*/request/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /superadmin/
+
+# Disallow all dynamic user routes (protect privacy)
+Disallow: /testuser*/
+Disallow: /user*/
+
+# Sitemap location
+Sitemap: https://partyplaylist.co.uk/sitemap.xml
+

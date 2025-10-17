@@ -3,6 +3,7 @@ import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults, getEve
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted, triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
+import { validateRequesterName } from '@/lib/profanity-filter';
 
 // Rate limiting storage
 const rateLimitMap = new Map<string, { count: number; resetTime: number; lastRequest: number }>();
@@ -147,6 +148,22 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
+    // Validate requester nickname with profanity filter
+    let validatedNickname = requester_nickname || undefined;
+    if (requester_nickname) {
+      const validation = validateRequesterName(requester_nickname, true); // Always enable filtering
+      if (!validation.isValid) {
+        console.log(`🚫 [${requestId}] Nickname contains inappropriate content: "${requester_nickname}"`);
+        return NextResponse.json({ 
+          error: validation.reason || 'Nickname contains inappropriate language. Please choose a different name.',
+        }, { status: 400 });
+      }
+      validatedNickname = validation.censoredName;
+      if (validatedNickname !== requester_nickname) {
+        console.log(`🔒 [${requestId}] Nickname censored: "${requester_nickname}" -> "${validatedNickname}"`);
+      }
+    }
+
     // Determine initial status based on auto-approval setting
     const initialStatus = shouldAutoApprove ? 'approved' : 'pending';
     const approvedAt = shouldAutoApprove ? new Date().toISOString() : undefined;
@@ -166,7 +183,7 @@ export async function POST(req: NextRequest) {
       album_name: trackInfo.album?.name || 'Unknown Album',
       duration_ms: trackInfo.duration_ms,
       requester_ip_hash: ipHash,
-      requester_nickname: requester_nickname || undefined,
+      requester_nickname: validatedNickname,
       user_session_id: user_session_id || undefined,
       status: initialStatus,
       approved_at: approvedAt,
@@ -205,7 +222,7 @@ export async function POST(req: NextRequest) {
           artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
           track_uri: trackInfo.uri,
-          requester_nickname: requester_nickname || 'Anonymous',
+          requester_nickname: validatedNickname || 'Anonymous',
           submitted_at: new Date().toISOString(),
           userId: userId // ✅ USER-SPECIFIC CHANNEL
         });
@@ -220,7 +237,7 @@ export async function POST(req: NextRequest) {
           artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
           track_uri: trackInfo.uri,
-          requester_nickname: requester_nickname || 'Anonymous',
+          requester_nickname: validatedNickname || 'Anonymous',
           user_session_id: user_session_id || undefined,
           play_next: false, // Default to false for auto-approved requests
           approved_at: approvedAt!,
