@@ -3,7 +3,7 @@
  * Replaces Vercel KV with a simple, reliable database cache
  */
 
-import { db } from '@/lib/db';
+import { getPool } from '@/lib/db';
 
 export interface CacheEntry {
   key: string;
@@ -20,7 +20,8 @@ export class DatabaseCache {
    */
   async get<T = any>(key: string): Promise<T | null> {
     try {
-      const result = await db.execute(`
+      const pool = getPool();
+      const result = await pool.query(`
         SELECT value, expires_at 
         FROM ${this.tableName} 
         WHERE key = $1 AND expires_at > NOW()
@@ -53,7 +54,8 @@ export class DatabaseCache {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
       const serializedValue = JSON.stringify(value);
 
-      await db.execute(`
+      const pool = getPool();
+      await pool.query(`
         INSERT INTO ${this.tableName} (key, value, expires_at, created_at)
         VALUES ($1, $2, $3, NOW())
         ON CONFLICT (key) 
@@ -72,7 +74,8 @@ export class DatabaseCache {
    */
   async delete(key: string): Promise<void> {
     try {
-      await db.execute(`
+      const pool = getPool();
+      await pool.query(`
         DELETE FROM ${this.tableName} 
         WHERE key = $1
       `, [key]);
@@ -86,7 +89,8 @@ export class DatabaseCache {
    */
   async clearExpired(): Promise<void> {
     try {
-      await db.execute(`
+      const pool = getPool();
+      await pool.query(`
         DELETE FROM ${this.tableName} 
         WHERE expires_at <= NOW()
       `);
@@ -100,7 +104,8 @@ export class DatabaseCache {
    */
   async clear(): Promise<void> {
     try {
-      await db.execute(`DELETE FROM ${this.tableName}`);
+      const pool = getPool();
+      await pool.query(`DELETE FROM ${this.tableName}`);
     } catch (error) {
       console.error('Cache clear error:', error);
     }
@@ -115,16 +120,17 @@ export class DatabaseCache {
     memoryUsage: number;
   }> {
     try {
-      const totalResult = await db.execute(`
+      const pool = getPool();
+      const totalResult = await pool.query(`
         SELECT COUNT(*) as total FROM ${this.tableName}
       `);
       
-      const expiredResult = await db.execute(`
+      const expiredResult = await pool.query(`
         SELECT COUNT(*) as expired FROM ${this.tableName} 
         WHERE expires_at <= NOW()
       `);
 
-      const sizeResult = await db.execute(`
+      const sizeResult = await pool.query(`
         SELECT SUM(LENGTH(value)) as size FROM ${this.tableName}
       `);
 
@@ -143,7 +149,8 @@ export class DatabaseCache {
 // Create cache table if it doesn't exist
 export async function initializeCacheTable(): Promise<void> {
   try {
-    await db.execute(`
+    const pool = getPool();
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS cache_entries (
         key VARCHAR(255) PRIMARY KEY,
         value TEXT NOT NULL,
@@ -153,7 +160,7 @@ export async function initializeCacheTable(): Promise<void> {
     `);
 
     // Create index for performance
-    await db.execute(`
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_cache_expires 
       ON cache_entries (expires_at)
     `);

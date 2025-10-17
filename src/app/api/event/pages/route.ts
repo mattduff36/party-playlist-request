@@ -52,14 +52,13 @@ export async function POST(req: NextRequest) {
       currentPagesEnabled: currentEvent.config.pages_enabled,
     });
 
-    // Update page enabled status
+    // Update page enabled status with runtime guards
+    const cfg: any = currentEvent.config || {};
+    const pages = (cfg.pages_enabled || { requests: true, display: true }) as { requests: boolean; display: boolean };
     const newConfig = {
-      ...currentEvent.config,
-      pages_enabled: {
-        ...currentEvent.config.pages_enabled,
-        [page]: enabled,
-      },
-    };
+      ...cfg,
+      pages_enabled: { ...pages, [page]: enabled },
+    } as any;
     
     console.log('🌐 [API /event/pages POST] New config:', newConfig);
 

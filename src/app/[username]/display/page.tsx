@@ -342,18 +342,15 @@ function DisplayPage({ username }: { username: string }) {
               window.location.href = `/${username}/display/${auth.pin}`;
             } else {
               console.log('⏰ Authentication expired during settings update');
-              setAuthenticated(false);
-              setError('Authentication expired. Please refresh the page.');
+              // Authentication state handled by wrapper; show banner via console
             }
           } catch (e) {
             console.error('Invalid authentication data during settings update:', e);
-            setAuthenticated(false);
-            setError('Authentication invalid. Please refresh the page.');
+            // Authentication state handled by wrapper
           }
         } else {
           console.log('🔐 No authentication found during settings update');
-          setAuthenticated(false);
-          setError('Authentication lost. Please refresh the page.');
+          // Authentication state handled by wrapper
         }
       }
     },
@@ -472,13 +469,7 @@ function DisplayPage({ username }: { username: string }) {
       console.log('💬 PUSHER: Message cleared!', data);
       setCurrentMessage(null);
     },
-    onSettingsUpdate: (data: any) => {
-      console.log('⚙️ PUSHER: Settings updated!', data);
-      if (data.settings) {
-        setEventSettings(data.settings);
-        console.log('✅ Event settings refreshed from Pusher');
-      }
-    }
+    // Event settings are refreshed via fetchDisplayData above when authenticated URL used
   });
   
   // Live progress for smooth animation
@@ -798,15 +789,15 @@ function DisplayPage({ username }: { username: string }) {
       // Set default settings if fetch fails
       if (!eventSettings) {
         setEventSettings({
+          pages_enabled: { requests: true, display: true },
           event_title: 'Party DJ Requests',
           dj_name: '',
           venue_info: '',
           welcome_message: 'Request your favorite songs!',
           secondary_message: 'Your requests will be reviewed by the DJ',
           tertiary_message: 'Keep the party going!',
-          show_qr_code: true,
-          display_refresh_interval: 20
-        });
+          show_qr_code: true
+        } as EventConfig);
       }
     }
   }, [username, eventSettings]);

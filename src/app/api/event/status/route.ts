@@ -64,15 +64,12 @@ export async function GET(req: NextRequest) {
         status: 'offline',
         version: 0,
         config: {
-          pages_enabled: {
-            requests: false,
-            display: false,
-          },
+          pages_enabled: { requests: false, display: false },
           event_title: 'Party DJ Requests',
           welcome_message: 'Welcome to the party!',
           secondary_message: 'Request your favorite songs',
           tertiary_message: 'Have fun!',
-        }
+        } as any
       });
       
       if (!defaultEvent) {

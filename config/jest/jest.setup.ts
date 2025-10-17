@@ -14,7 +14,8 @@ dotenv.config({ path: './test.env' });
 jest.setTimeout(30000); // 30 seconds
 
 // Mock console methods in tests to reduce noise
-global.console = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).console = {
   ...console,
   // Keep error and warn for debugging
   // Suppress log, debug, info in tests
@@ -24,10 +25,12 @@ global.console = {
 };
 
 // Global test utilities
-global.waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Mock fetch globally if needed
-global.fetch = global.fetch || jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).fetch = (global as any).fetch || jest.fn();
 
 // Setup global test helpers
 beforeAll(() => {

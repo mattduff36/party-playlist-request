@@ -7,5 +7,6 @@ export { DatabaseCache, databaseCache, initializeCacheTable } from './database-c
 export type { CacheEntry } from './database-cache';
 
 // For backward compatibility, export as "vercel-kv" equivalent
-export const getVercelKVClient = () => databaseCache;
-export const getCacheClient = () => databaseCache;
+import { databaseCache as _databaseCache } from './database-cache';
+export const getVercelKVClient = () => _databaseCache;
+export const getCacheClient = () => _databaseCache;

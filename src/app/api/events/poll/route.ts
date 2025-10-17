@@ -7,9 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { db } from '@/lib/db';
-import { events, requests, spotify_tokens } from '@/lib/db/schema';
-import { eq, and, gt, desc } from 'drizzle-orm';
+import { getPool } from '@/lib/db';
 import { PusherEvent, generateEventId, generateEventVersion } from '@/lib/pusher/events';
 
 export async function GET(request: NextRequest) {
@@ -31,92 +29,39 @@ export async function GET(request: NextRequest) {
 
     const sinceTimestamp = since ? parseInt(since) : 0;
 
-    // Get events from database
-    const eventData = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
-    
-    if (eventData.length === 0) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
-    }
-
-    const event = eventData[0];
-
-    // Get recent requests
-    const recentRequests = await db
-      .select()
-      .from(requests)
-      .where(
-        and(
-          eq(requests.eventId, eventId),
-          gt(requests.createdAt, new Date(sinceTimestamp))
-        )
-      )
-      .orderBy(desc(requests.createdAt))
-      .limit(50);
-
-    // Get current Spotify status
-    const spotifyData = await db
-      .select()
-      .from(spotify_tokens)
-      .where(eq(spotify_tokens.admin_id, event.active_admin_id))
-      .limit(1);
+    // Get recent requests only (fallback mode focuses on request events)
+    const pool = getPool();
+    const recentReqRes = await pool.query(
+      `SELECT id, song_name, artist_name, album_name, track_uri, requester_nickname, user_session_id, created_at 
+       FROM requests 
+       WHERE event_id = $1 AND created_at > to_timestamp($2/1000.0)
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [eventId, sinceTimestamp]
+    );
 
     // Convert to Pusher events
     const pusherEvents: PusherEvent[] = [];
 
-    // Add request events
-    for (const request of recentRequests) {
+    for (const requestRow of recentReqRes.rows) {
       pusherEvents.push({
         id: generateEventId(),
-        action: 'request-submitted',
-        timestamp: request.createdAt.getTime(),
+        action: 'request_submitted',
+        timestamp: new Date(requestRow.created_at).getTime(),
         version: generateEventVersion(),
         eventId,
-        payload: {
-          id: request.id,
-          songName: request.songName,
-          artistName: request.artistName,
-          spotifyId: request.spotifyId,
-          status: request.status,
-          createdAt: request.createdAt,
-          updatedAt: request.updatedAt
+        data: {
+          requestId: requestRow.id,
+          trackName: requestRow.song_name,
+          artistName: requestRow.artist_name,
+          albumName: requestRow.album_name,
+          trackUri: requestRow.track_uri,
+          requesterNickname: requestRow.requester_nickname || '',
+          userSessionId: requestRow.user_session_id || '',
+          submittedAt: new Date(requestRow.created_at).toISOString()
         }
       });
     }
-
-    // Add Spotify status event if available
-    if (spotifyData.length > 0) {
-      const token = spotifyData[0];
-      pusherEvents.push({
-        id: generateEventId(),
-        action: 'spotify-token-update',
-        timestamp: token.updated_at.getTime(),
-        version: generateEventVersion(),
-        eventId,
-        payload: {
-          hasToken: !!token.access_token,
-          expiresAt: token.expires_at,
-          scope: token.scope,
-          updatedAt: token.updated_at
-        }
-      });
-    }
-
-    // Add event state update
-    pusherEvents.push({
-      id: generateEventId(),
-      action: 'event-state-update',
-      timestamp: event.updatedAt.getTime(),
-      version: generateEventVersion(),
-      eventId,
-      payload: {
-        id: event.id,
-        name: event.name,
-        status: event.status,
-        isActive: event.isActive,
-        createdAt: event.createdAt,
-        updatedAt: event.updatedAt
-      }
-    });
 
     // Sort events by timestamp
     pusherEvents.sort((a, b) => a.timestamp - b.timestamp);
