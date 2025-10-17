@@ -1490,7 +1490,7 @@ function DisplayPage({ username }: { username: string }) {
                         }}
                       >
                         {currentMessage.text.split('\n').map((line, index) => (
-                          <div key={index} style={{ fontSize: index === 0 ? '1.5em' : '1em' }}>
+                          <div key={index} style={{ fontSize: index === 0 ? '2em' : '1em' }}>
                             {line || '\u00A0'}
                           </div>
                         ))}

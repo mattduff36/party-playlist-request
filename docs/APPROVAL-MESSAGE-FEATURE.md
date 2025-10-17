@@ -83,7 +83,7 @@ const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${ar
 
 Display format (with line breaks and styling):
 ```
-[Requester Name]  <-- 50% larger font
+[Requester Name]  <-- 200% larger font (2x size)
 
 has requested
 
@@ -96,7 +96,7 @@ Party Playlist!
 ```
 
 **Styling:**
-- Requester name appears 50% larger (1.5em) than other text
+- Requester name appears 200% larger (2em) than other text
 - Double line breaks for better spacing
 - All text centered
 
