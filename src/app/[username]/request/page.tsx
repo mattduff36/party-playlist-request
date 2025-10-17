@@ -78,6 +78,14 @@ export default function UserRequestPage() {
   // Use global event state
   const { state: globalState } = useGlobalEvent();
   
+  // Keyboard dismissal functionality
+  const dismissKeyboard = () => {
+    // Blur the active input to dismiss keyboard
+    if (document.activeElement && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
+  
   // User session and notification states
   const [userSessionId] = useState(() => {
     return `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -347,6 +355,26 @@ export default function UserRequestPage() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, nickname, isNicknameValid, authenticated]);
 
+  // Auto-dismiss keyboard when search results load
+  useEffect(() => {
+    if (searchResults.length > 0 && !isSearching) {
+      // Small delay to ensure results are rendered
+      setTimeout(() => {
+        dismissKeyboard();
+      }, 100);
+    }
+  }, [searchResults.length, isSearching]);
+
+  // Dismiss keyboard on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      dismissKeyboard();
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Submit request
   const submitRequest = async (track?: Track, url?: string) => {
     if (!nickname || !nickname.trim()) {
@@ -579,7 +607,11 @@ export default function UserRequestPage() {
                     ? 'border-red-500 focus:ring-red-500' 
                     : 'border-white/30 focus:ring-[#1DB954]'
                 }`}
-                style={{ fontSize: '16px' }}
+                style={{ 
+                  fontSize: '16px',
+                  transform: 'translateZ(0)', // Prevent iOS zoom
+                  WebkitAppearance: 'none' // Remove iOS styling
+                }}
                 required
               />
               {nicknameError && (
@@ -606,8 +638,16 @@ export default function UserRequestPage() {
                         : "Search songs, artists, or paste Spotify link"
                   }
                   className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
-                  style={{ fontSize: '16px' }}
+                  style={{ 
+                    fontSize: '16px',
+                    transform: 'translateZ(0)', // Prevent iOS zoom
+                    WebkitAppearance: 'none' // Remove iOS styling
+                  }}
                   disabled={!nickname.trim() || !isNicknameValid}
+                  onBlur={() => {
+                    // Dismiss keyboard when input loses focus
+                    setTimeout(() => dismissKeyboard(), 100);
+                  }}
                 />
               </div>
 
