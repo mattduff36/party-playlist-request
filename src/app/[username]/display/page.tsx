@@ -902,9 +902,9 @@ function DisplayPage({ username }: { username: string }) {
 
   // Determine what to show in the scrolling message area (no more approval notifications in scrolling text)
   // Create continuous scroll by repeating messages with proper spacing for seamless looping
-  const messagesText = messages.join('      •      ');
+  const messagesText = messages.join('          •          ');
   // Triple the content to ensure seamless continuous scrolling
-  const displayContent = messagesText + '      •      ' + messagesText + '      •      ' + messagesText;
+  const displayContent = messagesText + '          •          ' + messagesText + '          •          ' + messagesText;
   const messageTextColor = 'text-white';
 
   // Connection status for display dots
