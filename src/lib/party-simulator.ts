@@ -103,7 +103,8 @@ class PartySimulator {
     requestsFailed: 0,
     startedAt: null,
     lastRequestAt: null,
-    activeRequesters: []
+    activeRequesters: [],
+    logs: []
   };
   private intervalId: NodeJS.Timeout | null = null;
   private usedRequesters: Set<string> = new Set();
@@ -420,11 +421,16 @@ class PartySimulator {
       
       // Add log entry for failed request
       const errorMessage = error instanceof Error ? error.message : String(error);
+      // Parse song query into song and artist (format: "Song Name Artist Name")
+      const queryParts = song.query.split(' ');
+      const songName = queryParts.slice(0, Math.floor(queryParts.length / 2)).join(' ');
+      const artistName = queryParts.slice(Math.floor(queryParts.length / 2)).join(' ');
+      
       this.stats.logs.unshift({
         timestamp: new Date().toISOString(),
         requester: requesterName,
-        song: song.title,
-        artist: song.artist,
+        song: songName || song.query,
+        artist: artistName || 'Unknown',
         status: 'failed',
         error: errorMessage
       });

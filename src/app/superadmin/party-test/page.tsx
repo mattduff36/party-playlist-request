@@ -83,9 +83,13 @@ export default function PartyTestPage() {
       if (response.ok) {
         const data = await response.json();
         setStats(data.stats);
+      } else if (response.status === 500) {
+        // Don't spam errors for 500s during polling, just log
+        console.error('Error fetching stats: 500 Internal Server Error');
       }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+    } catch (err) {
+      // Silent fail during polling to avoid console spam
+      console.error('Error fetching stats:', err);
     }
   };
 
@@ -104,13 +108,16 @@ export default function PartyTestPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Failed to start simulation');
+        const errorMsg = response.status === 500 
+          ? `Server error (500): ${data.error || 'Failed to start simulation'}. Check server logs for details.`
+          : (data.error || 'Failed to start simulation');
+        setError(errorMsg);
         return;
       }
 
       setStats(data.stats);
     } catch (error: any) {
-      setError(error.message || 'Network error');
+      setError(`Network error: ${error.message || 'Could not connect to server'}`);
     } finally {
       setLoading(false);
     }
@@ -264,9 +271,18 @@ export default function PartyTestPage() {
 
       {/* Error Alert */}
       {error && (
-        <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-6 flex items-center space-x-3">
-          <AlertCircle className="w-6 h-6 text-red-400" />
-          <p className="text-red-300">{error}</p>
+        <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0" />
+            <p className="text-red-300">{error}</p>
+          </div>
+          <button
+            onClick={() => setError('')}
+            className="text-red-400 hover:text-red-300 transition-colors ml-4"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
         </div>
       )}
 
