@@ -305,15 +305,19 @@ class PartySimulator {
   private async sendRequest(): Promise<void> {
     if (!this.config) return;
 
+    // Declare these outside try-catch so they're accessible in error logging
+    let requesterName = 'Unknown';
+    let song = PARTY_SONGS[0]; // Default fallback
+
     try {
       // Select random requester
-      const requesterName = this.selectRequester();
+      requesterName = this.selectRequester();
       
       // Select random song
       const availableSongs = this.config.explicitSongs 
         ? PARTY_SONGS 
         : PARTY_SONGS.filter(s => !s.explicit);
-      const song = availableSongs[Math.floor(Math.random() * availableSongs.length)];
+      song = availableSongs[Math.floor(Math.random() * availableSongs.length)];
 
       console.log(`🎵 [${this.instanceId}] Simulating request from "${requesterName}": ${song.query}`);
 
