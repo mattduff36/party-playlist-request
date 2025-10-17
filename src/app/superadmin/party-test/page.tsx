@@ -12,8 +12,19 @@ import {
   Radio,
   TrendingUp,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
+  Terminal,
+  CheckCircle2
 } from 'lucide-react';
+
+interface SimulationLog {
+  timestamp: string;
+  requester: string;
+  song: string;
+  artist: string;
+  status: 'success' | 'failed';
+  error?: string;
+}
 
 interface SimulationStats {
   isRunning: boolean;
@@ -23,6 +34,7 @@ interface SimulationStats {
   startedAt: string | null;
   lastRequestAt: string | null;
   activeRequesters: string[];
+  logs: SimulationLog[];
 }
 
 export default function PartyTestPage() {
@@ -33,7 +45,8 @@ export default function PartyTestPage() {
     requestsFailed: 0,
     startedAt: null,
     lastRequestAt: null,
-    activeRequesters: []
+    activeRequesters: [],
+    logs: []
   });
 
   const [config, setConfig] = useState({
@@ -424,28 +437,71 @@ export default function PartyTestPage() {
             </div>
           )}
 
-          {/* Info Box */}
-          <div className="bg-blue-500/10 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
-            <h3 className="text-lg font-bold text-blue-300 mb-3">How It Works</h3>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li className="flex items-start space-x-2">
-                <span className="text-[#1DB954] mt-0.5">•</span>
-                <span>The simulator sends realistic song requests to your party as different virtual users</span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-[#1DB954] mt-0.5">•</span>
-                <span>Each request searches for popular party songs and submits them like a real guest</span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-[#1DB954] mt-0.5">•</span>
-                <span>Burst mode simulates busy periods with 2-4 requests in quick succession</span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-[#1DB954] mt-0.5">•</span>
-                <span>Use this to test your admin interface, Pusher updates, and queue management</span>
-              </li>
-            </ul>
-          </div>
+          {/* Console Logs or Info Box */}
+          {stats.isRunning && stats.logs && stats.logs.length > 0 ? (
+            <div className="bg-black/50 backdrop-blur-md rounded-xl p-6 border border-[#1DB954]/30">
+              <h3 className="text-lg font-bold text-[#1DB954] mb-3 flex items-center space-x-2">
+                <Terminal className="w-5 h-5" />
+                <span>Live Console ({stats.logs.length} requests)</span>
+              </h3>
+              <div className="max-h-96 overflow-y-auto space-y-2 font-mono text-xs">
+                {stats.logs.map((log, index) => (
+                  <div 
+                    key={`${log.timestamp}-${index}`}
+                    className={`p-3 rounded-lg border ${
+                      log.status === 'success' 
+                        ? 'bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954]' 
+                        : 'bg-red-500/10 border-red-500/30 text-red-400'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-1">
+                      <span className="text-gray-400">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                      {log.status === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <XCircle className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="text-white">
+                      <span className="font-semibold">{log.requester}</span> requested
+                    </div>
+                    <div className="text-gray-300">
+                      "{log.song}" by {log.artist}
+                    </div>
+                    {log.error && (
+                      <div className="text-red-300 mt-1 text-xs">
+                        Error: {log.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-blue-500/10 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
+              <h3 className="text-lg font-bold text-blue-300 mb-3">How It Works</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li className="flex items-start space-x-2">
+                  <span className="text-[#1DB954] mt-0.5">•</span>
+                  <span>The simulator sends realistic song requests to your party as different virtual users</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-[#1DB954] mt-0.5">•</span>
+                  <span>Each request searches for popular party songs and submits them like a real guest</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-[#1DB954] mt-0.5">•</span>
+                  <span>Burst mode simulates busy periods with 2-4 requests in quick succession</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-[#1DB954] mt-0.5">•</span>
+                  <span>Use this to test your admin interface, Pusher updates, and queue management</span>
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>

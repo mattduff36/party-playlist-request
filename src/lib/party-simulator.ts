@@ -16,6 +16,15 @@ interface SimulationConfig {
   explicitSongs: boolean; // Include explicit songs in random selection
 }
 
+interface SimulationLog {
+  timestamp: string;
+  requester: string;
+  song: string;
+  artist: string;
+  status: 'success' | 'failed';
+  error?: string;
+}
+
 interface SimulationStats {
   isRunning: boolean;
   requestsSent: number;
@@ -24,6 +33,7 @@ interface SimulationStats {
   startedAt: string | null;
   lastRequestAt: string | null;
   activeRequesters: string[];
+  logs: SimulationLog[];
 }
 
 // Realistic requester names
@@ -126,7 +136,8 @@ class PartySimulator {
       requestsFailed: 0,
       startedAt: new Date().toISOString(),
       lastRequestAt: null,
-      activeRequesters: this.generateRequesterNames(config.uniqueRequesters)
+      activeRequesters: this.generateRequesterNames(config.uniqueRequesters),
+      logs: []
     };
     this.usedRequesters = new Set();
 
@@ -340,12 +351,43 @@ class PartySimulator {
       this.stats.requestsSuccessful++;
       this.stats.lastRequestAt = new Date().toISOString();
       
+      // Add log entry
+      this.stats.logs.unshift({
+        timestamp: new Date().toISOString(),
+        requester: requesterName,
+        song: track.name,
+        artist: track.artists.map((a: any) => a.name).join(', '),
+        status: 'success'
+      });
+      
+      // Keep only last 50 logs to prevent memory issues
+      if (this.stats.logs.length > 50) {
+        this.stats.logs = this.stats.logs.slice(0, 50);
+      }
+      
       console.log(`✅ [${this.instanceId}] Request sent successfully by ${requesterName}: ${track.name}`);
 
     } catch (error) {
       this.stats.requestsSent++;
       this.stats.requestsFailed++;
       this.stats.lastRequestAt = new Date().toISOString();
+      
+      // Add log entry for failed request
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.stats.logs.unshift({
+        timestamp: new Date().toISOString(),
+        requester: requesterName,
+        song: song.title,
+        artist: song.artist,
+        status: 'failed',
+        error: errorMessage
+      });
+      
+      // Keep only last 50 logs to prevent memory issues
+      if (this.stats.logs.length > 50) {
+        this.stats.logs = this.stats.logs.slice(0, 50);
+      }
+      
       console.error(`❌ [${this.instanceId}] Failed to send simulated request:`, error);
       // Log more details about the error
       if (error instanceof Error) {
