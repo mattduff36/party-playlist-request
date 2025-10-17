@@ -224,9 +224,9 @@ class PartySimulator {
         console.error(`❌ [${this.instanceId}] Burst request ${i + 1} failed:`, error);
       }
       
-      // Small delay between burst requests (200ms - 1s)
+      // Longer delay between burst requests (1s - 2s) to avoid rate limiting
       if (i < burstCount - 1) {
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 800 + 200));
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
       }
     }
   }
@@ -272,8 +272,8 @@ class PartySimulator {
               console.error('❌ Burst request failed (continuing):', error);
             }
             
-            // Small delay between burst requests (500ms - 2s)
-            await new Promise(resolve => setTimeout(resolve, Math.random() * 1500 + 500));
+            // Longer delay between burst requests (1s - 2s) to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
           }
         } else {
           // Wrap single request in try-catch
