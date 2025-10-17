@@ -322,29 +322,39 @@ function DisplayPage({ username }: { username: string }) {
     },
     onSettingsUpdate: (data: any) => {
       console.log('⚙️ Display settings updated via Pusher:', data);
-      // When settings are updated, refresh to the authenticated PIN URL
-      const stored = sessionStorage.getItem(`display_auth_${username}`);
-      if (stored) {
-        try {
-          const auth = JSON.parse(stored);
-          if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
-            // Authentication is still valid, redirect to authenticated URL
-            console.log('🔄 Settings updated - redirecting to authenticated display URL');
-            window.location.href = `/${username}/display/${auth.pin}`;
-          } else {
-            console.log('⏰ Authentication expired during settings update');
-            setAuthenticated(false);
-            setError('Authentication expired. Please refresh the page.');
-          }
-        } catch (e) {
-          console.error('Invalid authentication data during settings update:', e);
-          setAuthenticated(false);
-          setError('Authentication invalid. Please refresh the page.');
-        }
+      // Check if we're already on the authenticated PIN URL
+      const currentPath = window.location.pathname;
+      const isAuthenticatedUrl = currentPath.includes('/display/') && currentPath.split('/').length > 3;
+      
+      if (isAuthenticatedUrl) {
+        // We're already on the authenticated URL, just refresh the display data
+        console.log('🔄 Settings updated - refreshing display data without redirect');
+        fetchDisplayData();
       } else {
-        console.log('🔐 No authentication found during settings update');
-        setAuthenticated(false);
-        setError('Authentication lost. Please refresh the page.');
+        // We're not on the authenticated URL, redirect to it
+        const stored = sessionStorage.getItem(`display_auth_${username}`);
+        if (stored) {
+          try {
+            const auth = JSON.parse(stored);
+            if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
+              // Authentication is still valid, redirect to authenticated URL
+              console.log('🔄 Settings updated - redirecting to authenticated display URL');
+              window.location.href = `/${username}/display/${auth.pin}`;
+            } else {
+              console.log('⏰ Authentication expired during settings update');
+              setAuthenticated(false);
+              setError('Authentication expired. Please refresh the page.');
+            }
+          } catch (e) {
+            console.error('Invalid authentication data during settings update:', e);
+            setAuthenticated(false);
+            setError('Authentication invalid. Please refresh the page.');
+          }
+        } else {
+          console.log('🔐 No authentication found during settings update');
+          setAuthenticated(false);
+          setError('Authentication lost. Please refresh the page.');
+        }
       }
     },
     onRequestApproved: (data: RequestApprovedEvent) => {
