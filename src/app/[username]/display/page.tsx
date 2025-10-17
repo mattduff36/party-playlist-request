@@ -320,6 +320,33 @@ function DisplayPage({ username }: { username: string }) {
       console.log('🔐 Admin logout via Pusher:', data);
       // State is now managed by GlobalEventProvider
     },
+    onSettingsUpdate: (data: any) => {
+      console.log('⚙️ Display settings updated via Pusher:', data);
+      // When settings are updated, refresh to the authenticated PIN URL
+      const stored = sessionStorage.getItem(`display_auth_${username}`);
+      if (stored) {
+        try {
+          const auth = JSON.parse(stored);
+          if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
+            // Authentication is still valid, redirect to authenticated URL
+            console.log('🔄 Settings updated - redirecting to authenticated display URL');
+            window.location.href = `/${username}/display/${auth.pin}`;
+          } else {
+            console.log('⏰ Authentication expired during settings update');
+            setAuthenticated(false);
+            setError('Authentication expired. Please refresh the page.');
+          }
+        } catch (e) {
+          console.error('Invalid authentication data during settings update:', e);
+          setAuthenticated(false);
+          setError('Authentication invalid. Please refresh the page.');
+        }
+      } else {
+        console.log('🔐 No authentication found during settings update');
+        setAuthenticated(false);
+        setError('Authentication lost. Please refresh the page.');
+      }
+    },
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
       
@@ -746,34 +773,37 @@ function DisplayPage({ username }: { username: string }) {
   // All state is now managed by GlobalEventProvider
   // checkDisplayStatus, checkAdminLoginStatus, and fetchPageControls are no longer needed
 
+  // Fetch all display data - moved outside useEffect to be accessible from Pusher handlers
+  const fetchDisplayData = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/public/display-data?username=${username}`);
+      if (response.ok) {
+        const data = await response.json();
+        setEventSettings(data.event_settings);
+        setCurrentTrack(data.current_track);
+        setUpcomingSongs(data.upcoming_songs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching display data:', error);
+      // Set default settings if fetch fails
+      if (!eventSettings) {
+        setEventSettings({
+          event_title: 'Party DJ Requests',
+          dj_name: '',
+          venue_info: '',
+          welcome_message: 'Request your favorite songs!',
+          secondary_message: 'Your requests will be reviewed by the DJ',
+          tertiary_message: 'Keep the party going!',
+          show_qr_code: true,
+          display_refresh_interval: 20
+        });
+      }
+    }
+  }, [username, eventSettings]);
+
   // Fetch all display data
   useEffect(() => {
-    const fetchDisplayData = async () => {
-      try {
-        const response = await fetch(`/api/public/display-data?username=${username}`);
-        if (response.ok) {
-          const data = await response.json();
-          setEventSettings(data.event_settings);
-          setCurrentTrack(data.current_track);
-          setUpcomingSongs(data.upcoming_songs || []);
-        }
-      } catch (error) {
-        console.error('Error fetching display data:', error);
-        // Set default settings if fetch fails
-        if (!eventSettings) {
-          setEventSettings({
-            event_title: 'Party DJ Requests',
-            dj_name: '',
-            venue_info: '',
-            welcome_message: 'Request your favorite songs!',
-            secondary_message: 'Your requests will be reviewed by the DJ',
-            tertiary_message: 'Keep the party going!',
-            show_qr_code: true,
-            display_refresh_interval: 20
-          });
-        }
-      }
-    };
+    fetchDisplayData();
 
     const fetchNotifications = async () => {
       // Note: Notifications endpoint currently disabled (pending multi-tenant refactor)
@@ -796,7 +826,7 @@ function DisplayPage({ username }: { username: string }) {
     // No manual status checks needed - Pusher handles real-time updates automatically
     
     // No more polling - Pusher handles real-time updates!
-  }, [username]); // Re-fetch when username changes
+  }, [username, fetchDisplayData]); // Re-fetch when username changes
 
   // Message rotation is now handled by the individual scrolling system below
 
