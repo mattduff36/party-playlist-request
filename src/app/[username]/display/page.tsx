@@ -177,12 +177,7 @@ function DisplayPage({ username }: { username: string }) {
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [deviceType, setDeviceType] = useState<'tv' | 'tablet' | 'mobile'>('tv');
-  
-  // Individual message scrolling state
-  const [currentScrollingMessage, setCurrentScrollingMessage] = useState<string>('');
-  const [isMessageScrolling, setIsMessageScrolling] = useState(false);
   
   const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
   const [showingNotification, setShowingNotification] = useState(false);
@@ -879,40 +874,15 @@ function DisplayPage({ username }: { username: string }) {
 
   // Admin status and page controls are handled above - this is the main display content
 
-  const messages = useMemo(() => {
-    if (!eventSettings) return [];
-    return [
-      eventSettings.welcome_message,
-      eventSettings.secondary_message,
-      eventSettings.tertiary_message
-    ].filter(msg => msg && msg.trim() !== '');
-  }, [eventSettings?.welcome_message, eventSettings?.secondary_message, eventSettings?.tertiary_message]);
-
-  // Individual message scrolling logic
-  useEffect(() => {
-    if (messages.length === 0) return;
-
-    const startMessageScrolling = () => {
-      if (isMessageScrolling) return;
-      
-      setIsMessageScrolling(true);
-      const messageToShow = messages[currentMessageIndex];
-      setCurrentScrollingMessage(messageToShow);
-      
-      // After animation completes (15 seconds), move to next message
-      setTimeout(() => {
-        setIsMessageScrolling(false);
-        setCurrentScrollingMessage('');
-        
-        // Move to next message after a brief pause
-        setTimeout(() => {
-          setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
-        }, 500); // 500ms pause between messages
-      }, 15000); // 15 seconds for each message to scroll across
-    };
-
-    startMessageScrolling();
-  }, [messages]);
+  // Simple message concatenation for scrolling (no individual message system)
+  const messages = eventSettings ? [
+    eventSettings.welcome_message,
+    eventSettings.secondary_message,
+    eventSettings.tertiary_message
+  ].filter(msg => msg && msg.trim() !== '') : [];
+  
+  const messagesText = messages.length > 0 ? messages.join(' •────────────• ') : '';
+  const displayContent = messagesText ? `${messagesText} •────────────• ${messagesText}` : '';
 
   const messageTextColor = 'text-white';
 
@@ -1176,9 +1146,9 @@ function DisplayPage({ username }: { username: string }) {
               <div className="flex items-center h-full">
                 <div className="text-xl mr-3">📢</div>
                 <div className="flex-1 overflow-hidden">
-                    {currentScrollingMessage && (
-                      <div className={`animate-scroll-message whitespace-nowrap text-lg font-medium ${messageTextColor}`}>
-                        {currentScrollingMessage}
+                    {displayContent && (
+                      <div className={`animate-marquee whitespace-nowrap text-lg font-medium ${messageTextColor}`}>
+                        {displayContent}
                       </div>
                     )}
                 </div>
@@ -1366,9 +1336,9 @@ function DisplayPage({ username }: { username: string }) {
                 <div className="flex items-center h-full">
                   <div className="text-base mr-2">📢</div>
                   <div className="flex-1 overflow-hidden">
-                      {currentScrollingMessage && (
-                        <div className={`animate-scroll-message whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
-                          {currentScrollingMessage}
+                      {displayContent && (
+                        <div className={`animate-marquee whitespace-nowrap text-sm font-medium ${messageTextColor}`}>
+                          {displayContent}
                         </div>
                       )}
                   </div>
@@ -1461,9 +1431,9 @@ function DisplayPage({ username }: { username: string }) {
                 <div className="flex items-center h-full">
                   <div className="text-lg mr-3">📢</div>
                   <div className="flex-1 overflow-hidden">
-                    {currentScrollingMessage && (
-                      <div className={`animate-scroll-message whitespace-nowrap text-base font-medium ${messageTextColor}`}>
-                        {currentScrollingMessage}
+                    {displayContent && (
+                      <div className={`animate-marquee whitespace-nowrap text-base font-medium ${messageTextColor}`}>
+                        {displayContent}
                       </div>
                     )}
                   </div>
@@ -1650,9 +1620,9 @@ function DisplayPage({ username }: { username: string }) {
               <div className="flex items-center h-full">
                 <div className="text-xs mr-1">📢</div>
                 <div className="flex-1 overflow-hidden">
-                  {currentScrollingMessage && (
-                    <div className={`animate-scroll-message whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
-                      {currentScrollingMessage}
+                  {displayContent && (
+                    <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
+                      {displayContent}
                     </div>
                   )}
                 </div>
@@ -1745,9 +1715,9 @@ function DisplayPage({ username }: { username: string }) {
               <div className="flex items-center h-full">
                 <div className="text-sm mr-2">📢</div>
                 <div className="flex-1 overflow-hidden">
-                  {currentScrollingMessage && (
-                    <div className={`animate-scroll-message whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
-                      {currentScrollingMessage}
+                  {displayContent && (
+                    <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
+                      {displayContent}
                     </div>
                   )}
                 </div>
