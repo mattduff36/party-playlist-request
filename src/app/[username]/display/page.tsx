@@ -322,7 +322,9 @@ function DisplayPage({ username }: { username: string }) {
           return prev;
         });
         
-        setCurrentTrack(newTrack);
+        // Force state update by creating new object reference
+        setCurrentTrack({...newTrack});
+        console.log('✅ Current track state updated:', newTrack.name);
       }
       
       // Update queue - show all songs with hidden scrollbar and fade-out gradient
@@ -339,7 +341,9 @@ function DisplayPage({ username }: { username: string }) {
           requester_nickname: track.requester_nickname
         }));
         
-        setUpcomingSongs(processedQueue);
+        // Force state update by creating new array reference
+        setUpcomingSongs([...processedQueue]);
+        console.log('✅ Queue state updated with', processedQueue.length, 'tracks');
       }
     },
     onMessageUpdate: (data: any) => {
