@@ -39,6 +39,20 @@ body {
   animation: marquee 33s linear infinite;
 }
 
+/* Individual message scrolling animation */
+@keyframes scrollMessage {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-scroll-message {
+  animation: scrollMessage 15s linear;
+}
+
 @keyframes progress {
   from { width: 0%; }
   to { width: 100%; }
