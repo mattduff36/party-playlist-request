@@ -10,6 +10,7 @@ import { RequestApprovedEvent } from '@/lib/pusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import { EventConfig } from '@/lib/db/schema';
+import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';
 
 interface CurrentTrack {
   name: string;
@@ -201,6 +202,13 @@ function DisplayPage({ username }: { username: string }) {
       pagesEnabled: globalState.pagesEnabled,
     });
   }, [globalState.status, globalState.pagesEnabled]);
+  
+  // Helper function to sanitize requester names for display
+  const sanitizeName = (name?: string): string => {
+    if (!name) return '';
+    const filteringEnabled = eventSettings?.decline_explicit || false;
+    return sanitizeRequesterNameForDisplay(name, filteringEnabled);
+  };
   
   // Message system state
   const [currentMessage, setCurrentMessage] = useState<{
@@ -972,7 +980,7 @@ function DisplayPage({ username }: { username: string }) {
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-3">
                               <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-                                {song.requester_nickname}
+                                {sanitizeName(song.requester_nickname)}
                               </div>
                             </div>
                           )}
@@ -1163,7 +1171,7 @@ function DisplayPage({ username }: { username: string }) {
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-2">
                               <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-2 py-1 rounded-full text-xs font-bold">
-                                {song.requester_nickname}
+                                {sanitizeName(song.requester_nickname)}
                               </div>
                             </div>
                           )}
@@ -1300,7 +1308,7 @@ function DisplayPage({ username }: { username: string }) {
                       {song.requester_nickname && (
                         <div className="flex-shrink-0 ml-3">
                           <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-3 py-1 rounded-full text-sm font-bold">
-                            {song.requester_nickname}
+                            {sanitizeName(song.requester_nickname)}
                           </div>
                         </div>
                       )}
@@ -1443,7 +1451,7 @@ function DisplayPage({ username }: { username: string }) {
                         {song.requester_nickname && (
                           <div className="flex-shrink-0 ml-1">
                             <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-1 py-0.5 rounded-full text-xs font-bold">
-                              {song.requester_nickname}
+                              {sanitizeName(song.requester_nickname)}
                             </div>
                           </div>
                         )}
@@ -1580,7 +1588,7 @@ function DisplayPage({ username }: { username: string }) {
                     {song.requester_nickname && (
                       <div className="flex-shrink-0 ml-2">
                         <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-2 py-1 rounded-full text-xs font-bold">
-                          {song.requester_nickname}
+                          {sanitizeName(song.requester_nickname)}
                         </div>
                       </div>
                     )}

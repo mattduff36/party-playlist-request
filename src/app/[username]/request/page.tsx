@@ -8,6 +8,7 @@ import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
 import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import PartyNotStarted from '@/components/PartyNotStarted';
+import { validateRequesterName } from '@/lib/profanity-filter';
 
 interface Track {
   id: string;
@@ -69,6 +70,8 @@ export default function UserRequestPage() {
   const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [nickname, setNickname] = useState('');
+  const [nicknameError, setNicknameError] = useState('');
+  const [isNicknameValid, setIsNicknameValid] = useState(true);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
   const [mounted, setMounted] = useState(false);
   
@@ -225,11 +228,44 @@ export default function UserRequestPage() {
     }
   };
 
+  // Validate nickname for profanity
+  const handleNicknameChange = (newNickname: string) => {
+    setNickname(newNickname);
+    
+    // Only validate if profanity filtering is enabled
+    const filteringEnabled = eventSettings?.decline_explicit || false;
+    
+    if (!newNickname.trim()) {
+      setNicknameError('');
+      setIsNicknameValid(false);
+      return;
+    }
+    
+    const validation = validateRequesterName(newNickname, filteringEnabled);
+    
+    if (!validation.isValid) {
+      setNicknameError(validation.reason || 'Invalid name');
+      setIsNicknameValid(false);
+    } else {
+      setNicknameError('');
+      setIsNicknameValid(true);
+    }
+  };
+
   // Load nickname from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(`nickname_${username}`);
-    if (saved) setNickname(saved);
-  }, [username]);
+    if (saved) {
+      setNickname(saved);
+      // Validate loaded nickname
+      const filteringEnabled = eventSettings?.decline_explicit || false;
+      const validation = validateRequesterName(saved, filteringEnabled);
+      setIsNicknameValid(validation.isValid);
+      if (!validation.isValid) {
+        setNicknameError(validation.reason || 'Invalid name');
+      }
+    }
+  }, [username, eventSettings]);
 
   // Save nickname to localStorage
   useEffect(() => {
@@ -301,7 +337,7 @@ export default function UserRequestPage() {
   // Debounced search
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchQuery && nickname.trim() && authenticated) {
+      if (searchQuery && nickname.trim() && isNicknameValid && authenticated) {
         searchTracks(searchQuery);
       } else {
         setSearchResults([]);
@@ -309,7 +345,7 @@ export default function UserRequestPage() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, nickname, authenticated]);
+  }, [searchQuery, nickname, isNicknameValid, authenticated]);
 
   // Submit request
   const submitRequest = async (track?: Track, url?: string) => {
@@ -319,12 +355,23 @@ export default function UserRequestPage() {
       return;
     }
 
+    // Validate nickname for profanity
+    const filteringEnabled = eventSettings?.decline_explicit || false;
+    const validation = validateRequesterName(nickname, filteringEnabled);
+    
+    if (!validation.isValid) {
+      setRequestStatus('error');
+      setStatusMessage(validation.reason || 'Invalid name. Please choose a different name.');
+      return;
+    }
+
     setIsSubmitting(true);
     setRequestStatus('idle');
 
     try {
+      // Use censored nickname for the request
       const requestData: any = {
-        requester_nickname: nickname.trim(),
+        requester_nickname: validation.censoredName,
         user_session_id: userSessionId,
         username // Pass username for multi-tenancy
       };
@@ -525,30 +572,46 @@ export default function UserRequestPage() {
               <input
                 type="text"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => handleNicknameChange(e.target.value)}
                 placeholder="👤 Your name"
-                className="w-full px-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                className={`w-full px-4 py-3 text-base bg-white/20 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:border-transparent ${
+                  nicknameError 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : 'border-white/30 focus:ring-[#1DB954]'
+                }`}
                 style={{ fontSize: '16px' }}
                 required
               />
+              {nicknameError && (
+                <p className="text-red-400 text-sm mt-2 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  {nicknameError}
+                </p>
+              )}
             </div>
 
             {/* Search Section */}
-            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity ${!nickname.trim() ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity ${!nickname.trim() || !isNicknameValid ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={nickname.trim() ? "Search songs, artists, or paste Spotify link" : "Enter your name first"}
+                  placeholder={
+                    !nickname.trim() 
+                      ? "Enter your name first" 
+                      : !isNicknameValid 
+                        ? "Please enter a valid name" 
+                        : "Search songs, artists, or paste Spotify link"
+                  }
                   className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
                   style={{ fontSize: '16px' }}
-                  disabled={!nickname.trim()}
+                  disabled={!nickname.trim() || !isNicknameValid}
                 />
               </div>
 
-              {isSearching && nickname.trim() && (
+              {isSearching && nickname.trim() && isNicknameValid && (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1DB954] mx-auto"></div>
                   <p className="text-gray-300 mt-2">Searching...</p>
@@ -556,7 +619,7 @@ export default function UserRequestPage() {
               )}
 
               {/* Search Results */}
-              {searchResults.length > 0 && nickname.trim() && (
+              {searchResults.length > 0 && nickname.trim() && isNicknameValid && (
                 <div className="space-y-2 max-h-64 overflow-y-auto mt-3">
                   {searchResults.map((track) => (
                     <button
@@ -565,7 +628,7 @@ export default function UserRequestPage() {
                         e.preventDefault();
                         submitRequest(track);
                       }}
-                      disabled={isSubmitting || !nickname.trim()}
+                      disabled={isSubmitting || !nickname.trim() || !isNicknameValid}
                       className="w-full bg-white/20 rounded-lg p-3 hover:bg-white/30 active:bg-white/40 transition-colors disabled:opacity-50 text-left touch-manipulation"
                     >
                       <div className="flex items-center space-x-3">
