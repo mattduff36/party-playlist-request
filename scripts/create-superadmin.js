@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 /**
  * Create or update a user to superadmin
  * Usage: node scripts/create-superadmin.js <username>

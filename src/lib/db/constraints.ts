@@ -15,7 +15,13 @@ export class DatabaseConstraints {
   static async createAllConstraints() {
     console.log('🔒 Creating database constraints...');
     
-    const constraints = [
+    const constraints: Array<{
+      name: string;
+      table: string;
+      type: 'check' | 'unique' | 'foreign_key';
+      definition: string;
+      description: string;
+    }> = [
       // Events table constraints
       {
         name: 'events_status_check',
@@ -109,7 +115,7 @@ export class DatabaseConstraints {
       }
     ];
 
-    const results = [];
+    const results: Array<Record<string, any>> = [];
     
     for (const constraint of constraints) {
       try {
@@ -155,7 +161,7 @@ export class DatabaseConstraints {
         throw new Error(`Unknown constraint type: ${type}`);
     }
 
-    await db.execute(sql.raw(constraintSql));
+    await db.execute(sql.raw(constraintSql as any));
   }
 
   /**

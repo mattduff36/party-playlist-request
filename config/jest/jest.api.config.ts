@@ -7,7 +7,7 @@ dotenv.config({ path: './test.env' });
 const config: Config = {
   displayName: 'API Integration Tests',
   testEnvironment: 'node',
-  rootDir: './',
+  rootDir: '../..',
   testMatch: [
     '<rootDir>/tests/api/**/*.spec.ts',
     '<rootDir>/tests/api/**/*.test.ts',
@@ -24,7 +24,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
   collectCoverageFrom: [
     'src/app/api/**/*.{ts,tsx}',
     '!src/app/api/**/*.d.ts',

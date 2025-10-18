@@ -322,7 +322,8 @@ export function useOptimisticUpdates() {
 
   // Update local state when updates change
   const refreshUpdates = useCallback(() => {
-    setUpdates(Array.from(updateManager.updates.values()));
+    // Expose a snapshot via public method instead of accessing private member
+    setUpdates(updateManager.getPendingUpdates().concat(updateManager.getFailedUpdates()));
   }, [updateManager]);
 
   // Create optimistic update
@@ -430,4 +431,4 @@ export function useOptimisticState<T>(
   };
 }
 
-export type { OptimisticUpdate, ConflictResolution };
+// Types are declared above; avoid re-export conflicts

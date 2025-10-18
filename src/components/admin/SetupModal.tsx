@@ -70,10 +70,9 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
       await updateEventSettings({
         event_title: formData.eventTitle,
         welcome_message: formData.welcomeMessage,
-        decline_explicit: formData.autoDeclineExplicit,
         auto_approve: formData.autoApprove,
         request_limit: maxRequests === 0 ? null : maxRequests
-      });
+      } as any);
 
       // Check Spotify connection status again
       await checkSpotifyConnection();

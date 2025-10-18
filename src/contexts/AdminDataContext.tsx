@@ -145,19 +145,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       refreshRequests();
       refreshStats();
     },
-    onStatsUpdate: (data: any) => {
-      console.log('📊 Admin: Stats update via Pusher!', data);
-      // Update stats directly from Pusher event
-      setStats({
-        total_requests: data.total_requests || 0,
-        pending_requests: data.pending_requests || 0,
-        approved_requests: data.approved_requests || 0,
-        rejected_requests: data.rejected_requests || 0,
-        played_requests: data.played_requests || 0,
-        unique_requesters: data.unique_requesters || 0,
-        spotify_connected: data.spotify_connected || false,
-      });
-    },
+    // onStatsUpdate defined below; avoid duplicate keys
     onPlaybackUpdate: (data: any) => {
       console.log('🎵 Admin: Playback update via Pusher!', data);
       console.log('🎵 Admin: Current playback state before update:', playbackState);

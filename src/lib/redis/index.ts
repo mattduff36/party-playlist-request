@@ -7,6 +7,7 @@
 
 export * from './config';
 export * from './client';
+import { initializeRedis } from './client';
 export * from './rate-limiter';
 export * from './cache';
 

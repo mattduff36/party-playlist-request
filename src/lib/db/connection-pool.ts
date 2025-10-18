@@ -61,7 +61,7 @@ export interface PoolStats {
 // Connection pool manager
 export class ConnectionPoolManager {
   private pools: Map<PoolType, Pool> = new Map();
-  private drizzleInstances: Map<PoolType, DrizzleDB<any>> = new Map();
+  private drizzleInstances: Map<PoolType, any> = new Map();
   private stats: Map<PoolType, PoolStats> = new Map();
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
@@ -116,7 +116,7 @@ export class ConnectionPoolManager {
     // Create pools
     for (const [poolType, config] of Object.entries(poolConfigs)) {
       const pool = new Pool(config as PoolConfig);
-      const drizzleInstance = drizzle(neon(config.connectionString), { schema });
+      const drizzleInstance = drizzle(neon((config as any).connectionString as string), { schema });
       
       this.pools.set(poolType as PoolType, pool);
       this.drizzleInstances.set(poolType as PoolType, drizzleInstance);
@@ -143,7 +143,7 @@ export class ConnectionPoolManager {
     }
 
     return {
-      connectionString: DATABASE_URL,
+      connectionString: DATABASE_URL as string,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
       allowExitOnIdle: false,
@@ -218,7 +218,7 @@ export class ConnectionPoolManager {
     return pool;
   }
 
-  public getDrizzle(poolType: PoolType = PoolType.READ_WRITE): DrizzleDB<any> {
+  public getDrizzle(poolType: PoolType = PoolType.READ_WRITE): any {
     const drizzle = this.drizzleInstances.get(poolType);
     if (!drizzle) {
       throw new Error(`Drizzle instance for ${poolType} not found`);

@@ -1,0 +1,91 @@
+{
+  "summary": {
+    "passed": 15,
+    "failed": 1,
+    "skipped": 0,
+    "duration": 14.85,
+    "tests": [
+      {
+        "name": "1. Navigate to homepage",
+        "status": "passed",
+        "duration": 0.105
+      },
+      {
+        "name": "2. Navigate to login page",
+        "status": "passed",
+        "duration": 0.132
+      },
+      {
+        "name": "3. Login attempt",
+        "status": "passed",
+        "duration": 0.372
+      },
+      {
+        "name": "4. Admin dashboard loads",
+        "status": "passed",
+        "duration": 0.265
+      },
+      {
+        "name": "5. Event status API responds",
+        "status": "passed",
+        "duration": 0.098
+      },
+      {
+        "name": "6. Spotify status API responds",
+        "status": "passed",
+        "duration": 0.154
+      },
+      {
+        "name": "7. Requests API responds",
+        "status": "passed",
+        "duration": 0.072
+      },
+      {
+        "name": "8. Stats API responds",
+        "status": "passed",
+        "duration": 0.061
+      },
+      {
+        "name": "9. Settings page route exists",
+        "status": "passed",
+        "duration": 0.204
+      },
+      {
+        "name": "10. Display page route exists",
+        "status": "passed",
+        "duration": 2.449
+      },
+      {
+        "name": "1. Request page without PIN",
+        "status": "passed",
+        "duration": 2.981
+      },
+      {
+        "name": "2. Spotify search API responds",
+        "status": "passed",
+        "duration": 1.973
+      },
+      {
+        "name": "3. Request submission API responds",
+        "status": "passed",
+        "duration": 1.774
+      },
+      {
+        "name": "1. Display page loads",
+        "status": "passed",
+        "duration": 2.329
+      },
+      {
+        "name": "2. Display current API responds",
+        "status": "passed",
+        "duration": 1.023
+      },
+      {
+        "name": "3. Display requests API responds",
+        "status": "failed",
+        "duration": 0.855,
+        "error": "Display requests API returned unexpected 400"
+      }
+    ]
+  }
+}

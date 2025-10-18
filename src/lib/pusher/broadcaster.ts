@@ -193,14 +193,14 @@ class EventBroadcaster {
     }
 
     // Compress large data fields
-    const compressedEvent = { ...event };
+    const compressedEvent: any = { ...event };
     
-    if (event.action === 'playback_update' && event.data.currentTrack) {
-      const track = event.data.currentTrack;
+    if (event.action === 'playback_update' && (event as any).data.currentTrack) {
+      const track = (event as any).data.currentTrack;
       compressedEvent.data.currentTrack = {
         ...track,
         name: track.name?.substring(0, 100) || '',
-        artists: track.artists?.slice(0, 2).map(a => ({ name: a.name?.substring(0, 50) || '' })) || [],
+        artists: track.artists?.slice(0, 2).map((a: any) => ({ name: a.name?.substring(0, 50) || '' })) || [],
         album: track.album ? {
           ...track.album,
           name: track.album.name?.substring(0, 100) || '',
@@ -209,11 +209,11 @@ class EventBroadcaster {
       };
     }
 
-    if (event.action === 'playback_update' && event.data.queue) {
-      compressedEvent.data.queue = event.data.queue.slice(0, 10).map(track => ({
+    if (event.action === 'playback_update' && (event as any).data.queue) {
+      compressedEvent.data.queue = (event as any).data.queue.slice(0, 10).map((track: any) => ({
         ...track,
         name: track.name?.substring(0, 100) || '',
-        artists: track.artists?.slice(0, 2).map(a => ({ name: a.name?.substring(0, 50) || '' })) || [],
+        artists: track.artists?.slice(0, 2).map((a: any) => ({ name: a.name?.substring(0, 50) || '' })) || [],
         requesterNickname: track.requesterNickname?.substring(0, 30) || undefined
       }));
     }

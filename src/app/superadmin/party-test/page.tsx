@@ -69,7 +69,7 @@ export default function PartyTestPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setStats(data.stats);
+        // Hook no longer exposes setStats; rely on internal state updates or polling
       } else if (response.status === 500) {
         // Don't spam errors for 500s during polling, just log
         console.error('Error fetching stats: 500 Internal Server Error');
@@ -107,7 +107,7 @@ export default function PartyTestPage() {
           return;
         }
 
-        setStats(data.stats);
+        // Hook no longer exposes setStats; rely on internal state updates or polling
       }
     } catch (error: any) {
       setError(`Network error: ${error.message || 'Could not connect to server'}`);
@@ -138,7 +138,7 @@ export default function PartyTestPage() {
           return;
         }
 
-        setStats(data.stats);
+        // Hook no longer exposes setStats; rely on internal state updates or polling
       }
     } catch (error: any) {
       setError(error.message || 'Network error');

@@ -25,6 +25,7 @@ export interface BaseEvent {
 // Event action types
 export type EventAction = 
   | 'state_update'
+  | 'state_change'
   | 'request_approved'
   | 'request_rejected'
   | 'request_submitted'
@@ -55,6 +56,25 @@ export interface StateUpdateEvent extends BaseEvent {
     };
     adminId?: string;
     adminName?: string;
+  };
+}
+
+// Generic state change log event
+export interface StateChangeEvent extends BaseEvent {
+  action: 'state_change';
+  data: {
+    type: 
+      | 'event-status-change'
+      | 'page-enablement-change'
+      | 'event-config-change'
+      | 'loading-state-change'
+      | 'error-state-change'
+      | 'user-action-change';
+    oldValue: any;
+    newValue: any;
+    timestamp: number;
+    source: 'user' | 'system' | 'admin';
+    metadata?: Record<string, any>;
   };
 }
 
@@ -221,6 +241,7 @@ export interface HeartbeatEvent extends BaseEvent {
 // Union type for all events
 export type PusherEvent = 
   | StateUpdateEvent
+  | StateChangeEvent
   | RequestApprovedEvent
   | RequestRejectedEvent
   | RequestSubmittedEvent
@@ -240,6 +261,7 @@ export type EventHandler<T extends PusherEvent = PusherEvent> = (event: T) => vo
 // Event handlers map
 export interface EventHandlers {
   state_update?: EventHandler<StateUpdateEvent>;
+  state_change?: EventHandler<StateChangeEvent>;
   request_approved?: EventHandler<RequestApprovedEvent>;
   request_rejected?: EventHandler<RequestRejectedEvent>;
   request_submitted?: EventHandler<RequestSubmittedEvent>;

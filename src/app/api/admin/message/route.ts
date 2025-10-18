@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
       LIMIT 1
     `;
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return NextResponse.json({
         message_text: null,
         message_duration: null,
@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const config = result.rows[0].config as any;
+    const config = (result[0] as any).config as any;
     const messageText = config?.message_text || null;
     const messageDuration = config?.message_duration || null;
     const messageCreatedAt = config?.message_created_at || null;

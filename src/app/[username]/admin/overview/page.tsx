@@ -195,7 +195,8 @@ export default function AdminOverviewPage() {
       }
     } catch (error) {
       console.error('❌ Error during Spotify callback:', error);
-      alert(`Spotify connection error: ${error.message}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Spotify connection error: ${message}`);
       localStorage.removeItem('spotify_state');
       localStorage.removeItem('spotify_code_verifier');
       window.history.replaceState({}, document.title, window.location.pathname);

@@ -9,7 +9,7 @@ import { Redis } from '@upstash/redis';
 import { RedisConfig, DEFAULT_REDIS_CONFIG, REDIS_KEYS } from './config';
 
 export class RedisClient {
-  private client: Redis;
+  private client!: Redis;
   private config: RedisConfig;
   private isConnected: boolean = false;
   private connectionAttempts: number = 0;

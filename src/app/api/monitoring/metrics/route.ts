@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     if (format === 'prometheus') {
       const prometheusData = metricsCollector.exportMetrics('prometheus');
-      return new NextResponse(prometheusData, {
+      return new NextResponse(String(prometheusData), {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
         },

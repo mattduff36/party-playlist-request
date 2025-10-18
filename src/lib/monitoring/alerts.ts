@@ -45,6 +45,34 @@ class AlertingSystem {
     this.initializeDefaultTemplates();
     this.startRetryProcessor();
   }
+  getAlerts() {
+    // Return shallow copy of recent deliveries as alerts-like objects
+    return this.deliveries
+      .map(d => ({
+        id: d.id,
+        severity: 'low' as const,
+        message: d.error ? d.error : 'Delivery event',
+        metric: 'alerts',
+        value: 0,
+        threshold: 0,
+        timestamp: d.sentAt || Date.now(),
+        resolved: d.status === 'sent',
+      }));
+  }
+
+  getAlertStats() {
+    const deliveries = this.getDeliveryStats();
+    // Map delivery stats to expected alert stats shape
+    return {
+      total: deliveries.total,
+      resolved: deliveries.sent,
+      unresolved: deliveries.pending + deliveries.retrying + deliveries.failed,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: deliveries.total, // best-effort placeholder
+    };
+  }
 
   /**
    * Add an alert channel

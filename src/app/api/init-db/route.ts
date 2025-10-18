@@ -1,25 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dbService } from '@/lib/db';
+import { getPool } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
     console.log('Initializing database...');
     
-    // Create a default event to initialize the database
-    const event = await dbService.createEvent({
-      status: 'offline',
-      version: 0,
-      config: {
-        pages_enabled: {
-          requests: false,
-          display: false,
-        },
-        event_title: 'Party DJ Requests',
-        welcome_message: 'Welcome to the party!',
-        secondary_message: 'Request your favorite songs',
-        tertiary_message: 'Have fun!',
-      }
-    });
+    // Create a default event to initialize the database (pg)
+    const pool = getPool();
+    const insert = await pool.query(
+      `INSERT INTO events (status, version, config, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING *`,
+      [
+        'offline',
+        0,
+        {
+          pages_enabled: { requests: false, display: false },
+          event_title: 'Party DJ Requests',
+          welcome_message: 'Welcome to the party!',
+          secondary_message: 'Request your favorite songs',
+          tertiary_message: 'Have fun!'
+        }
+      ]
+    );
+    const event = insert.rows[0];
     
     return NextResponse.json({
       success: true,

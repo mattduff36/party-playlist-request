@@ -1,3 +1,18 @@
+import { assertOk, postJson } from './helpers/browser';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+describe('Auth E2E (Cursor)', () => {
+  it('login page loads', async () => {
+    await assertOk(`${BASE_URL}/login`);
+  });
+
+  it('rejects invalid creds', async () => {
+    const res = await postJson(`${BASE_URL}/api/auth/login`, { username: 'nope', password: 'nope' });
+    expect(res.status).toBe(401);
+  });
+});
+
 import { test, expect } from '@playwright/test';
 import { TEST_USERS } from '../fixtures/users';
 

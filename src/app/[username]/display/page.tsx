@@ -342,18 +342,15 @@ function DisplayPage({ username }: { username: string }) {
               window.location.href = `/${username}/display/${auth.pin}`;
             } else {
               console.log('⏰ Authentication expired during settings update');
-              setAuthenticated(false);
-              setError('Authentication expired. Please refresh the page.');
+              // Authentication state handled by wrapper; show banner via console
             }
           } catch (e) {
             console.error('Invalid authentication data during settings update:', e);
-            setAuthenticated(false);
-            setError('Authentication invalid. Please refresh the page.');
+            // Authentication state handled by wrapper
           }
         } else {
           console.log('🔐 No authentication found during settings update');
-          setAuthenticated(false);
-          setError('Authentication lost. Please refresh the page.');
+          // Authentication state handled by wrapper
         }
       }
     },
@@ -472,13 +469,7 @@ function DisplayPage({ username }: { username: string }) {
       console.log('💬 PUSHER: Message cleared!', data);
       setCurrentMessage(null);
     },
-    onSettingsUpdate: (data: any) => {
-      console.log('⚙️ PUSHER: Settings updated!', data);
-      if (data.settings) {
-        setEventSettings(data.settings);
-        console.log('✅ Event settings refreshed from Pusher');
-      }
-    }
+    // Event settings are refreshed via fetchDisplayData above when authenticated URL used
   });
   
   // Live progress for smooth animation
@@ -798,15 +789,15 @@ function DisplayPage({ username }: { username: string }) {
       // Set default settings if fetch fails
       if (!eventSettings) {
         setEventSettings({
+          pages_enabled: { requests: true, display: true },
           event_title: 'Party DJ Requests',
           dj_name: '',
           venue_info: '',
           welcome_message: 'Request your favorite songs!',
           secondary_message: 'Your requests will be reviewed by the DJ',
           tertiary_message: 'Keep the party going!',
-          show_qr_code: true,
-          display_refresh_interval: 20
-        });
+          show_qr_code: true
+        } as EventConfig);
       }
     }
   }, [username, eventSettings]);
@@ -997,10 +988,12 @@ function DisplayPage({ username }: { username: string }) {
                     // Horizontal layout: Album art left, details right (centered)
                     <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
                       {currentTrack.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img 
                           src={currentTrack.image_url} 
                           alt="Album Art" 
                           className="rounded-lg shadow-lg"
+                          loading="lazy"
                           style={{ width: '300px', height: '300px', objectFit: 'cover' }}
                         />
                       )}
@@ -1018,10 +1011,12 @@ function DisplayPage({ username }: { username: string }) {
                     // Vertical layout: Centered
                     <div className="text-center">
                       {currentTrack.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img 
                           src={currentTrack.image_url} 
                           alt="Album Art" 
                           className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
+                          loading="lazy"
                         />
                       )}
                       <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
@@ -1052,10 +1047,12 @@ function DisplayPage({ username }: { username: string }) {
                   {useHorizontalLayout ? (
                     // Horizontal layout: QR code left, text right (centered)
                     <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={qrCodeUrl} 
                         alt="QR Code" 
                         style={{ width: '300px', height: '300px', aspectRatio: '1/1' }}
+                        loading="lazy"
                       />
                       <div className="text-left" style={{ width: '300px' }}>
                         <p className="text-black text-xl font-semibold mb-4 leading-relaxed">
@@ -1077,6 +1074,7 @@ function DisplayPage({ username }: { username: string }) {
                   ) : (
                     // Vertical layout: Centered
                     <div className="text-center flex flex-col items-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-xs mb-3" style={{ aspectRatio: '1/1' }} />
                       <p className="text-black text-lg font-semibold">Request your song now!</p>
                     </div>
@@ -1255,13 +1253,15 @@ function DisplayPage({ username }: { username: string }) {
                   <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
                   {currentTrack ? (
                     <div className="text-center">
-                      {currentTrack.image_url && (
-                        <img 
-                          src={currentTrack.image_url} 
-                          alt="Album Art" 
-                          className="w-24 h-24 mx-auto rounded-lg shadow-lg mb-3"
-                        />
-                      )}
+                  {currentTrack.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={currentTrack.image_url} 
+                      alt="Album Art" 
+                      className="w-24 h-24 mx-auto rounded-lg shadow-lg mb-3"
+                      loading="lazy"
+                    />
+                  )}
                       <h3 className="text-base font-bold mb-2 leading-tight">{currentTrack.name}</h3>
                       <p className="text-sm text-gray-300 mb-1">
                         {currentTrack.artists && currentTrack.artists.length > 0 
@@ -1287,6 +1287,7 @@ function DisplayPage({ username }: { username: string }) {
                     gridRow: '2'
                   }}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-[200px] mb-2" style={{ aspectRatio: '1/1' }} />
                   <p className="text-black text-sm font-semibold">Request your song now!</p>
                 </div>
@@ -1551,10 +1552,12 @@ function DisplayPage({ username }: { username: string }) {
                 {currentTrack ? (
         <div className="text-center">
                     {currentTrack.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img 
                         src={currentTrack.image_url} 
                         alt="Album Art" 
                         className="w-16 h-16 mx-auto rounded-lg shadow-lg mb-2"
+                        loading="lazy"
                       />
                     )}
                     <h3 className="text-xs font-bold mb-1 leading-tight">{currentTrack.name}</h3>
@@ -1581,6 +1584,7 @@ function DisplayPage({ username }: { username: string }) {
                   gridRow: '2'
                 }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto max-w-[120px] mb-1" style={{ aspectRatio: '1/1' }} />
                 <p className="text-black text-xs font-semibold">Request now!</p>
               </div>
@@ -1712,10 +1716,12 @@ function DisplayPage({ username }: { username: string }) {
           {currentTrack ? (
             <div className="text-center">
                 {currentTrack.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img 
                     src={currentTrack.image_url} 
                     alt="Album Art" 
                     className="w-24 h-24 mx-auto rounded-lg shadow-lg mb-3"
+                    loading="lazy"
                   />
                 )}
               <h3 className="text-lg font-bold mb-1">{currentTrack.name}</h3>

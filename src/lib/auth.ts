@@ -5,6 +5,7 @@
 
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { NextRequest } from 'next/server';
 
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const JWT_EXPIRES_IN = '7d'; // 7 days
@@ -57,6 +58,24 @@ export function verifyToken(token: string): JWTPayload | null {
       console.log('❌ Token verification error:', error);
     }
     return null;
+  }
+}
+
+/**
+ * verifyJWT helper to validate a NextRequest using Authorization header or cookie
+ * Returns a consistent shape used by admin routes that previously imported verifyJWT
+ */
+export function verifyJWT(req: NextRequest): { valid: boolean; user?: JWTPayload | null } {
+  try {
+    const authHeader = req.headers.get('authorization');
+    const cookieHeader = req.headers.get('cookie');
+    const token = extractToken(authHeader, (cookieHeader || '').split('auth_token=')[1]?.split(';')[0] || null);
+    if (!token) return { valid: false };
+    const decoded = verifyToken(token);
+    if (!decoded) return { valid: false };
+    return { valid: true, user: decoded };
+  } catch {
+    return { valid: false };
   }
 }
 

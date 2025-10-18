@@ -173,7 +173,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           track_name: request.track_name,
           artist_name: request.artist_name,
           album_name: request.album_name,
-          duration_ms: request.duration_ms,
+          duration_ms: (request as any).duration_ms,
           requester_nickname: request.requester_nickname || 'Anonymous',
           username: window.location.pathname.split('/')[1] // Get username from URL
         })
@@ -413,7 +413,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       {request.album_name && ` • ${request.album_name}`}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
-                      <span>{formatDuration(request.duration_ms)}</span>
+                      <span>{formatDuration((request as any).duration_ms)}</span>
                       <span>{formatTimeAgo(request.created_at)}</span>
                       {request.requester_nickname && (
                         <span className="text-purple-300">

@@ -245,12 +245,15 @@ class HealthCheckSystem {
     // Redis health check
     this.addCheck('redis', async () => {
       try {
-        const { getRedisClient } = await import('@/lib/redis');
+        const { getRedisClient, initializeRedis } = await import('@/lib/redis');
         const redis = getRedisClient();
+        if (!redis.isReady()) {
+          try { await initializeRedis(); } catch {}
+        }
         const startTime = Date.now();
         
         // Test Redis connectivity
-        await redis.set('health_check', 'test', { ex: 10 });
+        await redis.set('health_check', 'test', 10);
         const value = await redis.get('health_check');
         await redis.del('health_check');
         
@@ -341,11 +344,11 @@ class HealthCheckSystem {
     // Pusher health check
     this.addCheck('pusher', async () => {
       try {
-        const { pusher } = await import('@/lib/pusher');
+        const { pusherServer } = await import('@/lib/pusher');
         const startTime = Date.now();
         
         // Test Pusher configuration
-        const isConfigured = pusher && pusher.appId && pusher.key && pusher.secret;
+        const isConfigured = pusherServer && (pusherServer as any).appId && (pusherServer as any).key && (pusherServer as any).secret;
         
         const responseTime = Date.now() - startTime;
         
@@ -370,7 +373,7 @@ class HealthCheckSystem {
           responseTime,
           details: {
             configured: true,
-            appId: pusher.appId,
+            appId: (pusherServer as any).appId,
           },
         };
       } catch (error) {

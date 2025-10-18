@@ -233,7 +233,6 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
           queue: enhancedQueue,
           is_playing: currentPlayback?.is_playing || false,
           progress_ms: currentPlayback?.progress_ms || 0,
-          device: currentPlayback?.device || null,
           timestamp: Date.now(),
           userId: userId
         });

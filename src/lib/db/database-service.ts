@@ -435,11 +435,13 @@ export class DatabaseService {
   // Statistics and monitoring
   getStats(): DatabaseStats {
     const poolManager = getConnectionPoolManager();
-    const poolHealth: Record<PoolType, boolean> = {};
-    
-    for (const poolType of Object.values(PoolType)) {
-      poolHealth[poolType] = poolManager.isHealthy(poolType);
-    }
+    const poolHealth = {
+      [PoolType.READ_ONLY]: poolManager.isHealthy(PoolType.READ_ONLY),
+      [PoolType.WRITE_ONLY]: poolManager.isHealthy(PoolType.WRITE_ONLY),
+      [PoolType.READ_WRITE]: poolManager.isHealthy(PoolType.READ_WRITE),
+      [PoolType.ADMIN]: poolManager.isHealthy(PoolType.ADMIN),
+      [PoolType.ANALYTICS]: poolManager.isHealthy(PoolType.ANALYTICS),
+    } as Record<PoolType, boolean>;
     
     return {
       totalQueries: this.queryCount,
@@ -453,14 +455,14 @@ export class DatabaseService {
   async healthCheck(): Promise<{ healthy: boolean; details: any }> {
     try {
       const poolManager = getConnectionPoolManager();
-      const stats = poolManager.getStats();
-      
-      const healthy = Array.from(stats.values()).every(stat => stat.health === 'healthy');
-      
+      const statsMap = poolManager.getStats() as Map<PoolType, any>;
+      const healthy = Array.from(statsMap.values()).every((stat: any) => stat.health === 'healthy');
+      const poolsObject = Object.fromEntries(statsMap as unknown as Map<string, any>);
+
       return {
         healthy,
         details: {
-          pools: Object.fromEntries(stats),
+          pools: poolsObject,
           serviceStats: this.getStats(),
         },
       };

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     let queueSuccess = false;
     let playlistSuccess = false;
-    let errors: string[] = [];
+    const errors: string[] = [];
 
     // Add to Spotify queue if requested (MULTI-TENANT!)
     if (add_to_queue) {

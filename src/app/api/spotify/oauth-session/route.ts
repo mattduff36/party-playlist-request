@@ -27,12 +27,12 @@ export async function GET(req: NextRequest) {
       }, { status: 404 });
     }
 
-    console.log(`✅ [oauth-session] OAuth session found for user: ${session.username} (${session.user_id})`);
+    console.log(`✅ [oauth-session] OAuth session found for user: ${(session as any).username} (${(session as any).user_id})`);
 
     // Return only the code_verifier (don't expose sensitive data)
     return NextResponse.json({
-      code_verifier: session.code_verifier,
-      state: session.state
+      code_verifier: (session as any).code_verifier,
+      state: (session as any).state
     });
 
   } catch (error) {

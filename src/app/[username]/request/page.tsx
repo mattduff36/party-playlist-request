@@ -261,13 +261,13 @@ export default function UserRequestPage() {
     } catch (error) {
       console.error('Error fetching event settings:', error);
       setEventSettings({
+        pages_enabled: { requests: true, display: true },
         event_title: 'Party DJ Requests',
         welcome_message: 'Request your favorite songs and let\'s keep the party going!',
         secondary_message: '',
         tertiary_message: '',
-        show_qr_code: true,
-        display_refresh_interval: 20
-      });
+        show_qr_code: true
+      } as EventConfig);
     }
   };
 

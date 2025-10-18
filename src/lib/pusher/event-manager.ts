@@ -11,9 +11,8 @@ import {
   cleanupPusherClient 
 } from './client';
 import { 
-  EventBroadcaster, 
-  broadcastEvent, 
-  broadcastEvents 
+  broadcastEvent as broadcasterBroadcastEvent, 
+  broadcastEvents as broadcasterBroadcastEvents 
 } from './broadcaster';
 import { 
   PusherEvent, 
@@ -62,19 +61,14 @@ export class EventManager {
   private config: EventManagerConfig;
   private state: EventManagerState;
   private client: CentralizedPusherClient | null = null;
-  private broadcaster: EventBroadcaster;
+  // broadcaster handled via module-level helpers
   private handlers: Map<EventAction, Set<EventHandler>> = new Map();
   private eventQueue: Array<{ event: PusherEvent; resolve: () => void; reject: (error: Error) => void }> = [];
   private processingQueue = false;
 
   constructor(config: Partial<EventManagerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.broadcaster = new EventBroadcaster({
-      maxRetries: this.config.maxRetries,
-      retryDelay: this.config.retryDelay,
-      batchSize: this.config.batchSize,
-      compressionThreshold: this.config.compressionThreshold
-    });
+    // broadcaster configured in helpers
     this.state = {
       isInitialized: false,
       eventId: null,
@@ -125,6 +119,7 @@ export class EventManager {
     // Set up handlers for all event types
     const eventActions: EventAction[] = [
       'state_update',
+      'state_change',
       'request_approved',
       'request_rejected',
       'request_submitted',
@@ -211,7 +206,7 @@ export class EventManager {
         version: generateEventVersion()
       } as PusherEvent;
 
-      await broadcastEvent(fullEvent, this.state.eventId);
+      await broadcasterBroadcastEvent(fullEvent, this.state.eventId);
       console.log(`📡 Event broadcasted: ${event.action}`, fullEvent.id);
     } catch (error) {
       console.error('❌ Failed to broadcast event:', error);
@@ -235,7 +230,7 @@ export class EventManager {
         version: generateEventVersion()
       } as PusherEvent));
 
-      await broadcastEvents(fullEvents, this.state.eventId);
+      await broadcasterBroadcastEvents(fullEvents, this.state.eventId);
       console.log(`📡 Events broadcasted: ${events.length} events`);
     } catch (error) {
       console.error('❌ Failed to broadcast events:', error);

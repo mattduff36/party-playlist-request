@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       device_id = undefined;
     }
     
-    await spotifyService.skipToNext(device_id, userId);
+    // Align with SpotifyService API (next) and ignore device for now
+    await spotifyService.next(userId);
     
     return NextResponse.json({
       success: true,
