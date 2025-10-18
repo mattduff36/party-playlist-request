@@ -58,7 +58,7 @@ export class RedisRateLimiter {
 
     try {
       // Get current count
-      const currentCount = await this.redis.get<number>(key) || 0;
+      const currentCount = (await this.redis.get<number>(key)) ?? 0;
       
       if (currentCount >= this.config.maxRequests) {
         // Rate limit exceeded
@@ -149,10 +149,11 @@ export class RedisRateLimiter {
   }> {
     const key = REDIS_KEYS.RATE_LIMIT(identifier, 'system', action);
     
-    const [count, ttl] = await Promise.all([
-      this.redis.get<number>(key) || 0,
+    const [countRaw, ttl] = await Promise.all([
+      this.redis.get<number>(key),
       this.redis.ttl(key),
     ]);
+    const count = countRaw ?? 0;
 
     const now = Date.now();
     const resetTime = now + (ttl > 0 ? ttl * 1000 : this.config.windowMs);

@@ -60,10 +60,10 @@ class SpotifyService {
       }
       
       // Check if token is expired
-      if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
+      if (auth.expires_at && new Date(auth.expires_at as any) <= new Date()) {
         console.log('Access token expired, attempting refresh...');
         try {
-          await this.refreshAccessToken(userId || auth.user_id);
+          await this.refreshAccessToken(userId || (auth as any).user_id);
           return true;
         } catch (refreshError) {
           // Error is already logged in refreshAccessToken, just return false
@@ -78,20 +78,20 @@ class SpotifyService {
     }
   }
 
-  async clearTokens(): Promise<void> {
+  async clearTokens(userId: string): Promise<void> {
     try {
       const { clearSpotifyAuth } = await import('./db');
-      await clearSpotifyAuth();
+      await clearSpotifyAuth(userId);
       console.log('✅ Spotify tokens cleared from database');
     } catch (error) {
       console.error('Error clearing Spotify tokens:', error);
     }
   }
 
-  async revokeTokens(): Promise<void> {
+  async revokeTokens(userId: string): Promise<void> {
     try {
       const { getSpotifyAuth, clearSpotifyAuth } = await import('./db');
-      const auth = await getSpotifyAuth();
+      const auth = await getSpotifyAuth(userId);
       
       if (!auth?.access_token) {
         console.log('No Spotify tokens to revoke');
@@ -105,7 +105,7 @@ class SpotifyService {
       // This forces the user to re-authenticate when they try to connect again
       
       // Clear tokens from our database immediately
-      await clearSpotifyAuth();
+      await clearSpotifyAuth(userId);
       console.log('✅ Spotify tokens cleared from database - user will need to re-authenticate');
       
     } catch (error) {
@@ -113,7 +113,7 @@ class SpotifyService {
       // Still try to clear from database
       try {
         const { clearSpotifyAuth } = await import('./db');
-        await clearSpotifyAuth();
+        await clearSpotifyAuth(userId);
         console.log('⚠️ Error occurred, but cleared tokens from database');
       } catch (clearError) {
         console.error('Failed to clear tokens from database:', clearError);
@@ -208,10 +208,10 @@ class SpotifyService {
   private async saveTokens(tokenData: any, userId: string) {
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
     
-    const authData = {
+    const authData: any = {
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt,
+      expires_at: expiresAt.toISOString(),
       scope: tokenData.scope,
       token_type: tokenData.token_type || 'Bearer'
     };
@@ -224,7 +224,7 @@ class SpotifyService {
     console.log(`🔑 Getting Spotify access token${userId ? ` for user ${userId}` : ''}...`);
     const startTime = Date.now();
     
-    const auth = await getSpotifyAuth(userId);
+    const auth = await getSpotifyAuth(userId as any);
     console.log(`🔑 Auth data retrieved (${Date.now() - startTime}ms)`);
     
     if (!auth || !auth.access_token) {
@@ -232,7 +232,7 @@ class SpotifyService {
     }
 
     // Check if token is expired
-    if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
+    if (auth.expires_at && new Date(auth.expires_at as any) <= new Date()) {
       console.log('🔄 Access token expired, refreshing...');
       return await this.refreshAccessToken(userId);
     }
@@ -241,13 +241,13 @@ class SpotifyService {
   }
 
   async refreshAccessToken(userId?: string): Promise<string> {
-    const auth = await getSpotifyAuth(userId);
+    const auth = await getSpotifyAuth(userId as any);
     if (!auth || !auth.refresh_token) {
       throw new Error(`No refresh token available${userId ? ` for user ${userId}` : ''}`);
     }
     
-    if (!userId && auth.user_id) {
-      userId = auth.user_id;
+    if (!userId && (auth as any).user_id) {
+      userId = (auth as any).user_id;
     }
 
     try {
@@ -283,10 +283,10 @@ class SpotifyService {
       
       // Update tokens in database
       const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
-      const updatedAuth = {
+      const updatedAuth: any = {
         ...auth,
         access_token: tokenData.access_token,
-        expires_at: expiresAt,
+        expires_at: expiresAt.toISOString(),
         // Keep existing refresh_token if not provided in response
         refresh_token: tokenData.refresh_token || auth.refresh_token
       };
@@ -505,11 +505,11 @@ class SpotifyService {
     }
 
     const data = await response.json();
-    this.appAccessToken = data.access_token;
+    this.appAccessToken = data.access_token as string;
     this.appTokenExpiry = new Date(Date.now() + (data.expires_in * 1000));
     
     console.log('✅ App access token obtained');
-    return this.appAccessToken;
+    return this.appAccessToken!;
   }
 
   async searchTracks(query: string, limit = 20, userId?: string) {

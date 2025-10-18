@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 interface PartyNotStartedProps {
   variant: 'display' | 'request';
@@ -74,12 +75,12 @@ const PartyNotStarted: React.FC<PartyNotStartedProps> = ({ variant }) => {
           <p className="text-gray-400 text-sm md:text-base">
             Perfect for parties, weddings, bars, and events
           </p>
-          <a 
+          <Link 
             href="/"
             className="inline-block bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-black font-bold py-3 px-8 rounded-full text-base md:text-lg hover:shadow-lg hover:shadow-[#1DB954]/50 transition-all duration-300 transform hover:scale-105"
           >
             Learn More at PartyPlaylist.co.uk
-          </a>
+          </Link>
         </div>
       </div>
     </div>

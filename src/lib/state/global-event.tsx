@@ -269,7 +269,7 @@ function createActions(dispatch: React.Dispatch<GlobalEventAction>): GlobalEvent
             status: 'offline',
             version: 0,
             config: initialState.config,
-          }).returning();
+          } as any).returning();
           
           dispatch({
             type: 'UPDATE_EVENT',
@@ -588,4 +588,4 @@ export function usePageState() {
 }
 
 // Export types
-export type { GlobalEventState, EventState, EventConfig };
+// re-export types not needed; they are already declared above

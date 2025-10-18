@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Multi-tenant: Get user_id from username
-    let userId: string | null = null;
+    let userId: string | undefined = undefined;
     if (username) {
       const { getPool } = await import('@/lib/db');
       const pool = getPool();
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
         }, { status: 404 });
       }
 
-      userId = userResult.rows[0].id;
+      userId = userResult.rows[0].id as string;
       console.log(`👤 [${requestId}] Request for user: ${username} (${userId})`);
     }
 

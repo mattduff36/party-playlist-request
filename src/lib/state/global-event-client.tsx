@@ -309,6 +309,16 @@ function createActions(
         dispatch({ type: 'SET_UPDATING', payload: false });
       }
     },
+
+    // Back-compat alias wired explicitly
+    setEventStatus: async (status: EventState) => {
+      // Call through the same implementation
+      await fetch('/api/event/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+    },
     
     
     updateEventConfig: async (config: Partial<any>) => {

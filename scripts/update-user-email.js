@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 /**
  * Update a user's email address
  * Usage: node scripts/update-user-email.js <username> <new-email>

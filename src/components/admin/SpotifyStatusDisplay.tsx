@@ -344,10 +344,12 @@ export default function SpotifyStatusDisplay({ className = '', showHeader = true
               {/* Album Art */}
               <div className="w-16 h-16 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {status.currentTrack.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img 
                     src={status.currentTrack.image_url} 
                     alt="Album art" 
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <Music className="w-8 h-8 text-gray-400" />

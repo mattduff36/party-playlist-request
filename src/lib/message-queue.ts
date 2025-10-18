@@ -116,9 +116,9 @@ class MessageQueue {
             ),
             updated_at = NOW()
         WHERE user_id = ${userId}
+        RETURNING 1 as updated
       `;
-
-      if (result.count === 0) {
+      if (!('rows' in result) || (Array.isArray((result as any).rows) && (result as any).rows.length === 0)) {
         throw new Error(`No event found for user ${userId}`);
       }
 

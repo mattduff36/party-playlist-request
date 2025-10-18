@@ -141,8 +141,9 @@ export async function POST(req: NextRequest) {
         album_name: selectedTrack.album?.name || 'Unknown Album',
         track_uri: selectedTrack.uri,
         requester_nickname: 'PartyPlaylist Suggestion',
-        submitted_at: new Date().toISOString()
-      }, userId); // Pass userId for multi-tenant Pusher channel
+        submitted_at: new Date().toISOString(),
+        userId,
+      });
       console.log(`🎉 [${requestId}] Pusher event sent for random request: ${selectedTrack.name}`);
     } catch (pusherError) {
       console.error(`❌ [${requestId}] Failed to send Pusher event:`, pusherError);

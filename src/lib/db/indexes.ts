@@ -15,7 +15,14 @@ export class DatabaseIndexer {
   static async createAllIndexes() {
     console.log('🔧 Creating database indexes...');
     
-    const indexes = [
+    const indexes: Array<{
+      name: string;
+      table: string;
+      columns: string[];
+      description: string;
+      type?: 'btree' | 'gin' | 'gist' | 'hash';
+      expression?: string;
+    }> = [
       // Events table indexes
       {
         name: 'idx_events_status',
@@ -185,7 +192,7 @@ export class DatabaseIndexer {
       }
     ];
 
-    const results = [];
+    const results: Array<Record<string, any>> = [];
     
     for (const index of indexes) {
       try {
@@ -227,7 +234,7 @@ export class DatabaseIndexer {
       indexSql = `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${name} ON ${table} (${columnsStr})`;
     }
 
-    await db.execute(sql.raw(indexSql));
+    await db.execute(sql.raw(indexSql as any));
   }
 
   /**

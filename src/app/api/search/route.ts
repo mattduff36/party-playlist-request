@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     // MULTI-TENANT: Get userId from username
-    let userId: string | null = null;
+    let userId: string | undefined = undefined;
     if (username) {
       const { getPool } = await import('@/lib/db');
       const pool = getPool();
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       );
 
       if (userResult.rows.length > 0) {
-        userId = userResult.rows[0].id;
+        userId = userResult.rows[0].id as string;
       }
     }
 

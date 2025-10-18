@@ -5,7 +5,7 @@
  * from the global state management system to all connected clients.
  */
 
-import { broadcastEvent } from './broadcaster';
+import { broadcastEvent } from './event-manager';
 import { EventAction, PusherEvent } from './events';
 import { getGlobalEventActions } from '@/lib/state/global-event-client';
 
@@ -88,7 +88,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'event-state-update');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Broadcast page enablement change
@@ -111,7 +111,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'page-control-toggle');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Broadcast event config change
@@ -133,7 +133,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'event-config-update');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Broadcast loading state change
@@ -156,7 +156,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'message-update');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Broadcast error state change
@@ -183,7 +183,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'message-update');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Broadcast user action
@@ -206,7 +206,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'message-update');
+    await this.broadcastStateChange(payload, 'error_occurred');
   }
 
   // Broadcast system event
@@ -230,7 +230,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'message-update');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Broadcast admin action
@@ -254,7 +254,7 @@ export class StateBroadcaster {
       }
     };
 
-    await this.broadcastStateChange(payload, 'admin-login');
+    await this.broadcastStateChange(payload, 'state_change');
   }
 
   // Core broadcasting method with debouncing
@@ -292,7 +292,7 @@ export class StateBroadcaster {
     if (!payload || !this.eventId) return;
 
     try {
-      await broadcastEvent(this.eventId, pusherAction, payload);
+      await broadcastEvent({ action: pusherAction, eventId: this.eventId, data: payload });
       this.pendingBroadcasts.delete(key);
       this.debounceTimers.delete(key);
       
@@ -314,7 +314,7 @@ export class StateBroadcaster {
     if (this.isDestroyed || !this.eventId) return;
 
     try {
-      await broadcastEvent(this.eventId, pusherAction, payload);
+      await broadcastEvent({ action: pusherAction, eventId: this.eventId, data: payload });
       console.log(`📡 Immediate state change broadcasted: ${payload.type}`, payload.timestamp);
     } catch (error) {
       console.error('❌ Failed to broadcast immediate state change:', error);
@@ -338,11 +338,17 @@ export class StateBroadcaster {
 
       // Broadcast each group
       for (const [pusherAction, payloads] of Object.entries(grouped)) {
-        await broadcastEvent(this.eventId, pusherAction as EventAction, {
-          type: 'batch-state-changes',
-          changes: payloads,
-          timestamp: Date.now(),
-          count: payloads.length
+        await broadcastEvent({
+          action: pusherAction as EventAction,
+          eventId: this.eventId,
+          data: payloads.length === 1 ? payloads[0] : {
+            type: 'user-action-change',
+            oldValue: null,
+            newValue: payloads,
+            timestamp: Date.now(),
+            source: 'system',
+            metadata: { batched: true, count: payloads.length }
+          }
         });
       }
 

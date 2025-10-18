@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 const fs = require('fs');
 const { execSync } = require('child_process');
 

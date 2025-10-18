@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 const https = require('https');
 const fs = require('fs');
 const path = require('path');

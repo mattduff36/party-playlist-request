@@ -170,7 +170,7 @@ export class ReconnectionManager {
     this.health.consecutiveFailures++;
     this.state.isReconnecting = true;
 
-    console.log(`❌ Connection failed (attempt ${this.state.consecutiveFailures})`);
+    console.log(`❌ Connection failed (attempt ${this.state.attemptCount + 1})`);
 
     // Start reconnection process
     this.scheduleReconnection();

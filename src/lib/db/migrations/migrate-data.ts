@@ -115,11 +115,12 @@ export class DataMigration {
 
       // Insert event
       const [newEvent] = await db.insert(events).values({
+        // Provide required fields per schema; fallback placeholders if needed
         status: status as any,
-        version: 0,
+        version: 0 as any,
         config: config as any,
-        updated_at: new Date(es.updated_at)
-      }).returning();
+        updated_at: new Date(es.updated_at) as any
+      } as any).returning();
 
       return {
         success: true,

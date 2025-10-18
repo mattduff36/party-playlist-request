@@ -49,11 +49,11 @@ export async function POST(req: NextRequest) {
     console.log('🌐 [API /event/pages POST] Current event:', {
       id: currentEvent.id,
       status: currentEvent.status,
-      currentPagesEnabled: currentEvent.config.pages_enabled,
+      currentPagesEnabled: (currentEvent.config as any)?.pages_enabled,
     });
 
     // Update page enabled status with runtime guards
-    const cfg: any = currentEvent.config || {};
+    const cfg: any = (currentEvent as any).config || {};
     const pages = (cfg.pages_enabled || { requests: true, display: true }) as { requests: boolean; display: boolean };
     const newConfig = {
       ...cfg,
@@ -62,17 +62,17 @@ export async function POST(req: NextRequest) {
     
     console.log('🌐 [API /event/pages POST] New config:', newConfig);
 
-    const updatedEvent = await dbService.updateEvent(currentEvent.id, { config: newConfig }, userId);
+    const updatedEvent = await dbService.updateEvent(currentEvent.id, { config: newConfig } as any, userId);
     console.log('🌐 [API /event/pages POST] Event updated in DB:', {
       id: updatedEvent.id,
-      newPagesEnabled: updatedEvent.config.pages_enabled,
+      newPagesEnabled: (updatedEvent as any).config.pages_enabled,
     });
 
         // Trigger Pusher event for real-time updates (USER-SPECIFIC CHANNEL)
         const pusherPayload = {
           page,
           enabled,
-          pagesEnabled: updatedEvent.config.pages_enabled,
+          pagesEnabled: (updatedEvent as any).config.pages_enabled,
           adminId: userId,
           adminName: auth.user.username,
           userId: userId, // ✅ USER-SPECIFIC CHANNEL - only this user receives the event
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      pagesEnabled: event.config.pages_enabled 
+      pagesEnabled: (event as any).config?.pages_enabled 
     });
   } catch (error) {
     console.error('Error getting page controls:', error);

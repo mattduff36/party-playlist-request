@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 /**
  * CRITICAL SECURITY MIGRATION
  * Adds user_id to requests table for proper multi-tenant data isolation

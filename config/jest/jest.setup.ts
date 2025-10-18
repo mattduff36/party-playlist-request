@@ -5,6 +5,9 @@
  */
 
 import '@testing-library/jest-dom';
+import React from 'react';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).React = React;
 import * as dotenv from 'dotenv';
 
 // Load test environment variables

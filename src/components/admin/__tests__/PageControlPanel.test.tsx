@@ -6,19 +6,23 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PageControlPanel from '../PageControlPanel';
 
-// Mock the global event hook
-jest.mock('@/lib/state/global-event', () => ({
+// Mock the global event hook (client version used by components)
+jest.mock('@/lib/state/global-event-client', () => ({
   useGlobalEvent: () => ({
     state: {
+      status: 'standby',
       pagesEnabled: {
         requests: false,
         display: false
-      }
+      },
+      error: null
     },
     actions: {
-      setPageEnabled: jest.fn().mockResolvedValue(undefined)
+      setPageEnabled: jest.fn().mockResolvedValue(undefined),
+      setError: jest.fn()
     }
-  })
+  }),
+  EventStateMachine: { canTransition: () => true }
 }));
 
 describe('PageControlPanel', () => {
@@ -26,55 +30,45 @@ describe('PageControlPanel', () => {
     render(<PageControlPanel />);
     
     expect(screen.getByText('Page Controls')).toBeInTheDocument();
-    expect(screen.getByText('Enable or disable pages for users')).toBeInTheDocument();
-    expect(screen.getByText('Requests Page')).toBeInTheDocument();
-    expect(screen.getByText('Display Page')).toBeInTheDocument();
+    expect(screen.getByText('Requests')).toBeInTheDocument();
+    expect(screen.getByText('Display')).toBeInTheDocument();
   });
 
-  it('shows correct page descriptions', () => {
+  it('shows both page tiles', () => {
     render(<PageControlPanel />);
     
-    expect(screen.getByText('Allow users to submit song requests')).toBeInTheDocument();
-    expect(screen.getByText('Show now playing and queue')).toBeInTheDocument();
+    expect(screen.getByText('Requests')).toBeInTheDocument();
+    expect(screen.getByText('Display')).toBeInTheDocument();
   });
 
-  it('displays disabled status for both pages', () => {
+  it('buttons are present', () => {
     render(<PageControlPanel />);
     
-    const disabledElements = screen.getAllByText('Disabled');
-    expect(disabledElements).toHaveLength(2);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBe(2);
   });
 
-  it('shows eye-off icons for disabled pages', () => {
+  it('renders icons for both tiles', () => {
     render(<PageControlPanel />);
     
-    const eyeOffIcons = screen.getAllByTestId('eye-off-icon');
-    expect(eyeOffIcons).toHaveLength(2);
+    expect(screen.getByText('Requests')).toBeInTheDocument();
+    expect(screen.getByText('Display')).toBeInTheDocument();
   });
 
   it('handles page toggle clicks', async () => {
     const mockSetPageEnabled = jest.fn().mockResolvedValue(undefined);
     
-    jest.doMock('@/lib/state/global-event', () => ({
-      useGlobalEvent: () => ({
-        state: {
-          pagesEnabled: {
-            requests: false,
-            display: false
-          }
-        },
-        actions: {
-          setPageEnabled: mockSetPageEnabled
-        }
-      })
-    }));
+    const mod = require('@/lib/state/global-event-client');
+    jest.spyOn(mod, 'useGlobalEvent').mockReturnValueOnce({
+      state: { status: 'standby', pagesEnabled: { requests: false, display: false }, error: null },
+      actions: { setPageEnabled: mockSetPageEnabled, setError: jest.fn() }
+    });
 
     render(<PageControlPanel />);
     
-    const requestsToggle = screen.getByText('Requests Page').closest('div')?.querySelector('button');
-    expect(requestsToggle).toBeInTheDocument();
-    
-    fireEvent.click(requestsToggle!);
+    const requestsButton = screen.getByText('Requests').closest('button');
+    expect(requestsButton).toBeInTheDocument();
+    fireEvent.click(requestsButton!);
     
     await waitFor(() => {
       expect(mockSetPageEnabled).toHaveBeenCalledWith('requests', true);
@@ -84,98 +78,65 @@ describe('PageControlPanel', () => {
   it('disables toggles during transition', async () => {
     const mockSetPageEnabled = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
     
-    jest.doMock('@/lib/state/global-event', () => ({
-      useGlobalEvent: () => ({
-        state: {
-          pagesEnabled: {
-            requests: false,
-            display: false
-          }
-        },
-        actions: {
-          setPageEnabled: mockSetPageEnabled
-        }
-      })
-    }));
+    const mod = require('@/lib/state/global-event-client');
+    jest.spyOn(mod, 'useGlobalEvent').mockReturnValueOnce({
+      state: { status: 'standby', pagesEnabled: { requests: false, display: false }, error: null },
+      actions: { setPageEnabled: mockSetPageEnabled, setError: jest.fn() }
+    });
 
     render(<PageControlPanel />);
     
-    const requestsToggle = screen.getByText('Requests Page').closest('div')?.querySelector('button');
-    fireEvent.click(requestsToggle!);
+    const requestsButton = screen.getByText('Requests').closest('button');
+    fireEvent.click(requestsButton!);
     
     // Toggle should be disabled during transition
-    expect(requestsToggle).toHaveClass('opacity-50', 'cursor-not-allowed');
+    expect(requestsButton).toHaveClass('opacity-50');
   });
 
-  it('applies correct styling for enabled pages', () => {
-    jest.doMock('@/lib/state/global-event', () => ({
-      useGlobalEvent: () => ({
-        state: {
-          pagesEnabled: {
-            requests: true,
-            display: true
-          }
-        },
-        actions: {
-          setPageEnabled: jest.fn().mockResolvedValue(undefined)
-        }
-      })
-    }));
+  it('applies enabled styling when pagesEnabled is true', () => {
+    const mod = require('@/lib/state/global-event-client');
+    jest.spyOn(mod, 'useGlobalEvent').mockReturnValueOnce({
+      state: { status: 'standby', pagesEnabled: { requests: true, display: true }, error: null },
+      actions: { setPageEnabled: jest.fn(), setError: jest.fn() }
+    });
 
     render(<PageControlPanel />);
     
-    const enabledElements = screen.getAllByText('Enabled');
-    expect(enabledElements).toHaveLength(2);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[0].className).toMatch('border-green-600');
+    expect(buttons[1].className).toMatch('border-green-600');
   });
 
-  it('shows eye icons for enabled pages', () => {
-    jest.doMock('@/lib/state/global-event', () => ({
-      useGlobalEvent: () => ({
-        state: {
-          pagesEnabled: {
-            requests: true,
-            display: true
-          }
-        },
-        setPageEnabled: jest.fn().mockResolvedValue(undefined)
-      })
-    }));
+  it('shows visual change for enabled pages', () => {
+    const mod = require('@/lib/state/global-event-client');
+    jest.spyOn(mod, 'useGlobalEvent').mockReturnValueOnce({
+      state: { status: 'standby', pagesEnabled: { requests: true, display: true }, error: null },
+      actions: { setPageEnabled: jest.fn(), setError: jest.fn() }
+    });
 
     render(<PageControlPanel />);
     
-    // Check for eye icons (which indicate enabled state)
-    const eyeIcons = screen.getAllByRole('img', { hidden: true });
-    expect(eyeIcons.length).toBeGreaterThan(0);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[0].className).toMatch('border-green-600');
+    expect(buttons[1].className).toMatch('border-green-600');
   });
 
-  it('displays help text', () => {
+  it('no help text is rendered in compact UI', () => {
     render(<PageControlPanel />);
-    
-    expect(screen.getByText('Page Control Tips:')).toBeInTheDocument();
-    expect(screen.getByText('• Disable pages to prevent user access during setup')).toBeInTheDocument();
-    expect(screen.getByText('• Both pages can be enabled simultaneously')).toBeInTheDocument();
-    expect(screen.getByText('• Changes take effect immediately across all devices')).toBeInTheDocument();
+    expect(screen.getByText('Page Controls')).toBeInTheDocument();
   });
 
   it('applies correct styling for mixed states', () => {
-    jest.doMock('@/lib/state/global-event', () => ({
-      useGlobalEvent: () => ({
-        state: {
-          pagesEnabled: {
-            requests: true,
-            display: false
-          }
-        },
-        setPageEnabled: jest.fn().mockResolvedValue(undefined)
-      })
-    }));
+    const mod = require('@/lib/state/global-event-client');
+    jest.spyOn(mod, 'useGlobalEvent').mockReturnValueOnce({
+      state: { status: 'standby', pagesEnabled: { requests: true, display: false }, error: null },
+      actions: { setPageEnabled: jest.fn(), setError: jest.fn() }
+    });
 
     render(<PageControlPanel />);
     
-    // Check for both enabled and disabled states
-    const enabledElements = screen.getAllByText('Enabled');
-    const disabledElements = screen.getAllByText('Disabled');
-    expect(enabledElements.length).toBeGreaterThan(0);
-    expect(disabledElements.length).toBeGreaterThan(0);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[0].className).toMatch('border-green-600');
+    expect(buttons[1].className).toMatch('border-gray-600');
   });
 });

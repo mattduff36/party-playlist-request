@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     
     let playbackState = null;
     let queueData = null;
-    let spotifyErrors = [];
+    const spotifyErrors: string[] = [];
     
     // Try getCurrentPlayback first (MULTI-TENANT: pass userId!)
     console.log(`🎵 [${requestId}] Calling getCurrentPlayback(${userId})...`);

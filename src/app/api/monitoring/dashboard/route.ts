@@ -79,14 +79,14 @@ async function getHealthData() {
 }
 
 async function getAlertData() {
-  const alerts = alertingSystem.getAlerts();
-  const stats = alertingSystem.getAlertStats();
+  const alerts: any[] = (alertingSystem as any).getAlerts ? (alertingSystem as any).getAlerts() : [];
+  const stats = (alertingSystem as any).getAlertStats ? (alertingSystem as any).getAlertStats() : (alertingSystem.getDeliveryStats());
 
   return {
     ...stats,
     recent: alerts
-      .filter(alert => !alert.resolved)
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .filter((alert: any) => !alert.resolved)
+      .sort((a: any, b: any) => b.timestamp - a.timestamp)
       .slice(0, 10), // Last 10 alerts
   };
 }

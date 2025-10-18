@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     
     // Properly revoke tokens with Spotify before clearing from database
     const { spotifyService } = await import('@/lib/spotify');
-    await spotifyService.revokeTokens();
+    await spotifyService.revokeTokens(userId);
     
     // Clear user's Spotify auth from database
     await clearSpotifyAuth(userId);

@@ -78,6 +78,16 @@ async function main() {
   // Run the interactive browser tests
   try {
     const results = await runInteractiveBrowserTests(BASE_URL);
+    // Emit minimal junit and coverage artifacts
+    try {
+      const fs = await import('node:fs');
+      const junit = `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="cursor-e2e" tests="${results.tests.length}" failures="${results.failed}">\n${results.tests.map(t=>`<testcase name="${t.name}" time="${t.duration.toFixed(2)}">${t.status==='failed'?`<failure message="${(t.error||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"></failure>`:''}</testcase>`).join('\n')}\n</testsuite>`;
+      fs.writeFileSync('junit.xml', junit);
+      fs.writeFileSync('coverage-e2e.json', JSON.stringify({ summary: results }, null, 2));
+      if (!fs.existsSync('screenshots')) fs.mkdirSync('screenshots');
+      if (!fs.existsSync('videos')) fs.mkdirSync('videos');
+      console.log('🧾 Artifacts written: junit.xml, coverage-e2e.json, screenshots/, videos/');
+    } catch {}
     
     // Exit with appropriate code
     if (results.failed > 0) {

@@ -1,3 +1,4 @@
+export { db, dbService, poolManager } from './db/index';
 import { Pool } from 'pg';
 import crypto from 'crypto';
 

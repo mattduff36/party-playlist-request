@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
       });
     } catch (tokenError) {
       console.error('❌ CRITICAL: Token exchange failed:', {
-        error: tokenError.message,
-        stack: tokenError.stack,
+        error: tokenError instanceof Error ? tokenError.message : String(tokenError),
+        stack: tokenError instanceof Error ? tokenError.stack : undefined,
         code: code?.substring(0, 10) + '...',
         codeVerifier: code_verifier?.substring(0, 10) + '...'
       });
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       const isNowConnected = await spotifyService.isConnected(userId);
       console.log('Post-save connection check:', isNowConnected);
     } catch (verifyError) {
-      console.log('Failed to verify connection after save:', verifyError.message);
+      console.log('Failed to verify connection after save:', verifyError instanceof Error ? verifyError.message : String(verifyError));
     }
     
     // Clean up OAuth session after successful token exchange

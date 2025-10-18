@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       request_limit,
       auto_approve,
       force_polling,
-      decline_explicit,
+      // decline_explicit is not part of EventSettings type; ignore if present
       show_scrolling_bar,
       karaoke_mode,
       qr_boost_duration,
@@ -94,7 +94,6 @@ export async function POST(req: NextRequest) {
       request_limit,
       auto_approve,
       force_polling,
-      decline_explicit,
       qr_boost_duration,
       theme_primary_color,
       theme_secondary_color,

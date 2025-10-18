@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 /**
  * Check the users table schema
  */

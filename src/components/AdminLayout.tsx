@@ -62,7 +62,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const displayUsername = username || pathname?.split('/')[1] || 'DJ Admin';
   const baseRoute = `/${pathname?.split('/')[1]}`;
 
-  const navItems = [
+  const navItems: Array<{ id: string; label: string; icon: any; href?: string; onClick?: () => void; badge?: number }> = [
     { 
       id: 'overview', 
       label: 'Overview', 
@@ -226,7 +226,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   };
 
   // Sidebar component
-  const Sidebar = () => (
+  const Sidebar: React.FC = () => (
     <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-gray-800 border-r border-gray-700 z-40">
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex items-center h-16 px-4 bg-gray-900">
@@ -297,7 +297,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   );
 
   // Top navigation for mobile
-  const TopNav = () => (
+  const TopNav: React.FC = () => (
     <div className="md:hidden sticky top-0 z-50 flex items-center justify-between h-16 px-4 bg-gray-800 border-b border-gray-700">
       <div className="flex items-center">
         <span className="text-2xl mr-2">🎵</span>
@@ -323,7 +323,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   );
 
   // Mobile bottom navigation
-  const BottomNav = () => (
+  const BottomNav: React.FC = () => (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-50">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
@@ -358,7 +358,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   );
 
   // Logout Modal
-  const LogoutModal = () => {
+  const LogoutModal: React.FC = () => {
     if (!showLogoutModal) return null;
 
     return (

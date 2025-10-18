@@ -133,8 +133,6 @@ export class CentralizedPusherClient {
       this.client = new PusherClient(this.config.key, {
         cluster: this.config.cluster,
         forceTLS: this.config.forceTLS,
-        enabledTransports: this.config.enabledTransports,
-        disabledTransports: this.config.disabledTransports,
         authEndpoint: '/api/pusher/auth',
         auth: {
           headers: {
@@ -223,7 +221,7 @@ export class CentralizedPusherClient {
       const event = data as PusherEvent;
 
       // Check rate limiting
-      const rateLimitResult = this.rateLimiter.checkRateLimit(event, undefined, this.eventId);
+      const rateLimitResult = this.rateLimiter.checkRateLimit(event, undefined, this.eventId || undefined);
       if (!rateLimitResult.allowed) {
         console.warn('⚠️ Rate limit exceeded, dropping event:', event.id, rateLimitResult.reason);
         return;
@@ -245,7 +243,7 @@ export class CentralizedPusherClient {
 
   // Process individual event
   private processEvent(event: PusherEvent): void {
-    const handler = this.handlers[event.action];
+      const handler = this.handlers[event.action] as unknown as ((e: PusherEvent) => void) | undefined;
     if (handler) {
       try {
         handler(event);

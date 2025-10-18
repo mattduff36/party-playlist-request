@@ -8,9 +8,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+// Minimal local UI shims to unblock build if shadcn components are missing
+const Card = ({ children, className }: any) => <div className={`rounded border bg-white ${className || ''}`}>{children}</div>;
+const CardHeader = ({ children, className }: any) => <div className={`p-4 border-b ${className || ''}`}>{children}</div>;
+const CardTitle = ({ children, className }: any) => <div className={`text-lg font-semibold ${className || ''}`}>{children}</div>;
+const CardContent = ({ children, className }: any) => <div className={`p-4 ${className || ''}`}>{children}</div>;
+const Badge = ({ children, className }: any) => <span className={`inline-block px-2 py-1 rounded text-xs ${className || ''}`}>{children}</span>;
+const Button = ({ children, className, onClick, size }: any) => (
+  <button onClick={onClick} className={`inline-flex items-center px-3 py-2 border rounded ${className || ''}`}>{children}</button>
+);
 import { 
   Activity, 
   AlertTriangle, 
@@ -18,7 +24,7 @@ import {
   XCircle, 
   Clock, 
   Database, 
-  Memory, 
+  HardDrive, 
   Cpu,
   Wifi,
   Users,
@@ -106,7 +112,7 @@ interface MonitoringData {
   };
 }
 
-export default function MonitoringDashboard() {
+function MonitoringDashboard() {
   const [data, setData] = useState<MonitoringData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -341,7 +347,7 @@ export default function MonitoringDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Memory className="h-5 w-5 mr-2" />
+              <HardDrive className="h-5 w-5 mr-2" />
               Resource Usage
             </CardTitle>
           </CardHeader>
@@ -438,4 +444,13 @@ export default function MonitoringDashboard() {
       )}
     </div>
   );
+}
+
+export default function MonitoringDashboardWrapper() {
+  if (process.env.NEXT_PUBLIC_ENABLE_MONITORING !== 'true') {
+    return (
+      <div className="p-6 text-sm text-gray-600">Monitoring dashboard is disabled.</div>
+    );
+  }
+  return <MonitoringDashboard />;
 }

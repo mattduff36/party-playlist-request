@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     console.log(`🔍 [admin/requests] User ${auth.user.username} (${userId}) fetching requests`);
     
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status') || 'all';
+    const statusParam = searchParams.get('status') || 'all';
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -22,11 +22,12 @@ export async function GET(req: NextRequest) {
     let total;
 
     // Now user-scoped! Only return this user's requests
-    if (status === 'all') {
+    if (statusParam === 'all') {
       requests = await getAllRequests(limit, offset, userId);
       const counts = await getRequestsCount(userId);
       total = counts.total;
     } else {
+      const status = statusParam as 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
       requests = await getRequestsByStatus(status, limit, offset, userId);
       const counts = await getRequestsCount(userId);
       total = status === 'pending' ? counts.pending : 

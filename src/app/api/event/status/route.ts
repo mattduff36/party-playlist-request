@@ -212,14 +212,14 @@ export async function POST(req: NextRequest) {
       await triggerStateUpdate({
         status: updatedEvent.status as EventStatus,
         pagesEnabled: {
-          requests: updatedEvent.config?.pages_enabled?.requests || false,
-          display: updatedEvent.config?.pages_enabled?.display || false,
+          requests: (updatedEvent as any).config?.pages_enabled?.requests || false,
+          display: (updatedEvent as any).config?.pages_enabled?.display || false,
         },
         config: {
-          event_title: updatedEvent.config?.event_title || 'Party DJ Requests',
-          welcome_message: updatedEvent.config?.welcome_message || '',
-          secondary_message: updatedEvent.config?.secondary_message || '',
-          tertiary_message: updatedEvent.config?.tertiary_message || '',
+          event_title: (updatedEvent as any).config?.event_title || 'Party DJ Requests',
+          welcome_message: (updatedEvent as any).config?.welcome_message || '',
+          secondary_message: (updatedEvent as any).config?.secondary_message || '',
+          tertiary_message: (updatedEvent as any).config?.tertiary_message || '',
         },
         adminId: userId,
         adminName: auth.user.username,

@@ -6,16 +6,18 @@ dotenv.config({ path: './test.env' });
 
 const config: Config = {
   displayName: 'Unit Tests',
-  testEnvironment: 'node',
-  rootDir: './',
+  testEnvironment: 'jsdom',
+  rootDir: '../..',
   testMatch: [
     '<rootDir>/tests/unit/**/*.spec.ts',
     '<rootDir>/tests/unit/**/*.test.ts',
+    '<rootDir>/src/components/**/__tests__/**/*.(spec|test).tsx',
+    '<rootDir>/src/components/**/__tests__/**/*.(spec|test).ts',
   ],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {
-        jsx: 'react',
+        jsx: 'react-jsx',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
       },
@@ -24,7 +26,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
   collectCoverageFrom: [
     'src/lib/**/*.{ts,tsx}',
     '!src/lib/**/*.d.ts',

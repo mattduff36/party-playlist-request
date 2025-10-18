@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable unicorn/prefer-module */
 const { createServer } = require('https');
 const { parse } = require('url');
 const next = require('next');

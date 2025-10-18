@@ -29,6 +29,7 @@
     "db:validate-data": "tsx src/lib/db/constraints.ts validate",
     "test": "jest",
     "test:browser": "tsx scripts/run-browser-tests.ts",
+    "test:e2e:cursor": "tsx scripts/run-browser-tests.ts",
     "test:browser:dj": "tsx scripts/run-browser-tests.ts --flow=dj",
     "test:browser:guest": "tsx scripts/run-browser-tests.ts --flow=guest",
     "test:unit": "node scripts/test-runner.js unit",
@@ -115,5 +116,12 @@
     "ts-jest": "^29.4.4",
     "tsx": "^4.20.6",
     "typescript": "5.9.3"
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/e2e/",
+      "/.next/standalone/"
+    ]
   }
 }

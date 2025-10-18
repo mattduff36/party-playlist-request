@@ -12,7 +12,25 @@ export * from './events';
 export * from './client';
 
 // Export broadcaster
-export * from './broadcaster';
+export {
+  broadcastEvent as broadcasterBroadcastEvent,
+  broadcastEvents as broadcasterBroadcastEvents,
+  getBroadcasterStats,
+  clearBroadcastQueue,
+  broadcastStateUpdate,
+  broadcastRequestApproved,
+  broadcastRequestRejected,
+  broadcastRequestSubmitted,
+  broadcastRequestDeleted,
+  broadcastPlaybackUpdate,
+  broadcastPageControlToggle,
+  broadcastAdminLogin,
+  broadcastAdminLogout,
+  broadcastTokenExpired,
+  broadcastStatsUpdate,
+  broadcastErrorOccurred,
+  broadcastHeartbeat
+} from './broadcaster';
 
 // Export event manager
 export * from './event-manager';
@@ -40,6 +58,7 @@ export * from '../../hooks/useStateBroadcaster';
 // Re-export legacy Pusher functionality for backward compatibility
 export { 
   pusherServer, 
+  pusherServer as pusher,
   createPusherClient, 
   triggerEvent,
   triggerRequestApproved,

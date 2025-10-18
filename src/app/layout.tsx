@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from '@vercel/analytics/react';
 import ServerStartup from '@/components/ServerStartup';
@@ -12,12 +12,13 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Party DJ Request System",
   description: "Request songs for the party playlist",
-  viewport: {
-    width: 'device-width',
-    initialScale: 1.0,
-    maximumScale: 1.0,
-    userScalable: false,
-  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1.0,
+  maximumScale: 1.0,
+  userScalable: false,
 };
 
 export default function RootLayout({
