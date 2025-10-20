@@ -196,6 +196,10 @@ function DisplayPage({ username }: { username: string }) {
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
   
+  // 🖼️ Force portrait/vertical layout when notice board message is visible
+  // This ensures Now Playing and QR Code switch to portrait mode when a message appears
+  const finalUseHorizontalLayout = isMessageVisible ? false : useHorizontalLayout;
+  
   // Use global event state
   const { state: globalState } = useGlobalEvent();
   
@@ -993,7 +997,7 @@ function DisplayPage({ username }: { username: string }) {
               >
                 <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
                 {currentTrack ? (
-                  useHorizontalLayout ? (
+                  finalUseHorizontalLayout ? (
                     // Horizontal layout: Album art left, details right (centered)
                     <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
                       {currentTrack.image_url && (
@@ -1049,7 +1053,7 @@ function DisplayPage({ username }: { username: string }) {
                     gridRow: '2'
                   }}
                 >
-                  {useHorizontalLayout ? (
+                  {finalUseHorizontalLayout ? (
                     // Horizontal layout: QR code left, text right (centered)
                     <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
                       <img 
