@@ -97,6 +97,14 @@ export async function GET(req: NextRequest) {
         show_qr_code: settings.show_qr_code ?? true,
         display_refresh_interval: settings.display_refresh_interval || 20,
         pin: eventPin,
+        // Theme customization
+        theme_primary_color: (settings as any).theme_primary_color || '#1DB954',
+        theme_secondary_color: (settings as any).theme_secondary_color || '#191414',
+        theme_tertiary_color: (settings as any).theme_tertiary_color || '#1ed760',
+        // Display features
+        show_approval_messages: (settings as any).show_approval_messages ?? false,
+        show_scrolling_bar: (settings as any).show_scrolling_bar ?? true,
+        qr_boost_duration: (settings as any).qr_boost_duration || 5,
       },
       current_track: currentTrack,
       upcoming_songs: upcomingSongs
