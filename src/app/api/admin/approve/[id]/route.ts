@@ -144,6 +144,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       try {
         const eventSettings = await getEventSettings(userId);
         
+        console.log(`📋 [admin/approve] Event settings retrieved:`, {
+          show_approval_messages: eventSettings.show_approval_messages,
+          userId: userId,
+          settingsId: eventSettings.id
+        });
+        
         if (eventSettings.show_approval_messages) {
           const requesterName = request.requester_nickname || 'Anonymous';
           const artistName = request.artist_name || 'Unknown Artist';
@@ -157,9 +163,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await messageQueue.addMessage(userId, messageText, 10);
           
           console.log(`✅ [admin/approve] Auto-approval message queued successfully`);
+        } else {
+          console.log(`ℹ️ [admin/approve] show_approval_messages is disabled, skipping notice board message`);
         }
       } catch (messageError) {
         console.error('❌ Failed to queue auto-approval message:', messageError);
+        console.error('❌ Error details:', messageError);
         // Don't fail the approval if message fails
       }
     }
