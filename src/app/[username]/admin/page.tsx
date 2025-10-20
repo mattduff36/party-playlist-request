@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 
 export default function AdminRedirect() {
   const router = useRouter();
+  const params = useParams();
+  const username = params.username as string;
 
   useEffect(() => {
-    router.replace('/admin/overview');
-  }, [router]);
+    // Redirect to username-specific admin overview (multi-tenant routing)
+    router.replace(`/${username}/admin/overview`);
+  }, [router, username]);
 
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">

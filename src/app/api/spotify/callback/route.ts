@@ -48,7 +48,24 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in Spotify callback:', error);
-    const redirectUrl = new URL('/admin/overview', req.url);
+    // Try to get username from state parameter for proper redirect
+    const { searchParams } = new URL(req.url);
+    const state = searchParams.get('state');
+    let fallbackUrl = '/admin/overview'; // Legacy fallback
+    
+    if (state) {
+      try {
+        const { getOAuthSession } = await import('@/lib/db');
+        const session = await getOAuthSession(state);
+        if (session?.username) {
+          fallbackUrl = `/${session.username}/admin/overview`;
+        }
+      } catch {
+        // Keep default fallback
+      }
+    }
+    
+    const redirectUrl = new URL(fallbackUrl, req.url);
     redirectUrl.searchParams.set('error', 'Failed to process Spotify callback');
     return NextResponse.redirect(redirectUrl);
   }
