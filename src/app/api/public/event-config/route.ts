@@ -33,6 +33,18 @@ export async function GET(req: NextRequest) {
     // Get user-specific event settings
     const settings = await getEventSettings(userId);
 
+    // Get message data from events.config (not user_settings)
+    // Message queue writes to events.config JSONB field for real-time updates
+    const { sql } = await import('@/lib/db/neon-client');
+    const eventResult = await sql`
+      SELECT config FROM events WHERE user_id = ${userId} LIMIT 1
+    `;
+    
+    const eventConfig = eventResult.length > 0 ? eventResult[0].config : {};
+    const messageText = (eventConfig as any)?.message_text || null;
+    const messageDuration = (eventConfig as any)?.message_duration || null;
+    const messageCreatedAt = (eventConfig as any)?.message_created_at || null;
+
     // Include all display-relevant settings
     return NextResponse.json({
       config: {
@@ -46,8 +58,9 @@ export async function GET(req: NextRequest) {
         show_approval_messages: (settings as any).show_approval_messages ?? false,
         show_scrolling_bar: (settings as any).show_scrolling_bar ?? true,
         qr_boost_duration: (settings as any).qr_boost_duration || 5,
-        message_text: (settings as any).message_text,
-        message_duration: (settings as any).message_duration,
+        message_text: messageText,
+        message_duration: messageDuration,
+        message_created_at: messageCreatedAt,
       }
     });
 
