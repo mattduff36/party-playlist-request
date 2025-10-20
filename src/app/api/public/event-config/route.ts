@@ -33,12 +33,21 @@ export async function GET(req: NextRequest) {
     // Get user-specific event settings
     const settings = await getEventSettings(userId);
 
+    // Include all display-relevant settings
     return NextResponse.json({
       config: {
         event_title: settings.event_title || 'Party DJ Requests',
         welcome_message: settings.welcome_message || 'Request your favorite songs!',
         secondary_message: settings.secondary_message || 'Your requests will be reviewed by the DJ',
         tertiary_message: settings.tertiary_message || 'Keep the party going!',
+        theme_primary_color: (settings as any).theme_primary_color || '#1DB954',
+        theme_secondary_color: (settings as any).theme_secondary_color || '#191414',
+        theme_tertiary_color: (settings as any).theme_tertiary_color || '#1ed760',
+        show_approval_messages: (settings as any).show_approval_messages ?? false,
+        show_scrolling_bar: (settings as any).show_scrolling_bar ?? true,
+        qr_boost_duration: (settings as any).qr_boost_duration || 5,
+        message_text: (settings as any).message_text,
+        message_duration: (settings as any).message_duration,
       }
     });
 
@@ -51,6 +60,12 @@ export async function GET(req: NextRequest) {
           welcome_message: 'Request your favorite songs!',
           secondary_message: 'Your requests will be reviewed by the DJ',
           tertiary_message: 'Keep the party going!',
+          theme_primary_color: '#1DB954',
+          theme_secondary_color: '#191414',
+          theme_tertiary_color: '#1ed760',
+          show_approval_messages: false,
+          show_scrolling_bar: true,
+          qr_boost_duration: 5,
         }
       },
       { status: 200 } // Return defaults instead of error for graceful degradation

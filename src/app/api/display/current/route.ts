@@ -84,8 +84,19 @@ export async function GET(req: NextRequest) {
       // Continue without queue data
     }
     
+    // Ensure complete settings with all display customization fields
+    const completeSettings = {
+      ...eventSettings,
+      theme_primary_color: (eventSettings as any).theme_primary_color || '#1DB954',
+      theme_secondary_color: (eventSettings as any).theme_secondary_color || '#191414',
+      theme_tertiary_color: (eventSettings as any).theme_tertiary_color || '#1ed760',
+      show_approval_messages: (eventSettings as any).show_approval_messages ?? false,
+      show_scrolling_bar: (eventSettings as any).show_scrolling_bar ?? true,
+      qr_boost_duration: (eventSettings as any).qr_boost_duration || 5,
+    };
+
     return NextResponse.json({
-      event_settings: eventSettings,
+      event_settings: completeSettings,
       current_track: currentTrack,
       upcoming_songs: upcomingSongs,
       is_playing: playbackState?.is_playing || false
@@ -109,8 +120,17 @@ export async function GET(req: NextRequest) {
       }
       
       const eventSettings = await getEventSettings(userId);
+      const completeSettings = {
+        ...eventSettings,
+        theme_primary_color: (eventSettings as any).theme_primary_color || '#1DB954',
+        theme_secondary_color: (eventSettings as any).theme_secondary_color || '#191414',
+        theme_tertiary_color: (eventSettings as any).theme_tertiary_color || '#1ed760',
+        show_approval_messages: (eventSettings as any).show_approval_messages ?? false,
+        show_scrolling_bar: (eventSettings as any).show_scrolling_bar ?? true,
+        qr_boost_duration: (eventSettings as any).qr_boost_duration || 5,
+      };
       return NextResponse.json({
-        event_settings: eventSettings,
+        event_settings: completeSettings,
         current_track: null,
         upcoming_songs: [],
         is_playing: false
@@ -125,7 +145,13 @@ export async function GET(req: NextRequest) {
           secondary_message: 'Your requests will be reviewed by the DJ',
           tertiary_message: 'Keep the party going!',
           show_qr_code: true,
-          display_refresh_interval: 20
+          display_refresh_interval: 20,
+          theme_primary_color: '#1DB954',
+          theme_secondary_color: '#191414',
+          theme_tertiary_color: '#1ed760',
+          show_approval_messages: false,
+          show_scrolling_bar: true,
+          qr_boost_duration: 5,
         },
         current_track: null,
         upcoming_songs: [],
