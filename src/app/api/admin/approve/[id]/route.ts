@@ -3,6 +3,7 @@ import { requireAuth } from '@/middleware/auth';
 import { getRequest, updateRequest, getSetting, createNotification, getEventSettings } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestApproved } from '@/lib/pusher';
+// Notice board auto-message support
 import { messageQueue } from '@/lib/message-queue';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -140,37 +141,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Don't fail the request if queue refresh fails - normal polling will handle it
       }
 
-      // 📢 AUTO-MESSAGE: Queue Notice Board message if enabled
-      try {
-        const eventSettings = await getEventSettings(userId);
+    }
+
+    // 📢 AUTO-MESSAGE: Queue Notice Board message if enabled (MOVED OUTSIDE STATUS CHECK)
+    // This runs regardless of Spotify success/failure to show the notice board message
+    try {
+      const eventSettings = await getEventSettings(userId);
+      
+      console.log(`📋 [admin/approve] Event settings retrieved:`, {
+        show_approval_messages: eventSettings.show_approval_messages,
+        userId: userId,
+        settingsId: eventSettings.id
+      });
+      
+      if (eventSettings.show_approval_messages) {
+        const requesterName = request.requester_nickname || 'Anonymous';
+        const artistName = request.artist_name || 'Unknown Artist';
+        const trackName = request.track_name;
         
-        console.log(`📋 [admin/approve] Event settings retrieved:`, {
-          show_approval_messages: eventSettings.show_approval_messages,
-          userId: userId,
-          settingsId: eventSettings.id
-        });
+        const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nParty Playlist!`;
         
-        if (eventSettings.show_approval_messages) {
-          const requesterName = request.requester_nickname || 'Anonymous';
-          const artistName = request.artist_name || 'Unknown Artist';
-          const trackName = request.track_name;
-          
-          const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nParty Playlist!`;
-          
-          console.log(`📢 [admin/approve] Queueing auto-approval message: "${messageText.substring(0, 50)}..."`);
-          
-          // Add message to queue (10 seconds duration as documented)
-          await messageQueue.addMessage(userId, messageText, 10);
-          
-          console.log(`✅ [admin/approve] Auto-approval message queued successfully`);
-        } else {
-          console.log(`ℹ️ [admin/approve] show_approval_messages is disabled, skipping notice board message`);
-        }
-      } catch (messageError) {
-        console.error('❌ Failed to queue auto-approval message:', messageError);
-        console.error('❌ Error details:', messageError);
-        // Don't fail the approval if message fails
+        console.log(`📢 [admin/approve] Queueing auto-approval message: "${messageText.substring(0, 50)}..."`);
+        
+        // Add message to queue (10 seconds duration as documented)
+        await messageQueue.addMessage(userId, messageText, 10);
+        
+        console.log(`✅ [admin/approve] Auto-approval message queued successfully`);
+      } else {
+        console.log(`ℹ️ [admin/approve] show_approval_messages is disabled, skipping notice board message`);
       }
+    } catch (messageError) {
+      console.error('❌ Failed to queue auto-approval message:', messageError);
+      console.error('❌ Error details:', messageError);
+      // Don't fail the approval if message fails
     }
 
     return NextResponse.json({

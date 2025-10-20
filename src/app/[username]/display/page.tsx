@@ -354,6 +354,23 @@ function DisplayPage({ username }: { username: string }) {
         }
       }
     },
+    onMessageUpdate: (data: any) => {
+      console.log('📢 PUSHER: Message update received!', data);
+      
+      // Update the current message state to show the notice board message
+      if (data.message_text) {
+        setCurrentMessage({
+          text: data.message_text,
+          duration: data.message_duration || 10,
+          created_at: data.message_created_at || new Date().toISOString()
+        });
+        console.log(`📢 Notice board message updated: "${data.message_text.substring(0, 50)}..."`);
+      } else {
+        // Clear the message
+        setCurrentMessage(null);
+        console.log('📢 Notice board message cleared');
+      }
+    },
     onRequestApproved: (data: RequestApprovedEvent) => {
       console.log('🎉 PUSHER: Request approved!', data);
       
