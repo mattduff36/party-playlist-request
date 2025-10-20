@@ -196,10 +196,6 @@ function DisplayPage({ username }: { username: string }) {
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
   
-  // 🖼️ Force portrait/vertical layout when notice board message is visible
-  // This ensures Now Playing and QR Code switch to portrait mode when a message appears
-  const finalUseHorizontalLayout = isMessageVisible ? false : useHorizontalLayout;
-  
   // Use global event state
   const { state: globalState } = useGlobalEvent();
   
@@ -247,6 +243,10 @@ function DisplayPage({ username }: { username: string }) {
   const [isMessageVisible, setIsMessageVisible] = useState(false); // Controls horizontal (columns)
   const [isVerticalExpanded, setIsVerticalExpanded] = useState(false); // Controls vertical (rows)
   const [showMessageText, setShowMessageText] = useState(false);
+  
+  // 🖼️ Force portrait/vertical layout when notice board message is visible
+  // This ensures Now Playing and QR Code switch to portrait mode when a message appears
+  const finalUseHorizontalLayout = isMessageVisible ? false : useHorizontalLayout;
   
   // Handle notice board animation when message changes - two-phase approach
   useEffect(() => {
