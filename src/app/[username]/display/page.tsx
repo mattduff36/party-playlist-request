@@ -244,9 +244,12 @@ function DisplayPage({ username }: { username: string }) {
   const [isVerticalExpanded, setIsVerticalExpanded] = useState(false); // Controls vertical (rows)
   const [showMessageText, setShowMessageText] = useState(false);
   
-  // 🖼️ Force portrait/vertical layout when notice board message is visible
-  // This ensures Now Playing and QR Code switch to portrait mode when a message appears
-  const finalUseHorizontalLayout = isMessageVisible ? false : useHorizontalLayout;
+  // 🖼️ Delayed state for layout switching - waits for grid animation to complete
+  // This ensures Now Playing and QR Code stay in portrait mode until the grid finishes animating back
+  const [shouldUsePortraitLayout, setShouldUsePortraitLayout] = useState(false);
+  
+  // Force portrait/vertical layout when notice board message is visible OR during collapse animation
+  const finalUseHorizontalLayout = shouldUsePortraitLayout ? false : useHorizontalLayout;
   
   // Handle notice board animation when message changes - two-phase approach
   useEffect(() => {
@@ -255,6 +258,9 @@ function DisplayPage({ username }: { username: string }) {
       
       // Set animation flag to prevent layout changes during animation
       isAnimatingRef.current = true;
+      
+      // 🖼️ Immediately switch to portrait layout when message starts appearing
+      setShouldUsePortraitLayout(true);
       
       // Message is appearing
       // Phase 1: Horizontal expansion (columns: 0fr→1fr, 2fr→1fr)
@@ -295,11 +301,15 @@ function DisplayPage({ username }: { username: string }) {
         console.log('🎬 Phase 2: Horizontal collapse');
         setIsMessageVisible(false);
         
-        // Clear animation flag after collapse completes
+        // 🖼️ Phase 3: After grid animation completes (1s), switch back to landscape
         setTimeout(() => {
+          console.log('🖼️ Grid animation complete, switching back to landscape layout');
+          setShouldUsePortraitLayout(false);
+          
+          // Clear animation flag
           isAnimatingRef.current = false;
           console.log('🎬 Collapse animation complete, layout changes re-enabled');
-        }, 1000); // Additional 1s for horizontal collapse
+        }, 1000); // Wait for 1s grid animation to complete
       }, 1000);
       
       return () => {
