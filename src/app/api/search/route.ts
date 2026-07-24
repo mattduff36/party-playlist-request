@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('q');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '10');
     const username = searchParams.get('username');
     
     console.log(`🔍 [API /api/search] Query: "${query}", Username: ${username}, Limit: ${limit}`);
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const searchLimit = Math.min(limit || 20, 50);
+    // Feb 2026 Spotify search max limit is 10
+    const searchLimit = Math.min(limit || 10, 10);
     
     console.log(`🔍 [API /api/search] Calling spotifyService.searchTracks with userId: ${userId}`);
     const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit, userId);

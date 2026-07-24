@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('q');
     const username = searchParams.get('username');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
     if (!query || query.trim().length < 2) {
       return NextResponse.json(
@@ -82,8 +82,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Search using user's Spotify tokens
-    const searchLimit = Math.min(limit, 50);
+    // Search using user's Spotify tokens (Feb 2026: max limit is 10)
+    const searchLimit = Math.min(Math.max(limit || 10, 1), 10);
     const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query.trim())}&type=track&limit=${searchLimit}`;
     
     const searchResponse = await fetch(searchUrl, {

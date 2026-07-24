@@ -425,9 +425,11 @@ class SpotifyService {
   }
 
   async addToPlaylist(playlistId: string, trackUri: string, userId?: string) {
+    // Feb 2026: POST /playlists/{id}/tracks removed → use /items
+    // https://developer.spotify.com/documentation/web-api/references/changes/february-2026
     return await this.makeAuthenticatedRequest(
       'POST',
-      `/playlists/${playlistId}/tracks`,
+      `/playlists/${playlistId}/items`,
       { uris: [trackUri] },
       userId
     );
@@ -447,6 +449,13 @@ class SpotifyService {
 
   async next(userId?: string) {
     return await this.makeAuthenticatedRequest('POST', '/me/player/next', undefined, userId);
+  }
+
+  async skipToNext(deviceId?: string, userId?: string) {
+    const url = deviceId
+      ? `/me/player/next?device_id=${encodeURIComponent(deviceId)}`
+      : '/me/player/next';
+    return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
   async previous(userId?: string) {
@@ -512,11 +521,13 @@ class SpotifyService {
     return this.appAccessToken;
   }
 
-  async searchTracks(query: string, limit = 20, userId?: string) {
+  async searchTracks(query: string, limit = 10, userId?: string) {
+    // Feb 2026: search limit max reduced from 50 → 10
+    const safeLimit = Math.min(Math.max(limit || 10, 1), 10);
     const params = new URLSearchParams({
       q: query,
       type: 'track',
-      limit: limit.toString()
+      limit: safeLimit.toString()
     });
     
     // Try user-authenticated search first if userId provided
