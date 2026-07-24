@@ -9,7 +9,10 @@ import { Resend } from 'resend';
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@partyplaylist.app';
+const FROM_EMAIL =
+  process.env.EMAIL_FROM ||
+  process.env.RESEND_FROM_EMAIL ||
+  'noreply@partyplaylist.app';
 const APP_NAME = 'Party Playlist';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
