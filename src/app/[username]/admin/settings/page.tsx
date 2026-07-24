@@ -62,32 +62,11 @@ export default function SettingsPage() {
     }
   };
 
-  // Handle Spotify connection
-  const handleSpotifyConnect = async () => {
-    try {
-      // Get Spotify authorization URL
-      const response = await fetch('/api/spotify/auth', {
-        credentials: 'include' // JWT auth via cookies
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Failed to get Spotify auth URL:', errorData.error);
-        return;
-      }
-
-      const data = await response.json();
-      
-      // Store OAuth data in localStorage for callback
-      localStorage.setItem('spotify_state', data.state);
-      localStorage.setItem('spotify_code_verifier', data.code_verifier);
-      
-      // Redirect to Spotify authorization
-      window.location.href = data.auth_url;
-    } catch (err) {
-      console.error('Error connecting to Spotify:', err);
-    }
-  };
+  // Handle Spotify connection — navigate directly so the browser follows the 307 to Spotify.
+  // Do not fetch() this endpoint: it returns a redirect, not JSON, so fetch fails silently.
+  function handleSpotifyConnect() {
+    window.location.href = '/api/spotify/auth';
+  }
 
   // Update form data when eventSettings loads
   useEffect(() => {
