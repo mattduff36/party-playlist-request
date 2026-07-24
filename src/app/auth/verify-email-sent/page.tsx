@@ -77,7 +77,7 @@ function VerifyEmailSentContent() {
           {/* Actions */}
           <div className="space-y-3">
             <Link
-              href="/auth/login"
+              href="/login"
               className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
             >
               Go to Login

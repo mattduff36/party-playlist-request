@@ -23,7 +23,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       });
 
       if (!response.ok) {
-        router.push('/auth/login?redirect=/superadmin');
+        router.push('/login?redirect=/superadmin');
         return;
       }
 
@@ -39,7 +39,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       setAuthorized(true);
     } catch (error) {
       console.error('Auth check failed:', error);
-      router.push('/auth/login?redirect=/superadmin');
+      router.push('/login?redirect=/superadmin');
     } finally {
       setLoading(false);
     }

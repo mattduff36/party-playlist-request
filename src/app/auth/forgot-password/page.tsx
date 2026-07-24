@@ -107,7 +107,7 @@ export default function ForgotPasswordPage() {
               </p>
 
               <Link
-                href="/auth/login"
+                href="/login"
                 className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
               >
                 Back to Login
@@ -169,7 +169,7 @@ export default function ForgotPasswordPage() {
           {status !== 'success' && (
             <div className="mt-6 pt-6 border-t border-white/10 space-y-3 text-center">
               <Link
-                href="/auth/login"
+                href="/login"
                 className="block text-gray-400 hover:text-yellow-400 transition-colors text-sm"
               >
                 Remember your password? <span className="font-medium">Log in</span>

@@ -44,7 +44,7 @@ export default function RegisterPage() {
           {/* Action Buttons */}
           <div className="space-y-3">
             <Link
-              href="/auth/login"
+              href="/login"
               className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black px-6 py-3 rounded-full font-bold text-center transition-all duration-300 shadow-lg hover:shadow-[#1DB954]/50"
             >
               Already Have an Account? Log In

@@ -97,7 +97,7 @@ function ResetPasswordContent() {
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        router.push('/auth/login');
+        router.push('/login');
       }, 3000);
 
     } catch (error: any) {
@@ -144,7 +144,7 @@ function ResetPasswordContent() {
               </p>
 
               <Link
-                href="/auth/login"
+                href="/login"
                 className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
               >
                 Go to Login Now
@@ -173,7 +173,7 @@ function ResetPasswordContent() {
                   Request New Reset Link
                 </Link>
                 <Link
-                  href="/auth/login"
+                  href="/login"
                   className="block w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 border border-white/20 text-center"
                 >
                   Back to Login
@@ -310,7 +310,7 @@ function ResetPasswordContent() {
           {status !== 'success' && status !== 'error' && (
             <div className="mt-6 pt-6 border-t border-white/10 text-center">
               <Link
-                href="/auth/login"
+                href="/login"
                 className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm"
               >
                 Remember your password? <span className="font-medium">Log in</span>

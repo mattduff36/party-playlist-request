@@ -47,7 +47,7 @@ function VerifyEmailContent() {
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        router.push('/auth/login');
+        router.push('/login');
       }, 3000);
 
     } catch (error: any) {
@@ -116,7 +116,7 @@ function VerifyEmailContent() {
               </p>
 
               <Link
-                href="/auth/login"
+                href="/login"
                 className="inline-flex items-center justify-center w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
               >
                 Go to Login Now
@@ -154,7 +154,7 @@ function VerifyEmailContent() {
                   Register Again
                 </Link>
                 <Link
-                  href="/auth/login"
+                  href="/login"
                   className="block w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 border border-white/20"
                 >
                   Go to Login
