@@ -89,7 +89,7 @@ export default function NotificationsDropdown() {
       case 'warning':
         return 'bg-amber-900/20 border-amber-700/30';
       case 'info':
-        return 'bg-accent/10 border-blue-700/30';
+        return 'bg-accent/10 border-accent/30';
       case 'debug':
         return 'bg-accent/10 border-accent/30';
       case 'success':

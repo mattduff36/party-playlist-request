@@ -271,7 +271,7 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           <button
             onClick={connectToSpotify}
             disabled={state.isConnecting}
-            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-accent hover:bg-accent-hover text-bone font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-accent hover:bg-accent-hover text-ink font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             <Music className="w-5 h-5" />
             <span>{state.isConnecting ? 'Connecting...' : 'Connect to Spotify'}</span>

@@ -291,7 +291,7 @@ export default function SpotifyStatusDropdown() {
                       <>
                         <button
                           onClick={handleConnect}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-bone text-sm font-medium rounded-lg transition-colors"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-ink text-sm font-medium rounded-lg transition-colors"
                         >
                           <Music2 className="w-4 h-4" />
                           Connect to Spotify

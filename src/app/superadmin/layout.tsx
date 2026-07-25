@@ -87,7 +87,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const tabClass = (active: boolean) =>
     `flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 border ${
       active
-        ? 'bg-accent/20 border-accent text-bone'
+        ? 'bg-accent border-accent text-ink font-semibold'
         : 'bg-elevated/80 hover:bg-surface border-white/10 text-bone'
     }`;
 
@@ -118,7 +118,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         <div className="mb-8">
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <Link href="/superadmin" className={tabClass(pathname === '/superadmin')}>
-              <Users className="w-5 h-5 text-accent" />
+              <Users className={`w-5 h-5 ${pathname === '/superadmin' ? 'text-ink' : 'text-accent'}`} />
               <span>User Management</span>
             </Link>
 
@@ -126,7 +126,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               href="/superadmin/party-test"
               className={tabClass(pathname === '/superadmin/party-test')}
             >
-              <Radio className="w-5 h-5 text-accent" />
+              <Radio className={`w-5 h-5 ${pathname === '/superadmin/party-test' ? 'text-ink' : 'text-accent'}`} />
               <span>Party Simulator</span>
             </Link>
 
@@ -142,7 +142,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               href="/superadmin/support"
               className={tabClass(pathname?.startsWith('/superadmin/support') ?? false)}
             >
-              <LifeBuoy className="w-5 h-5 text-accent" />
+              <LifeBuoy className={`w-5 h-5 ${pathname?.startsWith('/superadmin/support') ? 'text-ink' : 'text-accent'}`} />
               <span>Support</span>
               {unresolvedErrors > 0 ? (
                 <span className="ml-1 min-w-[1.25rem] rounded-full bg-error px-1.5 py-0.5 text-center text-xs font-bold text-white">

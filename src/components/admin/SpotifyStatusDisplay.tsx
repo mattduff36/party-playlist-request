@@ -457,7 +457,7 @@ export default function SpotifyStatusDisplay({ className = '', showHeader = true
             <button
               onClick={handlePlayPause}
               disabled={isControlling || devices.length === 0}
-              className="inline-flex items-center justify-center w-16 h-16 bg-accent hover:bg-accent-hover disabled:bg-surface disabled:cursor-not-allowed text-bone rounded-full transition-colors shadow-lg"
+              className="inline-flex items-center justify-center w-16 h-16 bg-accent hover:bg-accent-hover disabled:bg-surface disabled:cursor-not-allowed text-ink rounded-full transition-colors shadow-lg"
               title={devices.length === 0 ? 'No devices available' : 'Start playback'}
             >
               {isControlling ? (
@@ -485,7 +485,7 @@ export default function SpotifyStatusDisplay({ className = '', showHeader = true
           <button
             onClick={handleConnect}
             disabled={isConnecting}
-            className="inline-flex items-center px-4 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-bone font-medium rounded-lg transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink font-medium rounded-lg transition-colors"
           >
             {isConnecting ? (
               <>

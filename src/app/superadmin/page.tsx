@@ -206,22 +206,22 @@ export default function SuperAdminPage() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">User Management</h1>
-        <p className="text-gray-300">Manage all user accounts and permissions</p>
+        <h1 className="font-display text-4xl font-bold text-bone mb-2">User Management</h1>
+        <p className="text-muted">Manage all user accounts and permissions</p>
       </div>
 
       {/* Filters & Actions */}
-      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 mb-6">
+      <div className="bg-surface backdrop-blur-md rounded-xl p-6 border border-white/10 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-faint" />
             <input
               type="text"
               placeholder="Search username or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954]"
+              className="w-full pl-10 pr-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
@@ -229,7 +229,7 @@ export default function SuperAdminPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#1DB954]"
+            className="px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -240,7 +240,7 @@ export default function SuperAdminPage() {
           {/* Add User Button */}
           <button
             onClick={openAddModal}
-            className="flex items-center space-x-2 px-6 py-2 bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-[#1DB954]/50"
+            className="flex items-center space-x-2 px-6 py-2 bg-accent hover:bg-accent-hover text-ink rounded-lg font-bold transition-all duration-300 shadow-lg hover:shadow-accent/30"
           >
             <Plus className="w-5 h-5" />
             <span>Add User</span>
@@ -249,28 +249,28 @@ export default function SuperAdminPage() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+      <div className="bg-surface backdrop-blur-md rounded-xl border border-white/10 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-[#1DB954] animate-spin" />
+            <Loader2 className="w-8 h-8 text-accent animate-spin" />
           </div>
         ) : users.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <Users className="w-16 h-16 text-gray-400 mb-4" />
-            <p className="text-gray-300 text-lg">No users found</p>
+            <Users className="w-16 h-16 text-faint mb-4" />
+            <p className="text-muted text-lg">No users found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">User</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Email</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Role</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Created</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Last Login</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-gray-300">Actions</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-muted">User</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-muted">Email</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-muted">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-muted">Role</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-muted">Created</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-muted">Last Login</th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold text-muted">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -278,25 +278,25 @@ export default function SuperAdminPage() {
                   <tr key={user.id} className="hover:bg-white/5 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-[#1DB954] flex items-center justify-center text-black font-bold">
+                        <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-ink font-bold">
                           {user.username[0].toUpperCase()}
                         </div>
-                        <span className="text-white font-medium">{user.username}</span>
+                        <span className="text-bone font-medium">{user.username}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-300">{user.email}</span>
+                        <Mail className="w-4 h-4 text-faint" />
+                        <span className="text-muted">{user.email}</span>
                         {user.email_verified && (
-                          <Check className="w-4 h-4 text-green-400" />
+                          <Check className="w-4 h-4 text-accent" />
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        user.account_status === 'active' ? 'bg-green-500/20 text-green-400' :
-                        user.account_status === 'pending' ? 'bg-[#1DB954]/20 text-[#1DB954]' :
+                        user.account_status === 'active' ? 'bg-accent/20 text-accent' :
+                        user.account_status === 'pending' ? 'bg-accent/20 text-accent' :
                         'bg-red-500/20 text-red-400'
                       }`}>
                         {user.account_status}
@@ -309,23 +309,23 @@ export default function SuperAdminPage() {
                           <span className="text-sm font-semibold">Super Admin</span>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-sm">User</span>
+                        <span className="text-faint text-sm">User</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2 text-gray-300">
-                        <Calendar className="w-4 h-4 text-gray-400" />
+                      <div className="flex items-center space-x-2 text-muted">
+                        <Calendar className="w-4 h-4 text-faint" />
                         <span className="text-sm">{formatDate(user.created_at)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-gray-300 text-sm">{formatDate(user.last_login)}</span>
+                      <span className="text-muted text-sm">{formatDate(user.last_login)}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => openEditModal(user)}
-                          className="p-2 text-blue-400 hover:bg-blue-400/20 rounded-lg transition-colors"
+                          className="p-2 text-accent hover:bg-accent/20 rounded-lg transition-colors"
                           title="Edit user"
                         >
                           <Edit className="w-4 h-4" />
@@ -350,13 +350,13 @@ export default function SuperAdminPage() {
       {/* Add User Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-6">Add New User</h2>
+          <div className="bg-elevated rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/10">
+            <h2 className="text-2xl font-bold text-bone mb-6">Add New User</h2>
             
             <form onSubmit={handleAddUser} className="space-y-4">
               {/* Username */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Username
                 </label>
                 <input
@@ -365,15 +365,15 @@ export default function SuperAdminPage() {
                   onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
                   required
                   pattern="[a-z0-9-]{3,30}"
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954]"
+                  className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
                   placeholder="username"
                 />
-                <p className="text-xs text-gray-400 mt-1">3-30 characters, lowercase, numbers, hyphens</p>
+                <p className="text-xs text-faint mt-1">3-30 characters, lowercase, numbers, hyphens</p>
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Email
                 </label>
                 <input
@@ -381,14 +381,14 @@ export default function SuperAdminPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954]"
+                  className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
                   placeholder="user@example.com"
                 />
               </div>
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Password
                 </label>
                 <div className="relative">
@@ -398,13 +398,13 @@ export default function SuperAdminPage() {
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
                     minLength={8}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954]"
+                    className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
                     placeholder="Min. 8 characters"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-faint hover:text-bone"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -420,7 +420,7 @@ export default function SuperAdminPage() {
                   onChange={(e) => setFormData({ ...formData, is_super_admin: e.target.checked })}
                   className="w-4 h-4 rounded"
                 />
-                <label htmlFor="add-super-admin" className="text-sm text-gray-300 flex items-center space-x-2">
+                <label htmlFor="add-super-admin" className="text-sm text-muted flex items-center space-x-2">
                   <Shield className="w-4 h-4 text-red-400" />
                   <span>Super Admin (full access)</span>
                 </label>
@@ -438,14 +438,14 @@ export default function SuperAdminPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-surface hover:bg-white/20 text-bone rounded-lg font-medium transition-colors"
                   disabled={formLoading}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full font-bold transition-all duration-300 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-accent hover:bg-accent-hover text-ink rounded-lg font-bold transition-all duration-300 disabled:opacity-50"
                   disabled={formLoading}
                 >
                   {formLoading ? 'Creating...' : 'Create User'}
@@ -459,13 +459,13 @@ export default function SuperAdminPage() {
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-6">Edit User: {selectedUser.username}</h2>
+          <div className="bg-elevated rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/10">
+            <h2 className="text-2xl font-bold text-bone mb-6">Edit User: {selectedUser.username}</h2>
             
             <form onSubmit={handleEditUser} className="space-y-4">
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Email
                 </label>
                 <input
@@ -473,13 +473,13 @@ export default function SuperAdminPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
               </div>
 
               {/* Password (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   New Password (leave blank to keep current)
                 </label>
                 <div className="relative">
@@ -488,13 +488,13 @@ export default function SuperAdminPage() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     minLength={8}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954]"
+                    className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
                     placeholder="Min. 8 characters"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-faint hover:text-bone"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -510,7 +510,7 @@ export default function SuperAdminPage() {
                   onChange={(e) => setFormData({ ...formData, is_super_admin: e.target.checked })}
                   className="w-4 h-4 rounded"
                 />
-                <label htmlFor="edit-super-admin" className="text-sm text-gray-300 flex items-center space-x-2">
+                <label htmlFor="edit-super-admin" className="text-sm text-muted flex items-center space-x-2">
                   <Shield className="w-4 h-4 text-red-400" />
                   <span>Super Admin (full access)</span>
                 </label>
@@ -528,14 +528,14 @@ export default function SuperAdminPage() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-surface hover:bg-white/20 text-bone rounded-lg font-medium transition-colors"
                   disabled={formLoading}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full font-bold transition-all duration-300 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-accent hover:bg-accent-hover text-ink rounded-lg font-bold transition-all duration-300 disabled:opacity-50"
                   disabled={formLoading}
                 >
                   {formLoading ? 'Saving...' : 'Save Changes'}

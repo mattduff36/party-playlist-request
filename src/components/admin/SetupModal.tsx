@@ -223,7 +223,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
               <button
                 onClick={handleSaveSettings}
                 disabled={isSaving || formData.maxRequestsPerUser === ''}
-                className="w-full bg-accent hover:bg-accent-hover text-black font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-accent hover:bg-accent-hover text-ink font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
                   <>
@@ -252,7 +252,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   </p>
                   <button
                     onClick={handleComplete}
-                    className="bg-accent hover:bg-accent-hover text-black font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
+                    className="bg-accent hover:bg-accent-hover text-ink font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
                   >
                     <Check className="w-5 h-5" />
                     <span>Complete Setup</span>
@@ -269,7 +269,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   </p>
                   <button
                     onClick={handleConnectSpotify}
-                    className="bg-accent hover:bg-accent-hover text-black font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
+                    className="bg-accent hover:bg-accent-hover text-ink font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
                   >
                     <Music2 className="w-5 h-5" />
                     <span>Connect Spotify Account</span>

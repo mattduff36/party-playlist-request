@@ -20,7 +20,7 @@ export default function SetupPartyModal({ isOpen, onConfirm, onClose }: SetupPar
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent-hover rounded-full flex items-center justify-center">
-                <Wand2 className="w-5 h-5 text-black" />
+                <Wand2 className="w-5 h-5 text-ink" />
               </div>
               <h2 className="text-2xl font-bold text-bone">Welcome! 🎉</h2>
             </div>
@@ -47,7 +47,7 @@ export default function SetupPartyModal({ isOpen, onConfirm, onClose }: SetupPar
           <div className="flex space-x-3">
             <button
               onClick={onConfirm}
-              className="flex-1 bg-gradient-to-r from-accent to-accent-hover text-black font-bold py-3 px-6 rounded-lg hover:shadow-lg hover:shadow-accent/30 transition-all duration-300 transform hover:scale-105"
+              className="flex-1 bg-gradient-to-r from-accent to-accent-hover text-ink font-bold py-3 px-6 rounded-lg hover:shadow-lg hover:shadow-accent/30 transition-all duration-300 transform hover:scale-105"
             >
               Yes, Let's Go!
             </button>
