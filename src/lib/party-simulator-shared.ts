@@ -3,6 +3,27 @@
  * Used by both client-side and server-side implementations
  */
 
+/** How long the simulation runs before auto-stop (ms). */
+export type SimulationDurationMs =
+  | 1_800_000 // 30 minutes
+  | 3_600_000 // 1 hour
+  | 7_200_000 // 2 hours
+  | 18_000_000; // 5 hours
+
+export interface SimulationDurationOption {
+  value: SimulationDurationMs;
+  label: string;
+}
+
+export const DEFAULT_SIMULATION_DURATION_MS: SimulationDurationMs = 3_600_000;
+
+export const SIMULATION_DURATION_OPTIONS: SimulationDurationOption[] = [
+  { value: 1_800_000, label: '30 min' },
+  { value: 3_600_000, label: '1 hour' },
+  { value: 7_200_000, label: '2 hours' },
+  { value: 18_000_000, label: '5 hours' },
+];
+
 export interface SimulationConfig {
   environment: 'local' | 'production'; // Local or production environment
   username: string; // Username to test (e.g., 'testuser1')
@@ -12,6 +33,8 @@ export interface SimulationConfig {
   uniqueRequesters: number; // Number of different people (1-20)
   burstMode: boolean; // If true, sends multiple requests at once occasionally
   explicitSongs: boolean; // Include explicit songs in random selection
+  /** Auto-stop after this many ms from start. Default: 1 hour. */
+  durationMs: SimulationDurationMs;
 }
 
 export interface SimulationLog {
@@ -29,9 +52,33 @@ export interface SimulationStats {
   requestsSuccessful: number;
   requestsFailed: number;
   startedAt: string | null;
+  /** ISO timestamp when the run will auto-stop; null when not running. */
+  endsAt: string | null;
   lastRequestAt: string | null;
   activeRequesters: string[];
   logs: SimulationLog[];
+}
+
+export function formatSimulationDurationLabel(ms: number): string {
+  const option = SIMULATION_DURATION_OPTIONS.find((o) => o.value === ms);
+  if (option) return option.label;
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return hours === 1 ? '1 hour' : `${hours} hours`;
+}
+
+/** Remaining time until endsAt, e.g. "45m" or "1h 12m". */
+export function formatRemainingTime(endsAt: string | null, nowMs: number = Date.now()): string {
+  if (!endsAt) return '—';
+  const remainingMs = new Date(endsAt).getTime() - nowMs;
+  if (remainingMs <= 0) return '0s';
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}m ${totalSeconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
 }
 
 // Realistic requester names

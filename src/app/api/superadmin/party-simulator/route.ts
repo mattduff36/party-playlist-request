@@ -7,6 +7,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { partySimulator } from '@/lib/party-simulator';
 import { requireSuperAdmin } from '@/lib/auth';
+import {
+  DEFAULT_SIMULATION_DURATION_MS,
+  SIMULATION_DURATION_OPTIONS,
+  SimulationDurationMs,
+} from '@/lib/party-simulator-shared';
 
 /**
  * GET /api/superadmin/party-simulator
@@ -51,7 +56,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { environment, username, requestPin, requestInterval, uniqueRequesters, burstMode, explicitSongs } = body;
+    const {
+      environment,
+      username,
+      requestPin,
+      requestInterval,
+      uniqueRequesters,
+      burstMode,
+      explicitSongs,
+      durationMs,
+    } = body;
+
+    const allowedDurations = SIMULATION_DURATION_OPTIONS.map((o) => o.value);
 
     // Validate inputs
     if (!environment || !['local', 'production'].includes(environment)) {
@@ -89,6 +105,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const resolvedDurationMs: SimulationDurationMs =
+      typeof durationMs === 'number' &&
+      (allowedDurations as number[]).includes(durationMs)
+        ? (durationMs as SimulationDurationMs)
+        : DEFAULT_SIMULATION_DURATION_MS;
+
     const accessCode = typeof requestPin === 'string' ? requestPin.trim() : '';
     if (!accessCode || (accessCode.length !== 6 && accessCode.length !== 8 && accessCode.length !== 4)) {
       return NextResponse.json(
@@ -105,7 +127,8 @@ export async function POST(req: NextRequest) {
       requestInterval,
       uniqueRequesters,
       burstMode: !!burstMode,
-      explicitSongs: !!explicitSongs
+      explicitSongs: !!explicitSongs,
+      durationMs: resolvedDurationMs,
     });
 
     const base =
@@ -120,7 +143,8 @@ export async function POST(req: NextRequest) {
       requestInterval,
       uniqueRequesters,
       burstMode,
-      explicitSongs
+      explicitSongs,
+      durationMs: resolvedDurationMs,
     });
 
     return NextResponse.json({

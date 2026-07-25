@@ -15,6 +15,8 @@ interface SimulationConfig {
   uniqueRequesters: number; // Number of different people (1-20)
   burstMode: boolean; // If true, sends multiple requests at once occasionally
   explicitSongs: boolean; // Include explicit songs in random selection
+  /** Auto-stop after this many ms from start. Default: 1 hour. */
+  durationMs?: number;
 }
 
 interface SimulationLog {
@@ -32,10 +34,13 @@ interface SimulationStats {
   requestsSuccessful: number;
   requestsFailed: number;
   startedAt: string | null;
+  endsAt: string | null;
   lastRequestAt: string | null;
   activeRequesters: string[];
   logs: SimulationLog[];
 }
+
+const DEFAULT_DURATION_MS = 3_600_000;
 
 // Realistic requester names
 const REQUESTER_NAMES = [
@@ -103,11 +108,13 @@ class PartySimulator {
     requestsSuccessful: 0,
     requestsFailed: 0,
     startedAt: null,
+    endsAt: null,
     lastRequestAt: null,
     activeRequesters: [],
     logs: []
   };
   private intervalId: NodeJS.Timeout | null = null;
+  private autoStopTimeoutId: NodeJS.Timeout | null = null;
   private usedRequesters: Set<string> = new Set();
 
   constructor() {
@@ -131,12 +138,17 @@ class PartySimulator {
     }
 
     this.config = config;
+    const durationMs = config.durationMs || DEFAULT_DURATION_MS;
+    const startedAtMs = Date.now();
+    const endsAtMs = startedAtMs + durationMs;
+
     this.stats = {
       isRunning: true,
       requestsSent: 0,
       requestsSuccessful: 0,
       requestsFailed: 0,
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(startedAtMs).toISOString(),
+      endsAt: new Date(endsAtMs).toISOString(),
       lastRequestAt: null,
       activeRequesters: this.generateRequesterNames(config.uniqueRequesters),
       logs: []
@@ -150,11 +162,19 @@ class PartySimulator {
       targetUrl,
       interval: config.requestInterval,
       requesters: config.uniqueRequesters,
-      burstMode: config.burstMode
+      burstMode: config.burstMode,
+      durationMs,
+      endsAt: new Date(endsAtMs).toISOString(),
     });
 
     // Start sending requests - first request within 10 seconds
     this.scheduleNextRequest(true);
+
+    this.autoStopTimeoutId = setTimeout(() => {
+      if (!this.stats.isRunning) return;
+      console.log(`⏰ [${this.instanceId}] Simulation duration expired — auto-stopping`);
+      this.stop();
+    }, durationMs);
   }
 
   /**
@@ -183,7 +203,12 @@ class PartySimulator {
       clearTimeout(this.intervalId);
       this.intervalId = null;
     }
+    if (this.autoStopTimeoutId) {
+      clearTimeout(this.autoStopTimeoutId);
+      this.autoStopTimeoutId = null;
+    }
     this.stats.isRunning = false;
+    this.stats.endsAt = null;
     this.config = null;
     console.log(`🛑 [${this.instanceId}] Party simulation stopped`);
   }

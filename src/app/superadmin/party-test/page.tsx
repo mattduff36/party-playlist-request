@@ -19,7 +19,15 @@ import {
   Sparkles
 } from 'lucide-react';
 import { usePartySimulator } from '@/hooks/usePartySimulator';
-import { SimulationConfig, SimulationStats } from '@/lib/party-simulator-shared';
+import {
+  SimulationConfig,
+  SimulationDurationMs,
+  SimulationStats,
+  DEFAULT_SIMULATION_DURATION_MS,
+  SIMULATION_DURATION_OPTIONS,
+  formatRemainingTime,
+  formatSimulationDurationLabel,
+} from '@/lib/party-simulator-shared';
 import Checkbox from '@/components/ui/Checkbox';
 
 const EMPTY_STATS: SimulationStats = {
@@ -28,6 +36,7 @@ const EMPTY_STATS: SimulationStats = {
   requestsSuccessful: 0,
   requestsFailed: 0,
   startedAt: null,
+  endsAt: null,
   lastRequestAt: null,
   activeRequesters: [],
   logs: []
@@ -39,13 +48,14 @@ export default function PartyTestPage() {
                       window.location.hostname !== 'localhost';
   const useClientSide = isProduction;
 
-  // Client-side simulator hook (production)
+  // Client-side simulator hook (production) — backed by a module singleton
   const {
     stats: clientStats,
     startSimulation: startClientSimulation,
     stopSimulation: stopClientSimulation,
     triggerManualRequest: triggerClientManualRequest,
-    triggerManualBurst: triggerClientManualBurst
+    triggerManualBurst: triggerClientManualBurst,
+    getRunningConfig,
   } = usePartySimulator();
 
   const [config, setConfig] = useState<SimulationConfig>({
@@ -55,7 +65,8 @@ export default function PartyTestPage() {
     requestInterval: 300000, // 5 minutes (default)
     uniqueRequesters: 5,
     burstMode: false,
-    explicitSongs: false
+    explicitSongs: false,
+    durationMs: DEFAULT_SIMULATION_DURATION_MS,
   });
 
   const [loading, setLoading] = useState(false);
@@ -64,6 +75,24 @@ export default function PartyTestPage() {
   // Server-side simulator stats (local development)
   const [serverStats, setServerStats] = useState<SimulationStats>(EMPTY_STATS);
   const stats = useClientSide ? clientStats : serverStats;
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  // Tick while running so remaining time stays current across remounts
+  useEffect(() => {
+    if (!stats.isRunning || !stats.endsAt) return;
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [stats.isRunning, stats.endsAt]);
+
+  // Restore config form when remounting onto an already-running client simulation
+  useEffect(() => {
+    if (!useClientSide) return;
+    const runningConfig = getRunningConfig();
+    if (runningConfig && clientStats.isRunning) {
+      setConfig(runningConfig);
+    }
+  }, [useClientSide, clientStats.isRunning, getRunningConfig]);
 
   // Server-side stats polling (only for local development)
   useEffect(() => {
@@ -272,7 +301,11 @@ export default function PartyTestPage() {
             <div>
               <p className="text-bone font-bold">Simulation Running</p>
               <p className="text-muted text-sm">
-                Duration: {formatDuration(stats.startedAt)} • Last request: {formatTimestamp(stats.lastRequestAt)}
+                Elapsed: {formatDuration(stats.startedAt)}
+                {stats.endsAt && (
+                  <> • Remaining: {formatRemainingTime(stats.endsAt, nowMs)}</>
+                )}
+                {' '}• Last request: {formatTimestamp(stats.lastRequestAt)}
               </p>
             </div>
           </div>
@@ -302,7 +335,7 @@ export default function PartyTestPage() {
         </div>
       )}
 
-      {/* Mode Indicator */}
+      {/* Mode Indicator (execution mode, not simulation status) */}
       {useClientSide ? (
         <div className="bg-accent/20 border border-accent/50 rounded-xl p-4 mb-6">
           <div className="flex items-start space-x-3">
@@ -310,11 +343,11 @@ export default function PartyTestPage() {
             <div className="flex-1">
               <p className="text-accent font-semibold mb-1 flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                Running in Client-Side Mode (Production)
+                Client-Side Mode (Production)
               </p>
               <p className="text-muted text-sm">
-                The simulation runs in your browser using setInterval, which works reliably in production. 
-                Keep this browser tab open for continuous simulation. The simulation will stop if you close the tab.
+                Continues while you browse this site; closing the tab stops it.
+                It auto-stops after the run duration you select below.
               </p>
             </div>
           </div>
@@ -324,7 +357,7 @@ export default function PartyTestPage() {
           <div className="flex items-start space-x-3">
             <Radio className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-accent font-semibold mb-1">Running in Server-Side Mode (Local Development)</p>
+              <p className="text-accent font-semibold mb-1">Server-Side Mode (Local Development)</p>
               <p className="text-muted text-sm">
                 The simulation runs on the server using setTimeout, which works perfectly in local development 
                 but not in Vercel's serverless environment. This mode is ideal for development and testing.
@@ -415,6 +448,39 @@ export default function PartyTestPage() {
               />
               <p className="text-xs text-faint mt-1">
                 6-digit (or 8-char secure) access code from the DJ admin panel
+              </p>
+            </div>
+
+            {/* Run duration (auto-stop) */}
+            <div>
+              <label className="block text-sm font-medium text-muted mb-2 flex items-center justify-between">
+                <span className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4" />
+                  <span>Run Duration</span>
+                </span>
+                <span className="text-accent font-mono">
+                  {formatSimulationDurationLabel(config.durationMs)}
+                </span>
+              </label>
+              <select
+                value={config.durationMs}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    durationMs: Number(e.target.value) as SimulationDurationMs,
+                  })
+                }
+                disabled={stats.isRunning}
+                className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
+              >
+                {SIMULATION_DURATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value} className="bg-gray-900">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-faint mt-1">
+                Auto-stops after this time. Continues while you browse this site; closing the tab stops it.
               </p>
             </div>
 

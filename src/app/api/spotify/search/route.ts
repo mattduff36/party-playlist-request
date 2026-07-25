@@ -187,17 +187,23 @@ export async function GET(req: NextRequest) {
 
     if (!searchResponse.ok) {
       console.error(`❌ [search] Spotify API error: ${searchResponse.status} ${searchResponse.statusText}`);
+      const isTransientUpstream = [502, 503, 504].includes(searchResponse.status);
       const { logErrorAsync } = await import('@/lib/support/logger');
       logErrorAsync({
         source: 'spotify',
-        classification: searchResponse.status >= 500 ? 'unhandled' : 'handled',
+        classification:
+          isTransientUpstream || searchResponse.status < 500
+            ? 'handled'
+            : 'unhandled',
         message: `Spotify search ${searchResponse.status} for ${username}`,
         route: '/api/spotify/search',
         method: 'GET',
         username,
         meta: {
           status: searchResponse.status,
-          handled: searchResponse.status < 500,
+          handled: isTransientUpstream || searchResponse.status < 500,
+          expected: isTransientUpstream,
+          transient: isTransientUpstream,
         },
       });
       return NextResponse.json(

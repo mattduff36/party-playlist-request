@@ -51,6 +51,24 @@ describe('support fingerprint helpers', () => {
     ).toBe('handled');
   });
 
+  it('classifies Spotify transient upstream 5xx as handled', () => {
+    expect(
+      classifySupportError({
+        source: 'spotify',
+        message: 'Spotify API 503 on GET /me/tracks?limit=<N>',
+        meta: { status: 503 },
+      })
+    ).toBe('handled');
+
+    expect(
+      classifySupportError({
+        source: 'spotify',
+        message: 'Spotify API 502 on GET /me/player',
+        route: '/me/player',
+      })
+    ).toBe('handled');
+  });
+
   it('classifies unknown crashes as unhandled', () => {
     expect(
       classifySupportError({

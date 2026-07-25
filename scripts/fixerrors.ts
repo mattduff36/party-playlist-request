@@ -605,6 +605,14 @@ async function prepareSupportErrorTable(pool: Pool): Promise<number> {
         OR COALESCE(meta->>'throttled', '') = 'true'
         OR COALESCE(meta->>'handled', '') = 'true'
         OR COALESCE(meta->>'expected', '') = 'true'
+        OR COALESCE(meta->>'transient', '') = 'true'
+        OR (
+          source = 'spotify'
+          AND (
+            message ~* 'Spotify API (502|503|504)\\b'
+            OR COALESCE(meta->>'status', '') IN ('502', '503', '504')
+          )
+        )
       )
   `);
 

@@ -78,6 +78,8 @@ class SpotifyService {
   /** Per-user cooldown after Spotify 429 — blocks further API calls until expiry. */
   private rateLimitedUntilByUser = new Map<string, number>();
   private static readonly RATE_LIMIT_MAX_WAIT_MS = 60_000;
+  /** Transient Spotify upstream failures worth one short retry. */
+  private static readonly TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
   // NOTE: Existing connected users must disconnect + reconnect Spotify after deploy
   // so tokens pick up playlist-read-* and user-library-read scopes. Dashboard app
   // settings do not need changes — scopes are requested at authorize time from this list.
@@ -484,6 +486,25 @@ class SpotifyService {
         return await this.makeAuthenticatedRequest(method, endpoint, data, userId, retries - 1);
       }
 
+      // Retry once on transient Spotify upstream outages (502/503/504)
+      if (
+        SpotifyService.TRANSIENT_UPSTREAM_STATUSES.has(response.status) &&
+        retries > 0
+      ) {
+        const waitMs = Math.min(1000 * Math.pow(2, 2 - retries), 4_000);
+        console.warn(
+          `⏳ [${requestId}] Spotify ${response.status} — waiting ${waitMs}ms before retry (${retries} left)`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        return await this.makeAuthenticatedRequest(
+          method,
+          endpoint,
+          data,
+          userId,
+          retries - 1
+        );
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ [${requestId}] Request failed:`, {
@@ -522,11 +543,18 @@ class SpotifyService {
             `Spotify API error: 429 (backoff) ${errorText}`
           );
         }
+        const isTransientUpstream =
+          SpotifyService.TRANSIENT_UPSTREAM_STATUSES.has(response.status);
+        // Spotify 5xx / client 4xx after retries — log for observability; upstream
+        // outages are expected external noise (same class as 429), not app bugs.
         if (response.status >= 500 || retries === 0) {
           logErrorAsync({
             source: 'spotify',
             level: 'error',
-            classification: response.status >= 500 ? 'unhandled' : 'handled',
+            classification:
+              isTransientUpstream || response.status < 500
+                ? 'handled'
+                : 'unhandled',
             message: `Spotify API ${response.status} on ${method} ${endpoint}`,
             route: endpoint,
             method,
@@ -536,7 +564,9 @@ class SpotifyService {
               statusText: response.statusText,
               body: errorText.slice(0, 400),
               retriesLeft: retries,
-              handled: response.status < 500,
+              handled: isTransientUpstream || response.status < 500,
+              expected: isTransientUpstream,
+              transient: isTransientUpstream,
             },
           });
         }

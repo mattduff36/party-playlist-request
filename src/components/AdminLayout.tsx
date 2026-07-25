@@ -79,9 +79,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   const activeTab = getActiveTab();
   const eventHydrated = Boolean(state && !state.isLoading);
+  const queueSidebarTabs = new Set(['overview', 'display', 'spotify', 'settings']);
   const showQueueSidebar =
     eventHydrated &&
-    activeTab === 'overview' &&
+    queueSidebarTabs.has(activeTab) &&
     (state.status === 'standby' || state.status === 'live');
 
   // Get username from pathname if not provided

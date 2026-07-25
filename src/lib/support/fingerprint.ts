@@ -102,6 +102,8 @@ const HANDLED_MESSAGE_PATTERNS: RegExp[] = [
   /too many requests/i,
   /Spotify is rate limiting/i,
   /SPOTIFY_SEARCH_BUSY/i,
+  /Spotify API (502|503|504)\b/i,
+  /Spotify search (502|503|504)\b/i,
   /No token provided/i,
   /Admin access required/i,
   /Unauthorized/i,
@@ -109,6 +111,8 @@ const HANDLED_MESSAGE_PATTERNS: RegExp[] = [
   /Invalid PIN/i,
   /PIN (required|incorrect|invalid)/i,
 ];
+
+const TRANSIENT_UPSTREAM_STATUSES = new Set(['502', '503', '504']);
 
 /**
  * Classify whether an error is an expected/handled failure vs a true unhandled issue.
@@ -123,12 +127,24 @@ export function classifySupportError(
 
   const meta = input.meta;
   if (meta && typeof meta === 'object') {
-    if (meta.handled === true || meta.expected === true || meta.throttled === true) {
+    if (
+      meta.handled === true ||
+      meta.expected === true ||
+      meta.throttled === true ||
+      meta.transient === true
+    ) {
       return 'handled';
     }
     const status = meta.status;
     if (status === 429 || status === '429') return 'handled';
     if (status === 401 || status === '401' || status === 403 || status === '403') {
+      return 'handled';
+    }
+    // Spotify upstream outages are external noise, not app bugs
+    if (
+      input.source === 'spotify' &&
+      TRANSIENT_UPSTREAM_STATUSES.has(String(status))
+    ) {
       return 'handled';
     }
   }
