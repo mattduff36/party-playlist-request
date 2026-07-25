@@ -203,7 +203,7 @@ export async function sendPasswordResetEmail(
         ctaLabel: 'Reset password',
         ctaUrl: resetUrl,
         footerNote:
-          'This link expires in 1 hour. If you did not request a reset, you can ignore this email — your password will not change.',
+          'This link expires in 1 hour. If you did not request a reset, you can ignore this email - your password will not change.',
       }),
     });
 

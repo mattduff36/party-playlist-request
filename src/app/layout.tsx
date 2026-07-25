@@ -22,7 +22,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Party Playlist — Guest song requests for live events",
+  title: "Party Playlist - Guest song requests for live events",
   description: "Let guests request Spotify tracks. DJs approve, venues display the night.",
 };
 

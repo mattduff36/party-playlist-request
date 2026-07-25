@@ -15,7 +15,7 @@ export default function NotFound() {
         <p className="font-display text-7xl font-bold text-accent sm:text-8xl">404</p>
         <h1 className="mt-4 font-display text-2xl font-semibold">Page not found</h1>
         <p className="mt-2 max-w-md text-muted">
-          That route doesn&apos;t exist — head back to the party.
+          That route doesn&apos;t exist - head back to the party.
         </p>
         <Link
           href="/"

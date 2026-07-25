@@ -44,7 +44,7 @@ export default function LandingPage() {
     {
       icon: <Heart className="w-7 h-7" />,
       title: 'Built for Events',
-      description: 'Parties, weddings, bars — pick a display mood that fits the room.',
+      description: 'Parties, weddings, bars - pick a display mood that fits the room.',
     },
   ];
 
@@ -98,7 +98,7 @@ export default function LandingPage() {
             Guests choose the music. You keep the night.
           </h1>
           <p className="mt-4 max-w-xl text-base text-[#B3B3B3] sm:text-lg">
-            Spotify-powered requests for live events — approve on your phone, show the queue on the big screen.
+            Spotify-powered requests for live events - approve on your phone, show the queue on the big screen.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center ss-reveal ss-reveal-delay-1">
             <Link
@@ -157,7 +157,7 @@ export default function LandingPage() {
           <ol className="mt-12 grid grid-cols-1 gap-10 md:grid-cols-3">
             {[
               { step: '01', title: 'Connect Spotify', desc: 'Link your account and pick the playback device.' },
-              { step: '02', title: 'Share your link', desc: 'Guests open your request page — PIN optional.' },
+              { step: '02', title: 'Share your link', desc: 'Guests open your request page - PIN optional.' },
               { step: '03', title: 'Run the night', desc: 'Approve tracks, drive the display, keep the queue moving.' },
             ].map((item) => (
               <li key={item.step}>

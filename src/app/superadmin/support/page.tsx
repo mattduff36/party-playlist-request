@@ -275,8 +275,8 @@ export default function SuperAdminSupportPage() {
                   <div>ID: <code className="text-faint">{selectedError.id}</code></div>
                   <div>Level: {selectedError.level}</div>
                   <div>Source: {selectedError.source}</div>
-                  <div>Route: {selectedError.route || '—'}</div>
-                  <div>User: {selectedError.username || '—'}</div>
+                  <div>Route: {selectedError.route || '-'}</div>
+                  <div>User: {selectedError.username || '-'}</div>
                   <div>When: {new Date(selectedError.created_at).toLocaleString()}</div>
                 </dl>
                 {selectedError.stack ? (
@@ -294,7 +294,7 @@ export default function SuperAdminSupportPage() {
                     Resolved by {selectedError.resolved_by} at{' '}
                     {selectedError.resolved_at
                       ? new Date(selectedError.resolved_at).toLocaleString()
-                      : '—'}
+                      : '-'}
                   </p>
                 )}
               </div>

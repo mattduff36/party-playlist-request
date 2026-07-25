@@ -58,7 +58,7 @@ export const DISPLAY_MOODS: Record<DisplayMood, MoodTokens> = {
   club: {
     id: 'club',
     label: 'Club Night',
-    description: 'Dark, bold, high contrast — built for parties and clubs.',
+    description: 'Dark, bold, high contrast - built for parties and clubs.',
     background: '#07080A',
     surface: '#12151A',
     text: '#F7F7F5',
@@ -72,7 +72,7 @@ export const DISPLAY_MOODS: Record<DisplayMood, MoodTokens> = {
   venue: {
     id: 'venue',
     label: 'Venue',
-    description: 'Cleaner and lighter — weddings, corporate, and seated events.',
+    description: 'Cleaner and lighter - weddings, corporate, and seated events.',
     background: '#F4F1EC',
     surface: '#FFFFFF',
     text: '#1A1C1E',
@@ -86,7 +86,7 @@ export const DISPLAY_MOODS: Record<DisplayMood, MoodTokens> = {
   dj: {
     id: 'dj',
     label: 'DJ Tool',
-    description: 'Dense and functional — maximum info for working DJs.',
+    description: 'Dense and functional - maximum info for working DJs.',
     background: '#0B0D10',
     surface: '#15191F',
     text: '#E8EAED',

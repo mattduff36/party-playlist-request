@@ -39,7 +39,7 @@ interface SpotifyPlaylistTrackRow {
 }
 
 function formatDuration(ms: number): string {
-  if (!ms || ms < 0) return '—';
+  if (!ms || ms < 0) return '-';
   const totalSec = Math.floor(ms / 1000);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
