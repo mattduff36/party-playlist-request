@@ -20,7 +20,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     console.log(`✅ [admin/approve] User ${auth.user.username} (${userId}) approving request ${id}`);
     
     const body = await req.json();
-    const { add_to_queue = true, add_to_playlist = true, play_next = false } = body;
+    // Playlists are read-only: approvals only add to the Spotify play queue.
+    // Legacy clients may still send add_to_playlist — it is ignored.
+    const { add_to_queue = true, play_next = false } = body;
     
     // Verify ownership - user can only approve their own requests
     const request = await getRequest(id, userId);
@@ -39,8 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     let queueSuccess = false;
-    let playlistSuccess = false;
-    let errors: string[] = [];
+    const errors: string[] = [];
 
     // Add to Spotify queue if requested (MULTI-TENANT!)
     if (add_to_queue) {
@@ -58,31 +59,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    // Add to playlist if requested (MULTI-TENANT!)
-    if (add_to_playlist) {
-      try {
-        const playlistSetting = await getSetting('party_playlist_id');
-
-        if (!playlistSetting) {
-          errors.push('Party playlist not configured');
-        } else {
-          await spotifyService.addToPlaylist(playlistSetting, request.track_uri, userId);
-          playlistSuccess = true;
-        }
-      } catch (error) {
-        console.error('Error adding to playlist:', error);
-        errors.push('Failed to add to party playlist');
-      }
-    }
-
-    const newStatus = (queueSuccess || playlistSuccess) ? 'approved' : 'failed';
+    const newStatus = queueSuccess ? 'approved' : 'failed';
     
     await updateRequest(id, {
       status: newStatus,
       approved_at: new Date().toISOString(),
       approved_by: auth.user.username,
       spotify_added_to_queue: queueSuccess,
-      spotify_added_to_playlist: playlistSuccess
+      spotify_added_to_playlist: false,
     });
 
     // Create approval notification for display
@@ -150,7 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           const artistName = request.artist_name || 'Unknown Artist';
           const trackName = request.track_name;
           
-          const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nParty Playlist!`;
+          const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nqueue!`;
           
           console.log(`📢 [admin/approve] Queueing auto-approval message: "${messageText.substring(0, 50)}..."`);
           
@@ -167,7 +151,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     reportActivity(req, 'request.approve', `Approved request ${id}`, {
       user: auth.user,
-      meta: { requestId: id, track: request.track_name, queueSuccess, playlistSuccess },
+      meta: { requestId: id, track: request.track_name, queueSuccess, playlistSuccess: false },
     });
 
     return NextResponse.json({
@@ -176,7 +160,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       result: {
         status: newStatus,
         queue_added: queueSuccess,
-        playlist_added: playlistSuccess,
+        playlist_added: false,
         play_next: play_next && queueSuccess,
         errors: errors.length > 0 ? errors : null
       }

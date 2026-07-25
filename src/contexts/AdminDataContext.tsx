@@ -521,7 +521,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         credentials: 'include', // Use JWT cookie authentication
         body: JSON.stringify({
           add_to_queue: true,
-          add_to_playlist: true,
+          add_to_playlist: false,
           play_next: playNext || false
         })
       });

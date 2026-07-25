@@ -39,6 +39,18 @@ export interface SpotifyPlaylist {
   image?: string;
   track_count: number;
   owner_name?: string;
+  owner_id?: string;
+}
+
+/** Track row from a playlist (read-only browse / queue). */
+export interface SpotifyPlaylistTrack {
+  id: string;
+  uri: string;
+  name: string;
+  artists: string[];
+  album: string;
+  duration_ms: number;
+  image?: string;
 }
 
 /** Scopes required to list private / collaborative playlists via GET /me/playlists */
@@ -505,18 +517,15 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
-  async addToPlaylist(playlistId: string, trackUri: string, userId?: string) {
-    if (isSpotifyMockEnabled()) {
-      return { snapshot_id: 'mock_snapshot' };
-    }
-    // Feb 2026: POST /playlists/{id}/tracks removed → use /items
-    // https://developer.spotify.com/documentation/web-api/references/changes/february-2026
-    return await this.makeAuthenticatedRequest(
-      'POST',
-      `/playlists/${playlistId}/items`,
-      { uris: [trackUri] },
-      userId
-    );
+  /**
+   * @deprecated Playlist writes are disabled for this app (read-only playlists + queue).
+   * Do not call from approve or playlist browse features.
+   */
+  async addToPlaylist(playlistId: string, trackUri: string, userId?: string): Promise<never> {
+    void playlistId;
+    void trackUri;
+    void userId;
+    throw new Error('Playlist writes are disabled; use the play queue instead');
   }
 
   async play(contextUri?: string, trackUris?: string[], userId?: string) {
@@ -716,6 +725,7 @@ class SpotifyService {
           image: item.images?.[0]?.url,
           track_count: item.tracks?.total ?? item.items?.total ?? 0,
           owner_name: item.owner?.display_name || undefined,
+          owner_id: item.owner?.id || undefined,
         });
       }
 
@@ -727,6 +737,80 @@ class SpotifyService {
     }
 
     return playlists;
+  }
+
+  /**
+   * Read playlist tracks (owned / collaborative playlists only after Feb 2026).
+   * Uses GET /playlists/{id}/items. Never modifies the playlist.
+   */
+  async getPlaylistItems(
+    playlistId: string,
+    userId?: string,
+    options?: { maxTracks?: number }
+  ): Promise<SpotifyPlaylistTrack[]> {
+    if (isSpotifyMockEnabled()) {
+      return [
+        {
+          id: '0VjIjW4GlUZAMYd2vXMi3b',
+          uri: 'spotify:track:0VjIjW4GlUZAMYd2vXMi3b',
+          name: 'Blinding Lights',
+          artists: ['The Weeknd'],
+          album: 'After Hours',
+          duration_ms: 200000,
+          image: 'https://i.scdn.co/image/ab67616d0000b273cover1',
+        },
+        {
+          id: '3PfIrDoz19wz7qK7tYeu62',
+          uri: 'spotify:track:3PfIrDoz19wz7qK7tYeu62',
+          name: 'Levitating',
+          artists: ['Dua Lipa'],
+          album: 'Future Nostalgia',
+          duration_ms: 203000,
+          image: 'https://i.scdn.co/image/cover2',
+        },
+      ];
+    }
+
+    const pageLimit = 50;
+    const maxTracks = options?.maxTracks ?? 200;
+    const tracks: SpotifyPlaylistTrack[] = [];
+    let offset = 0;
+
+    while (tracks.length < maxTracks) {
+      const limit = Math.min(pageLimit, maxTracks - tracks.length);
+      const data = await this.makeAuthenticatedRequest(
+        'GET',
+        `/playlists/${encodeURIComponent(playlistId)}/items?limit=${limit}&offset=${offset}&additional_types=track`,
+        undefined,
+        userId
+      );
+
+      const items = Array.isArray(data?.items) ? data.items : [];
+      for (const entry of items) {
+        // Feb 2026: nested field renamed track → item; accept both shapes
+        const track = entry?.item || entry?.track;
+        if (!track?.uri || track.type === 'episode' || track.is_local) continue;
+        tracks.push({
+          id: track.id || track.uri,
+          uri: track.uri,
+          name: track.name || 'Unknown track',
+          artists: Array.isArray(track.artists)
+            ? track.artists.map((a: { name?: string }) => a?.name).filter(Boolean)
+            : [],
+          album: track.album?.name || '',
+          duration_ms: typeof track.duration_ms === 'number' ? track.duration_ms : 0,
+          image: track.album?.images?.[0]?.url,
+        });
+      }
+
+      if (!data?.next || items.length === 0) {
+        break;
+      }
+
+      offset += items.length;
+    }
+
+    return tracks;
   }
 
   /** True if the stored token scope includes playlist list/read permissions. */

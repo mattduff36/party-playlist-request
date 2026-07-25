@@ -14,8 +14,11 @@ function parseSpotifyStatus(error: unknown): number | null {
   return null;
 }
 
-/** List Spotify playlists for browse + queue (read-only). */
-export async function GET(req: NextRequest) {
+interface RouteParams {
+  params: Promise<{ playlistId: string }>;
+}
+
+export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = requireAuth(req);
     if (!auth.authenticated || !auth.user) {
@@ -23,14 +26,18 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = auth.user.user_id;
+    const { playlistId } = await params;
+
+    if (!playlistId || !/^[a-zA-Z0-9]{10,40}$/.test(playlistId)) {
+      return NextResponse.json({ error: 'Invalid playlist id' }, { status: 400 });
+    }
 
     const isConnected = await spotifyService.isConnected(userId);
     if (!isConnected) {
-      return NextResponse.json({
-        connected: false,
-        playlists: [],
-        needs_reconnect: false,
-      });
+      return NextResponse.json(
+        { connected: false, tracks: [], error: 'Spotify is not connected' },
+        { status: 400 }
+      );
     }
 
     const hasReadScopes = await spotifyService.hasPlaylistReadScopes(userId);
@@ -38,7 +45,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           connected: true,
-          playlists: [],
+          tracks: [],
           needs_reconnect: true,
           error:
             'Spotify needs to be reconnected to grant playlist read access. Disconnect and connect again.',
@@ -49,22 +56,35 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const playlists = await spotifyService.getUserPlaylists(userId);
-
+      const tracks = await spotifyService.getPlaylistItems(playlistId, userId);
       return NextResponse.json({
         connected: true,
-        playlists,
-        needs_reconnect: false,
+        playlist_id: playlistId,
+        tracks,
+        truncated: tracks.length >= 200,
       });
     } catch (error) {
       const status = parseSpotifyStatus(error) ?? 500;
-      console.error('Error fetching Spotify playlists:', error);
+      console.error('Error fetching playlist tracks:', error);
+
+      if (status === 403) {
+        return NextResponse.json(
+          {
+            connected: true,
+            tracks: [],
+            error:
+              'Spotify only allows reading tracks from playlists you own or collaborate on.',
+            code: 'PLAYLIST_ITEMS_FORBIDDEN',
+          },
+          { status: 403 }
+        );
+      }
 
       if (status === 401) {
         return NextResponse.json(
           {
             connected: false,
-            playlists: [],
+            tracks: [],
             needs_reconnect: true,
             error: 'Spotify session expired. Please reconnect Spotify.',
             code: 'SPOTIFY_UNAUTHORIZED',
@@ -73,26 +93,11 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      if (status === 403) {
-        return NextResponse.json(
-          {
-            connected: true,
-            playlists: [],
-            needs_reconnect: true,
-            error:
-              'Spotify denied playlist access. Disconnect and reconnect Spotify to grant playlist permissions.',
-            code: 'SPOTIFY_FORBIDDEN',
-          },
-          { status: 403 }
-        );
-      }
-
       if (status === 429) {
         return NextResponse.json(
           {
             connected: true,
-            playlists: [],
-            needs_reconnect: false,
+            tracks: [],
             error: 'Spotify is rate limiting playlist requests. Try again in a moment.',
             code: 'SPOTIFY_RATE_LIMITED',
           },
@@ -103,15 +108,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           connected: true,
-          playlists: [],
-          needs_reconnect: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch playlists',
+          tracks: [],
+          error: error instanceof Error ? error.message : 'Failed to fetch playlist tracks',
         },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Error in /api/spotify/playlists:', error);
+    console.error('Error in /api/spotify/playlists/[playlistId]/tracks:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

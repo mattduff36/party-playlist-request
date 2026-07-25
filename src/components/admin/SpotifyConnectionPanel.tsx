@@ -185,7 +185,7 @@ export default function SpotifyConnectionPanel({
       </div>
 
       {state.isConnected ? (
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
           <div className="flex items-center gap-2.5 flex-1 min-w-[12rem] px-3 py-2 rounded-lg bg-surface border border-white/10">
             <CheckCircle className="w-4 h-4 text-accent flex-shrink-0" />
             <div className="min-w-0">
@@ -204,7 +204,7 @@ export default function SpotifyConnectionPanel({
           <button
             onClick={disconnectFromSpotify}
             disabled={state.isConnecting}
-            className="flex-shrink-0 px-3 py-1.5 text-xs text-muted hover:text-red-400 border border-white/10 hover:border-red-500/40 rounded-md transition-colors disabled:opacity-50"
+            className="flex-shrink-0 flex items-center px-3 py-2 text-xs text-red-400/80 border border-red-500/40 rounded-lg hover:text-red-300 hover:border-red-400/60 hover:bg-red-900/20 transition-colors disabled:opacity-50"
           >
             {state.isConnecting ? 'Disconnecting...' : 'Disconnect from Spotify'}
           </button>

@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import SpotifyConnectionPanel from '@/components/admin/SpotifyConnectionPanel';
-import { PartyPlaylistPicker } from '@/components/admin/PartyPlaylistPicker';
+import { PlaylistBrowser } from '@/components/admin/PlaylistBrowser';
 import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface SpotifyDevice {
@@ -455,8 +455,8 @@ export default function SpotifyPage() {
         </div>
       </div>
 
-      {/* Party Playlist */}
-      <PartyPlaylistPicker isConnected={isConnected} />
+      {/* Playlists — browse + queue (read-only) */}
+      <PlaylistBrowser isConnected={isConnected} />
 
       {/* Device Selector */}
       <div className="bg-elevated rounded-lg p-6">
