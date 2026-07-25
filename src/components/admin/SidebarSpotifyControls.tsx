@@ -36,6 +36,13 @@ interface SidebarSpotifyControlsProps {
   onConnectionChange?: (connected: boolean) => void;
 }
 
+/** Keep last-known devices until emptiness is confirmed. */
+const EMPTY_CONFIRM_MS = 2500;
+const EMPTY_CONFIRM_STREAK = 2;
+/** Ignore brief connected=false blips from status/playback. */
+const CONNECTED_FALSE_DEBOUNCE_MS = 1000;
+const CONNECTED_FALSE_STREAK = 2;
+
 export default function SidebarSpotifyControls({
   variant = 'sidebar',
   onConnectionChange,
@@ -55,6 +62,7 @@ export default function SidebarSpotifyControls({
   const [isStartingOAuth, setIsStartingOAuth] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
+  const [devicesHydrated, setDevicesHydrated] = useState(false);
   const [volume, setVolume] = useState(50);
   const [error, setError] = useState<string | null>(null);
   /** While set, keep optimistic active device / name and ignore stale Spotify replies. */
@@ -64,17 +72,78 @@ export default function SidebarSpotifyControls({
     wasPlaying: boolean;
     until: number;
   } | null>(null);
+  const emptyStreakRef = useRef(0);
+  const emptySinceRef = useRef<number | null>(null);
+  const emptyConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const disconnectedStreakRef = useRef(0);
+  const disconnectedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
-  const applyDevices = useCallback((incoming: SpotifyDevice[]) => {
-    setDevices((prev) => {
-      // Never flash an empty list while we already know devices exist
-      if (incoming.length === 0 && prev.length > 0) {
-        return prev;
+  const clearEmptyConfirm = useCallback(() => {
+    emptyStreakRef.current = 0;
+    emptySinceRef.current = null;
+    if (emptyConfirmTimeoutRef.current) {
+      clearTimeout(emptyConfirmTimeoutRef.current);
+      emptyConfirmTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearDisconnectedDebounce = useCallback(() => {
+    disconnectedStreakRef.current = 0;
+    if (disconnectedDebounceRef.current) {
+      clearTimeout(disconnectedDebounceRef.current);
+      disconnectedDebounceRef.current = null;
+    }
+  }, []);
+
+  const applyConnectedTrue = useCallback(() => {
+    clearDisconnectedDebounce();
+    setConnected(true);
+    setHasResolved(true);
+    onConnectionChange?.(true);
+  }, [clearDisconnectedDebounce, onConnectionChange]);
+
+  const applyConnectedFalse = useCallback(
+    (immediate = false) => {
+      setHasResolved(true);
+
+      if (immediate) {
+        clearDisconnectedDebounce();
+        setConnected(false);
+        onConnectionChange?.(false);
+        return;
       }
 
+      disconnectedStreakRef.current += 1;
+
+      if (disconnectedStreakRef.current >= CONNECTED_FALSE_STREAK) {
+        clearDisconnectedDebounce();
+        setConnected(false);
+        onConnectionChange?.(false);
+        return;
+      }
+
+      if (!disconnectedDebounceRef.current) {
+        disconnectedDebounceRef.current = setTimeout(() => {
+          disconnectedDebounceRef.current = null;
+          if (disconnectedStreakRef.current > 0) {
+            disconnectedStreakRef.current = 0;
+            setConnected(false);
+            onConnectionChange?.(false);
+          }
+        }, CONNECTED_FALSE_DEBOUNCE_MS);
+      }
+    },
+    [clearDisconnectedDebounce, onConnectionChange]
+  );
+
+  const applyLockToDevices = useCallback(
+    (incoming: SpotifyDevice[], prev: SpotifyDevice[]): SpotifyDevice[] => {
       const lock = deviceTransferLockRef.current;
       const lockActive = Boolean(lock && Date.now() < lock.until);
-
       let next = incoming.map((device) => ({ ...device }));
 
       if (lock && lockActive) {
@@ -97,8 +166,84 @@ export default function SidebarSpotifyControls({
       }
 
       return next;
-    });
-  }, []);
+    },
+    []
+  );
+
+  const scheduleEmptyClearIfConfirmed = useCallback(() => {
+    const tryClear = () => {
+      const lock = deviceTransferLockRef.current;
+      if (lock && Date.now() < lock.until) {
+        // Do not blank the list mid-transfer; wait for the next empty cycle
+        return;
+      }
+      const since = emptySinceRef.current;
+      if (since === null) return;
+      const elapsed = Date.now() - since;
+      if (
+        emptyStreakRef.current >= EMPTY_CONFIRM_STREAK &&
+        elapsed >= EMPTY_CONFIRM_MS
+      ) {
+        clearEmptyConfirm();
+        setDevices([]);
+      }
+    };
+
+    if (emptyConfirmTimeoutRef.current) {
+      clearTimeout(emptyConfirmTimeoutRef.current);
+      emptyConfirmTimeoutRef.current = null;
+    }
+
+    const since = emptySinceRef.current;
+    if (since === null) return;
+
+    const remaining = EMPTY_CONFIRM_MS - (Date.now() - since);
+    if (
+      emptyStreakRef.current >= EMPTY_CONFIRM_STREAK &&
+      remaining <= 0
+    ) {
+      tryClear();
+      return;
+    }
+
+    emptyConfirmTimeoutRef.current = setTimeout(
+      tryClear,
+      Math.max(remaining, 0)
+    );
+  }, [clearEmptyConfirm]);
+
+  const applyDevices = useCallback(
+    (incoming: SpotifyDevice[]) => {
+      setDevicesHydrated(true);
+
+      if (incoming.length > 0) {
+        clearEmptyConfirm();
+        setDevices((prev) => applyLockToDevices(incoming, prev));
+        return;
+      }
+
+      const lock = deviceTransferLockRef.current;
+      const lockActive = Boolean(lock && Date.now() < lock.until);
+
+      // Empty mid-transfer is expected noise — keep list, do not advance empty streak
+      if (!lockActive) {
+        emptyStreakRef.current += 1;
+        if (emptySinceRef.current === null) {
+          emptySinceRef.current = Date.now();
+        }
+        scheduleEmptyClearIfConfirmed();
+      }
+
+      setDevices((prev) => {
+        if (prev.length === 0) {
+          return prev;
+        }
+        // Keep last-known devices; re-apply lock so active highlight stays stable
+        return applyLockToDevices([], prev);
+      });
+    },
+    [applyLockToDevices, clearEmptyConfirm, scheduleEmptyClearIfConfirmed]
+  );
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -107,16 +252,16 @@ export default function SidebarSpotifyControls({
       });
       const data = await response.json();
       if (!response.ok) {
-        setConnected(false);
-        setHasResolved(true);
-        onConnectionChange?.(false);
+        applyConnectedFalse();
         return false;
       }
 
       const isConnected = Boolean(data.connected);
-      setConnected(isConnected);
-      setHasResolved(true);
-      onConnectionChange?.(isConnected);
+      if (isConnected) {
+        applyConnectedTrue();
+      } else {
+        applyConnectedFalse();
+      }
 
       const lock = deviceTransferLockRef.current;
       const lockActive = Boolean(lock && Date.now() < lock.until);
@@ -133,18 +278,17 @@ export default function SidebarSpotifyControls({
 
       return isConnected;
     } catch {
-      setConnected(false);
-      setHasResolved(true);
-      onConnectionChange?.(false);
+      applyConnectedFalse();
       return false;
     }
-  }, [onConnectionChange, patchPlaybackState]);
+  }, [applyConnectedFalse, applyConnectedTrue, patchPlaybackState]);
 
   const fetchDevices = useCallback(async () => {
     try {
       const response = await fetch('/api/spotify/devices', {
         credentials: 'include',
       });
+      // Failed fetch must not count toward empty confirmation
       if (!response.ok) return;
       const data = await response.json();
       applyDevices(Array.isArray(data.devices) ? data.devices : []);
@@ -160,7 +304,15 @@ export default function SidebarSpotifyControls({
       void fetchStatus();
       void fetchDevices();
     }, 8000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (emptyConfirmTimeoutRef.current) {
+        clearTimeout(emptyConfirmTimeoutRef.current);
+      }
+      if (disconnectedDebounceRef.current) {
+        clearTimeout(disconnectedDebounceRef.current);
+      }
+    };
   }, [fetchDevices, fetchStatus]);
 
   useEffect(() => {
@@ -189,13 +341,18 @@ export default function SidebarSpotifyControls({
       setVolume(playbackState.volume_percent);
     }
     if (playbackState?.spotify_connected !== undefined) {
-      setConnected(playbackState.spotify_connected);
-      setHasResolved(true);
+      if (playbackState.spotify_connected) {
+        applyConnectedTrue();
+      } else {
+        applyConnectedFalse();
+      }
     }
   }, [
     playbackState?.spotify_connected,
     playbackState?.volume_percent,
     playbackState?.device_name,
+    applyConnectedFalse,
+    applyConnectedTrue,
     patchPlaybackState,
   ]);
 
@@ -219,9 +376,10 @@ export default function SidebarSpotifyControls({
         return;
       }
       clearSpotifyOAuthPending();
-      setConnected(false);
+      clearEmptyConfirm();
+      applyConnectedFalse(true);
       setDevices([]);
-      onConnectionChange?.(false);
+      setDevicesHydrated(false);
       await handleSpotifyDisconnect();
     } catch {
       setError('Network error disconnecting');
@@ -361,14 +519,11 @@ export default function SidebarSpotifyControls({
         }
       }
     } catch {
+      // Failures release immediately; success keeps lock until until/Spotify confirms
       deviceTransferLockRef.current = null;
       setError('Failed to transfer playback');
       void fetchDevices();
       void refreshPlaybackState();
-    } finally {
-      if (deviceTransferLockRef.current?.deviceId === deviceId) {
-        deviceTransferLockRef.current = null;
-      }
     }
   };
 
@@ -621,7 +776,18 @@ export default function SidebarSpotifyControls({
                 Available devices
               </h3>
             )}
-            {devices.length > 0 ? (
+            {!devicesHydrated ? (
+              <div className="space-y-1" aria-hidden="true">
+                {[0, 1, 2].map((index) => (
+                  <div
+                    key={index}
+                    className={`w-full rounded-lg bg-surface/80 border border-transparent animate-pulse ${
+                      isPage ? 'h-10' : 'h-8'
+                    }`}
+                  />
+                ))}
+              </div>
+            ) : devices.length > 0 ? (
               <div className="space-y-1">
                 {devices.map((device) => {
                   const DeviceIcon = getSpotifyDeviceIcon(device.type);
