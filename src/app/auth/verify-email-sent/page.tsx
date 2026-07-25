@@ -22,13 +22,13 @@ function VerifyEmailSentContent() {
         {/* Success Card */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl text-center">
           {/* Icon */}
-          <div className="bg-gradient-to-br from-yellow-400/20 to-pink-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6">
+          <div className="bg-accent/15 border border-accent/30 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6">
             <Mail className="w-10 h-10 text-accent" />
           </div>
 
           {/* Title */}
           <h1 className="text-3xl font-bold text-bone mb-4">
-            Check Your Email! 📧
+            Check Your Email
           </h1>
 
           {/* Message */}
@@ -68,9 +68,9 @@ function VerifyEmailSentContent() {
           </div>
 
           {/* Note */}
-          <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-4 mb-6">
-            <p className="text-yellow-200 text-sm">
-              💡 <strong>Tip:</strong> Check your spam folder if you don't see the email in a few minutes.
+          <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 mb-6">
+            <p className="text-muted text-sm">
+              <strong className="text-bone">Tip:</strong> Check your spam folder if you don't see the email in a few minutes.
             </p>
           </div>
 
