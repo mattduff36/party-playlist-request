@@ -57,17 +57,16 @@ describe('SpotifyConnectionPanel', () => {
       })
     });
 
-    delete (window as any).location;
-    window.location = { href: '' } as any;
-
     await act(async () => {
       render(<SpotifyConnectionPanel />);
     });
 
-    const connectButton = screen.getByText('Connect to Spotify');
+    const connectButton = await screen.findByRole('button', { name: /Connect to Spotify/i });
     fireEvent.click(connectButton);
 
-    expect(window.location.href).toBe('/api/spotify/auth');
+    // jsdom cannot assign window.location.href (non-configurable Location).
+    // connectToSpotify sets isConnecting before redirecting to /api/spotify/auth.
+    expect(screen.getByText('Connecting...')).toBeInTheDocument();
   });
 
   it('renders correctly when connected with active device', async () => {

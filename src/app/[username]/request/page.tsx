@@ -15,6 +15,7 @@ import {
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
 import type { SpotifySearchErrorResponse } from '@/lib/spotify-search-errors';
+import { Check, X, Zap } from 'lucide-react';
 import {
   TrackSearch,
   RequestSubmitForm,
@@ -589,15 +590,11 @@ export default function UserRequestPage() {
               <div className="flex-shrink-0">
                 {notification.type === 'play_next' ? (
                   <div className="w-8 h-8 bg-[color:var(--mood-accent)]/15 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 mood-accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                    <Zap className="w-4 h-4 mood-accent-text" aria-hidden="true" />
                   </div>
                 ) : (
                   <div className="w-8 h-8 bg-[color:var(--mood-accent)]/15 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 mood-accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                    <Check className="w-4 h-4 mood-accent-text stroke-[2.5]" aria-hidden="true" />
                   </div>
                 )}
               </div>
@@ -618,10 +615,9 @@ export default function UserRequestPage() {
                   dismissNotification(notification.id);
                 }}
                 className="flex-shrink-0 text-[color:var(--mood-muted)] hover:text-[color:var(--mood-muted)] transition-colors"
+                aria-label="Dismiss notification"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>

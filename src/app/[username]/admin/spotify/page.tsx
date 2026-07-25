@@ -14,9 +14,11 @@ import {
   Loader2,
   AlertCircle,
   Music2,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import SpotifyConnectionPanel from '@/components/admin/SpotifyConnectionPanel';
+import { PartyPlaylistPicker } from '@/components/admin/PartyPlaylistPicker';
 import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface SpotifyDevice {
@@ -62,20 +64,28 @@ export default function SpotifyPage() {
       setIsConnected(data.connected);
 
       if (data.connected && data.current_track) {
+        // Status API returns artist (string) and image_url — normalize for UI
+        const artistName =
+          data.current_track.artist ||
+          (Array.isArray(data.current_track.artists)
+            ? data.current_track.artists.join(', ')
+            : null);
+
         setCurrentTrack({
           name: data.current_track.name,
-          artists: data.current_track.artists,
+          artists: artistName ? [artistName] : ['Unknown Artist'],
           album: data.current_track.album,
           duration_ms: data.current_track.duration_ms,
           progress_ms: data.current_track.progress_ms,
           is_playing: data.is_playing,
-          image: data.current_track.image
+          image: data.current_track.image_url || data.current_track.image,
         });
-        
-        // Get volume from device info if available
+
         if (data.device && data.device.volume_percent !== undefined) {
           setVolume(data.device.volume_percent);
         }
+      } else if (data.connected) {
+        setCurrentTrack(null);
       }
     } catch (error) {
       console.error('Failed to fetch Spotify status:', error);
@@ -302,8 +312,9 @@ export default function SpotifyPage() {
           <button
             onClick={() => setError(null)}
             className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -444,6 +455,9 @@ export default function SpotifyPage() {
         </div>
       </div>
 
+      {/* Party Playlist */}
+      <PartyPlaylistPicker isConnected={isConnected} />
+
       {/* Device Selector */}
       <div className="bg-elevated rounded-lg p-6">
         <h2 className="text-xl font-bold text-bone mb-4">Available Devices</h2>
@@ -500,13 +514,16 @@ export default function SpotifyPage() {
         )}
       </div>
 
-      {/* Info Box */}
-      <div className="bg-accent/10 border border-accent/40 rounded-lg p-4">
-        <p className="text-accent text-sm">
-          <strong>Tip:</strong> These controls work with your active Spotify session.
-          If you don't see any devices, open Spotify on your phone, computer, or smart speaker.
-        </p>
-      </div>
+      {/* Tip only when no devices are available */}
+      {devices.length === 0 && (
+        <div className="flex items-start gap-2 text-muted bg-surface/60 border border-white/10 rounded-lg p-3">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">
+            These controls work with your active Spotify session. Open Spotify on
+            your phone, computer, or smart speaker to see devices here.
+          </p>
+        </div>
+      )}
         </>
       )}
     </div>

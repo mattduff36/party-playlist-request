@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Palette, Eye, Mic, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, RefreshCw, Palette, Mic, ChevronDown, ChevronUp, MessageSquareText, Megaphone } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import {
   DISPLAY_MOODS,
   DisplayMood,
   resolveDisplayMood,
 } from '@/styles/theme';
+import Checkbox from '@/components/ui/Checkbox';
+import Radio from '@/components/ui/Radio';
 
 export default function DisplaySettingsPage() {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
@@ -221,7 +223,8 @@ export default function DisplaySettingsPage() {
               className="w-full flex items-center justify-between p-4 bg-surface/60 hover:bg-surface/70 transition-colors"
             >
               <h3 className="text-lg font-semibold text-bone flex items-center">
-                💬 Display Messages
+                <MessageSquareText className="w-5 h-5 mr-2 text-accent" />
+                Display Messages
               </h3>
               {expandedSections.displayMessages ? (
                 <ChevronUp className="w-5 h-5 text-muted" />
@@ -236,13 +239,12 @@ export default function DisplaySettingsPage() {
             {/* Scrolling Bar Toggle */}
             <div className="bg-surface/60 rounded-lg p-4 border-2 border-accent/30 mb-6">
               <div className="flex items-center">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="show_scrolling_bar"
                   name="show_scrolling_bar"
                   checked={formData.show_scrolling_bar}
                   onChange={handleCheckboxChange}
-                  className="w-5 h-5 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
+                  size="md"
                 />
                 <label htmlFor="show_scrolling_bar" className="ml-3 text-base font-semibold text-bone">
                   Show Scrolling Message Bar
@@ -387,7 +389,8 @@ export default function DisplaySettingsPage() {
               className="w-full flex items-center justify-between p-4 bg-surface/60 hover:bg-surface/70 transition-colors"
             >
               <h3 className="text-lg font-semibold text-bone flex items-center">
-                📢 Notice Board
+                <Megaphone className="w-5 h-5 mr-2 text-accent" />
+                Notice Board
               </h3>
               {expandedSections.noticeBoard ? (
                 <ChevronUp className="w-5 h-5 text-muted" />
@@ -406,13 +409,12 @@ export default function DisplaySettingsPage() {
               {/* Auto-Approval Messages Setting */}
               <div className="bg-surface/60 rounded-lg p-4 border-2 border-accent/30 mb-4">
                 <div className="flex items-center">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="show_approval_messages"
                     name="show_approval_messages"
                     checked={formData.show_approval_messages}
                     onChange={handleCheckboxChange}
-                    className="w-5 h-5 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
+                    size="md"
                   />
                   <label htmlFor="show_approval_messages" className="ml-3 text-base font-semibold text-bone">
                     Show Requests when Approved
@@ -450,48 +452,40 @@ export default function DisplaySettingsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
-                      <input
-                        type="radio"
+                      <Radio
                         name="duration"
                         value="10"
                         checked={messageDuration === '10'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-muted">10 seconds</span>
                     </label>
                     <label className="flex items-center">
-                      <input
-                        type="radio"
+                      <Radio
                         name="duration"
                         value="30"
                         checked={messageDuration === '30'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-muted">30 seconds</span>
                     </label>
                     <label className="flex items-center">
-                      <input
-                        type="radio"
+                      <Radio
                         name="duration"
                         value="60"
                         checked={messageDuration === '60'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-muted">1 minute</span>
                     </label>
                   </div>
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
-                      <input
-                        type="radio"
+                      <Radio
                         name="duration"
                         value="custom"
                         checked={messageDuration === 'custom'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-muted">Custom:</span>
                     </label>
@@ -509,13 +503,11 @@ export default function DisplaySettingsPage() {
                       </div>
                     )}
                     <label className="flex items-center">
-                      <input
-                        type="radio"
+                      <Radio
                         name="duration"
                         value="indefinite"
                         checked={messageDuration === 'indefinite'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-muted">Until removed</span>
                     </label>
@@ -601,14 +593,12 @@ export default function DisplaySettingsPage() {
               {/* Karaoke Mode checkbox - DISABLED */}
               <div className="opacity-50">
                 <div className="flex items-center">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="karaoke_mode"
                     name="karaoke_mode"
                     checked={formData.karaoke_mode}
                     onChange={handleCheckboxChange}
-                    disabled={true}
-                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2 cursor-not-allowed"
+                    disabled
                   />
                   <label htmlFor="karaoke_mode" className="ml-3 text-sm font-medium text-muted cursor-not-allowed">
                     Karaoke Mode

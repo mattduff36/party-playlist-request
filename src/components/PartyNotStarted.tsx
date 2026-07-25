@@ -1,4 +1,5 @@
 import React from 'react';
+import { Headphones, Music2, Smartphone, Zap } from 'lucide-react';
 
 interface PartyNotStartedProps {
   variant: 'display' | 'request';
@@ -20,7 +21,7 @@ const PartyNotStarted: React.FC<PartyNotStartedProps> = ({ variant }) => {
         <div className="flex justify-center mb-8">
           <div className="relative">
             <div className="absolute inset-0 blur-3xl bg-[#1DB954] opacity-30 rounded-full"></div>
-            <div className="relative text-8xl md:text-9xl text-[#1DB954] opacity-90">🎵</div>
+            <Music2 className="relative h-24 w-24 md:h-32 md:w-32 text-[#1DB954] opacity-90" aria-hidden="true" />
           </div>
         </div>
         
@@ -53,17 +54,17 @@ const PartyNotStarted: React.FC<PartyNotStartedProps> = ({ variant }) => {
         {/* Features - Compact */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-8">
           <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-[#1DB954]/10">
-            <div className="text-3xl mb-2">🎧</div>
+            <Headphones className="h-8 w-8 text-[#1DB954] mx-auto mb-2" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-[#1DB954] mb-1">Spotify Integration</h3>
             <p className="text-xs text-gray-400">Real-time queue management</p>
           </div>
           <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-[#1DB954]/10">
-            <div className="text-3xl mb-2">📱</div>
+            <Smartphone className="h-8 w-8 text-[#1DB954] mx-auto mb-2" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-[#1DB954] mb-1">Guest Requests</h3>
             <p className="text-xs text-gray-400">Simple song submission</p>
           </div>
           <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-[#1DB954]/10">
-            <div className="text-3xl mb-2">⚡</div>
+            <Zap className="h-8 w-8 text-[#1DB954] mx-auto mb-2" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-[#1DB954] mb-1">Live Updates</h3>
             <p className="text-xs text-gray-400">Instant notifications</p>
           </div>

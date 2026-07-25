@@ -11,7 +11,8 @@ import {
   Power,
   Pause,
   Play,
-  Loader2
+  Loader2,
+  Check
 } from 'lucide-react';
 import { useGlobalEvent, EventStateMachine } from '@/lib/state/global-event-client';
 
@@ -324,7 +325,7 @@ export default function EventStateDropdown() {
                       <Icon className="w-4 h-4" />
                       <span className="text-sm font-medium">{label}</span>
                       {isActive && (
-                        <span className="ml-auto text-xs">✓</span>
+                        <Check className="ml-auto h-4 w-4 stroke-[2.5]" aria-hidden="true" />
                       )}
                     </button>
                   );

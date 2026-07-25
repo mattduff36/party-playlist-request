@@ -109,6 +109,35 @@ async function seedSpotifyAuth(pool: Pool, userId: string): Promise<void> {
   );
 }
 
+
+async function seedUserSettings(
+  pool: Pool,
+  userId: string,
+  user: SeedUser
+): Promise<void> {
+  if (!(await tableExists(pool, 'user_settings'))) return;
+  const existing = await pool.query(
+    `SELECT user_id FROM user_settings WHERE user_id = $1`,
+    [userId]
+  );
+  if (existing.rows.length > 0) {
+    await pool.query(
+      `UPDATE user_settings
+       SET event_title = $2,
+           welcome_message = $3,
+           updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId, user.eventTitle, `Welcome to ${user.eventTitle}`]
+    );
+    return;
+  }
+  await pool.query(
+    `INSERT INTO user_settings (user_id, event_title, welcome_message)
+     VALUES ($1, $2, $3)`,
+    [userId, user.eventTitle, `Welcome to ${user.eventTitle}`]
+  );
+}
+
 async function seedUserEvent(
   pool: Pool,
   userId: string,
@@ -216,6 +245,7 @@ async function seedTestData() {
       console.log(`User ready: ${user.username} (${userId})`);
       await seedSpotifyAuth(pool, userId);
       await seedUserEvent(pool, userId, user);
+      await seedUserSettings(pool, userId, user);
       await seedEventsTable(pool, userId, user);
       await seedPendingRequest(pool, userId);
     }

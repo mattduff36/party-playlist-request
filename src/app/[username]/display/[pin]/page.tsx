@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Lock } from 'lucide-react';
 
 /**
  * Display Page with PIN in URL
@@ -80,7 +80,7 @@ export default function DisplayWithPinPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#191414] to-[#0a0a0a] flex items-center justify-center">
         <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl text-center max-w-md border border-white/10">
-          <div className="text-6xl mb-4">🔒</div>
+          <Lock className="w-16 h-16 text-[#1DB954] mx-auto mb-4" aria-hidden="true" />
           <h1 className="text-3xl font-bold text-white mb-4">Invalid PIN</h1>
           <p className="text-gray-200 mb-6">{error}</p>
           <p className="text-gray-300 text-sm mb-4">

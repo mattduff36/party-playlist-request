@@ -22,7 +22,7 @@ export default function SetupPartyModal({ isOpen, onConfirm, onClose }: SetupPar
               <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent-hover rounded-full flex items-center justify-center">
                 <Wand2 className="w-5 h-5 text-ink" />
               </div>
-              <h2 className="text-2xl font-bold text-bone">Welcome! 🎉</h2>
+              <h2 className="text-2xl font-bold text-bone">Welcome!</h2>
             </div>
             <button
               onClick={onClose}

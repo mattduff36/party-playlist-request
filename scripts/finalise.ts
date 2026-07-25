@@ -1,12 +1,14 @@
 import { spawn, spawnSync, type ChildProcess } from 'child_process';
 import { config } from 'dotenv';
-import { existsSync, readFileSync, rmSync } from 'fs';
+import { existsSync, readFileSync, rmSync, cpSync, mkdirSync } from 'fs';
 import path from 'path';
 import pg from 'pg';
 
 config({ path: path.resolve(process.cwd(), '.env.local') });
 
-if (process.env.NODE_ENV === 'development') {
+// .env.local may set NODE_ENV=production for Next. Drop it so child tools
+// (especially Jest/React Testing Library) are not forced onto production React.
+if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
   Reflect.deleteProperty(process.env, 'NODE_ENV');
 }
 
@@ -473,16 +475,35 @@ function getManagedProcessOutput(managedProcess: ManagedProcess): string {
   return managedProcess.output.join('').trim();
 }
 
+
+function syncStandaloneAssets(
+  staticSrc: string,
+  staticDest: string,
+  publicSrc: string,
+  publicDest: string
+): void {
+  mkdirSync(path.dirname(staticDest), { recursive: true });
+  if (existsSync(staticSrc)) {
+    cpSync(staticSrc, staticDest, { recursive: true });
+  }
+  if (existsSync(publicSrc)) {
+    cpSync(publicSrc, publicDest, { recursive: true });
+  }
+}
+
 function startManagedProcess(
   command: string,
   args: string[],
   label: string,
-  envOverrides: Record<string, string> = {}
+  envOverrides: Record<string, string> = {},
+  cwd: string = REPO_ROOT
 ): ManagedProcess {
-  const child = spawn(command, args, {
-    cwd: REPO_ROOT,
+  const useShell =
+    process.platform === 'win32' && (command === 'npm' || command === 'npx');
+  const child = spawn(getExecutable(command), args, {
+    cwd,
     env: { ...process.env, ...envOverrides },
-    shell: process.platform === 'win32',
+    shell: useShell,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -703,6 +724,18 @@ async function main(): Promise<void> {
   console.log('\n==> Run clean production build');
   runCommand('npm', ['run', 'build']);
 
+  const standaloneDirForAssets = path.join(NEXT_BUILD_DIR, 'standalone');
+  if (existsSync(standaloneDirForAssets)) {
+    console.log('\n==> Sync standalone static assets');
+    syncStandaloneAssets(
+      path.join(NEXT_BUILD_DIR, 'static'),
+      path.join(standaloneDirForAssets, '.next', 'static'),
+      path.join(REPO_ROOT, 'public'),
+      path.join(standaloneDirForAssets, 'public')
+    );
+    console.log('Standalone assets synced.');
+  }
+
   if (options.full) {
     console.log('\n==> Run full automated test suite');
 
@@ -713,6 +746,9 @@ async function main(): Promise<void> {
         : null;
     if (unitScript) {
       console.log(`Running ${unitScript}...`);
+      // React Testing Library needs React.act from the development build.
+      // .env.local may set NODE_ENV=production for Next; override for unit tests.
+      process.env.NODE_ENV = 'test';
       runCommand('npm', ['run', unitScript]);
     } else {
       console.log('No unit test script found; skipping unit tests.');
@@ -740,16 +776,40 @@ async function main(): Promise<void> {
       process.env.PLAYWRIGHT_REUSE_SERVER = '1';
       process.env.TEST_SERVER_URL = `http://127.0.0.1:${DEV_SERVER_PORT}`;
 
-      const testServer = startManagedProcess(
-        'npm',
-        ['run', 'start', '--', '--port', String(DEV_SERVER_PORT)],
-        'Local production server',
-        {
-          SPOTIFY_MOCK: 'true',
-          PLAYWRIGHT_REUSE_SERVER: '1',
-          TEST_SERVER_URL: `http://127.0.0.1:${DEV_SERVER_PORT}`,
-        }
-      );
+      // next.config uses output: 'standalone' — `next start` is unsupported.
+      // Prefer the standalone Node server produced by `next build`.
+      const standaloneServer = path.join(REPO_ROOT, '.next', 'standalone', 'server.js');
+      const useStandalone = existsSync(standaloneServer);
+      if (!useStandalone) {
+        console.log('Standalone server.js not found; falling back to npm run start.');
+      }
+
+      const standaloneDir = path.join(REPO_ROOT, '.next', 'standalone');
+      const testServer = useStandalone
+        ? startManagedProcess(
+            process.execPath,
+            ['server.js'],
+            'Local production server',
+            {
+              SPOTIFY_MOCK: 'true',
+              PLAYWRIGHT_REUSE_SERVER: '1',
+              TEST_SERVER_URL: `http://127.0.0.1:${DEV_SERVER_PORT}`,
+              PORT: String(DEV_SERVER_PORT),
+              HOSTNAME: '127.0.0.1',
+              NODE_ENV: 'production',
+            },
+            standaloneDir
+          )
+        : startManagedProcess(
+            'npm',
+            ['run', 'start', '--', '--port', String(DEV_SERVER_PORT)],
+            'Local production server',
+            {
+              SPOTIFY_MOCK: 'true',
+              PLAYWRIGHT_REUSE_SERVER: '1',
+              TEST_SERVER_URL: `http://127.0.0.1:${DEV_SERVER_PORT}`,
+            }
+          );
 
       try {
         await waitForServerReady(testServer, `http://127.0.0.1:${DEV_SERVER_PORT}`);

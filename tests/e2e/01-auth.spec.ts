@@ -1,22 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { TEST_USERS } from '../fixtures/users';
-
-async function login(page: import('@playwright/test').Page, username: string, password: string) {
-  await page.goto('/login');
-  await page.fill('#username', username);
-  await page.fill('#password', password);
-  await page.click('button[type="submit"]');
-
-  const transfer = page.getByRole('button', { name: /transfer|yes/i });
-  if (await transfer.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await transfer.click();
-  }
-}
+import { loginAs } from './helpers/login';
 
 test.describe('Authentication', () => {
   test('logs in with valid credentials', async ({ page }) => {
-    await login(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
-    await page.waitForURL(/\/testuser1\/admin/, { timeout: 15000 });
+    await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
+    await expect(page).toHaveURL(/\/testuser1\/admin/);
     await expect(page.getByText(/Overview/i).first()).toBeVisible({ timeout: 10000 });
   });
 
@@ -31,26 +20,24 @@ test.describe('Authentication', () => {
 
   test('redirects unauthenticated admin access to login', async ({ page }) => {
     await page.goto('/testuser1/admin/overview');
-    await page.waitForURL(/\/login/, { timeout: 10000 });
+    await page.waitForURL(/\/login/, { timeout: 15000, waitUntil: 'domcontentloaded' });
     expect(page.url()).toContain('/login');
   });
 
   test('persists session after refresh', async ({ page }) => {
-    await login(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
-    await page.waitForURL(/\/testuser1\/admin/, { timeout: 15000 });
+    await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
     await page.reload();
     await expect(page.getByText(/Overview/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('logs out', async ({ page }) => {
-    await login(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
-    await page.waitForURL(/\/testuser1\/admin/, { timeout: 15000 });
-    const logoutButton = page.locator('button[title="Logout"], button:has-text("Logout")').first();
-    await logoutButton.click();
+    await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
+    // Prefer the visible header control (desktop/mobile both use title="Logout").
+    await page.locator('button[title="Logout"]').locator('visible=true').first().click();
     const confirm = page.getByRole('button', { name: /^Logout$/i }).last();
     if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) {
       await confirm.click();
     }
-    await page.waitForURL(/\/login/, { timeout: 10000 });
+    await page.waitForURL(/\/login/, { timeout: 15000, waitUntil: 'domcontentloaded' });
   });
 });

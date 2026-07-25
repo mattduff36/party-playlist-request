@@ -1,0 +1,54 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - link "Party Playlist" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6] [cursor=pointer]:
+          - text: Party
+          - generic [ref=e7] [cursor=pointer]: Playlist
+      - generic [ref=e8]:
+        - heading "Welcome back" [level=1] [ref=e9]
+        - paragraph [ref=e10]: Sign in to run your event
+        - generic [ref=e11]:
+          - generic [ref=e12]:
+            - generic [ref=e13]: Username
+            - textbox "Username" [ref=e14]: testuser1
+          - generic [ref=e15]:
+            - generic [ref=e16]: Password
+            - textbox "Password" [ref=e17]: testpassword123
+          - link "Forgot password?" [ref=e19] [cursor=pointer]:
+            - /url: /auth/forgot-password
+          - button "Sign in" [ref=e20]
+        - paragraph [ref=e21]:
+          - text: No account?
+          - link "Request access" [ref=e22] [cursor=pointer]:
+            - /url: /register
+        - paragraph [ref=e23]:
+          - link "← Back to home" [ref=e24] [cursor=pointer]:
+            - /url: /
+    - generic [ref=e26]:
+      - button "Cancel" [ref=e27]:
+        - img [ref=e28]
+      - generic [ref=e31]:
+        - img [ref=e33]
+        - heading "Active Session Detected" [level=3] [ref=e35]
+        - paragraph [ref=e36]: You're already logged in on another device
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - img [ref=e39]
+            - generic [ref=e41]: Current Session
+          - paragraph [ref=e42]: Started Just now
+        - generic [ref=e43]:
+          - paragraph [ref=e44]: Do you want to transfer the event to this device?
+          - paragraph [ref=e45]: Your other session will be automatically logged out, and your event will continue here.
+      - generic [ref=e46]:
+        - button "Yes, Transfer to This Device" [ref=e47]:
+          - img [ref=e48]
+          - text: Yes, Transfer to This Device
+        - button "No, Stay on Other Device" [ref=e50]
+      - paragraph [ref=e51]: Only one admin session can be active at a time
+  - alert [ref=e52]
+```

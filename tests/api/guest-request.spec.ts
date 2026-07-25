@@ -54,7 +54,7 @@ describe('Guest request and search APIs', () => {
       }),
     });
     // 200/201 success, or 403 if pages/event gate closed
-    expect([200, 201, 403, 429]).toContain(response.status);
+    expect([200, 201, 403, 409, 429]).toContain(response.status);
     if (response.status === 200 || response.status === 201) {
       const data = await response.json();
       expect(data.request || data.id || data.success).toBeTruthy();

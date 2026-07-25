@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
               <div className="bg-gradient-to-br from-green-400/20 to-emerald-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
-              <h2 className="text-2xl font-bold text-bone mb-4">Check Your Email! 📧</h2>
+              <h2 className="text-2xl font-bold text-bone mb-4">Check Your Email</h2>
               <p className="text-muted mb-6">{message}</p>
               
               <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-4 mb-6 text-left">
@@ -102,7 +102,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <p className="text-muted text-sm mb-6">
-                💡 The reset link will expire in <strong className="text-bone">1 hour</strong>. 
+                The reset link will expire in <strong className="text-bone">1 hour</strong>. 
                 Check your spam folder if you don't see the email.
               </p>
 

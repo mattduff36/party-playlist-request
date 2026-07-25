@@ -1,7 +1,25 @@
 'use client';
 
 import type { CSSProperties, RefCallback } from 'react';
+import { Music2 } from 'lucide-react';
 import type { CurrentTrack, NowPlayingVariant } from './types';
+
+interface NowPlayingHeadingProps {
+  className?: string;
+  iconClassName?: string;
+}
+
+function NowPlayingHeading({
+  className = '',
+  iconClassName = 'h-5 w-5',
+}: NowPlayingHeadingProps) {
+  return (
+    <h2 className={`flex items-center justify-center gap-2 font-semibold ${className}`}>
+      <Music2 className={`${iconClassName} mood-accent-text shrink-0`} aria-hidden="true" />
+      Now Playing
+    </h2>
+  );
+}
 
 interface NowPlayingPanelProps {
   variant: NowPlayingVariant;
@@ -22,10 +40,10 @@ export default function NowPlayingPanel({
     return (
       <div
         ref={nowPlayingRef}
-        className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 flex flex-col justify-center min-w-0"
+        className="mood-panel p-6 flex flex-col justify-center min-w-0"
         style={style}
       >
-        <h2 className="text-2xl font-semibold mb-6 text-center">🎵 Now Playing</h2>
+        <NowPlayingHeading className="text-2xl mb-6" iconClassName="h-6 w-6" />
         {currentTrack ? (
           useHorizontalLayout ? (
             // Horizontal layout: Album art left, details right (centered)
@@ -77,10 +95,10 @@ export default function NowPlayingPanel({
   if (variant === 'tablet-landscape') {
     return (
       <div
-        className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex flex-col justify-center min-w-0"
+        className="mood-panel p-4 flex flex-col justify-center min-w-0"
         style={style}
       >
-        <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
+        <NowPlayingHeading className="text-lg mb-3" iconClassName="h-4 w-4" />
         {currentTrack ? (
           <div className="text-center">
             {currentTrack.image_url && (
@@ -107,8 +125,8 @@ export default function NowPlayingPanel({
 
   if (variant === 'tablet-portrait') {
     return (
-      <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 flex-shrink-0 mb-4">
-        <h2 className="text-xl font-semibold mb-3 text-center">🎵 Now Playing</h2>
+      <div className="mood-panel p-4 flex-shrink-0 mb-4">
+        <NowPlayingHeading className="text-xl mb-3" iconClassName="h-5 w-5" />
         {currentTrack ? (
           <div className="text-center">
             {currentTrack.image_url && (
@@ -135,10 +153,10 @@ export default function NowPlayingPanel({
   if (variant === 'mobile-landscape') {
     return (
       <div
-        className="bg-black/30 backdrop-blur-sm rounded-lg p-2 flex flex-col justify-center min-w-0"
+        className="mood-panel p-2 flex flex-col justify-center min-w-0"
         style={style}
       >
-        <h2 className="text-xs font-semibold mb-2 text-center">🎵 Now Playing</h2>
+        <NowPlayingHeading className="text-xs mb-2" iconClassName="h-3 w-3" />
         {currentTrack ? (
           <div className="text-center">
             {currentTrack.image_url && (
@@ -165,8 +183,8 @@ export default function NowPlayingPanel({
 
   // mobile-portrait
   return (
-    <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 flex-shrink-0 mb-3">
-      <h2 className="text-lg font-semibold mb-3 text-center">🎵 Now Playing</h2>
+    <div className="mood-panel p-3 flex-shrink-0 mb-3">
+      <NowPlayingHeading className="text-lg mb-3" iconClassName="h-4 w-4" />
       {currentTrack ? (
         <div className="text-center">
           {currentTrack.image_url && (

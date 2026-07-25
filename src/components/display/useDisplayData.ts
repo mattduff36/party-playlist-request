@@ -642,7 +642,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
   const totalCharacters = messagesText.length;
   const dynamicDuration = Math.max(baseDuration, totalCharacters * characterMultiplier) + 4; // Add 4 second buffer
 
-  const messageTextColor = 'text-white';
+  const messageTextColor = 'text-[color:var(--mood-text)]';
 
   // Connection status for display dots
   const spotifyConnected = !!currentTrack;

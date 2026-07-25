@@ -5,6 +5,8 @@
  */
 
 import '@testing-library/jest-dom';
+
+process.env.NODE_ENV = 'test';
 import * as dotenv from 'dotenv';
 import path from 'path';
 

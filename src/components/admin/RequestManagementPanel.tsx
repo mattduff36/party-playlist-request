@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter, RotateCcw } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
+import Checkbox from '@/components/ui/Checkbox';
 
 interface RequestManagementPanelProps {
   className?: string;
@@ -368,11 +369,10 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           <>
             {/* Select All */}
             <div className="flex items-center gap-3 p-3 bg-surface/60 rounded-lg">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selectedRequests.size === allRequests.length && allRequests.length > 0}
                 onChange={handleSelectAll}
-                className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent"
+                aria-label="Select all requests"
               />
               <span className="text-muted text-sm">
                 Select all {allRequests.length} request{allRequests.length !== 1 ? 's' : ''}
@@ -391,11 +391,10 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                 }`}>
                 <div className="flex items-center gap-3">
                   {/* Checkbox */}
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedRequests.has(request.id)}
                     onChange={() => handleSelectRequest(request.id)}
-                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent"
+                    aria-label={`Select ${request.track_name}`}
                   />
 
                   {/* Album Art */}

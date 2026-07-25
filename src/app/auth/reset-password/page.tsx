@@ -130,12 +130,12 @@ function ResetPasswordContent() {
               <div className="bg-gradient-to-br from-green-400/20 to-emerald-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6 animate-bounce">
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
-              <h2 className="text-2xl font-bold text-bone mb-4">Password Reset! 🎉</h2>
+              <h2 className="text-2xl font-bold text-bone mb-4">Password Reset!</h2>
               <p className="text-muted mb-6">{message}</p>
               
               <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-4 mb-6">
                 <p className="text-green-200 text-sm">
-                  ✨ You can now log in with your new password
+                  You can now log in with your new password
                 </p>
               </div>
 

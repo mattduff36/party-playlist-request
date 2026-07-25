@@ -1,5 +1,6 @@
 'use client';
 
+import { Megaphone } from 'lucide-react';
 import type { ScrollingBarVariant } from './types';
 
 interface ScrollingBarProps {
@@ -10,11 +11,24 @@ interface ScrollingBarProps {
   visible?: boolean;
 }
 
+interface ScrollingBarIconProps {
+  className: string;
+}
+
+function ScrollingBarIcon({ className }: ScrollingBarIconProps) {
+  return (
+    <Megaphone
+      className={`${className} mood-accent-text shrink-0`}
+      aria-hidden="true"
+    />
+  );
+}
+
 export default function ScrollingBar({
   variant,
   displayContent,
   dynamicDuration,
-  messageTextColor = 'text-white',
+  messageTextColor = 'text-[color:var(--mood-text)]',
   visible = true,
 }: ScrollingBarProps) {
   if (!visible) {
@@ -23,9 +37,9 @@ export default function ScrollingBar({
 
   if (variant === 'tv') {
     return (
-      <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 overflow-hidden flex-shrink-0 h-16 mt-4">
+      <div className="mood-panel p-3 overflow-hidden flex-shrink-0 h-16 mt-4">
         <div className="flex items-center h-full">
-          <div className="text-xl mr-3">📢</div>
+          <ScrollingBarIcon className="w-5 h-5 mr-3" />
           <div className="flex-1 overflow-hidden">
             {displayContent && (
               <div
@@ -45,9 +59,9 @@ export default function ScrollingBar({
 
   if (variant === 'tablet-landscape') {
     return (
-      <div className="bg-black/50 backdrop-blur-sm rounded-xl p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
+      <div className="mood-panel p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
         <div className="flex items-center h-full">
-          <div className="text-base mr-2">📢</div>
+          <ScrollingBarIcon className="w-4 h-4 mr-2" />
           <div className="flex-1 overflow-hidden">
             {displayContent && (
               <div
@@ -67,9 +81,9 @@ export default function ScrollingBar({
 
   if (variant === 'tablet-portrait') {
     return (
-      <div className="bg-black/50 backdrop-blur-sm rounded-xl p-3 overflow-hidden flex-shrink-0 h-14 mt-4">
+      <div className="mood-panel p-3 overflow-hidden flex-shrink-0 h-14 mt-4">
         <div className="flex items-center h-full">
-          <div className="text-lg mr-3">📢</div>
+          <ScrollingBarIcon className="w-5 h-5 mr-3" />
           <div className="flex-1 overflow-hidden">
             {displayContent && (
               <div
@@ -89,9 +103,9 @@ export default function ScrollingBar({
 
   if (variant === 'mobile-landscape') {
     return (
-      <div className="bg-black/30 backdrop-blur-sm rounded-lg p-1 overflow-hidden flex-shrink-0 h-8 mt-2">
+      <div className="mood-panel p-1 overflow-hidden flex-shrink-0 h-8 mt-2">
         <div className="flex items-center h-full">
-          <div className="text-xs mr-1">📢</div>
+          <ScrollingBarIcon className="w-3 h-3 mr-1" />
           <div className="flex-1 overflow-hidden">
             {displayContent && (
               <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>
@@ -106,9 +120,9 @@ export default function ScrollingBar({
 
   // mobile-portrait
   return (
-    <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
+    <div className="mood-panel p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
       <div className="flex items-center h-full">
-        <div className="text-sm mr-2">📢</div>
+        <ScrollingBarIcon className="w-4 h-4 mr-2" />
         <div className="flex-1 overflow-hidden">
           {displayContent && (
             <div className={`animate-marquee whitespace-nowrap text-xs font-medium ${messageTextColor}`}>

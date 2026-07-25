@@ -1,5 +1,6 @@
 'use client';
 
+import { PartyPopper, Search } from 'lucide-react';
 import type { SearchFeedback, Track } from './types';
 
 interface TrackSearchProps {
@@ -42,7 +43,7 @@ export default function TrackSearch({
       }`}
     >
       <div className="relative">
-        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[color:var(--mood-muted)]">🔍</span>
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--mood-muted)]" aria-hidden="true" />
         <input
           type="text"
           value={query}
@@ -85,7 +86,7 @@ export default function TrackSearch({
           className="mt-3 rounded-lg border border-[color:var(--mood-accent)]/30 bg-[color:var(--mood-accent)]/10 px-4 py-3"
         >
           <div className="flex items-start gap-3">
-            <span className="text-xl" aria-hidden="true">🎉</span>
+            <PartyPopper className="h-5 w-5 mood-accent-text shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-medium mood-accent-text">Popular night!</p>
               <p className="mt-1 text-sm leading-relaxed text-[color:var(--mood-text)]">

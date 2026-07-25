@@ -8,7 +8,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff, Monitor, Smartphone, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Monitor, Smartphone, ToggleLeft, ToggleRight, AlertCircle, X } from 'lucide-react';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 interface PageControlPanelProps {
@@ -120,8 +120,9 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
             <button
               onClick={(e) => { e.stopPropagation(); setError(null); actions.setError(null); }}
               className="text-red-400 hover:text-red-300"
+              aria-label="Dismiss error"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { MonitorOff } from 'lucide-react';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import MoodShell from '@/components/MoodShell';
 import PageLoader from '@/components/ui/PageLoader';
@@ -96,9 +97,9 @@ export default function DisplayPage({ username }: DisplayPageProps) {
         <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
           <div className="text-center px-4">
             <div className="flex justify-center mb-6">
-              <div className="h-20 w-20 text-yellow-400 text-8xl animate-pulse">📺</div>
+              <MonitorOff className="h-20 w-20 text-yellow-400 animate-pulse" aria-hidden="true" />
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">🎉 Display Disabled</h1>
+            <h1 className="text-5xl md:text-7xl font-bold text-[color:var(--mood-text)] mb-6">Display Disabled</h1>
             <p className="text-2xl text-[color:var(--mood-muted)] mb-4">
               The DJ has temporarily disabled the display screen
             </p>
@@ -125,7 +126,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
   if (deviceType === 'tv') {
     return (
       <MoodShell {...moodProps}>
-        <div className="h-screen text-white p-6 overflow-hidden" style={gradientStyle}>
+        <div className="h-screen p-6 overflow-hidden" style={gradientStyle}>
           <div className="w-full h-full flex flex-col">
             {/* Header - Fixed Height */}
             <div className="text-center py-4 flex-shrink-0">
@@ -227,7 +228,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
       // Tablet Landscape - Full desktop layout with smaller text
       return (
         <MoodShell {...moodProps}>
-          <div className="h-screen text-white p-3 overflow-hidden" style={gradientStyle}>
+          <div className="h-screen p-3 overflow-hidden" style={gradientStyle}>
             <div className="w-full h-full flex flex-col">
               {/* Header - Fixed Height */}
               <div className="text-center py-2 flex-shrink-0">
@@ -320,7 +321,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
     // Tablet Portrait - Simplified layout
     return (
       <MoodShell {...moodProps}>
-        <div className="h-screen text-white p-4 overflow-hidden" style={gradientStyle}>
+        <div className="h-screen p-4 overflow-hidden" style={gradientStyle}>
           <div className="max-w-2xl mx-auto h-full flex flex-col">
             <div className="text-center py-3 flex-shrink-0">
               <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
@@ -363,7 +364,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
     // Mobile Landscape - Full desktop layout with very small text
     return (
       <MoodShell {...moodProps}>
-        <div className="h-screen text-white p-2 overflow-hidden" style={gradientStyle}>
+        <div className="h-screen p-2 overflow-hidden" style={gradientStyle}>
           <div className="max-w-5xl mx-auto h-full flex flex-col">
             {/* Header - Fixed Height */}
             <div className="text-center py-1 flex-shrink-0">
@@ -456,7 +457,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
   // Mobile Portrait - Simplified layout
   return (
     <MoodShell {...moodProps}>
-      <div className="h-screen text-white p-3 overflow-hidden" style={gradientStyle}>
+      <div className="h-screen p-3 overflow-hidden" style={gradientStyle}>
         <div className="max-w-sm mx-auto h-full flex flex-col">
           <div className="text-center flex-shrink-0 mb-3">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>

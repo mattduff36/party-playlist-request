@@ -92,7 +92,7 @@ function VerifyEmailContent() {
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
               <h1 className="text-3xl font-bold text-bone mb-4">
-                Email Verified! 🎉
+                Email Verified!
               </h1>
               <p className="text-muted mb-6">
                 {message}
@@ -107,7 +107,7 @@ function VerifyEmailContent() {
 
               <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-4 mb-6">
                 <p className="text-green-200 text-sm">
-                  ✨ You can now log in and start creating amazing playlist experiences!
+                  You can now log in and start creating amazing playlist experiences!
                 </p>
               </div>
 
@@ -141,8 +141,8 @@ function VerifyEmailContent() {
               <div className="bg-red-400/10 border border-red-400/30 rounded-lg p-4 mb-6">
                 <p className="text-red-200 text-sm">
                   {message.includes('expired') 
-                    ? '⏰ Your verification link has expired. Please register again or request a new verification email.'
-                    : '❌ This verification link is invalid or has already been used.'}
+                    ? 'Your verification link has expired. Please register again or request a new verification email.'
+                    : 'This verification link is invalid or has already been used.'}
                 </p>
               </div>
 

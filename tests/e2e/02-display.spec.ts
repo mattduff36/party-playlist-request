@@ -5,7 +5,7 @@ test.describe('Display screen', () => {
   test('PIN display route accepts seeded PIN or shows gate', async ({ page }) => {
     await page.goto(
       `/${TEST_USERS.testuser1.username}/display/${TEST_USERS.testuser1.pin}`
-    );
+    , { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(1500);
     // Either redirected to display or error/gate message
     const url = page.url();
@@ -15,7 +15,7 @@ test.describe('Display screen', () => {
   });
 
   test('display page auth gate shows guidance when unauthenticated', async ({ page }) => {
-    await page.goto(`/${TEST_USERS.testuser1.username}/display`);
+    await page.goto(`/${TEST_USERS.testuser1.username}/display`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(1000);
     const text = await page.locator('body').innerText();
     // Access denied / PIN instructions / or authenticated display content

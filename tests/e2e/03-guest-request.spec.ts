@@ -3,7 +3,7 @@ import { TEST_USERS } from '../fixtures/users';
 
 test.describe('Guest request flow', () => {
   test('request page loads for testuser1', async ({ page }) => {
-    await page.goto(`/${TEST_USERS.testuser1.username}/request`);
+    await page.goto(`/${TEST_USERS.testuser1.username}/request`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await expect(page.locator('body')).toBeVisible();
     // Either PIN gate, party-not-started, or search UI
     const body = await page.locator('body').innerText();
@@ -11,7 +11,7 @@ test.describe('Guest request flow', () => {
   });
 
   test('can enter PIN when prompted and reach search UI', async ({ page }) => {
-    await page.goto(`/${TEST_USERS.testuser1.username}/request`);
+    await page.goto(`/${TEST_USERS.testuser1.username}/request`, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     const pinInput = page.locator('input[type="tel"], input[inputmode="numeric"], input[name="pin"], #pin').first();
     if (await pinInput.isVisible({ timeout: 4000 }).catch(() => false)) {

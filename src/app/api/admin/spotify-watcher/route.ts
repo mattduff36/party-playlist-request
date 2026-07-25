@@ -329,6 +329,13 @@ const watchSingleUserSpotify = async (userId: string, username: string, queueInt
 
 // Start watcher endpoint
 export async function POST(req: NextRequest) {
+  if (process.env.SPOTIFY_MOCK === 'true') {
+    return NextResponse.json({
+      success: true,
+      mocked: true,
+      message: 'Spotify watcher skipped under SPOTIFY_MOCK',
+    });
+  }
   try {
     // Allow system startup token for automatic watcher initialization
     const authHeader = req.headers.get('Authorization');
@@ -446,6 +453,13 @@ export async function POST(req: NextRequest) {
 
 // Get watcher status
 export async function GET(req: NextRequest) {
+  if (process.env.SPOTIFY_MOCK === 'true') {
+    return NextResponse.json({
+      success: true,
+      mocked: true,
+      message: 'Spotify watcher skipped under SPOTIFY_MOCK',
+    });
+  }
   try {
     // Authenticate and get user info
     const auth = requireAuth(req);

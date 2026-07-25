@@ -1,6 +1,6 @@
 'use client';
 
-import { Music2, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Music2, Lock, Loader2, AlertCircle, Check, XCircle } from 'lucide-react';
 
 interface PinEntryFormProps {
   username: string;
@@ -121,9 +121,7 @@ export default function RequestSubmitForm({
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-fade-in">
             <div className="w-16 h-16 bg-[color:var(--mood-accent)]/15 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 mood-accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Check className="w-8 h-8 mood-accent-text stroke-[2.5]" aria-hidden="true" />
             </div>
             <h3 className="text-2xl font-bold text-[color:var(--mood-text)] mb-4">Thank you for your request!</h3>
             <p className="text-[color:var(--mood-muted)] mb-8">It has been submitted successfully.</p>
@@ -149,7 +147,7 @@ export default function RequestSubmitForm({
         <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
           <div className="bg-red-500 text-white px-8 py-6 rounded-2xl shadow-2xl border-4 border-red-400 max-w-md mx-4 transform animate-pulse">
             <div className="flex items-center justify-center">
-              <span className="text-4xl mr-4">❌</span>
+              <XCircle className="h-10 w-10 mr-4 shrink-0" aria-hidden="true" />
               <span className="text-xl font-bold text-center">{statusMessage}</span>
             </div>
           </div>
@@ -165,7 +163,7 @@ export default function RequestSubmitForm({
               type="text"
               value={nickname}
               onChange={(e) => onNicknameChange(e.target.value)}
-              placeholder="👤 Your name"
+              placeholder="Your name"
               className={`w-full px-4 py-3 text-base bg-white/20 border rounded-lg text-white placeholder-[color:var(--mood-muted)] focus:outline-none focus:ring-2 focus:border-transparent ${
                 nicknameError
                   ? 'border-red-500 focus:ring-red-500'

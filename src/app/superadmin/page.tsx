@@ -16,6 +16,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import Checkbox from '@/components/ui/Checkbox';
 
 interface User {
   id: string;
@@ -413,12 +414,10 @@ export default function SuperAdminPage() {
 
               {/* Super Admin */}
               <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="add-super-admin"
                   checked={formData.is_super_admin}
                   onChange={(e) => setFormData({ ...formData, is_super_admin: e.target.checked })}
-                  className="w-4 h-4 rounded"
                 />
                 <label htmlFor="add-super-admin" className="text-sm text-muted flex items-center space-x-2">
                   <Shield className="w-4 h-4 text-red-400" />
@@ -503,12 +502,10 @@ export default function SuperAdminPage() {
 
               {/* Super Admin */}
               <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="edit-super-admin"
                   checked={formData.is_super_admin}
                   onChange={(e) => setFormData({ ...formData, is_super_admin: e.target.checked })}
-                  className="w-4 h-4 rounded"
                 />
                 <label htmlFor="edit-super-admin" className="text-sm text-muted flex items-center space-x-2">
                   <Shield className="w-4 h-4 text-red-400" />

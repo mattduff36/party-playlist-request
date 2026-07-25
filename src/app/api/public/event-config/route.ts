@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     const settings = await getEventSettings(userId);
 
     // Get event config including message data (for Notice Board feature)
-    const eventResult = await sql`
+    // neon() tagged template returns Row[] (not { rows })
+    const eventRows = await sql`
       SELECT config
       FROM events
       WHERE user_id = ${userId}
@@ -47,8 +48,8 @@ export async function GET(req: NextRequest) {
     let messageCreatedAt = null;
     let isExpired = false;
 
-    if (eventResult.rows.length > 0) {
-      const config = eventResult.rows[0].config as any;
+    if (eventRows.length > 0) {
+      const config = eventRows[0].config as any;
       messageText = config?.message_text || null;
       messageDuration = config?.message_duration || null;
       messageCreatedAt = config?.message_created_at || null;

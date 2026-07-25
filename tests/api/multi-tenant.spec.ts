@@ -19,9 +19,9 @@ describe('Multi-tenant isolation', () => {
     const d2 = await u2.json();
     const title1 = d1.config?.event_title || d1.event_title;
     const title2 = d2.config?.event_title || d2.event_title;
-    if (title1 && title2) {
-      expect(title1).not.toBe(title2);
-    }
+    expect(title1).toBe(TEST_USERS.testuser1.eventTitle);
+    expect(title2).toBe(TEST_USERS.testuser2.eventTitle);
+    expect(title1).not.toBe(title2);
   });
 
   it('prevents DJ1 from approving a missing/foreign request id', async () => {

@@ -269,6 +269,19 @@ body {
   background: var(--mood-surface);
   border: 1px solid var(--mood-border);
   border-radius: var(--mood-radius);
+  color: var(--mood-text);
+}
+
+/* Display TV/tablet panels — same tokens, slightly stronger edge for screen readability */
+.mood-panel {
+  background: var(--mood-surface);
+  border: 2px solid var(--mood-border);
+  border-radius: var(--mood-radius);
+  color: var(--mood-text);
+}
+
+.mood-inset {
+  background: color-mix(in srgb, var(--mood-text) 8%, transparent);
 }
 
 .mood-accent-bg {

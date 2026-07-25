@@ -23,7 +23,7 @@ export default function QrPanel({
   if (variant === 'tv') {
     return (
       <div
-        className="bg-white rounded-2xl p-6 flex items-center justify-center min-w-0"
+        className="bg-white border-2 border-[color:var(--mood-accent)] rounded-[var(--mood-radius)] p-6 flex items-center justify-center min-w-0"
         style={style}
       >
         {useHorizontalLayout ? (
@@ -66,7 +66,7 @@ export default function QrPanel({
   if (variant === 'tablet-landscape') {
     return (
       <div
-        className="bg-white rounded-xl p-3 text-center flex flex-col justify-center items-center min-w-0"
+        className="bg-white border-2 border-[color:var(--mood-accent)] rounded-[var(--mood-radius)] p-3 text-center flex flex-col justify-center items-center min-w-0"
         style={style}
       >
         <img
@@ -83,7 +83,7 @@ export default function QrPanel({
   // mobile-landscape
   return (
     <div
-      className="bg-white rounded-lg p-2 text-center flex flex-col justify-center items-center min-w-0"
+      className="bg-white border-2 border-[color:var(--mood-accent)] rounded-[var(--mood-radius)] p-2 text-center flex flex-col justify-center items-center min-w-0"
       style={style}
     >
       <img

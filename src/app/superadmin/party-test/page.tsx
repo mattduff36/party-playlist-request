@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { usePartySimulator } from '@/hooks/usePartySimulator';
 import { SimulationConfig } from '@/lib/party-simulator-shared';
+import Checkbox from '@/components/ui/Checkbox';
 
 export default function PartyTestPage() {
   // Environment detection
@@ -286,7 +287,10 @@ export default function PartyTestPage() {
           <div className="flex items-start space-x-3">
             <CheckCircle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-accent font-semibold mb-1">✅ Running in Client-Side Mode (Production)</p>
+              <p className="text-accent font-semibold mb-1 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Running in Client-Side Mode (Production)
+              </p>
               <p className="text-muted text-sm">
                 The simulation runs in your browser using setInterval, which works reliably in production. 
                 Keep this browser tab open for continuous simulation. The simulation will stop if you close the tab.
@@ -299,7 +303,7 @@ export default function PartyTestPage() {
           <div className="flex items-start space-x-3">
             <Radio className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-accent font-semibold mb-1">🖥️ Running in Server-Side Mode (Local Development)</p>
+              <p className="text-accent font-semibold mb-1">Running in Server-Side Mode (Local Development)</p>
               <p className="text-muted text-sm">
                 The simulation runs on the server using setTimeout, which works perfectly in local development 
                 but not in Vercel's serverless environment. This mode is ideal for development and testing.
@@ -445,13 +449,11 @@ export default function PartyTestPage() {
             {/* Options */}
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="burst-mode"
                   checked={config.burstMode}
                   onChange={(e) => setConfig({ ...config, burstMode: e.target.checked })}
                   disabled={stats.isRunning}
-                  className="w-4 h-4 rounded disabled:opacity-50"
                 />
                 <label htmlFor="burst-mode" className="text-sm text-muted flex items-center space-x-2">
                   <Zap className="w-4 h-4 text-yellow-400" />
@@ -460,13 +462,11 @@ export default function PartyTestPage() {
               </div>
 
               <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="explicit-songs"
                   checked={config.explicitSongs}
                   onChange={(e) => setConfig({ ...config, explicitSongs: e.target.checked })}
                   disabled={stats.isRunning}
-                  className="w-4 h-4 rounded disabled:opacity-50"
                 />
                 <label htmlFor="explicit-songs" className="text-sm text-muted flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 text-orange-400" />

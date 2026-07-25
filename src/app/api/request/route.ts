@@ -17,6 +17,15 @@ export async function POST(req: NextRequest) {
     await initializeDefaults();
     console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
 
+    const body = await req.json();
+    const { track_uri, track_url, requester_nickname, user_session_id, username } = body;
+    
+    if (!track_uri && !track_url) {
+      return NextResponse.json({ 
+        error: 'Either track_uri or track_url is required' 
+      }, { status: 400 });
+    }
+
     const clientIP = getClientIp(req);
     const rateLimitCheck = checkRateLimit('songRequest', hashIP(clientIP));
     if (!rateLimitCheck.allowed) {
@@ -28,15 +37,6 @@ export async function POST(req: NextRequest) {
         response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
       }
       return response;
-    }
-
-    const body = await req.json();
-    const { track_uri, track_url, requester_nickname, user_session_id, username } = body;
-    
-    if (!track_uri && !track_url) {
-      return NextResponse.json({ 
-        error: 'Either track_uri or track_url is required' 
-      }, { status: 400 });
     }
 
     // Multi-tenant: Get user_id from username

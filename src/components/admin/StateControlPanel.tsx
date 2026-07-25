@@ -8,7 +8,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Power, Play, Pause, AlertCircle } from 'lucide-react';
+import { Power, Play, Pause, AlertCircle, X } from 'lucide-react';
 import { useGlobalEvent, EventStateMachine } from '@/lib/state/global-event-client';
 
 interface StateControlPanelProps {
@@ -260,9 +260,10 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
             <span className="text-red-300 flex-1">{state.error}</span>
             <button
               onClick={() => actions.setError(null)}
-              className="text-red-400 hover:text-red-300 underline"
+              className="text-red-400 hover:text-red-300"
+              aria-label="Dismiss error"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

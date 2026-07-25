@@ -1,24 +1,20 @@
 /**
  * Spotify Connection Panel Component
- * 
- * This component handles Spotify account connection, device selection,
- * and connection status display with error handling.
+ *
+ * Handles Spotify account connection status and connect/disconnect.
+ * Device selection lives on the Spotify admin page (Available Devices).
  */
 
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Music, 
-  Wifi, 
-  WifiOff, 
-  RefreshCw, 
-  AlertCircle, 
+import {
+  Music,
+  WifiOff,
+  RefreshCw,
+  AlertCircle,
   CheckCircle,
   ExternalLink,
-  Volume2,
-  Smartphone,
-  Monitor
 } from 'lucide-react';
 
 interface SpotifyConnectionPanelProps {
@@ -26,24 +22,17 @@ interface SpotifyConnectionPanelProps {
   onConnectionChange?: (connected: boolean) => void;
 }
 
-interface SpotifyDevice {
-  id: string;
+interface ActiveDevice {
   name: string;
   type: string;
   volume_percent: number;
-  is_active: boolean;
 }
 
 interface SpotifyConnectionState {
   isConnected: boolean;
   isConnecting: boolean;
   error: string | null;
-  devices: SpotifyDevice[];
-  selectedDevice: SpotifyDevice | null;
-  user: {
-    display_name: string;
-    id: string;
-  } | null;
+  activeDevice: ActiveDevice | null;
 }
 
 export default function SpotifyConnectionPanel({
@@ -54,88 +43,80 @@ export default function SpotifyConnectionPanel({
     isConnected: false,
     isConnecting: false,
     error: null,
-    devices: [],
-    selectedDevice: null,
-    user: null
+    activeDevice: null,
   });
 
-  // Check Spotify connection status
   const checkConnectionStatus = async () => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
-    
+
     try {
-      const response = await fetch('/api/spotify/status');
+      const response = await fetch('/api/spotify/status', {
+        credentials: 'include',
+      });
       const data = await response.json();
-      
+
       if (response.ok) {
+        const connected = Boolean(data.connected);
+        // Ignore expected "not connected" messages — only surface unexpected errors
+        const statusError =
+          data.error &&
+          connected === false &&
+          !String(data.error).toLowerCase().includes('not connected')
+            ? data.error
+            : null;
         setState(prev => ({
           ...prev,
-          isConnected: data.connected,
-          devices: data.devices || [],
-          selectedDevice: data.devices?.find((d: SpotifyDevice) => d.is_active) || null,
-          user: data.user || null,
-          error: null
+          isConnected: connected,
+          // Status returns a single active playback device, not a devices[] list
+          activeDevice: data.device ?? null,
+          error: statusError,
         }));
+        onConnectionChange?.(connected);
       } else {
         setState(prev => ({
           ...prev,
           isConnected: false,
-          error: data.error || 'Failed to check connection status'
+          activeDevice: null,
+          error: data.error || 'Failed to check connection status',
         }));
+        onConnectionChange?.(false);
       }
-    } catch (error) {
+    } catch {
       setState(prev => ({
         ...prev,
         isConnected: false,
-        error: 'Network error checking connection status'
+        activeDevice: null,
+        error: 'Network error checking connection status',
       }));
+      onConnectionChange?.(false);
     } finally {
       setState(prev => ({ ...prev, isConnecting: false }));
     }
   };
 
-  // Connect to Spotify
-  const connectToSpotify = async () => {
+  // Navigate directly so the browser follows the OAuth redirect.
+  // Do not fetch() /api/spotify/auth: it returns a redirect, not JSON.
+  const connectToSpotify = () => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
-    
-    try {
-      const response = await fetch('/api/spotify/connect', { method: 'POST' });
-      const data = await response.json();
-      
-      if (response.ok && data.authUrl) {
-        // Redirect to Spotify authorization
-        window.location.href = data.authUrl;
-      } else {
-        setState(prev => ({
-          ...prev,
-          error: data.error || 'Failed to initiate Spotify connection'
-        }));
-      }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: 'Network error connecting to Spotify'
-      }));
-    } finally {
-      setState(prev => ({ ...prev, isConnecting: false }));
-    }
+    window.location.href = '/api/spotify/auth';
   };
 
-  // Reset connection state (allows retry after permanent failure)
   const resetConnectionState = async () => {
     try {
       const response = await fetch('/api/spotify/reset-connection-state', {
         method: 'POST',
-        credentials: 'include' // JWT auth via cookies
+        credentials: 'include',
       });
-      
+
       if (response.ok) {
         setState(prev => ({ ...prev, error: null }));
-        // Refresh the status
         await checkConnectionStatus();
       } else {
         const data = await response.json();
-        setState(prev => ({ ...prev, error: data.error || 'Failed to reset connection state' }));
+        setState(prev => ({
+          ...prev,
+          error: data.error || 'Failed to reset connection state',
+        }));
       }
     } catch (error) {
       console.error('Error resetting connection state:', error);
@@ -143,157 +124,118 @@ export default function SpotifyConnectionPanel({
     }
   };
 
-  // Disconnect from Spotify
   const disconnectFromSpotify = async () => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
-    
+
     try {
-      const response = await fetch('/api/spotify/disconnect', { method: 'POST' });
-      
+      const response = await fetch('/api/spotify/disconnect', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
       if (response.ok) {
         setState(prev => ({
           ...prev,
           isConnected: false,
-          devices: [],
-          selectedDevice: null,
-          user: null
+          activeDevice: null,
         }));
         onConnectionChange?.(false);
       } else {
         const data = await response.json();
         setState(prev => ({
           ...prev,
-          error: data.error || 'Failed to disconnect from Spotify'
+          error: data.error || 'Failed to disconnect from Spotify',
         }));
       }
-    } catch (error) {
+    } catch {
       setState(prev => ({
         ...prev,
-        error: 'Network error disconnecting from Spotify'
+        error: 'Network error disconnecting from Spotify',
       }));
     } finally {
       setState(prev => ({ ...prev, isConnecting: false }));
     }
   };
 
-  // Select device
-  const selectDevice = async (deviceId: string) => {
-    setState(prev => ({ ...prev, isConnecting: true, error: null }));
-    
-    try {
-      const response = await fetch('/api/spotify/select-device', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId })
-      });
-      
-      if (response.ok) {
-        setState(prev => ({
-          ...prev,
-          selectedDevice: prev.devices.find(d => d.id === deviceId) || null
-        }));
-      } else {
-        const data = await response.json();
-        setState(prev => ({
-          ...prev,
-          error: data.error || 'Failed to select device'
-        }));
-      }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: 'Network error selecting device'
-      }));
-    } finally {
-      setState(prev => ({ ...prev, isConnecting: false }));
-    }
-  };
-
-  // Check connection on mount
   useEffect(() => {
     checkConnectionStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only status check
   }, []);
 
-  const getDeviceIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'computer':
-        return Monitor;
-      case 'smartphone':
-        return Smartphone;
-      default:
-        return Music;
-    }
-  };
-
   return (
-    <div className={`bg-elevated rounded-lg p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-bone mb-1">Spotify Connection</h2>
-          <p className="text-muted text-sm">Connect your Spotify account to control playback</p>
+    <div className={`bg-elevated rounded-lg p-4 ${className}`}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-bone">Spotify Connection</h2>
+          {!state.isConnected && (
+            <p className="text-muted text-xs mt-0.5">
+              Connect your Spotify account to control playback
+            </p>
+          )}
         </div>
-        
+
         <button
           onClick={checkConnectionStatus}
           disabled={state.isConnecting}
-          className="p-2 text-muted hover:text-bone transition-colors disabled:opacity-50"
+          className="p-1.5 text-muted hover:text-bone transition-colors disabled:opacity-50 flex-shrink-0"
+          title="Refresh connection status"
         >
-          <RefreshCw className={`w-5 h-5 ${state.isConnecting ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${state.isConnecting ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {/* Connection Status */}
-      <div className="mb-6">
-        <div className={`
-          flex items-center space-x-3 p-4 rounded-lg border-2
-          ${state.isConnected 
-            ? 'bg-accent/10 border-accent' 
-            : 'bg-surface border-white/10'
-          }
-        `}>
-          {state.isConnected ? (
-            <CheckCircle className="w-6 h-6 text-accent" />
-          ) : (
-            <WifiOff className="w-6 h-6 text-muted" />
-          )}
-          
-          <div className="flex-1">
-            <div className={`font-semibold ${state.isConnected ? 'text-accent' : 'text-muted'}`}>
-              {state.isConnected ? 'Connected to Spotify' : 'Not Connected'}
+      {state.isConnected ? (
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2.5 flex-1 min-w-[12rem] px-3 py-2 rounded-lg bg-surface border border-white/10">
+            <CheckCircle className="w-4 h-4 text-accent flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-bone">Connected to Spotify</div>
+              {state.activeDevice && (
+                <div className="text-muted text-xs truncate">
+                  Active device: {state.activeDevice.name}
+                  {typeof state.activeDevice.volume_percent === 'number' && (
+                    <> · {state.activeDevice.volume_percent}% volume</>
+                  )}
+                </div>
+              )}
             </div>
-            {state.user && (
-              <div className="text-muted text-sm">
-                Logged in as {state.user.display_name}
-              </div>
-            )}
           </div>
-        </div>
-      </div>
 
-      {/* Connection Actions */}
-      {!state.isConnected ? (
-        <div className="space-y-4">
+          <button
+            onClick={disconnectFromSpotify}
+            disabled={state.isConnecting}
+            className="flex-shrink-0 px-3 py-1.5 text-xs text-muted hover:text-red-400 border border-white/10 hover:border-red-500/40 rounded-md transition-colors disabled:opacity-50"
+          >
+            {state.isConnecting ? 'Disconnecting...' : 'Disconnect from Spotify'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface border border-white/10">
+            <WifiOff className="w-4 h-4 text-muted flex-shrink-0" />
+            <div className="text-sm font-medium text-muted">Not Connected</div>
+          </div>
+
           <button
             onClick={connectToSpotify}
             disabled={state.isConnecting}
-            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-accent hover:bg-accent-hover text-ink font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-accent hover:bg-accent-hover text-ink font-medium text-sm rounded-lg transition-colors disabled:opacity-50"
           >
-            <Music className="w-5 h-5" />
+            <Music className="w-4 h-4" />
             <span>{state.isConnecting ? 'Connecting...' : 'Connect to Spotify'}</span>
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-3.5 h-3.5" />
           </button>
-          
-          <p className="text-muted text-sm text-center">
-            You'll be redirected to Spotify to authorize the connection
+
+          <p className="text-muted text-xs text-center">
+            You&apos;ll be redirected to Spotify to authorize the connection
           </p>
 
-          {/* Reset connection state button (for when retries are exhausted) */}
           <div className="pt-2 border-t border-white/10">
             <button
               onClick={resetConnectionState}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-muted hover:text-bone text-sm transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-3 py-1.5 text-muted hover:text-bone text-xs transition-colors"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5" />
               <span>Reset Connection State</span>
             </button>
             <p className="text-faint text-xs text-center mt-1">
@@ -301,89 +243,19 @@ export default function SpotifyConnectionPanel({
             </p>
           </div>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Disconnect Button */}
-          <button
-            onClick={disconnectFromSpotify}
-            disabled={state.isConnecting}
-            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-bone font-medium rounded-lg transition-colors disabled:opacity-50"
-          >
-            <WifiOff className="w-5 h-5" />
-            <span>{state.isConnecting ? 'Disconnecting...' : 'Disconnect from Spotify'}</span>
-          </button>
-
-          {/* Device Selection */}
-          {state.devices.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-bone mb-4">Select Playback Device</h3>
-              <div className="space-y-2">
-                {state.devices.map((device) => {
-                  const DeviceIcon = getDeviceIcon(device.type);
-                  const isSelected = device.id === state.selectedDevice?.id;
-                  
-                  return (
-                    <button
-                      key={device.id}
-                      onClick={() => selectDevice(device.id)}
-                      disabled={state.isConnecting || isSelected}
-                      className={`
-                        w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all duration-200
-                        ${isSelected 
-                          ? 'bg-accent/10 border-accent' 
-                          : 'bg-surface border-white/10 hover:bg-surface'
-                        }
-                        ${state.isConnecting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                      `}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <DeviceIcon className={`w-5 h-5 ${isSelected ? 'text-accent' : 'text-muted'}`} />
-                        <div className="text-left">
-                          <div className={`font-medium ${isSelected ? 'text-accent' : 'text-bone'}`}>
-                            {device.name}
-                          </div>
-                          <div className="text-muted text-sm capitalize">
-                            {device.type} • {device.volume_percent}% volume
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {isSelected && (
-                        <CheckCircle className="w-5 h-5 text-accent" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* No Devices Message */}
-          {state.devices.length === 0 && (
-            <div className="text-center py-8">
-              <Music className="w-12 h-12 text-muted mx-auto mb-4" />
-              <p className="text-muted mb-4">No Spotify devices found</p>
-              <p className="text-faint text-sm">
-                Make sure Spotify is open on one of your devices
-              </p>
-            </div>
-          )}
-        </div>
       )}
 
-      {/* Error Display */}
       {state.error && (
-        <div className="mt-4 flex items-center space-x-2 text-red-400 bg-red-900/20 border border-red-600 rounded-lg p-3">
+        <div className="mt-3 flex items-center space-x-2 text-red-400 bg-red-900/20 border border-red-600 rounded-lg p-2.5">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span className="text-sm">{state.error}</span>
         </div>
       )}
 
-      {/* Loading Indicator */}
       {state.isConnecting && (
-        <div className="mt-4 flex items-center justify-center space-x-2 text-yellow-400">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
-          <span className="text-sm">Processing...</span>
+        <div className="mt-3 flex items-center justify-center space-x-2 text-muted">
+          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-muted"></div>
+          <span className="text-xs">Processing...</span>
         </div>
       )}
     </div>

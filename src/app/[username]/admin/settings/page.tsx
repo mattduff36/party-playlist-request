@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Copy, CheckCircle, Monitor, QrCode, Lock, Loader2 } from 'lucide-react';
+import { Save, RefreshCw, Copy, CheckCircle, Monitor, QrCode, Lock, Loader2, Music, Info } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
+import Checkbox from '@/components/ui/Checkbox';
 
 export default function SettingsPage() {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
@@ -183,19 +184,20 @@ export default function SettingsPage() {
 
           {/* Request Management Section */}
           <div className="border-t border-white/10 pt-6">
-            <h3 className="text-lg font-semibold text-bone mb-4">🎵 Request Management</h3>
+            <h3 className="text-lg font-semibold text-bone mb-4 flex items-center gap-2">
+              <Music className="h-5 w-5 text-accent" />
+              Request Management
+            </h3>
             
             <div className="space-y-4">
               {/* Auto-approve checkbox */}
               <div>
                 <div className="flex items-center">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="auto_approve"
                     name="auto_approve"
                     checked={formData.auto_approve}
                     onChange={handleCheckboxChange}
-                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
                   />
                   <label htmlFor="auto_approve" className="ml-3 text-sm font-medium text-muted">
                     Auto-approve all requests
@@ -209,13 +211,11 @@ export default function SettingsPage() {
               {/* Decline explicit checkbox */}
               <div>
                 <div className="flex items-center">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="decline_explicit"
                     name="decline_explicit"
                     checked={formData.decline_explicit}
                     onChange={handleCheckboxChange}
-                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
                   />
                   <label htmlFor="decline_explicit" className="ml-3 text-sm font-medium text-muted">
                     Auto-decline explicit songs
@@ -263,7 +263,10 @@ export default function SettingsPage() {
 
       {/* Event Information */}
       <div className="bg-elevated rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-bone mb-4">ℹ️ Event Information</h3>
+        <h3 className="text-lg font-semibold text-bone mb-4 flex items-center">
+          <Info className="w-5 h-5 mr-2 text-accent" />
+          Event Information
+        </h3>
         
         {loadingEvent ? (
           <div className="flex items-center justify-center py-8">
@@ -389,7 +392,10 @@ export default function SettingsPage() {
 
       {/* Spotify Setup */}
       <div className="bg-elevated rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-bone mb-4">🎵 Spotify Integration</h3>
+        <h3 className="text-lg font-semibold text-bone mb-4 flex items-center gap-2">
+          <Music className="h-5 w-5 text-accent" />
+          Spotify Integration
+        </h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-surface rounded-lg">
             <div>

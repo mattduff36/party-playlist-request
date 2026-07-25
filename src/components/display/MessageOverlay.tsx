@@ -22,10 +22,10 @@ export default function MessageOverlay({
   const firstLineScale = variant === 'mobile' ? '2em' : '1.5em';
   const panelClassName =
     variant === 'tv'
-      ? 'bg-black/30 backdrop-blur-sm rounded-2xl p-6 h-full flex flex-col'
+      ? 'mood-panel p-6 h-full flex flex-col'
       : variant === 'tablet'
-        ? 'bg-black/30 backdrop-blur-sm rounded-xl p-4 h-full flex flex-col'
-        : 'bg-black/30 backdrop-blur-sm rounded-lg p-2 h-full flex flex-col';
+        ? 'mood-panel p-4 h-full flex flex-col'
+        : 'mood-panel p-2 h-full flex flex-col';
   const minWidth = variant === 'tv' ? '200px' : variant === 'tablet' ? '150px' : '100px';
   const textPadding = variant === 'tv' ? 'px-4' : variant === 'tablet' ? 'px-3' : 'px-2';
 
@@ -52,7 +52,7 @@ export default function MessageOverlay({
               }`}
             >
               <div
-                className="text-white font-medium leading-tight"
+                className="text-[color:var(--mood-text)] font-medium leading-tight"
                 style={{
                   fontSize: getMessageFontSize(currentMessage.text, variant),
                   lineHeight: '1.3',
