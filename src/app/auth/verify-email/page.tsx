@@ -5,6 +5,47 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Music2, CheckCircle, XCircle, Loader2, ArrowRight } from 'lucide-react';
 
+interface VerifyResult {
+  ok: boolean;
+  message: string;
+  username?: string;
+}
+
+/** Share one in-flight request across Strict Mode remounts. */
+const verifyPromises = new Map<string, Promise<VerifyResult>>();
+
+function verifyEmailToken(token: string): Promise<VerifyResult> {
+  const existing = verifyPromises.get(token);
+  if (existing) {
+    return existing;
+  }
+
+  const promise = (async (): Promise<VerifyResult> => {
+    const response = await fetch('/api/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Verification failed');
+    }
+
+    return {
+      ok: true,
+      message: data.message || 'Email verified successfully!',
+      username: data.user?.username,
+    };
+  })();
+
+  verifyPromises.set(token, promise);
+  promise.catch(() => {
+    verifyPromises.delete(token);
+  });
+  return promise;
+}
+
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -21,41 +62,43 @@ function VerifyEmailContent() {
       return;
     }
 
-    verifyEmail();
-  }, [token]);
+    let cancelled = false;
 
-  const verifyEmail = async () => {
-    try {
-      const response = await fetch('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
+    const run = async () => {
+      try {
+        const result = await verifyEmailToken(token);
+        if (cancelled) {
+          return;
+        }
 
-      const data = await response.json();
+        setStatus('success');
+        setMessage(result.message);
+        if (result.username) {
+          setUsername(result.username);
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Verification failed');
+        setTimeout(() => {
+          router.push('/login');
+        }, 3000);
+      } catch (error: unknown) {
+        console.error('Verification error:', error);
+        if (cancelled) {
+          return;
+        }
+        setStatus('error');
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : 'Failed to verify email. Please try again.'
+        );
       }
+    };
 
-      setStatus('success');
-      setMessage(data.message || 'Email verified successfully!');
-      
-      if (data.user?.username) {
-        setUsername(data.user.username);
-      }
-
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 3000);
-
-    } catch (error: any) {
-      console.error('Verification error:', error);
-      setStatus('error');
-      setMessage(error.message || 'Failed to verify email. Please try again.');
-    }
-  };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br [#191414] flex items-center justify-center p-4">

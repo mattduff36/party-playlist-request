@@ -4,6 +4,7 @@
  */
 
 import { Resend } from 'resend';
+import { getAppBaseUrl } from '@/lib/app-url';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
@@ -13,9 +14,13 @@ const FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ||
   'noreply@partyplaylist.app';
 const APP_NAME = 'Party Playlist';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 const EMAIL_ENABLED = !!RESEND_API_KEY;
+
+/** Resolve at send-time so deploy env is always current. */
+function appUrl(): string {
+  return getAppBaseUrl();
+}
 
 /** Stage Signal brand tokens (email-safe hex) */
 const EMAIL_BRAND = {
@@ -120,7 +125,7 @@ export function renderEmailLayout(content: EmailLayoutContent): string {
                   ${content.footerNote || `You received this email because of activity on ${APP_NAME}.`}
                 </p>
                 <p style="margin:8px 0 0; font-size:12px; color:${EMAIL_BRAND.muted}; text-align:center;">
-                  <a href="${APP_URL}" style="color:${EMAIL_BRAND.accent}; text-decoration:none;">${APP_URL.replace(/^https?:\/\//, '')}</a>
+                  <a href="${appUrl()}" style="color:${EMAIL_BRAND.accent}; text-decoration:none;">${appUrl().replace(/^https?:\/\//, '')}</a>
                 </p>
               </td>
             </tr>
@@ -140,12 +145,12 @@ export async function sendVerificationEmail(
       console.warn('⚠️ Email service not configured. Verification email not sent.');
       console.log(`📧 Would have sent verification email to: ${data.email}`);
       console.log(
-        `🔗 Verification URL: ${APP_URL}/auth/verify-email?token=${data.verificationToken}`
+        `🔗 Verification URL: ${appUrl()}/auth/verify-email?token=${data.verificationToken}`
       );
       return { success: false, error: 'Email service not configured' };
     }
 
-    const verificationUrl = `${APP_URL}/auth/verify-email?token=${data.verificationToken}`;
+    const verificationUrl = `${appUrl()}/auth/verify-email?token=${data.verificationToken}`;
 
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -186,11 +191,11 @@ export async function sendPasswordResetEmail(
     if (!EMAIL_ENABLED || !resend) {
       console.warn('⚠️ Email service not configured. Password reset email not sent.');
       console.log(`📧 Would have sent password reset email to: ${data.email}`);
-      console.log(`🔗 Reset URL: ${APP_URL}/auth/reset-password?token=${data.resetToken}`);
+      console.log(`🔗 Reset URL: ${appUrl()}/auth/reset-password?token=${data.resetToken}`);
       return { success: false, error: 'Email service not configured' };
     }
 
-    const resetUrl = `${APP_URL}/auth/reset-password?token=${data.resetToken}`;
+    const resetUrl = `${appUrl()}/auth/reset-password?token=${data.resetToken}`;
 
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -236,8 +241,8 @@ export async function sendWelcomeEmail(
       return { success: false, error: 'Email service not configured' };
     }
 
-    const loginUrl = `${APP_URL}/login`;
-    const requestUrl = `${APP_URL}/${data.username}/request`;
+    const loginUrl = `${appUrl()}/login`;
+    const requestUrl = `${appUrl()}/${data.username}/request`;
 
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -288,8 +293,8 @@ export async function sendAccountApprovedEmail(
       return { success: false, error: 'Email service not configured' };
     }
 
-    const dashboardUrl = `${APP_URL}/${data.username}/admin/spotify`;
-    const requestUrl = `${APP_URL}/${data.username}/request`;
+    const dashboardUrl = `${appUrl()}/${data.username}/admin/spotify`;
+    const requestUrl = `${appUrl()}/${data.username}/request`;
 
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -344,7 +349,7 @@ export async function sendAccountRejectedEmail(
       return { success: false, error: 'Email service not configured' };
     }
 
-    const contactUrl = `${APP_URL}/contact`;
+    const contactUrl = `${appUrl()}/contact`;
 
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,

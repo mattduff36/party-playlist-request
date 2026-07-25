@@ -1,10 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/neon-client';
 import { sendWelcomeEmail } from '@/lib/email/email-service';
+import { generateAccessCode } from '@/lib/access-code';
+
+interface VerifyUserRow {
+  id: string;
+  username: string;
+  email: string;
+  account_status: string;
+  email_verified: boolean;
+  email_verification_expires: string | Date | null;
+}
+
+/**
+ * Ensure the user has an offline events row.
+ * events.pin is NOT NULL UNIQUE — inserts without pin always fail.
+ * Failures here must not undo a successful email verification.
+ */
+async function ensureInitialEvent(userId: string): Promise<void> {
+  const existing = await sql`
+    SELECT id FROM events WHERE user_id = ${userId} LIMIT 1
+  `;
+
+  if (existing.length > 0) {
+    return;
+  }
+
+  const pin = generateAccessCode(false);
+  const config = {
+    pages_enabled: {
+      requests: false,
+      display: false,
+    },
+  };
+
+  await sql`
+    INSERT INTO events (user_id, pin, status, config)
+    VALUES (
+      ${userId},
+      ${pin},
+      'offline',
+      ${JSON.stringify(config)}::jsonb
+    )
+  `;
+}
 
 /**
  * POST /api/auth/verify-email
- * Verify user email with token
+ * Verify user email with token (session-independent; works on any device).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +61,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user with this token
     const users = await sql`
       SELECT id, username, email, account_status, email_verified, email_verification_expires
       FROM users
@@ -32,21 +74,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = users[0];
+    const user = users[0] as VerifyUserRow;
 
-    // Check if already verified
+    // Idempotent re-clicks (email scanners, double-mount, retry after success)
     if (user.email_verified) {
+      try {
+        await ensureInitialEvent(user.id);
+      } catch (eventError) {
+        console.error('⚠️ Failed to ensure event for already-verified user:', eventError);
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Email already verified',
-        alreadyVerified: true
+        alreadyVerified: true,
+        user: {
+          username: user.username,
+          email: user.email,
+        },
       });
     }
 
-    // Check if token expired
+    if (!user.email_verification_expires) {
+      return NextResponse.json(
+        { error: 'Verification token has expired. Please request a new verification email.' },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
     const expiresAt = new Date(user.email_verification_expires);
-    
+
     if (now > expiresAt) {
       return NextResponse.json(
         { error: 'Verification token has expired. Please request a new verification email.' },
@@ -54,40 +112,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify email only — account stays pending until superadmin approval
-    await sql`
+    // Mark verified but keep token until expiry so re-opens stay idempotent
+    const updated = await sql`
       UPDATE users
-      SET 
+      SET
         email_verified = true,
-        email_verification_token = NULL,
-        email_verification_expires = NULL,
         updated_at = NOW()
       WHERE id = ${user.id}
+        AND email_verification_token = ${token}
+        AND email_verified = false
+      RETURNING id, username, email
     `;
 
-    console.log('✅ Email verified for user:', user.username);
+    // Concurrent verify won the race — treat as success
+    if (updated.length === 0) {
+      const again = await sql`
+        SELECT id, username, email, email_verified
+        FROM users
+        WHERE email_verification_token = ${token}
+      `;
+      if (again.length > 0 && again[0].email_verified) {
+        return NextResponse.json({
+          success: true,
+          message: 'Email already verified',
+          alreadyVerified: true,
+          user: {
+            username: again[0].username,
+            email: again[0].email,
+          },
+        });
+      }
 
-    // Create initial event for the user (ready once approved)
-    await sql`
-      INSERT INTO events (user_id, status, config)
-      VALUES (
-        ${user.id}, 
-        'offline',
-        '{
-          "pages_enabled": {
-            "requests": false,
-            "display": false
-          }
-        }'::jsonb
-      )
-    `;
+      return NextResponse.json(
+        { error: 'Invalid verification token' },
+        { status: 400 }
+      );
+    }
 
-    console.log('✅ Initial event created for user:', user.username);
+    const verifiedUser = updated[0] as Pick<VerifyUserRow, 'id' | 'username' | 'email'>;
+    console.log('✅ Email verified for user:', verifiedUser.username);
 
-    // Send welcome email (pending-approval messaging)
+    try {
+      await ensureInitialEvent(verifiedUser.id);
+      console.log('✅ Initial event ensured for user:', verifiedUser.username);
+    } catch (eventError) {
+      // Verification already committed — do not surface this as a failed link
+      console.error('⚠️ Failed to create initial event after email verify:', eventError);
+    }
+
     const emailResult = await sendWelcomeEmail({
-      username: user.username,
-      email: user.email
+      username: verifiedUser.username,
+      email: verifiedUser.email,
     });
 
     if (!emailResult.success) {
@@ -98,11 +173,10 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Email verified successfully! Your account is pending admin approval before you can use the DJ dashboard.',
       user: {
-        username: user.username,
-        email: user.email
-      }
+        username: verifiedUser.username,
+        email: verifiedUser.email,
+      },
     });
-
   } catch (error) {
     console.error('❌ Error verifying email:', error);
     return NextResponse.json(
@@ -114,7 +188,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/auth/verify-email?token=xxx
- * Verify email via GET request (for email links)
+ * Verify email via GET request (for email links / API clients).
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -127,11 +201,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Call POST handler with token
   const mockRequest = new Request(request.url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token })
+    body: JSON.stringify({ token }),
   });
 
   return POST(mockRequest as NextRequest);
