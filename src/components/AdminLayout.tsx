@@ -278,9 +278,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                 <button
                   key={item.id}
                   onClick={() => {
-                    if ('onClick' in item && item.onClick) {
-                      item.onClick();
-                    } else if ('href' in item && item.href) {
+                    if ('href' in item && item.href) {
                       router.push(item.href);
                     }
                   }}
@@ -377,9 +375,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             <button
               key={item.id}
               onClick={() => {
-                if ('onClick' in item && item.onClick) {
-                  item.onClick();
-                } else if ('href' in item && item.href) {
+                if ('href' in item && item.href) {
                   router.push(item.href);
                 }
               }}

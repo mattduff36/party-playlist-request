@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import AdminLayout from '../../../components/AdminLayout';
 import { AdminDataProvider } from '@/contexts/AdminDataContext';
+import { SpotifyControlsProvider } from '@/contexts/SpotifyControlsContext';
 import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
@@ -62,7 +63,9 @@ export default function UserAdminLayout({
       <NotificationProvider>
         <GlobalEventProvider>
           <AdminDataProvider>
-            <AdminLayout username={username}>{children}</AdminLayout>
+            <SpotifyControlsProvider>
+              <AdminLayout username={username}>{children}</AdminLayout>
+            </SpotifyControlsProvider>
           </AdminDataProvider>
         </GlobalEventProvider>
       </NotificationProvider>

@@ -682,11 +682,22 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
-  async setVolume(volumePercent: number, userId?: string) {
+  async setVolume(volumePercent: number, deviceId?: string, userId?: string) {
     if (isSpotifyMockEnabled()) {
       return null;
     }
-    return await this.makeAuthenticatedRequest('PUT', `/me/player/volume?volume_percent=${volumePercent}`, undefined, userId);
+    const params = new URLSearchParams({
+      volume_percent: String(volumePercent),
+    });
+    if (deviceId) {
+      params.set('device_id', deviceId);
+    }
+    return await this.makeAuthenticatedRequest(
+      'PUT',
+      `/me/player/volume?${params.toString()}`,
+      undefined,
+      userId
+    );
   }
 
   async getAvailableDevices(userId?: string) {

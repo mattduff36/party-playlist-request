@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
-import { verifyJWT } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify JWT authentication
-    const authResult = verifyJWT(req);
-    if (!authResult.valid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const auth = requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
     }
 
-    const userId = authResult.user.user_id;
+    const userId = auth.user.user_id;
 
     let device_id: string | undefined;
     try {
@@ -23,16 +19,19 @@ export async function POST(req: NextRequest) {
       device_id = undefined;
     }
 
-    // Go to previous track
     await spotifyService.previous(device_id, userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to go to previous track:', error);
-    return NextResponse.json(
-      { error: 'Failed to go to previous track' },
-      { status: 500 }
-    );
+    let errorMessage = 'Failed to go to previous track';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if (error.message.includes('NO_ACTIVE_DEVICE')) {
+        errorMessage =
+          'No active Spotify device found. Open Spotify on a device first.';
+      }
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
-

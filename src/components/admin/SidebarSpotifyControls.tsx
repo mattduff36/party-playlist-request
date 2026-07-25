@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   CheckCircle,
   ExternalLink,
@@ -14,8 +14,8 @@ import {
   VolumeX,
   WifiOff,
 } from 'lucide-react';
-import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { useAdminData } from '@/contexts/AdminDataContext';
+import { useSpotifyControls } from '@/contexts/SpotifyControlsContext';
 import { formatArtists } from '@/lib/format-artists';
 import { getSpotifyDeviceIcon } from '@/lib/spotify-device-icon';
 import {
@@ -23,403 +23,49 @@ import {
   markSpotifyOAuthPending,
 } from '@/lib/spotify-oauth-client';
 
-interface SpotifyDevice {
-  id: string;
-  name: string;
-  type: string;
-  is_active: boolean;
-  volume_percent: number;
-}
-
 interface SidebarSpotifyControlsProps {
   /** sidebar = compact left-rail; page = single combined card for /spotify */
   variant?: 'sidebar' | 'page';
   onConnectionChange?: (connected: boolean) => void;
 }
 
-/** Keep last-known devices until emptiness is confirmed. */
-const EMPTY_CONFIRM_MS = 2500;
-const EMPTY_CONFIRM_STREAK = 2;
-
-function devicesStorageKey(username: string | undefined): string {
-  return `ppr_spotify_devices_${username || 'default'}`;
-}
-
-function readStoredDevices(username: string | undefined): SpotifyDevice[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = sessionStorage.getItem(devicesStorageKey(username));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredDevices(
-  username: string | undefined,
-  devices: SpotifyDevice[]
-): void {
-  if (typeof window === 'undefined') return;
-  try {
-    if (devices.length === 0) {
-      sessionStorage.removeItem(devicesStorageKey(username));
-    } else {
-      sessionStorage.setItem(
-        devicesStorageKey(username),
-        JSON.stringify(devices)
-      );
-    }
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
 export default function SidebarSpotifyControls({
   variant = 'sidebar',
   onConnectionChange,
 }: SidebarSpotifyControlsProps) {
-  const { user } = useAdminAuth();
   const {
     playbackState,
     spotifyConnected,
-    setSpotifyConnected,
     handleSpotifyDisconnect,
     refreshPlaybackState,
-    patchPlaybackState,
   } = useAdminData();
+
+  const {
+    hasResolved,
+    devices,
+    devicesHydrated,
+    devicesRefreshing,
+    volume,
+    error,
+    setError,
+    getActiveDeviceId,
+    fetchStatus,
+    handleVolumeChange,
+    handleDeviceChange,
+    clearDevicesOnDisconnect,
+    registerConnectionListener,
+  } = useSpotifyControls();
 
   const isPage = variant === 'page';
   const connected = spotifyConnected;
 
-  const [hasResolved, setHasResolved] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [isStartingOAuth, setIsStartingOAuth] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
-  const [devices, setDevices] = useState<SpotifyDevice[]>(() =>
-    readStoredDevices(user?.username)
-  );
-  const [devicesHydrated, setDevicesHydrated] = useState(false);
-  const [devicesRefreshing, setDevicesRefreshing] = useState(false);
-  const [volume, setVolume] = useState(50);
-  const [error, setError] = useState<string | null>(null);
-  const devicesHydratedRef = useRef(false);
-  const trackNameRef = useRef(playbackState?.track_name);
-  trackNameRef.current = playbackState?.track_name;
-  const fetchStatusRef = useRef<() => Promise<boolean>>(async () => false);
-  const fetchDevicesRef = useRef<() => Promise<void>>(async () => {});
-  /** While set, keep optimistic active device / name and ignore stale Spotify replies. */
-  const deviceTransferLockRef = useRef<{
-    deviceId: string;
-    deviceName: string;
-    wasPlaying: boolean;
-    until: number;
-  } | null>(null);
-  const emptyStreakRef = useRef(0);
-  const emptySinceRef = useRef<number | null>(null);
-  const emptyConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-
-  const clearEmptyConfirm = useCallback(() => {
-    emptyStreakRef.current = 0;
-    emptySinceRef.current = null;
-    if (emptyConfirmTimeoutRef.current) {
-      clearTimeout(emptyConfirmTimeoutRef.current);
-      emptyConfirmTimeoutRef.current = null;
-    }
-  }, []);
-
-  const applyConnectedTrue = useCallback(() => {
-    setSpotifyConnected(true);
-    setHasResolved(true);
-    onConnectionChange?.(true);
-  }, [onConnectionChange, setSpotifyConnected]);
-
-  const applyConnectedFalse = useCallback(
-    (immediate = false) => {
-      setHasResolved(true);
-      setSpotifyConnected(false, immediate);
-      // Only notify parent immediately on hard disconnect; soft false is debounced in context
-      if (immediate) {
-        onConnectionChange?.(false);
-      }
-    },
-    [onConnectionChange, setSpotifyConnected]
-  );
-
-  const getActiveDeviceId = useCallback((): string | undefined => {
-    return devices.find((d) => d.is_active)?.id;
-  }, [devices]);
-
-  const applyLockToDevices = useCallback(
-    (incoming: SpotifyDevice[], prev: SpotifyDevice[]): SpotifyDevice[] => {
-      const lock = deviceTransferLockRef.current;
-      const lockActive = Boolean(lock && Date.now() < lock.until);
-      let next = incoming.map((device) => ({ ...device }));
-
-      if (lock && lockActive) {
-        const hasTarget = next.some((device) => device.id === lock.deviceId);
-        if (!hasTarget) {
-          const fromPrev = prev.find((device) => device.id === lock.deviceId);
-          if (fromPrev) {
-            next = [...next, { ...fromPrev }];
-          }
-        }
-        next = next.map((device) => ({
-          ...device,
-          is_active: device.id === lock.deviceId,
-        }));
-
-        // Release lock once Spotify agrees the target is active
-        if (incoming.some((device) => device.id === lock.deviceId && device.is_active)) {
-          deviceTransferLockRef.current = null;
-        }
-      }
-
-      return next;
-    },
-    []
-  );
-
-  const scheduleEmptyClearIfConfirmed = useCallback(() => {
-    const tryClear = () => {
-      const lock = deviceTransferLockRef.current;
-      if (lock && Date.now() < lock.until) {
-        // Do not blank the list mid-transfer; wait for the next empty cycle
-        return;
-      }
-      const since = emptySinceRef.current;
-      if (since === null) return;
-      const elapsed = Date.now() - since;
-      if (
-        emptyStreakRef.current >= EMPTY_CONFIRM_STREAK &&
-        elapsed >= EMPTY_CONFIRM_MS
-      ) {
-        clearEmptyConfirm();
-        setDevices([]);
-        writeStoredDevices(user?.username, []);
-      }
-    };
-
-    if (emptyConfirmTimeoutRef.current) {
-      clearTimeout(emptyConfirmTimeoutRef.current);
-      emptyConfirmTimeoutRef.current = null;
-    }
-
-    const since = emptySinceRef.current;
-    if (since === null) return;
-
-    const remaining = EMPTY_CONFIRM_MS - (Date.now() - since);
-    if (
-      emptyStreakRef.current >= EMPTY_CONFIRM_STREAK &&
-      remaining <= 0
-    ) {
-      tryClear();
-      return;
-    }
-
-    emptyConfirmTimeoutRef.current = setTimeout(
-      tryClear,
-      Math.max(remaining, 0)
-    );
-  }, [clearEmptyConfirm, user?.username]);
-
-  const applyDevices = useCallback(
-    (incoming: SpotifyDevice[]) => {
-      devicesHydratedRef.current = true;
-      setDevicesHydrated(true);
-      setDevicesRefreshing(false);
-
-      if (incoming.length > 0) {
-        clearEmptyConfirm();
-        setDevices((prev) => {
-          const next = applyLockToDevices(incoming, prev);
-          writeStoredDevices(user?.username, next);
-          return next;
-        });
-        return;
-      }
-
-      const lock = deviceTransferLockRef.current;
-      const lockActive = Boolean(lock && Date.now() < lock.until);
-
-      // Empty mid-transfer is expected noise — keep list, do not advance empty streak
-      if (!lockActive) {
-        emptyStreakRef.current += 1;
-        if (emptySinceRef.current === null) {
-          emptySinceRef.current = Date.now();
-        }
-        scheduleEmptyClearIfConfirmed();
-      }
-
-      setDevices((prev) => {
-        if (prev.length === 0) {
-          return prev;
-        }
-        // Keep last-known devices; re-apply lock so active highlight stays stable
-        return applyLockToDevices([], prev);
-      });
-    },
-    [
-      applyLockToDevices,
-      clearEmptyConfirm,
-      scheduleEmptyClearIfConfirmed,
-      user?.username,
-    ]
-  );
-
-  // Clear session cache when empty confirm clears devices
-  useEffect(() => {
-    if (devicesHydrated && devices.length === 0) {
-      writeStoredDevices(user?.username, []);
-    }
-  }, [devices.length, devicesHydrated, user?.username]);
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const response = await fetch('/api/spotify/status', {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        applyConnectedFalse();
-        return false;
-      }
-
-      const isConnected = Boolean(data.connected);
-      if (isConnected) {
-        applyConnectedTrue();
-      } else {
-        applyConnectedFalse();
-      }
-
-      const lock = deviceTransferLockRef.current;
-      const lockActive = Boolean(lock && Date.now() < lock.until);
-
-      // During transfer, ignore stale device/volume from status to prevent flicker
-      if (lockActive && lock) {
-        patchPlaybackState({
-          device_name: lock.deviceName,
-          is_playing: lock.wasPlaying,
-        });
-      } else if (isConnected && data.device?.volume_percent !== undefined) {
-        setVolume(data.device.volume_percent);
-      }
-
-      // Fill context gap when status sees a track but hydrate is still empty
-      if (isConnected && data.current_track && !trackNameRef.current) {
-        patchPlaybackState({
-          spotify_connected: true,
-          is_playing: Boolean(data.is_playing),
-          track_name: data.current_track.name,
-          artist_name: data.current_track.artist,
-          album_name: data.current_track.album,
-          image_url: data.current_track.image_url,
-          duration_ms: data.current_track.duration_ms,
-          progress_ms: data.current_track.progress_ms,
-          device_name: data.device?.name,
-          volume_percent: data.device?.volume_percent,
-        });
-      }
-
-      return isConnected;
-    } catch {
-      applyConnectedFalse();
-      return false;
-    }
-  }, [applyConnectedFalse, applyConnectedTrue, patchPlaybackState]);
-
-  const fetchDevices = useCallback(async () => {
-    // Only disable the list before first hydrate — not on every poll
-    if (!devicesHydratedRef.current) {
-      setDevicesRefreshing(true);
-    }
-    try {
-      const response = await fetch('/api/spotify/devices', {
-        credentials: 'include',
-      });
-      // Failed fetch must not count toward empty confirmation
-      if (!response.ok) {
-        setDevicesRefreshing(false);
-        return;
-      }
-      const data = await response.json();
-      applyDevices(Array.isArray(data.devices) ? data.devices : []);
-    } catch {
-      setDevicesRefreshing(false);
-      // ignore — devices are best-effort
-    }
-  }, [applyDevices]);
-
-  fetchStatusRef.current = fetchStatus;
-  fetchDevicesRef.current = fetchDevices;
 
   useEffect(() => {
-    // Restore last-known devices immediately on mount (disabled until hydrate)
-    const stored = readStoredDevices(user?.username);
-    if (stored.length > 0) {
-      setDevices(stored);
-    }
-    void fetchStatusRef.current();
-    void fetchDevicesRef.current();
-    // Status can refresh more often; devices rarely change — avoid Spotify 429 storms
-    const statusInterval = setInterval(() => {
-      void fetchStatusRef.current();
-    }, 10_000);
-    const devicesInterval = setInterval(() => {
-      void fetchDevicesRef.current();
-    }, 30_000);
-    return () => {
-      clearInterval(statusInterval);
-      clearInterval(devicesInterval);
-      if (emptyConfirmTimeoutRef.current) {
-        clearTimeout(emptyConfirmTimeoutRef.current);
-      }
-    };
-  }, [user?.username]);
-
-  useEffect(() => {
-    const lock = deviceTransferLockRef.current;
-    const lockActive = Boolean(lock && Date.now() < lock.until);
-
-    // Hold optimistic device name while transfer settles
-    if (
-      lockActive &&
-      lock &&
-      playbackState?.device_name &&
-      playbackState.device_name !== lock.deviceName
-    ) {
-      patchPlaybackState({
-        device_name: lock.deviceName,
-        is_playing: lock.wasPlaying,
-      });
-      return;
-    }
-
-    if (
-      !lockActive &&
-      typeof playbackState?.volume_percent === 'number' &&
-      playbackState.spotify_connected
-    ) {
-      setVolume(playbackState.volume_percent);
-    }
-    if (spotifyConnected) {
-      setHasResolved(true);
-      onConnectionChange?.(true);
-    } else if (playbackState?.spotify_connected === false) {
-      setHasResolved(true);
-      onConnectionChange?.(false);
-    }
-  }, [
-    spotifyConnected,
-    playbackState?.spotify_connected,
-    playbackState?.volume_percent,
-    playbackState?.device_name,
-    onConnectionChange,
-    patchPlaybackState,
-  ]);
+    return registerConnectionListener(onConnectionChange);
+  }, [onConnectionChange, registerConnectionListener]);
 
   const connectToSpotify = () => {
     markSpotifyOAuthPending();
@@ -441,13 +87,7 @@ export default function SidebarSpotifyControls({
         return;
       }
       clearSpotifyOAuthPending();
-      clearEmptyConfirm();
-      applyConnectedFalse(true);
-      setDevices([]);
-      devicesHydratedRef.current = false;
-      setDevicesHydrated(false);
-      setDevicesRefreshing(false);
-      writeStoredDevices(user?.username, []);
+      clearDevicesOnDisconnect();
       await handleSpotifyDisconnect();
     } catch {
       setError('Network error disconnecting');
@@ -530,98 +170,6 @@ export default function SidebarSpotifyControls({
       );
     } finally {
       setIsPerformingAction(false);
-    }
-  };
-
-  const handleVolumeChange = async (newVolume: number) => {
-    setVolume(newVolume);
-    try {
-      const response = await fetch('/api/admin/playback/volume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ volume: newVolume }),
-      });
-      if (!response.ok) throw new Error('volume failed');
-    } catch {
-      setError('Failed to set volume');
-    }
-  };
-
-  const handleDeviceChange = async (deviceId: string) => {
-    if (deviceTransferLockRef.current && Date.now() < deviceTransferLockRef.current.until) {
-      return;
-    }
-
-    const wasPlaying = Boolean(playbackState?.is_playing);
-    const targetDevice = devices.find((device) => device.id === deviceId);
-    if (!targetDevice || targetDevice.is_active) {
-      return;
-    }
-
-    const lock = {
-      deviceId,
-      deviceName: targetDevice.name,
-      wasPlaying,
-      until: Date.now() + 8000,
-    };
-    deviceTransferLockRef.current = lock;
-
-    // Optimistic UI immediately — keep list visible and active state stable
-    applyDevices(
-      devices.map((device) => ({
-        ...device,
-        is_active: device.id === deviceId,
-      }))
-    );
-    patchPlaybackState({
-      device_name: lock.deviceName,
-      volume_percent:
-        typeof targetDevice.volume_percent === 'number'
-          ? targetDevice.volume_percent
-          : playbackState?.volume_percent,
-      is_playing: wasPlaying,
-    });
-    if (typeof targetDevice.volume_percent === 'number') {
-      setVolume(targetDevice.volume_percent);
-    }
-
-    try {
-      const response = await fetch('/api/spotify/transfer-playback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          device_id: deviceId,
-          play: wasPlaying,
-        }),
-      });
-      if (!response.ok) throw new Error('transfer failed');
-
-      // Quiet background sync; applyDevices keeps the locked active device stable
-      const retryDelaysMs = [800, 1800, 3200];
-      for (const delayMs of retryDelaysMs) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        if (deviceTransferLockRef.current?.deviceId !== deviceId) {
-          break;
-        }
-        await fetchDevices();
-        await fetchStatus();
-        await refreshPlaybackState();
-        // Re-assert after refresh — Spotify often reports the old device briefly
-        if (deviceTransferLockRef.current?.deviceId === deviceId) {
-          patchPlaybackState({
-            device_name: lock.deviceName,
-            is_playing: wasPlaying,
-          });
-        }
-      }
-    } catch {
-      // Failures release immediately; success keeps lock until until/Spotify confirms
-      deviceTransferLockRef.current = null;
-      setError('Failed to transfer playback');
-      void fetchDevices();
-      void refreshPlaybackState();
     }
   };
 
@@ -726,7 +274,6 @@ export default function SidebarSpotifyControls({
         </div>
       )}
 
-      {/* Page: connection at top. Sidebar: connection moved to bottom. */}
       {isPage && (connected ? connectedRow : disconnectedBlock)}
       {!isPage && !connected && disconnectedBlock}
 
@@ -738,7 +285,6 @@ export default function SidebarSpotifyControls({
               : 'contents'
           }
         >
-          {/* Now Playing + transport + volume */}
           <div className={isPage ? 'space-y-4' : 'contents'}>
             <div className="space-y-3">
               <div className="flex items-center justify-center gap-2">
@@ -821,7 +367,9 @@ export default function SidebarSpotifyControls({
                   </div>
                 </div>
               ) : (
-                <p className={`${isPage ? 'text-sm' : 'text-xs'} text-muted text-center`}>
+                <p
+                  className={`${isPage ? 'text-sm' : 'text-xs'} text-muted text-center`}
+                >
                   Nothing playing
                 </p>
               )}
@@ -867,7 +415,6 @@ export default function SidebarSpotifyControls({
             </div>
           </div>
 
-          {/* Devices */}
           <div>
             {isPage && (
               <h3 className="text-xs font-semibold text-muted mb-2">
@@ -896,9 +443,7 @@ export default function SidebarSpotifyControls({
                       onClick={() => void handleDeviceChange(device.id)}
                       className={`w-full flex items-center gap-2 rounded-lg text-left transition-colors ${
                         isPage ? 'px-3 py-2' : 'px-2 py-1.5'
-                      } ${
-                        devicesDisabled ? 'opacity-60 cursor-wait' : ''
-                      } ${
+                      } ${devicesDisabled ? 'opacity-60 cursor-wait' : ''} ${
                         device.is_active
                           ? 'bg-accent/15 text-accent border border-accent/30'
                           : 'bg-surface text-muted hover:text-bone border border-transparent'
@@ -932,7 +477,6 @@ export default function SidebarSpotifyControls({
         </div>
       )}
 
-      {/* Sidebar: Connected + Disconnect on one line at the bottom */}
       {!isPage && connected && connectedRow}
 
       {error && (
