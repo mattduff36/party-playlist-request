@@ -8,11 +8,16 @@ export type SupportErrorSource =
   | 'pusher'
   | 'unknown';
 
+/** Expected/recoverable failures vs true production issues. */
+export type SupportErrorClassification = 'handled' | 'unhandled';
+
 export type SupportActorRole = 'guest' | 'admin' | 'superadmin' | 'system';
 
 export interface LogErrorInput {
   level?: SupportErrorLevel;
   source?: SupportErrorSource;
+  /** Override auto-classification (429/auth → handled, else unhandled). */
+  classification?: SupportErrorClassification;
   message: string;
   stack?: string | null;
   route?: string | null;
@@ -52,6 +57,10 @@ export interface SupportErrorRow {
   ip_hash: string | null;
   user_agent: string | null;
   meta: Record<string, unknown> | null;
+  fingerprint: string | null;
+  occurrence_count: number;
+  last_seen_at: string | null;
+  classification: SupportErrorClassification;
   resolved: boolean;
   resolved_at: string | null;
   resolved_by: string | null;

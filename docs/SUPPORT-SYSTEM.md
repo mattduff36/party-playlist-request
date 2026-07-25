@@ -14,7 +14,16 @@ Party Playlist includes a Postgres-backed support console for superadmins.
 
 - Uncaught API failures, Spotify API failures (429/5xx), client ErrorBoundary reports, window errors
 - Fields: level, source, message, stack (truncated), route, user, IP hash, meta (redacted), resolved flag
+- **Classification:** `handled` (expected/recoverable — rate limits, auth denials) vs `unhandled` (true issues)
+- **Dedup:** open rows share a `fingerprint`; repeats bump `occurrence_count` / `last_seen_at` instead of inserting floods
+- Support badge counts **unhandled** open rows only; Errors panel defaults to unhandled and shows occurrence counts
 - Retention: **90 days** (pruned when Support errors are loaded)
+
+### `npm run fixerrors`
+
+- Clusters open rows by fingerprint / normalized message / route / status
+- Reports distinct issues + hit counts (not thousands of duplicate lines)
+- Marks handled/noise clusters as non-actionable; use `--resolve` after triage
 
 ### `support_activity`
 

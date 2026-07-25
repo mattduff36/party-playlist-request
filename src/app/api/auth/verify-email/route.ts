@@ -54,12 +54,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update user - verify email and activate account
+    // Verify email only — account stays pending until superadmin approval
     await sql`
       UPDATE users
       SET 
         email_verified = true,
-        account_status = 'active',
         email_verification_token = NULL,
         email_verification_expires = NULL,
         updated_at = NOW()
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Email verified for user:', user.username);
 
-    // Create initial event for the user
+    // Create initial event for the user (ready once approved)
     await sql`
       INSERT INTO events (user_id, status, config)
       VALUES (
@@ -85,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Initial event created for user:', user.username);
 
-    // Send welcome email
+    // Send welcome email (pending-approval messaging)
     const emailResult = await sendWelcomeEmail({
       username: user.username,
       email: user.email
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Email verified successfully! Your account is now active.',
+      message: 'Email verified successfully! Your account is pending admin approval before you can use the DJ dashboard.',
       user: {
         username: user.username,
         email: user.email

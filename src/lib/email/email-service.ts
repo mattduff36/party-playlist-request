@@ -44,6 +44,11 @@ export interface WelcomeEmailData {
   email: string;
 }
 
+export interface AccountDecisionEmailData {
+  username: string;
+  email: string;
+}
+
 interface EmailLayoutContent {
   preheader: string;
   title: string;
@@ -151,7 +156,7 @@ export async function sendVerificationEmail(
         title: `Welcome, ${data.username}`,
         bodyHtml: `
           <p style="margin:0 0 12px;">
-            Thanks for signing up. Verify your email to activate your account and start hosting interactive playlist nights.
+            Thanks for applying. Verify your email to continue — your DJ dashboard unlocks after admin approval.
           </p>
         `,
         ctaLabel: 'Verify email address',
@@ -231,7 +236,7 @@ export async function sendWelcomeEmail(
       return { success: false, error: 'Email service not configured' };
     }
 
-    const dashboardUrl = `${APP_URL}/${data.username}/admin/overview`;
+    const loginUrl = `${APP_URL}/login`;
     const requestUrl = `${APP_URL}/${data.username}/request`;
 
     const { error } = await resend.emails.send({
@@ -239,18 +244,70 @@ export async function sendWelcomeEmail(
       to: data.email,
       subject: `Welcome to ${APP_NAME}`,
       html: renderEmailLayout({
-        preheader: 'Your Party Playlist account is ready',
-        title: `You're in, ${data.username}`,
+        preheader: 'Email verified — awaiting admin approval',
+        title: `Email verified, ${data.username}`,
         bodyHtml: `
           <p style="margin:0 0 12px;">
-            Your account is active. Connect Spotify, set your event live, and share your request link with guests.
+            Thanks for verifying your email. Your account is pending admin approval before the DJ dashboard unlocks.
           </p>
-          <p style="margin:16px 0 8px; color:${EMAIL_BRAND.bone}; font-weight:600;">Getting started</p>
+          <p style="margin:0 0 12px;">
+            You can sign in now; once approved, you will be able to connect Spotify, set your event live, and share your request link with guests.
+          </p>
+          <p style="margin:20px 0 0;">
+            Your guest link (available after approval):<br>
+            <a href="${requestUrl}" style="color:${EMAIL_BRAND.accent}; word-break:break-all;">${requestUrl}</a>
+          </p>
+        `,
+        ctaLabel: 'Sign in',
+        ctaUrl: loginUrl,
+        footerNote: `Thanks for applying to host with ${APP_NAME}.`,
+      }),
+    });
+
+    if (error) {
+      console.error('❌ Failed to send welcome email:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log('✅ Welcome email sent to:', data.email);
+    return { success: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send email';
+    console.error('❌ Email service error:', error);
+    return { success: false, error: message };
+  }
+}
+
+export async function sendAccountApprovedEmail(
+  data: AccountDecisionEmailData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!EMAIL_ENABLED || !resend) {
+      console.warn('⚠️ Email service not configured. Approval email not sent.');
+      console.log(`📧 Would have sent approval email to: ${data.email}`);
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const dashboardUrl = `${APP_URL}/${data.username}/admin/overview`;
+    const requestUrl = `${APP_URL}/${data.username}/request`;
+
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: data.email,
+      subject: `Your ${APP_NAME} account is approved`,
+      html: renderEmailLayout({
+        preheader: 'Your DJ dashboard is unlocked',
+        title: `You're approved, ${data.username}`,
+        bodyHtml: `
+          <p style="margin:0 0 12px;">
+            Great news — your ${APP_NAME} account has been approved. Your DJ dashboard is ready to use.
+          </p>
+          <p style="margin:16px 0 8px; color:${EMAIL_BRAND.bone}; font-weight:600;">Next steps</p>
           <ol style="margin:0; padding-left:18px;">
             <li style="margin-bottom:6px;">Connect your Spotify account</li>
-            <li style="margin-bottom:6px;">Configure display mood and messages</li>
+            <li style="margin-bottom:6px;">Configure your event and display</li>
             <li style="margin-bottom:6px;">Share your guest request page</li>
-            <li>Approve songs and run the night</li>
+            <li>Go live and run the night</li>
           </ol>
           <p style="margin:20px 0 0;">
             Your guest link:<br>
@@ -264,11 +321,58 @@ export async function sendWelcomeEmail(
     });
 
     if (error) {
-      console.error('❌ Failed to send welcome email:', error);
+      console.error('❌ Failed to send approval email:', error);
       return { success: false, error: error.message };
     }
 
-    console.log('✅ Welcome email sent to:', data.email);
+    console.log('✅ Approval email sent to:', data.email);
+    return { success: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send email';
+    console.error('❌ Email service error:', error);
+    return { success: false, error: message };
+  }
+}
+
+export async function sendAccountRejectedEmail(
+  data: AccountDecisionEmailData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!EMAIL_ENABLED || !resend) {
+      console.warn('⚠️ Email service not configured. Rejection email not sent.');
+      console.log(`📧 Would have sent rejection email to: ${data.email}`);
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const contactUrl = `${APP_URL}/contact`;
+
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: data.email,
+      subject: `Update on your ${APP_NAME} application`,
+      html: renderEmailLayout({
+        preheader: 'Your account application was not approved',
+        title: `Application update, ${data.username}`,
+        bodyHtml: `
+          <p style="margin:0 0 12px;">
+            Thanks for your interest in ${APP_NAME}. After review, your account application was not approved at this time.
+          </p>
+          <p style="margin:0 0 12px;">
+            If you believe this was a mistake or you would like more information, please get in touch with us.
+          </p>
+        `,
+        ctaLabel: 'Contact support',
+        ctaUrl: contactUrl,
+        footerNote: `We appreciate you considering ${APP_NAME}.`,
+      }),
+    });
+
+    if (error) {
+      console.error('❌ Failed to send rejection email:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log('✅ Rejection email sent to:', data.email);
     return { success: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to send email';

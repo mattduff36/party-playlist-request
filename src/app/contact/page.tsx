@@ -11,10 +11,10 @@ export default function ContactPage() {
         <p className="mt-4 text-muted leading-relaxed">
           Questions about hosting, access, or the product? Reach out at{' '}
           <a
-            href="mailto:hello@partyplaylist.app"
+            href="mailto:info@partyplaylist.com"
             className="text-accent hover:text-accent-hover underline-offset-2 hover:underline"
           >
-            hello@partyplaylist.app
+            info@partyplaylist.com
           </a>
           .
         </p>

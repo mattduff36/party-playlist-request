@@ -42,6 +42,9 @@ export default function SuperAdminSupportPage() {
   const [errorTotal, setErrorTotal] = useState(0);
   const [resolvedFilter, setResolvedFilter] = useState<'open' | 'resolved' | 'all'>('open');
   const [errorSource, setErrorSource] = useState('all');
+  const [errorClassification, setErrorClassification] = useState<
+    'all' | 'unhandled' | 'handled'
+  >('unhandled');
   const [errorUser, setErrorUser] = useState('');
   const [selectedError, setSelectedError] = useState<SupportErrorRow | null>(null);
 
@@ -62,6 +65,7 @@ export default function SuperAdminSupportPage() {
       const params = new URLSearchParams({
         resolved: resolvedFilter,
         source: errorSource,
+        classification: errorClassification,
         limit: '50',
       });
       if (errorUser) params.set('username', errorUser);
@@ -77,7 +81,7 @@ export default function SuperAdminSupportPage() {
       setLoading(false);
       setReady(true);
     }
-  }, [resolvedFilter, errorSource, errorUser]);
+  }, [resolvedFilter, errorSource, errorClassification, errorUser]);
 
   const loadActivity = useCallback(async () => {
     setLoading(true);
@@ -226,6 +230,17 @@ export default function SuperAdminSupportPage() {
                 <option value="db">DB</option>
                 <option value="pusher">Pusher</option>
               </select>
+              <select
+                value={errorClassification}
+                onChange={(e) =>
+                  setErrorClassification(e.target.value as typeof errorClassification)
+                }
+                className="rounded-lg border border-white/10 bg-elevated px-3 py-2 text-sm"
+              >
+                <option value="unhandled">Unhandled (issues)</option>
+                <option value="handled">Handled (expected)</option>
+                <option value="all">All classifications</option>
+              </select>
               <Input
                 placeholder="Filter username"
                 value={errorUser}
@@ -236,7 +251,10 @@ export default function SuperAdminSupportPage() {
                 Apply
               </Button>
             </div>
-            <p className="text-xs text-faint">{errorTotal} matching errors</p>
+            <p className="text-xs text-faint">
+              {errorTotal} distinct open issue{errorTotal === 1 ? '' : 's'} (duplicates are
+              aggregated)
+            </p>
             <div className="divide-y divide-white/5 rounded-xl border border-white/10 bg-elevated/60">
               {errors.length === 0 ? (
                 <p className="p-6 text-sm text-muted">No errors found.</p>
@@ -250,12 +268,28 @@ export default function SuperAdminSupportPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-medium text-bone">{err.message}</span>
-                      <span className="shrink-0 rounded bg-white/5 px-2 py-0.5 text-xs text-muted">
-                        {err.source}
+                      <span className="flex shrink-0 items-center gap-1">
+                        {(err.occurrence_count ?? 1) > 1 ? (
+                          <span className="rounded bg-white/10 px-2 py-0.5 text-xs text-bone">
+                            ×{err.occurrence_count}
+                          </span>
+                        ) : null}
+                        <span className="rounded bg-white/5 px-2 py-0.5 text-xs text-muted">
+                          {err.source}
+                        </span>
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-3 text-xs text-faint">
-                      <span>{new Date(err.created_at).toLocaleString()}</span>
+                      <span>
+                        {new Date(err.last_seen_at || err.created_at).toLocaleString()}
+                      </span>
+                      <span
+                        className={
+                          err.classification === 'handled' ? 'text-info' : 'text-warning'
+                        }
+                      >
+                        {err.classification || 'unhandled'}
+                      </span>
                       {err.username ? <span>@{err.username}</span> : null}
                       {err.route ? <span className="truncate">{err.route}</span> : null}
                       {err.resolved ? (
@@ -279,9 +313,17 @@ export default function SuperAdminSupportPage() {
                   <div>ID: <code className="text-faint">{selectedError.id}</code></div>
                   <div>Level: {selectedError.level}</div>
                   <div>Source: {selectedError.source}</div>
+                  <div>Classification: {selectedError.classification || 'unhandled'}</div>
+                  <div>Occurrences: {selectedError.occurrence_count ?? 1}</div>
                   <div>Route: {selectedError.route || '-'}</div>
                   <div>User: {selectedError.username || '-'}</div>
-                  <div>When: {new Date(selectedError.created_at).toLocaleString()}</div>
+                  <div>First: {new Date(selectedError.created_at).toLocaleString()}</div>
+                  <div>
+                    Last seen:{' '}
+                    {new Date(
+                      selectedError.last_seen_at || selectedError.created_at
+                    ).toLocaleString()}
+                  </div>
                 </dl>
                 {selectedError.stack ? (
                   <pre className="max-h-48 overflow-auto rounded-lg bg-ink p-3 text-[11px] text-faint">

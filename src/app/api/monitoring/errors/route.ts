@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
           ? 'fatal'
           : 'error',
       source: 'client',
+      classification: 'unhandled',
       message: String(errorData.message),
       stack: errorData.stack || errorData.componentStack || null,
       route: errorData.url || null,

@@ -207,7 +207,7 @@ export default function SidebarSpotifyControls({
 
   const shellClass = isPage
     ? 'bg-elevated rounded-lg border border-white/10 p-5 space-y-5'
-    : 'flex flex-col gap-3 px-3 py-3';
+    : 'flex flex-col gap-4 px-3 py-4';
 
   if (!hasResolved || isStartingOAuth) {
     return (
@@ -368,6 +368,11 @@ export default function SidebarSpotifyControls({
     </div>
   );
 
+  // ~2 device rows visible; 3+ scrolls. Heights match sidebar/page row padding.
+  const deviceListClass = isPage
+    ? 'space-y-1.5 max-h-[5.5rem] overflow-y-auto overscroll-contain pr-0.5'
+    : 'space-y-1.5 max-h-[4.5rem] overflow-y-auto overscroll-contain pr-0.5';
+
   const devicesBlock = (
     <div>
       {isPage && (
@@ -376,7 +381,7 @@ export default function SidebarSpotifyControls({
         </h3>
       )}
       {!devicesHydrated && devices.length === 0 ? (
-        <div className="space-y-1" aria-hidden="true">
+        <div className="space-y-1.5" aria-hidden="true">
           <div
             className={`w-full rounded-lg bg-surface/80 border border-transparent animate-pulse ${
               isPage ? 'h-10' : 'h-8'
@@ -384,7 +389,7 @@ export default function SidebarSpotifyControls({
           />
         </div>
       ) : devices.length > 0 ? (
-        <div className="space-y-1">
+        <div className={deviceListClass}>
           {devices.map((device) => {
             const DeviceIcon = getSpotifyDeviceIcon(device.type);
             const devicesDisabled = !devicesHydrated || devicesRefreshing;
@@ -430,7 +435,11 @@ export default function SidebarSpotifyControls({
   );
 
   const transportBlock = (
-    <div className="flex items-center justify-center gap-3">
+    <div
+      className={`flex items-center justify-center ${
+        isPage ? 'gap-3' : 'gap-4'
+      }`}
+    >
       <button
         type="button"
         onClick={() => void handleSkip('previous')}
@@ -526,15 +535,19 @@ export default function SidebarSpotifyControls({
       )}
 
       {connected && !isPage && (
-        <div className="contents">
-          {transportBlock}
-          {nowPlayingBlock}
-          {volumeBlock}
-          {devicesBlock}
+        // Fixed-height sidebar stack keeps transport stable while track/devices change.
+        <div className="flex flex-col gap-4 min-h-[20rem]">
+          <div className="h-14 shrink-0 flex items-center justify-center">
+            {transportBlock}
+          </div>
+          <div className="min-h-10 shrink-0 flex items-center">
+            {nowPlayingBlock}
+          </div>
+          <div className="shrink-0">{volumeBlock}</div>
+          <div className="min-h-[4.5rem] shrink-0">{devicesBlock}</div>
+          <div className="shrink-0 mt-auto">{sidebarConnectedRow}</div>
         </div>
       )}
-
-      {!isPage && connected && sidebarConnectedRow}
 
       {error && (
         <p

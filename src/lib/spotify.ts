@@ -77,9 +77,6 @@ class SpotifyService {
   private authURL = 'https://accounts.spotify.com';
   /** Per-user cooldown after Spotify 429 — blocks further API calls until expiry. */
   private rateLimitedUntilByUser = new Map<string, number>();
-  /** Throttle support_errors inserts for 429s (user+endpoint → last log ms). */
-  private rateLimitLogAtByKey = new Map<string, number>();
-  private static readonly RATE_LIMIT_LOG_COOLDOWN_MS = 60_000;
   private static readonly RATE_LIMIT_MAX_WAIT_MS = 60_000;
   // NOTE: Existing connected users must disconnect + reconnect Spotify after deploy
   // so tokens pick up playlist-read-* and user-library-read scopes. Dashboard app
@@ -422,18 +419,6 @@ class SpotifyService {
     return waitMs;
   }
 
-  /** Log at most one 429 per user+endpoint per cooldown window. */
-  private shouldLogRateLimit(userId: string | undefined, endpoint: string): boolean {
-    const key = `${this.rateLimitUserKey(userId)}:${endpoint}`;
-    const now = Date.now();
-    const last = this.rateLimitLogAtByKey.get(key) || 0;
-    if (now - last < SpotifyService.RATE_LIMIT_LOG_COOLDOWN_MS) {
-      return false;
-    }
-    this.rateLimitLogAtByKey.set(key, now);
-    return true;
-  }
-
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, userId?: string, retries = 1): Promise<any> {
     const requestId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
@@ -514,24 +499,25 @@ class SpotifyService {
             response.headers.get('Retry-After'),
             retries
           );
-          // External rate limits are expected under load — log at most once/min
-          if (this.shouldLogRateLimit(userId, endpoint)) {
-            logErrorAsync({
-              source: 'spotify',
-              level: 'error',
-              message: `Spotify API 429 on ${method} ${endpoint}`,
-              route: endpoint,
-              method,
-              userId: userId || null,
-              meta: {
-                status: 429,
-                statusText: response.statusText,
-                body: errorText.slice(0, 400),
-                retriesLeft: retries,
-                throttled: true,
-              },
-            });
-          }
+          // Expected under load — DB fingerprint dedup stores one open row + count
+          logErrorAsync({
+            source: 'spotify',
+            level: 'error',
+            classification: 'handled',
+            message: `Spotify API 429 on ${method} ${endpoint}`,
+            route: endpoint,
+            method,
+            userId: userId || null,
+            meta: {
+              status: 429,
+              statusText: response.statusText,
+              body: errorText.slice(0, 400),
+              retriesLeft: retries,
+              handled: true,
+              expected: true,
+              throttled: true,
+            },
+          });
           throw new Error(
             `Spotify API error: 429 (backoff) ${errorText}`
           );
@@ -540,6 +526,7 @@ class SpotifyService {
           logErrorAsync({
             source: 'spotify',
             level: 'error',
+            classification: response.status >= 500 ? 'unhandled' : 'handled',
             message: `Spotify API ${response.status} on ${method} ${endpoint}`,
             route: endpoint,
             method,
@@ -549,6 +536,7 @@ class SpotifyService {
               statusText: response.statusText,
               body: errorText.slice(0, 400),
               retriesLeft: retries,
+              handled: response.status < 500,
             },
           });
         }

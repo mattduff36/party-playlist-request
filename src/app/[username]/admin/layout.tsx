@@ -9,6 +9,13 @@ import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import PageLoader from '@/components/ui/PageLoader';
+import AccountPendingOverlay from '@/components/AccountPendingOverlay';
+
+interface AuthUser {
+  username: string;
+  role: string;
+  account_status?: string;
+}
 
 export default function UserAdminLayout({
   children,
@@ -18,31 +25,34 @@ export default function UserAdminLayout({
   const router = useRouter();
   const params = useParams();
   const username = params.username as string;
-  
+
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
       try {
         const response = await fetch('/api/auth/me');
-        
+
         if (!response.ok) {
           router.push('/login');
           return;
         }
 
         const data = await response.json();
+        const user = data.user as AuthUser;
 
         // Check ownership or super admin
-        if (data.user.username !== username && data.user.role !== 'superadmin') {
-          router.push(`/${data.user.username}/admin/overview`);
+        if (user.username !== username && user.role !== 'superadmin') {
+          router.push(`/${user.username}/admin/overview`);
           return;
         }
 
+        setAuthUser(user);
         setAuthenticated(true);
         setLoading(false);
-      } catch (err) {
+      } catch {
         router.push('/login');
       }
     }
@@ -54,8 +64,24 @@ export default function UserAdminLayout({
     return <PageLoader label="Loading DJ admin..." />;
   }
 
-  if (!authenticated) {
+  if (!authenticated || !authUser) {
     return null;
+  }
+
+  const isOwnAccount = authUser.username === username;
+  const status = authUser.account_status;
+  const showApprovalGate =
+    isOwnAccount &&
+    authUser.role !== 'superadmin' &&
+    (status === 'pending' || status === 'rejected');
+
+  if (showApprovalGate) {
+    return (
+      <AccountPendingOverlay
+        status={status as 'pending' | 'rejected'}
+        username={authUser.username}
+      />
+    );
   }
 
   return (

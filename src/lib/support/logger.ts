@@ -1,9 +1,16 @@
 /**
  * Support system logger — durable activity + error records in Postgres.
  * Inserts never throw into callers (fire-and-forget with internal catch).
+ *
+ * Errors are fingerprinted and deduplicated: repeated identical/similar open
+ * issues bump occurrence_count instead of inserting thousands of rows.
  */
 
 import { getPool } from '@/lib/db';
+import {
+  buildErrorFingerprint,
+  classifySupportError,
+} from '@/lib/support/fingerprint';
 import type { LogActivityInput, LogErrorInput } from '@/lib/support/types';
 
 const MAX_MESSAGE = 2000;
@@ -39,35 +46,114 @@ function truncate(value: string | null | undefined, max: number): string | null 
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
+async function bumpExistingError(
+  fingerprint: string,
+  message: string,
+  stack: string | null,
+  metaJson: string | null,
+  classification: string
+): Promise<string | null> {
+  const client = getPool();
+  const result = await client.query(
+    `UPDATE support_errors
+     SET occurrence_count = COALESCE(occurrence_count, 1) + 1,
+         last_seen_at = NOW(),
+         message = $2,
+         stack = COALESCE($3, stack),
+         meta = COALESCE($4::jsonb, meta),
+         classification = $5
+     WHERE fingerprint = $1
+       AND resolved = FALSE
+     RETURNING id`,
+    [fingerprint, message, stack, metaJson, classification]
+  );
+  return result.rows[0]?.id ? String(result.rows[0].id) : null;
+}
+
 export async function logError(input: LogErrorInput): Promise<string | null> {
   try {
     const client = getPool();
     const id = crypto.randomUUID();
     const meta = redactMeta(input.meta);
-    await client.query(
-      `INSERT INTO support_errors (
-        id, level, source, message, stack, route, method,
-        user_id, username, event_id, ip_hash, user_agent, meta
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb
-      )`,
-      [
-        id,
-        input.level || 'error',
-        input.source || 'unknown',
-        truncate(input.message, MAX_MESSAGE) || 'Unknown error',
-        truncate(input.stack, MAX_STACK),
-        truncate(input.route, 500),
-        truncate(input.method, 16),
-        input.userId || null,
-        truncate(input.username, 120),
-        input.eventId || null,
-        truncate(input.ipHash, 128),
-        truncate(input.userAgent, MAX_UA),
-        meta ? JSON.stringify(meta) : null,
-      ]
+    const message = truncate(input.message, MAX_MESSAGE) || 'Unknown error';
+    const stack = truncate(input.stack, MAX_STACK);
+    const route = truncate(input.route, 500);
+    const method = truncate(input.method, 16);
+    const source = input.source || 'unknown';
+    const classification = classifySupportError({
+      source,
+      message,
+      stack,
+      route,
+      method,
+      meta,
+      classification: input.classification,
+    });
+    const fingerprint = buildErrorFingerprint({
+      source,
+      message,
+      stack,
+      route,
+      method,
+      meta,
+      classification,
+    });
+    const metaJson = meta ? JSON.stringify(meta) : null;
+
+    // DB-backed dedup (works across serverless instances; in-memory maps do not)
+    const existingId = await bumpExistingError(
+      fingerprint,
+      message,
+      stack,
+      metaJson,
+      classification
     );
-    return id;
+    if (existingId) return existingId;
+
+    try {
+      await client.query(
+        `INSERT INTO support_errors (
+          id, level, source, message, stack, route, method,
+          user_id, username, event_id, ip_hash, user_agent, meta,
+          fingerprint, occurrence_count, last_seen_at, classification
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb,
+          $14, 1, NOW(), $15
+        )`,
+        [
+          id,
+          input.level || 'error',
+          source,
+          message,
+          stack,
+          route,
+          method,
+          input.userId || null,
+          truncate(input.username, 120),
+          input.eventId || null,
+          truncate(input.ipHash, 128),
+          truncate(input.userAgent, MAX_UA),
+          metaJson,
+          fingerprint,
+          classification,
+        ]
+      );
+      return id;
+    } catch (insertErr) {
+      // Race: another instance inserted the same open fingerprint
+      const code = (insertErr as { code?: string }).code;
+      if (code === '23505') {
+        const racedId = await bumpExistingError(
+          fingerprint,
+          message,
+          stack,
+          metaJson,
+          classification
+        );
+        if (racedId) return racedId;
+      }
+      throw insertErr;
+    }
   } catch (err) {
     console.error('[support] Failed to log error:', (err as Error).message);
     return null;
@@ -138,11 +224,14 @@ export async function pruneSupportLogsOlderThan(days = 90): Promise<{
   }
 }
 
+/** Unresolved true issues only (excludes expected handled noise). */
 export async function getUnresolvedErrorCount(): Promise<number> {
   try {
     const client = getPool();
     const result = await client.query(
-      `SELECT COUNT(*)::int AS count FROM support_errors WHERE resolved = FALSE`
+      `SELECT COUNT(*)::int AS count FROM support_errors
+       WHERE resolved = FALSE
+         AND COALESCE(classification, 'unhandled') = 'unhandled'`
     );
     return result.rows[0]?.count ?? 0;
   } catch {

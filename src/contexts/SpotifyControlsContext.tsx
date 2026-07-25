@@ -356,7 +356,12 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
     }
   }, [applyConnectedFalse, applyConnectedTrue, patchPlaybackState]);
 
+  const devicesBackoffUntilRef = useRef(0);
+
   const fetchDevices = useCallback(async () => {
+    if (Date.now() < devicesBackoffUntilRef.current) {
+      return;
+    }
     if (!devicesHydratedRef.current) {
       setDevicesRefreshing(true);
     }
@@ -366,8 +371,19 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
       });
       if (!response.ok) {
         setDevicesRefreshing(false);
+        if (response.status === 429) {
+          const retryAfter = Number.parseInt(
+            response.headers.get('Retry-After') || '',
+            10
+          );
+          const waitMs = Number.isFinite(retryAfter)
+            ? Math.min(Math.max(retryAfter, 1) * 1000, 60_000)
+            : 60_000;
+          devicesBackoffUntilRef.current = Date.now() + waitMs;
+        }
         return;
       }
+      devicesBackoffUntilRef.current = 0;
       const data = await response.json();
       applyDevices(Array.isArray(data.devices) ? data.devices : []);
     } catch {

@@ -37,9 +37,13 @@ export async function POST(req: NextRequest) {
       ? 'fatal'
       : 'error';
 
+    const classification =
+      body.classification === 'handled' ? 'handled' : 'unhandled';
+
     const id = await logError({
       level,
       source: 'client',
+      classification,
       message,
       stack: stack || (typeof body.componentStack === 'string' ? body.componentStack : null),
       route,
@@ -51,6 +55,7 @@ export async function POST(req: NextRequest) {
       meta: {
         errorId: body.errorId,
         clientLevel: body.level,
+        handled: classification === 'handled',
       },
     });
 

@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
+    const allowedStatuses = ['pending', 'active', 'rejected', 'suspended'];
+
     // Build query
     let query = `
       SELECT 
@@ -39,6 +41,8 @@ export async function GET(req: NextRequest) {
         email, 
         display_name,
         role,
+        account_status,
+        email_verified,
         created_at,
         updated_at,
         active_session_created_at
@@ -55,7 +59,11 @@ export async function GET(req: NextRequest) {
       params.push(`%${search}%`);
     }
 
-    // Note: status filter removed as the users table doesn't have a status column
+    if (status !== 'all' && allowedStatuses.includes(status)) {
+      paramCount++;
+      query += ` AND account_status = $${paramCount}`;
+      params.push(status);
+    }
 
     // Add pagination
     query += ` ORDER BY created_at DESC`;
@@ -74,8 +82,8 @@ export async function GET(req: NextRequest) {
       id: user.id,
       username: user.username,
       email: user.email,
-      account_status: 'active', // Default to active since we don't have a status column
-      email_verified: true, // Default to true since we don't have email verification
+      account_status: user.account_status || 'active',
+      email_verified: Boolean(user.email_verified),
       is_super_admin: user.role === 'superadmin',
       created_at: user.created_at,
       updated_at: user.updated_at,
@@ -91,6 +99,12 @@ export async function GET(req: NextRequest) {
       countParamCount++;
       countQuery += ` AND (username ILIKE $${countParamCount} OR email ILIKE $${countParamCount})`;
       countParams.push(`%${search}%`);
+    }
+
+    if (status !== 'all' && allowedStatuses.includes(status)) {
+      countParamCount++;
+      countQuery += ` AND account_status = $${countParamCount}`;
+      countParams.push(status);
     }
 
     const countResult = await pool.query(countQuery, countParams);
@@ -201,7 +215,7 @@ export async function POST(req: NextRequest) {
     // Determine role
     const role = is_super_admin ? 'superadmin' : 'user';
 
-    // Create user - use columns that exist in the database
+    // Superadmin-created users are immediately usable
     const result = await pool.query(
       `INSERT INTO users (
         username, 
@@ -209,11 +223,13 @@ export async function POST(req: NextRequest) {
         password_hash, 
         display_name,
         role,
+        account_status,
+        email_verified,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, 'active', true, NOW(), NOW())
       RETURNING 
-        id, username, email, role, created_at`,
+        id, username, email, role, account_status, email_verified, created_at`,
       [username, email, passwordHash, username, role]
     );
 

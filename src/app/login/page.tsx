@@ -172,7 +172,7 @@ export default function LoginPage() {
             <p className="mt-6 text-center text-sm text-muted">
               No account?{' '}
               <Link href="/register" className="font-semibold text-accent hover:text-accent-hover">
-                Request access
+                Apply for an account
               </Link>
             </p>
             <p className="mt-3 text-center">

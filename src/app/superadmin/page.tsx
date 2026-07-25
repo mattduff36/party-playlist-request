@@ -176,6 +176,35 @@ export default function SuperAdminPage() {
     }
   };
 
+  const handleAccountStatus = async (
+    user: User,
+    account_status: 'active' | 'rejected'
+  ) => {
+    const actionLabel = account_status === 'active' ? 'approve' : 'reject';
+    if (!confirm(`Are you sure you want to ${actionLabel} "${user.username}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/superadmin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ account_status }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || `Failed to ${actionLabel} user`);
+        return;
+      }
+
+      fetchUsers();
+    } catch {
+      alert('Network error. Please try again.');
+    }
+  };
+
   const openAddModal = () => {
     setFormData({ username: '', email: '', password: '', is_super_admin: false });
     setFormError('');
@@ -235,6 +264,7 @@ export default function SuperAdminPage() {
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
             <option value="suspended">Suspended</option>
           </select>
 
@@ -297,8 +327,9 @@ export default function SuperAdminPage() {
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         user.account_status === 'active' ? 'bg-accent/20 text-accent' :
-                        user.account_status === 'pending' ? 'bg-accent/20 text-accent' :
-                        'bg-red-500/20 text-red-400'
+                        user.account_status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                        user.account_status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                        'bg-white/10 text-muted'
                       }`}>
                         {user.account_status}
                       </span>
@@ -324,6 +355,24 @@ export default function SuperAdminPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end space-x-2">
+                        {user.account_status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleAccountStatus(user, 'active')}
+                              className="p-2 text-accent hover:bg-accent/20 rounded-lg transition-colors"
+                              title="Approve user"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleAccountStatus(user, 'rejected')}
+                              className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg transition-colors"
+                              title="Reject user"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => openEditModal(user)}
                           className="p-2 text-accent hover:bg-accent/20 rounded-lg transition-colors"

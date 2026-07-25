@@ -153,11 +153,17 @@ export async function GET(req: NextRequest) {
       const { logErrorAsync } = await import('@/lib/support/logger');
       logErrorAsync({
         source: 'spotify',
+        classification: 'handled',
         message: `Spotify search 429 for ${username}`,
         route: '/api/spotify/search',
         method: 'GET',
         username,
-        meta: { query: query.slice(0, 80) },
+        meta: {
+          query: query.slice(0, 80),
+          status: 429,
+          handled: true,
+          expected: true,
+        },
       });
       const response = NextResponse.json(
         {
@@ -178,11 +184,15 @@ export async function GET(req: NextRequest) {
       const { logErrorAsync } = await import('@/lib/support/logger');
       logErrorAsync({
         source: 'spotify',
+        classification: searchResponse.status >= 500 ? 'unhandled' : 'handled',
         message: `Spotify search ${searchResponse.status} for ${username}`,
         route: '/api/spotify/search',
         method: 'GET',
         username,
-        meta: { status: searchResponse.status },
+        meta: {
+          status: searchResponse.status,
+          handled: searchResponse.status < 500,
+        },
       });
       return NextResponse.json(
         { error: 'Music search is temporarily unavailable. Please try again later.' },

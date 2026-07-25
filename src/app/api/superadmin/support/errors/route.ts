@@ -16,10 +16,19 @@ export async function GET(req: NextRequest) {
     void pruneSupportLogsOlderThan(90);
 
     const { searchParams } = new URL(req.url);
+    const classificationParam = searchParams.get('classification');
+    const classification =
+      classificationParam === 'handled' ||
+      classificationParam === 'unhandled' ||
+      classificationParam === 'all'
+        ? classificationParam
+        : 'all';
+
     const data = await listSupportErrors({
       resolved: (searchParams.get('resolved') as 'all' | 'open' | 'resolved') || 'open',
       source: searchParams.get('source') || 'all',
       username: searchParams.get('username') || undefined,
+      classification,
       limit: parseInt(searchParams.get('limit') || '50', 10),
       offset: parseInt(searchParams.get('offset') || '0', 10),
     });

@@ -560,6 +560,11 @@ export async function initializeDatabase() {
         ip_hash TEXT,
         user_agent TEXT,
         meta JSONB,
+        fingerprint TEXT,
+        occurrence_count INTEGER NOT NULL DEFAULT 1,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        classification TEXT NOT NULL DEFAULT 'unhandled'
+          CHECK (classification IN ('handled', 'unhandled')),
         resolved BOOLEAN DEFAULT FALSE,
         resolved_at TIMESTAMP,
         resolved_by TEXT
@@ -582,6 +587,52 @@ export async function initializeDatabase() {
         meta JSONB
       )
     `);
+
+    // Support errors: fingerprint dedup + handled/unhandled classification
+    try {
+      await client.query(`
+        ALTER TABLE support_errors
+          ADD COLUMN IF NOT EXISTS fingerprint TEXT,
+          ADD COLUMN IF NOT EXISTS occurrence_count INTEGER NOT NULL DEFAULT 1,
+          ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS classification TEXT NOT NULL DEFAULT 'unhandled'
+      `);
+      await client.query(`
+        UPDATE support_errors
+        SET last_seen_at = COALESCE(last_seen_at, created_at)
+        WHERE last_seen_at IS NULL
+      `);
+      // Soft-check: allow only known classifications (ignore if constraint already exists)
+      await client.query(`
+        DO $$ BEGIN
+          ALTER TABLE support_errors
+            ADD CONSTRAINT support_errors_classification_check
+            CHECK (classification IN ('handled', 'unhandled'));
+        EXCEPTION
+          WHEN duplicate_object THEN NULL;
+        END $$;
+      `);
+      await client.query(
+        `CREATE INDEX IF NOT EXISTS idx_support_errors_fingerprint_open
+         ON support_errors(fingerprint)
+         WHERE resolved = FALSE AND fingerprint IS NOT NULL`
+      );
+      await client.query(
+        `CREATE INDEX IF NOT EXISTS idx_support_errors_classification_open
+         ON support_errors(classification, resolved, last_seen_at DESC)`
+      );
+      await client.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_support_errors_fp_open_unique
+         ON support_errors(fingerprint)
+         WHERE resolved = FALSE AND fingerprint IS NOT NULL`
+      );
+      console.log('✅ Support error fingerprint/classification columns ready');
+    } catch (migrationError) {
+      console.log(
+        'ℹ️ Support error fingerprint migration skipped or partial:',
+        (migrationError as Error).message
+      );
+    }
 
     await client.query(
       `CREATE INDEX IF NOT EXISTS idx_support_errors_created ON support_errors(created_at DESC)`

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { hashPassword } from '@/lib/auth';
+import {
+  sendAccountApprovedEmail,
+  sendAccountRejectedEmail,
+} from '@/lib/email/email-service';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -36,6 +40,8 @@ export async function GET(
         email, 
         display_name,
         role,
+        account_status,
+        email_verified,
         created_at,
         updated_at,
         active_session_created_at
@@ -54,8 +60,8 @@ export async function GET(
     // Transform to match frontend expectations
     const user = {
       ...result.rows[0],
-      account_status: 'active',
-      email_verified: true,
+      account_status: result.rows[0].account_status || 'active',
+      email_verified: Boolean(result.rows[0].email_verified),
       is_super_admin: result.rows[0].role === 'superadmin',
       last_login: result.rows[0].active_session_created_at
     };
@@ -98,7 +104,7 @@ export async function PUT(
 
     // Check if user exists
     const userCheck = await pool.query(
-      'SELECT id, username FROM users WHERE id = $1',
+      'SELECT id, username, email, account_status FROM users WHERE id = $1',
       [id]
     );
 
@@ -110,6 +116,7 @@ export async function PUT(
     }
 
     const user = userCheck.rows[0];
+    const previousStatus = user.account_status as string | null;
 
     // Build update query dynamically
     const updates: string[] = [];
@@ -158,7 +165,18 @@ export async function PUT(
       values.push(passwordHash);
     }
 
-    // Note: account_status removed as the users table doesn't have a status column
+    if (account_status !== undefined) {
+      const allowedStatuses = ['pending', 'active', 'rejected', 'suspended'];
+      if (!allowedStatuses.includes(account_status)) {
+        return NextResponse.json(
+          { error: 'Invalid account_status. Allowed: pending, active, rejected, suspended' },
+          { status: 400 }
+        );
+      }
+      paramCount++;
+      updates.push(`account_status = $${paramCount}`);
+      values.push(account_status);
+    }
 
     if (is_super_admin !== undefined) {
       const role = is_super_admin ? 'superadmin' : 'user';
@@ -168,11 +186,10 @@ export async function PUT(
     }
 
     // Always update the updated_at timestamp
-    paramCount++;
     updates.push(`updated_at = NOW()`);
 
-    // Check if there are any updates
-    if (updates.length === 0) {
+    // Check if there are any updates beyond timestamp
+    if (updates.length === 1) {
       return NextResponse.json(
         { error: 'No fields to update' },
         { status: 400 }
@@ -189,7 +206,8 @@ export async function PUT(
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
       RETURNING 
-        id, username, email, display_name, role, created_at, updated_at, active_session_created_at
+        id, username, email, display_name, role, account_status, email_verified,
+        created_at, updated_at, active_session_created_at
     `;
 
     const result = await pool.query(updateQuery, values);
@@ -197,13 +215,40 @@ export async function PUT(
     // Transform to match frontend expectations
     const updatedUser = {
       ...result.rows[0],
-      account_status: 'active',
-      email_verified: true,
+      account_status: result.rows[0].account_status || 'active',
+      email_verified: Boolean(result.rows[0].email_verified),
       is_super_admin: result.rows[0].role === 'superadmin',
       last_login: result.rows[0].active_session_created_at
     };
 
     console.log(`✅ Super admin ${auth.user.username} updated user: ${user.username}`);
+
+    // Notify applicant when status changes to approved or rejected
+    const newStatus = updatedUser.account_status;
+    const recipientEmail = updatedUser.email as string;
+    if (
+      account_status !== undefined &&
+      newStatus !== previousStatus &&
+      recipientEmail
+    ) {
+      if (newStatus === 'active') {
+        const emailResult = await sendAccountApprovedEmail({
+          username: updatedUser.username,
+          email: recipientEmail,
+        });
+        if (!emailResult.success) {
+          console.error('⚠️ Failed to send approval email');
+        }
+      } else if (newStatus === 'rejected') {
+        const emailResult = await sendAccountRejectedEmail({
+          username: updatedUser.username,
+          email: recipientEmail,
+        });
+        if (!emailResult.success) {
+          console.error('⚠️ Failed to send rejection email');
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

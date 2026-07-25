@@ -1,10 +1,15 @@
 import { getPool } from '@/lib/db';
-import type { SupportActivityRow, SupportErrorRow } from '@/lib/support/types';
+import type {
+  SupportActivityRow,
+  SupportErrorClassification,
+  SupportErrorRow,
+} from '@/lib/support/types';
 
 export async function listSupportErrors(options: {
   resolved?: 'all' | 'open' | 'resolved';
   source?: string;
   username?: string;
+  classification?: SupportErrorClassification | 'all';
   limit?: number;
   offset?: number;
 }): Promise<{ rows: SupportErrorRow[]; total: number }> {
@@ -26,6 +31,10 @@ export async function listSupportErrors(options: {
     clauses.push(`username ILIKE $${i++}`);
     params.push(`%${options.username}%`);
   }
+  if (options.classification && options.classification !== 'all') {
+    clauses.push(`COALESCE(classification, 'unhandled') = $${i++}`);
+    params.push(options.classification);
+  }
 
   const where = clauses.join(' AND ');
   const limit = Math.min(options.limit ?? 50, 100);
@@ -37,7 +46,7 @@ export async function listSupportErrors(options: {
   );
   const rowsResult = await client.query(
     `SELECT * FROM support_errors WHERE ${where}
-     ORDER BY created_at DESC
+     ORDER BY COALESCE(last_seen_at, created_at) DESC
      LIMIT $${i++} OFFSET $${i++}`,
     [...params, limit, offset]
   );
@@ -146,7 +155,7 @@ export async function getEntityTimeline(options: {
   const [errors, activity] = await Promise.all([
     client.query(
       `SELECT * FROM support_errors WHERE ${where}
-       ORDER BY created_at DESC LIMIT $${limitIdx}`,
+       ORDER BY COALESCE(last_seen_at, created_at) DESC LIMIT $${limitIdx}`,
       queryParams
     ),
     client.query(

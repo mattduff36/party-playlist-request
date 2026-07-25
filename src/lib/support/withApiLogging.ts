@@ -41,10 +41,21 @@ export function reportApiError(
   }
 ): void {
   const err = error instanceof Error ? error : new Error(String(error));
+  const message = err.message || String(error);
+  const isHandled =
+    /\b429\b/.test(message) ||
+    /rate limit/i.test(message) ||
+    /rate limited/i.test(message) ||
+    /\bbackoff\b/i.test(message) ||
+    /No token provided/i.test(message) ||
+    /Admin access required/i.test(message) ||
+    /Unauthorized/i.test(message);
+
   logErrorAsync({
     level: 'error',
     source: options?.source || 'api',
-    message: err.message,
+    classification: isHandled ? 'handled' : 'unhandled',
+    message,
     stack: err.stack,
     route: req.nextUrl?.pathname || req.url,
     method: req.method,
@@ -53,7 +64,11 @@ export function reportApiError(
     eventId: options?.eventId,
     ipHash: getIpHash(req),
     userAgent: req.headers.get('user-agent'),
-    meta: options?.meta,
+    meta: {
+      ...options?.meta,
+      handled: isHandled,
+      expected: isHandled,
+    },
   });
 }
 

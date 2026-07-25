@@ -29,6 +29,7 @@ export default function ClientErrorCapture() {
           url: window.location.href,
           userAgent: navigator.userAgent,
           level: 'error',
+          classification: 'unhandled',
         }),
       }).catch(() => undefined);
     };

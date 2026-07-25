@@ -1,9 +1,10 @@
 /**
  * Fix Errors - Automated Error Analysis & Report Generator
  *
- * Fetches open rows from Neon `support_errors`, groups them into patterns,
- * writes docs_private/error-analysis.md + error-fix-log.md, and optionally
- * marks analyzed IDs resolved after the agent has applied code fixes.
+ * Fetches open rows from Neon `support_errors`, clusters identical/similar
+ * issues (fingerprint / normalized message / route / status), writes
+ * docs_private/error-analysis.md + error-fix-log.md, and optionally marks
+ * analyzed IDs resolved after the agent has applied code fixes.
  *
  * Usage:
  *   npm run fixerrors
@@ -15,6 +16,19 @@ import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 import { relative, resolve } from 'path';
 import * as fs from 'fs';
+import {
+  buildErrorFingerprint,
+  normalizeErrorRoute,
+} from '../src/lib/support/fingerprint';
+import {
+  entryFromDbRow,
+  groupIntoPatterns as groupPatternsCore,
+  type ErrorLogEntry,
+  type ErrorPattern,
+  type SourceFileRef,
+} from '../src/lib/support/error-patterns';
+
+export type { ErrorLogEntry, ErrorPattern, SourceFileRef };
 
 dotenv.config({ path: resolve(process.cwd(), '.env.local') });
 
@@ -26,21 +40,10 @@ const ERROR_ANALYSIS_META_PATH = resolve(
   'error-analysis-meta.json'
 );
 
-export type ErrorLogEntry = {
-  id: string;
-  timestamp: string;
-  error_message: string;
-  error_stack: string | null;
-  error_type: string;
-  user_id: string | null;
-  user_email: string | null;
-  page_url: string;
-  user_agent: string;
-  component_name: string | null;
-  additional_data: Record<string, unknown> | null;
-};
+const SAMPLE_IDS_PER_PATTERN = 12;
+const MAX_RAW_ROWS_FOR_ENRICHMENT = 2000;
 
-type FixLogEntry = {
+interface FixLogEntry {
   signature: string;
   firstSeen: string;
   lastSeen: string;
@@ -49,37 +52,25 @@ type FixLogEntry = {
   fixerId?: string;
   plan?: string;
   notes?: string;
-};
+}
 
-type FixLogData = {
+interface FixLogData {
   version: string;
   entries: FixLogEntry[];
-};
+}
 
-export type SourceFileRef = {
-  file: string;
-  line?: number;
-  column?: number;
-};
-
-export type ErrorPattern = {
-  patternKey: string;
-  errorType: string;
-  component: string;
-  normalizedMessage: string;
-  occurrences: ErrorLogEntry[];
-  sourceFiles: SourceFileRef[];
-  affectedPages: string[];
-  affectedUsers: string[];
-  firstSeen: string;
-  lastSeen: string;
-};
-
-type AnalysisMeta = {
+interface AnalysisMeta {
   generatedAt: string;
   errorIds: string[];
   excludeLocalhost: boolean;
-};
+  patternSummaries: Array<{
+    fingerprint: string;
+    classification: string;
+    totalOccurrences: number;
+    rowCount: number;
+    message: string;
+  }>;
+}
 
 const SOURCE_SEARCH_DIRECTORIES = [
   'src',
@@ -252,14 +243,8 @@ function findExistingSourceFile(preferredFile: string, repoRoot: string): string
 }
 
 function normalizePath(url: string): string {
-  try {
-    const pathname = new URL(url).pathname;
-    return pathname
-      .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/<ID>')
-      .replace(/\/\d+(?=\/|$)/g, '/<N>');
-  } catch {
-    return url;
-  }
+  const path = normalizeErrorRoute(url);
+  return path || url;
 }
 
 function getPagePath(pageUrl: string | null | undefined): string | null {
@@ -349,98 +334,15 @@ export function extractSourceFilesForError(
     }
   }
 
-  // Message-based hint for common ReferenceErrors
-  if (refs.length === 0 && /is not defined/i.test(error.error_message || '')) {
-    const msgMatch = (error.error_message || '').match(/([A-Za-z_$][\w$]*) is not defined/);
-    if (msgMatch) {
-      const symbol = msgMatch[1];
-      for (const file of collectSourceFiles(repoRoot)) {
-        if (file.includes('SidebarSpotify') || file.includes('spotify')) {
-          const content = fs.readFileSync(resolve(repoRoot, file), 'utf-8');
-          if (content.includes(symbol) || content.includes('getSpotifyDeviceIcon')) {
-            addSourceRef(refs, seen, { file });
-          }
-        }
-      }
-    }
-  }
-
   return refs;
-}
-
-function normalizeMessage(message: string): string {
-  return message
-    .replace(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-      '<UUID>'
-    )
-    .replace(/\b[0-9a-f]{24,}\b/gi, '<ID>')
-    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*/g, '<TIMESTAMP>')
-    .replace(/https?:\/\/[^\s)]+/g, '<URL>')
-    .trim()
-    .substring(0, 200);
-}
-
-function createPatternKey(error: ErrorLogEntry): string {
-  const type = error.error_type || 'Unknown';
-  const component = error.component_name || 'NoComponent';
-  const normalizedMsg = normalizeMessage(error.error_message || '');
-  return `${type}::${component}::${normalizedMsg}`;
 }
 
 export function groupIntoPatterns(
   errors: ErrorLogEntry[],
   repoRoot = process.cwd()
 ): ErrorPattern[] {
-  const patternMap = new Map<string, ErrorPattern>();
-
-  for (const error of errors) {
-    const key = createPatternKey(error);
-
-    if (!patternMap.has(key)) {
-      patternMap.set(key, {
-        patternKey: key,
-        errorType: error.error_type || 'Unknown',
-        component: error.component_name || 'Unknown',
-        normalizedMessage: normalizeMessage(error.error_message || ''),
-        occurrences: [],
-        sourceFiles: [],
-        affectedPages: [],
-        affectedUsers: [],
-        firstSeen: error.timestamp,
-        lastSeen: error.timestamp,
-      });
-    }
-
-    const pattern = patternMap.get(key)!;
-    pattern.occurrences.push(error);
-
-    if (error.timestamp < pattern.firstSeen) pattern.firstSeen = error.timestamp;
-    if (error.timestamp > pattern.lastSeen) pattern.lastSeen = error.timestamp;
-
-    const pagePath = error.page_url ? normalizePath(error.page_url) : 'Unknown';
-    if (!pattern.affectedPages.includes(pagePath)) {
-      pattern.affectedPages.push(pagePath);
-    }
-
-    const userLabel = error.user_email || error.user_id || 'anonymous';
-    if (!pattern.affectedUsers.includes(userLabel)) {
-      pattern.affectedUsers.push(userLabel);
-    }
-
-    const refs = extractSourceFilesForError(error, repoRoot);
-    for (const ref of refs) {
-      const exists = pattern.sourceFiles.some(
-        (s) => s.file === ref.file && s.line === ref.line
-      );
-      if (!exists) {
-        pattern.sourceFiles.push(ref);
-      }
-    }
-  }
-
-  return Array.from(patternMap.values()).sort(
-    (a, b) => b.occurrences.length - a.occurrences.length
+  return groupPatternsCore(errors, (error) =>
+    extractSourceFilesForError(error, repoRoot)
   );
 }
 
@@ -448,16 +350,23 @@ function generateReport(
   patterns: ErrorPattern[],
   totalFetched: number,
   totalFiltered: number,
-  errorIds: string[]
+  errorIds: string[],
+  consolidatedRows: number
 ): string {
   const now = new Date().toISOString();
   const lines: string[] = [];
+  const unhandled = patterns.filter((p) => p.classification === 'unhandled');
+  const handled = patterns.filter((p) => p.classification === 'handled');
+  const totalHits = patterns.reduce((sum, p) => sum + p.totalOccurrences, 0);
 
   lines.push('# Error Analysis Report');
   lines.push('');
   lines.push(`> **Generated:** ${now}`);
   lines.push(
-    `> **Errors fetched from DB:** ${totalFetched} | **After filtering:** ${totalFiltered} | **Patterns found:** ${patterns.length}`
+    `> **Raw open rows scanned:** ${totalFetched} | **After filtering:** ${totalFiltered} | **Distinct clusters:** ${patterns.length} | **Total hits (occurrence sum):** ${totalHits}`
+  );
+  lines.push(
+    `> **Unhandled clusters:** ${unhandled.length} | **Handled/noise clusters:** ${handled.length}${consolidatedRows ? ` | **Legacy rows consolidated:** ${consolidatedRows}` : ''}`
   );
   lines.push('');
   lines.push('```error-ids');
@@ -465,7 +374,8 @@ function generateReport(
   lines.push('```');
   lines.push('');
   lines.push('This file is overwritten each time `npm run fixerrors` runs.');
-  lines.push('Source: Neon `support_errors` (unresolved rows).');
+  lines.push('Source: Neon `support_errors` (unresolved rows), clustered by fingerprint.');
+  lines.push('Duplicates are reported as one issue with an occurrence count — not listed row-by-row.');
   lines.push('After applying code fixes, run `npm run fixerrors -- --resolve`.');
   lines.push('');
 
@@ -480,43 +390,52 @@ function generateReport(
   lines.push('## Summary');
   lines.push('');
   lines.push(
-    '| # | Error Type | Component | Occurrences | Affected Pages | Source Files | First Seen | Last Seen |'
+    '| # | Class | Source | Occurrences | Rows | Pages | Actionable | First Seen | Last Seen |'
   );
   lines.push(
-    '|---|-----------|-----------|-------------|----------------|-------------|------------|-----------|'
+    '|---|-------|--------|-------------|------|-------|------------|------------|-----------|'
   );
 
   patterns.forEach((p, i) => {
     const first = new Date(p.firstSeen).toLocaleDateString('en-GB');
     const last = new Date(p.lastSeen).toLocaleDateString('en-GB');
     lines.push(
-      `| ${i + 1} | ${p.errorType} | ${p.component} | ${p.occurrences.length} | ${p.affectedPages.length} | ${p.sourceFiles.length} | ${first} | ${last} |`
+      `| ${i + 1} | ${p.classification} | ${p.component} | ${p.totalOccurrences} | ${p.rowCount} | ${p.affectedPages.length} | ${p.actionable ? 'yes' : 'no'} | ${first} | ${last} |`
     );
   });
   lines.push('');
 
-  lines.push('## Error Patterns (by frequency)');
+  lines.push('## Error Clusters (unhandled first, then by frequency)');
   lines.push('');
 
   patterns.forEach((p, i) => {
     lines.push(
-      `### ${i + 1}. ${p.errorType} in ${p.component} (${p.occurrences.length} occurrences)`
+      `### ${i + 1}. [${p.classification}] ${p.errorType} in ${p.component} (${p.totalOccurrences} hits / ${p.rowCount} rows)`
     );
+    lines.push('');
+    lines.push(`**Fingerprint:** \`${p.fingerprint.substring(0, 160)}\``);
     lines.push('');
     lines.push(`**Normalized message:** \`${p.normalizedMessage}\``);
     lines.push('');
+    if (p.noiseReason) {
+      lines.push(`**Noise / non-actionable:** ${p.noiseReason}`);
+      lines.push('');
+    }
 
     const latest = [...p.occurrences].sort((a, b) =>
-      a.timestamp < b.timestamp ? 1 : -1
+      (a.lastSeen || a.timestamp) < (b.lastSeen || b.timestamp) ? 1 : -1
     )[0];
     lines.push('**Latest full message:**');
     lines.push('```');
-    lines.push((latest.error_message || '').substring(0, 500));
+    lines.push((latest?.error_message || '').substring(0, 500));
     lines.push('```');
     lines.push('');
-    lines.push(`**Error IDs:** ${p.occurrences.map((o) => o.id).join(', ')}`);
+    const sampleIds = p.allErrorIds.slice(0, SAMPLE_IDS_PER_PATTERN);
+    lines.push(
+      `**Sample error IDs (${sampleIds.length} of ${p.allErrorIds.length}):** ${sampleIds.join(', ')}`
+    );
     lines.push('');
-    lines.push(`**Affected pages:** ${p.affectedPages.join(', ')}`);
+    lines.push(`**Affected pages/routes:** ${p.affectedPages.join(', ')}`);
     lines.push('');
     lines.push(
       `**Affected users:** ${p.affectedUsers.length} unique (${p.affectedUsers.slice(0, 5).join(', ')}${p.affectedUsers.length > 5 ? '...' : ''})`
@@ -537,7 +456,7 @@ function generateReport(
       lines.push('');
     }
 
-    if (latest.error_stack) {
+    if (latest?.error_stack) {
       const stackExcerpt = latest.error_stack.split('\n').slice(0, 8).join('\n');
       lines.push('**Stack trace excerpt:**');
       lines.push('```');
@@ -554,20 +473,39 @@ function generateReport(
 
   lines.push('## Actionable Items');
   lines.push('');
-  patterns.forEach((p, i) => {
-    if (p.sourceFiles.length > 0) {
-      const topFile = p.sourceFiles[0];
-      const loc = topFile.line ? `${topFile.file}:${topFile.line}` : topFile.file;
+  const actionable = patterns.filter((p) => p.actionable);
+  if (actionable.length === 0) {
+    lines.push(
+      'No actionable codebase issues in this batch. Remaining clusters are handled/expected noise (e.g. Spotify 429). Safe to resolve after confirming logging dedup is in place.'
+    );
+    lines.push('');
+  } else {
+    actionable.forEach((p, i) => {
+      if (p.sourceFiles.length > 0) {
+        const topFile = p.sourceFiles[0];
+        const loc = topFile.line ? `${topFile.file}:${topFile.line}` : topFile.file;
+        lines.push(
+          `${i + 1}. **\`${loc}\`** - ${p.errorType}: ${p.normalizedMessage.substring(0, 100)} (${p.totalOccurrences}x)`
+        );
+      } else {
+        lines.push(
+          `${i + 1}. **${p.component}** - ${p.errorType}: ${p.normalizedMessage.substring(0, 100)} (${p.totalOccurrences}x)`
+        );
+      }
+    });
+    lines.push('');
+  }
+
+  if (handled.length > 0) {
+    lines.push('## Handled / noise (informational)');
+    lines.push('');
+    handled.forEach((p) => {
       lines.push(
-        `${i + 1}. **\`${loc}\`** - ${p.errorType}: ${p.normalizedMessage.substring(0, 100)} (${p.occurrences.length}x)`
+        `- ${p.component}: ${p.normalizedMessage.substring(0, 120)} (${p.totalOccurrences}x) — ${p.noiseReason || 'handled'}`
       );
-    } else {
-      lines.push(
-        `${i + 1}. **${p.component}** - ${p.errorType}: ${p.normalizedMessage.substring(0, 100)} (${p.occurrences.length}x)`
-      );
-    }
-  });
-  lines.push('');
+    });
+    lines.push('');
+  }
 
   return lines.join('\n');
 }
@@ -603,40 +541,30 @@ function saveFixLog(data: FixLogData): void {
   fs.writeFileSync(ERROR_FIX_LOG_PATH, content, 'utf-8');
 }
 
-function createLegacySignature(error: ErrorLogEntry): string {
-  const type = error.error_type || 'Unknown';
-  const message = (error.error_message || '').trim().substring(0, 200);
-  const component = error.component_name || 'NoComponent';
-  let page = 'NoPage';
-  try {
-    page = new URL(error.page_url).pathname;
-  } catch {
-    page = error.page_url || 'NoPage';
-  }
-  return `${type}::${component}::${page}::${message}`;
-}
-
-function updateFixLog(errors: ErrorLogEntry[]): void {
+function updateFixLog(patterns: ErrorPattern[]): void {
   const fixLog = loadFixLog();
   const seenSignatures = new Set<string>();
 
-  for (const error of errors) {
-    const signature = createLegacySignature(error);
+  for (const pattern of patterns) {
+    const signature = pattern.fingerprint;
     seenSignatures.add(signature);
     const existing = fixLog.entries.find((e) => e.signature === signature);
     if (existing) {
-      existing.lastSeen = error.timestamp;
-      existing.occurrences++;
+      existing.lastSeen = pattern.lastSeen;
+      existing.occurrences = pattern.totalOccurrences;
       if (existing.status === 'stale') existing.status = 'investigating';
+      existing.notes = `Class: ${pattern.classification}\nSource: ${pattern.component}\nMessage: ${pattern.normalizedMessage}`;
     } else {
       fixLog.entries.push({
         signature,
-        firstSeen: error.timestamp,
-        lastSeen: error.timestamp,
-        occurrences: 1,
-        status: 'untriaged',
-        plan: 'Needs investigation',
-        notes: `Type: ${error.error_type}\nComponent: ${error.component_name || 'N/A'}\nPage: ${error.page_url}`,
+        firstSeen: pattern.firstSeen,
+        lastSeen: pattern.lastSeen,
+        occurrences: pattern.totalOccurrences,
+        status: pattern.actionable ? 'untriaged' : 'wontfix',
+        plan: pattern.actionable
+          ? 'Needs investigation'
+          : pattern.noiseReason || 'Handled/expected',
+        notes: `Class: ${pattern.classification}\nSource: ${pattern.component}\nMessage: ${pattern.normalizedMessage}`,
       });
     }
   }
@@ -654,37 +582,128 @@ function updateFixLog(errors: ErrorLogEntry[]): void {
   saveFixLog(fixLog);
 }
 
-async function fetchOpenSupportErrors(pool: Pool): Promise<ErrorLogEntry[]> {
-  const result = await pool.query(
-    `SELECT id, created_at, level, source, message, stack, route,
-            user_id, username, user_agent, meta
+/**
+ * Ensure schema columns exist + mark known expected failures as handled.
+ * Collapse legacy duplicate open rows that share a fingerprint into one row.
+ */
+async function prepareSupportErrorTable(pool: Pool): Promise<number> {
+  await pool.query(`
+    ALTER TABLE support_errors
+      ADD COLUMN IF NOT EXISTS fingerprint TEXT,
+      ADD COLUMN IF NOT EXISTS occurrence_count INTEGER NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS classification TEXT NOT NULL DEFAULT 'unhandled'
+  `);
+
+  await pool.query(`
+    UPDATE support_errors
+    SET classification = 'handled'
+    WHERE resolved = FALSE
+      AND (
+        message ~* '429|rate limit|rate limited|backoff|too many requests'
+        OR COALESCE(meta->>'status', '') = '429'
+        OR COALESCE(meta->>'throttled', '') = 'true'
+        OR COALESCE(meta->>'handled', '') = 'true'
+        OR COALESCE(meta->>'expected', '') = 'true'
+      )
+  `);
+
+  // Backfill fingerprints for open rows missing them (best-effort in SQL-ish JS below)
+  const missing = await pool.query(
+    `SELECT id, level, source, message, stack, route, method, meta, classification
      FROM support_errors
-     WHERE resolved = FALSE
-     ORDER BY created_at DESC
-     LIMIT 500`
+     WHERE resolved = FALSE AND (fingerprint IS NULL OR fingerprint = '')
+     LIMIT 5000`
   );
 
-  return result.rows.map((row) => ({
-    id: String(row.id),
-    timestamp: new Date(row.created_at).toISOString(),
-    error_message: row.message || '',
-    error_stack: row.stack || null,
-    error_type: row.level || 'error',
-    user_id: row.user_id ? String(row.user_id) : null,
-    user_email: row.username || null,
-    page_url: row.route || '',
-    user_agent: row.user_agent || '',
-    component_name: row.source || 'unknown',
-    additional_data:
-      row.meta && typeof row.meta === 'object'
-        ? (row.meta as Record<string, unknown>)
-        : null,
-  }));
+  for (const row of missing.rows) {
+    const fp = buildErrorFingerprint({
+      source: row.source,
+      message: row.message || '',
+      stack: row.stack,
+      route: row.route,
+      method: row.method,
+      meta: row.meta,
+      classification: row.classification,
+    });
+    await pool.query(`UPDATE support_errors SET fingerprint = $2 WHERE id = $1`, [
+      row.id,
+      fp,
+    ]);
+  }
+
+  // Collapse duplicate open fingerprints: keep newest, sum counts, delete rest
+  const dupes = await pool.query(`
+    SELECT fingerprint, array_agg(id::text ORDER BY COALESCE(last_seen_at, created_at) DESC) AS ids,
+           SUM(COALESCE(occurrence_count, 1))::int AS total_hits,
+           MIN(created_at) AS first_seen
+    FROM support_errors
+    WHERE resolved = FALSE
+      AND fingerprint IS NOT NULL
+      AND fingerprint <> ''
+    GROUP BY fingerprint
+    HAVING COUNT(*) > 1
+  `);
+
+  let consolidated = 0;
+  for (const group of dupes.rows) {
+    const ids = group.ids as string[];
+    const keepId = ids[0];
+    const dropIds = ids.slice(1);
+    if (dropIds.length === 0) continue;
+
+    await pool.query(
+      `UPDATE support_errors
+       SET occurrence_count = $2,
+           created_at = LEAST(created_at, $3),
+           last_seen_at = GREATEST(COALESCE(last_seen_at, created_at), NOW()),
+           classification = CASE
+             WHEN classification = 'unhandled' THEN 'unhandled'
+             ELSE classification
+           END
+       WHERE id = $1::uuid`,
+      [keepId, group.total_hits, group.first_seen]
+    );
+    await pool.query(
+      `DELETE FROM support_errors WHERE id = ANY($1::uuid[])`,
+      [dropIds]
+    );
+    consolidated += dropIds.length;
+  }
+
+  try {
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_support_errors_fp_open_unique
+      ON support_errors(fingerprint)
+      WHERE resolved = FALSE AND fingerprint IS NOT NULL
+    `);
+  } catch (err) {
+    console.warn(
+      '  Warning: could not ensure unique fingerprint index:',
+      (err as Error).message
+    );
+  }
+
+  return consolidated;
+}
+
+async function fetchOpenSupportErrors(pool: Pool): Promise<ErrorLogEntry[]> {
+  const result = await pool.query(
+    `SELECT id, created_at, last_seen_at, level, source, message, stack, route,
+            method, user_id, username, user_agent, meta,
+            fingerprint, occurrence_count, classification
+     FROM support_errors
+     WHERE resolved = FALSE
+     ORDER BY COALESCE(last_seen_at, created_at) DESC
+     LIMIT $1`,
+    [MAX_RAW_ROWS_FOR_ENRICHMENT]
+  );
+
+  return result.rows.map((row) => entryFromDbRow(row));
 }
 
 function loadAnalysisMeta(): AnalysisMeta | null {
   if (!fs.existsSync(ERROR_ANALYSIS_META_PATH)) {
-    // Fallback: parse IDs from markdown report
     if (!fs.existsSync(ERROR_ANALYSIS_PATH)) return null;
     const content = fs.readFileSync(ERROR_ANALYSIS_PATH, 'utf-8');
     const match = content.match(/```error-ids\s*([\s\S]*?)```/);
@@ -695,6 +714,7 @@ function loadAnalysisMeta(): AnalysisMeta | null {
         generatedAt: new Date().toISOString(),
         errorIds,
         excludeLocalhost: false,
+        patternSummaries: [],
       };
     } catch {
       return null;
@@ -723,10 +743,9 @@ async function resolveReportedErrors(pool: Pool): Promise<number> {
     [meta.errorIds]
   );
 
-  // Update fix log statuses for signatures covered by this resolve
   const fixLog = loadFixLog();
   for (const entry of fixLog.entries) {
-    if (entry.status === 'untriaged' || entry.status === 'investigating') {
+    if (entry.status === 'untriaged' || entry.status === 'investigating' || entry.status === 'wontfix') {
       entry.status = 'fix_applied';
     }
   }
@@ -740,9 +759,15 @@ async function analyze(excludeLocalhost: boolean): Promise<void> {
   const pool = new Pool({ connectionString: getDatabaseUrl() });
 
   try {
+    console.log('Preparing support_errors (classification + fingerprint consolidation)...');
+    const consolidatedRows = await prepareSupportErrorTable(pool);
+    if (consolidatedRows > 0) {
+      console.log(`  Consolidated ${consolidatedRows} legacy duplicate row(s)`);
+    }
+
     console.log('Fetching open support_errors...');
     const rawErrors = await fetchOpenSupportErrors(pool);
-    console.log(`  Fetched ${rawErrors.length} unresolved error(s)`);
+    console.log(`  Fetched ${rawErrors.length} unresolved row(s) (post-consolidation)`);
 
     const errors = filterErrors(rawErrors, excludeLocalhost);
     const filteredOut = rawErrors.length - errors.length;
@@ -753,13 +778,14 @@ async function analyze(excludeLocalhost: boolean): Promise<void> {
     }
 
     const patterns = groupIntoPatterns(errors);
-    const errorIds = errors.map((e) => e.id);
+    const errorIds = patterns.flatMap((p) => p.allErrorIds);
 
     const report = generateReport(
       patterns,
       rawErrors.length,
       errors.length,
-      errorIds
+      errorIds,
+      consolidatedRows
     );
     fs.writeFileSync(ERROR_ANALYSIS_PATH, report, 'utf-8');
     console.log(`  Wrote ${ERROR_ANALYSIS_PATH}`);
@@ -768,18 +794,27 @@ async function analyze(excludeLocalhost: boolean): Promise<void> {
       generatedAt: new Date().toISOString(),
       errorIds,
       excludeLocalhost,
+      patternSummaries: patterns.map((p) => ({
+        fingerprint: p.fingerprint,
+        classification: p.classification,
+        totalOccurrences: p.totalOccurrences,
+        rowCount: p.rowCount,
+        message: p.normalizedMessage,
+      })),
     };
     fs.writeFileSync(ERROR_ANALYSIS_META_PATH, JSON.stringify(meta, null, 2), 'utf-8');
 
-    updateFixLog(errors);
+    updateFixLog(patterns);
     console.log(`  Updated ${ERROR_FIX_LOG_PATH}`);
 
     console.log('');
     console.log('Summary:');
-    console.log(`  Patterns: ${patterns.length}`);
+    console.log(
+      `  Clusters: ${patterns.length} (${patterns.filter((p) => p.classification === 'unhandled').length} unhandled, ${patterns.filter((p) => p.classification === 'handled').length} handled)`
+    );
     for (const pattern of patterns.slice(0, 10)) {
       console.log(
-        `  - [${pattern.errorType}/${pattern.component}] ${pattern.normalizedMessage.substring(0, 80)} (${pattern.occurrences.length}x)`
+        `  - [${pattern.classification}/${pattern.component}] ${pattern.normalizedMessage.substring(0, 70)} (${pattern.totalOccurrences}x)`
       );
     }
     if (patterns.length === 0) {
