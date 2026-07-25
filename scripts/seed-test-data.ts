@@ -1,6 +1,9 @@
 /**
  * Idempotent seed for critical-path API/e2e tests.
  * Users: testuser1 / testuser2 — password: testpassword123
+ *
+ * Newly inserted seed users are recorded in a manifest so
+ * scripts/cleanup-test-data.ts can remove them after the suite.
  */
 
 import { Pool } from 'pg';
@@ -8,38 +11,24 @@ import * as dotenv from 'dotenv';
 import * as bcrypt from 'bcryptjs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import {
+  SEED_PASSWORD,
+  SEED_USERS,
+  type SeedUserConfig,
+} from './seed-users-config';
+import { readSeedManifest, writeSeedManifest } from './cleanup-test-data';
 
 // Prefer real app DB from .env.local; test.env only fills missing keys
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config({ path: path.resolve(process.cwd(), 'config/jest/test.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'test.env') });
 
-const PASSWORD = 'testpassword123';
+const PASSWORD = SEED_PASSWORD;
 
-interface SeedUser {
-  username: string;
-  email: string;
-  displayName: string;
-  pin: string;
-  eventTitle: string;
+interface UpsertResult {
+  id: string;
+  created: boolean;
 }
-
-const SEED_USERS: SeedUser[] = [
-  {
-    username: 'testuser1',
-    email: 'testuser1@example.com',
-    displayName: 'Test User 1',
-    pin: '1111',
-    eventTitle: 'DJ1 Test Event',
-  },
-  {
-    username: 'testuser2',
-    email: 'testuser2@example.com',
-    displayName: 'Test User 2',
-    pin: '2222',
-    eventTitle: 'DJ2 Test Event',
-  },
-];
 
 async function tableExists(pool: Pool, name: string): Promise<boolean> {
   const result = await pool.query(
@@ -51,9 +40,9 @@ async function tableExists(pool: Pool, name: string): Promise<boolean> {
 
 async function upsertUser(
   pool: Pool,
-  user: SeedUser,
+  user: SeedUserConfig,
   passwordHash: string
-): Promise<string> {
+): Promise<UpsertResult> {
   const existing = await pool.query(`SELECT id FROM users WHERE username = $1`, [
     user.username,
   ]);
@@ -62,7 +51,7 @@ async function upsertUser(
       `UPDATE users SET email = $2, password_hash = $3, display_name = $4 WHERE username = $1`,
       [user.username, user.email, passwordHash, user.displayName]
     );
-    return existing.rows[0].id as string;
+    return { id: existing.rows[0].id as string, created: false };
   }
 
   const inserted = await pool.query(
@@ -71,7 +60,7 @@ async function upsertUser(
      RETURNING id`,
     [user.username, user.email, passwordHash, user.displayName]
   );
-  return inserted.rows[0].id as string;
+  return { id: inserted.rows[0].id as string, created: true };
 }
 
 async function seedSpotifyAuth(pool: Pool, userId: string): Promise<void> {
@@ -113,7 +102,7 @@ async function seedSpotifyAuth(pool: Pool, userId: string): Promise<void> {
 async function seedUserSettings(
   pool: Pool,
   userId: string,
-  user: SeedUser
+  user: SeedUserConfig
 ): Promise<void> {
   if (!(await tableExists(pool, 'user_settings'))) return;
   const existing = await pool.query(
@@ -141,7 +130,7 @@ async function seedUserSettings(
 async function seedUserEvent(
   pool: Pool,
   userId: string,
-  user: SeedUser
+  user: SeedUserConfig
 ): Promise<void> {
   if (!(await tableExists(pool, 'user_events'))) return;
   const existing = await pool.query(
@@ -165,7 +154,7 @@ async function seedUserEvent(
 async function seedEventsTable(
   pool: Pool,
   userId: string,
-  user: SeedUser
+  user: SeedUserConfig
 ): Promise<void> {
   if (!(await tableExists(pool, 'events'))) return;
   const existing = await pool.query(`SELECT id FROM events WHERE user_id = $1 LIMIT 1`, [
@@ -238,20 +227,56 @@ async function seedTestData() {
 
   const pool = new Pool({ connectionString: DATABASE_URL });
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  const createdUsernames: string[] = [];
+  const ensuredUsernames: string[] = [];
 
   try {
     for (const user of SEED_USERS) {
-      const userId = await upsertUser(pool, user, passwordHash);
-      console.log(`User ready: ${user.username} (${userId})`);
+      const { id: userId, created } = await upsertUser(pool, user, passwordHash);
+      ensuredUsernames.push(user.username);
+      if (created) {
+        createdUsernames.push(user.username);
+        console.log(`User created: ${user.username} (${userId})`);
+      } else {
+        console.log(`User ready (existing): ${user.username} (${userId})`);
+      }
       await seedSpotifyAuth(pool, userId);
       await seedUserEvent(pool, userId, user);
       await seedUserSettings(pool, userId, user);
       await seedEventsTable(pool, userId, user);
       await seedPendingRequest(pool, userId);
     }
+
+    // Carry forward usernames from a previous seed that never got cleaned
+    // (e.g. crashed mid-suite) so orphans are still removed on the next teardown.
+    const previousManifest = readSeedManifest();
+    const cleanupUsernames = new Set(createdUsernames);
+    if (previousManifest) {
+      for (const username of previousManifest.createdUsernames) {
+        if (ensuredUsernames.includes(username)) {
+          cleanupUsernames.add(username);
+        }
+      }
+    }
+
+    writeSeedManifest({
+      createdAt: new Date().toISOString(),
+      createdUsernames: [...cleanupUsernames],
+      ensuredUsernames,
+    });
+
     console.log('Seed complete.');
     console.log('Credentials: testuser1|testuser2 / testpassword123');
     console.log('PINs: testuser1=1111, testuser2=2222');
+    if (cleanupUsernames.size > 0) {
+      console.log(
+        `Marked for post-suite cleanup: ${[...cleanupUsernames].join(', ')}`
+      );
+    } else {
+      console.log(
+        'No new seed users created (pre-existing seed accounts are left in place after cleanup).'
+      );
+    }
   } finally {
     await pool.end();
   }

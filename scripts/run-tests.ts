@@ -378,11 +378,15 @@ ${this.results.total.failed === 0
       this.serverProcess = null;
       console.log('   ✅ Dev server stopped');
     }
-    
-    // Note: We keep the test database for inspection
-    // To fully clean up, run: npm run test:setup-db
-    console.log('   ℹ️  Test database preserved for inspection');
-    console.log('   ℹ️  To reset: npm run test:setup-db');
+
+    // Remove seed accounts created by this run (allowlisted testuser* only)
+    try {
+      const { cleanupSeededTestUsers } = await import('./cleanup-test-data');
+      await cleanupSeededTestUsers();
+      console.log('   ✅ Seed test users cleaned up');
+    } catch (error) {
+      console.warn('   ⚠️  Seed user cleanup skipped or failed:', error);
+    }
   }
 }
 

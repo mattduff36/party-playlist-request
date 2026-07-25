@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import type { DisplayMood } from '@/styles/theme';
 
 // Users table - Multi-tenant user accounts
 export const users = pgTable('users', {
@@ -152,7 +153,7 @@ export interface EventConfig {
   // Display screen settings
   qr_boost_duration?: number;
   /** Guest request + TV display visual mood preset */
-  display_mood?: 'club' | 'venue' | 'dj';
+  display_mood?: DisplayMood;
   /** @deprecated Prefer display_mood; kept for migration fallback */
   theme_primary_color?: string;
   theme_secondary_color?: string;

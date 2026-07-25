@@ -9,8 +9,11 @@ Critical-path suite wired into `npm run finalise:full` / `finalise:full:push`.
 3. `npm run test:seed-db` — idempotent seed of `testuser1` / `testuser2`
 4. Start production server with `SPOTIFY_MOCK=true`
 5. `npm run test:api` — HTTP tests against localhost:3000
-6. `npm run test:e2e` — Playwright Chromium
-7. Stop server, then commit (+ push if requested)
+6. `npm run test:e2e` — Playwright Chromium (global teardown removes seed users created by this run)
+7. `npm run test:cleanup-db` — remove any remaining seed users created by this run
+8. Stop server, then commit (+ push if requested)
+
+Seed cleanup only deletes allowlisted accounts (`testuser1` / `testuser2` with `@example.com` emails) that were newly created by seed. Pre-existing seed accounts are left alone. Set `TEST_KEEP_SEEDED_USERS=1` to skip cleanup. Use `npm run test:cleanup-db -- --all-seed` to remove both seed users, or `--username testuser2` for one account.
 
 ## Commands
 

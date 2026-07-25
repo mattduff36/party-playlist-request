@@ -2,6 +2,7 @@
 
 import { CSSProperties, ReactNode } from 'react';
 import {
+  DISPLAY_MOODS,
   DisplayMood,
   moodCssVariables,
   resolveDisplayMood,
@@ -26,7 +27,9 @@ export default function MoodShell({
   const vars = moodCssVariables(resolved) as CSSProperties;
   const density =
     densityClassName ??
-    (resolved === 'dj' ? 'mood-density-compact text-[13px] leading-snug' : 'mood-density-comfy');
+    (DISPLAY_MOODS[resolved].density === 'compact'
+      ? 'mood-density-compact text-[13px] leading-snug'
+      : 'mood-density-comfy');
 
   return (
     <div

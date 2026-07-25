@@ -36,12 +36,11 @@ export const TEST_USERS = {
 };
 
 export function generateTestUser() {
+  const suffix = `${Date.now().toString(36)}${faker.string.alphanumeric(4)}`.toLowerCase();
+  const username = `test_${suffix}`.slice(0, 24);
   return {
-    username: faker.internet
-      .username()
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, ''),
-    email: faker.internet.email(),
+    username,
+    email: `${username}@example.com`,
     password: TEST_PASSWORD,
     displayName: faker.person.fullName(),
     role: 'user' as const,

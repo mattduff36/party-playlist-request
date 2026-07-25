@@ -15,6 +15,7 @@ export default defineConfig({
     '**/04-isolation.spec.ts',
     '**/05-admin-event.spec.ts',
   ],
+  globalTeardown: 'tests/global-teardown.ts',
   outputDir: 'test-results/e2e-artifacts',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

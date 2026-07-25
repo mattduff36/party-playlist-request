@@ -1,15 +1,94 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Palette, Mic, ChevronDown, ChevronUp, MessageSquareText, Megaphone } from 'lucide-react';
+import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
+import {
+  Save,
+  RefreshCw,
+  Palette,
+  Mic,
+  ChevronDown,
+  ChevronUp,
+  MessageSquareText,
+  Megaphone,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import {
+  DISPLAY_MOOD_IDS,
   DISPLAY_MOODS,
   DisplayMood,
   resolveDisplayMood,
 } from '@/styles/theme';
 import Checkbox from '@/components/ui/Checkbox';
 import Radio from '@/components/ui/Radio';
+
+const SCROLLING_MESSAGE_PLACEHOLDER = 'Your requests will be reviewed by the DJ';
+const SCROLLING_MESSAGE_SECOND_PLACEHOLDER = 'Keep the party going!';
+const MAX_SCROLLING_MESSAGES = 2;
+
+interface ScrollingMessageRowProps {
+  id: string;
+  name: string;
+  value: string;
+  placeholder: string;
+  disabled: boolean;
+  showAdd: boolean;
+  showDelete: boolean;
+  onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+  onAdd: () => void;
+  onDelete: () => void;
+}
+
+function ScrollingMessageRow({
+  id,
+  name,
+  value,
+  placeholder,
+  disabled,
+  showAdd,
+  showDelete,
+  onChange,
+  onAdd,
+  onDelete,
+}: ScrollingMessageRowProps) {
+  return (
+    <div className="flex gap-2 items-start">
+      <textarea
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        rows={1}
+        className="flex-1 min-w-0 px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+        placeholder={placeholder}
+      />
+      {showAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={disabled}
+          aria-label="Add scrolling message"
+          className="shrink-0 p-3 rounded-lg border border-white/10 text-muted hover:text-bone hover:bg-surface/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      )}
+      {showDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={disabled}
+          aria-label="Remove scrolling message"
+          className="shrink-0 p-3 rounded-lg border border-white/10 text-muted hover:text-red-300 hover:bg-red-900/20 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function DisplaySettingsPage() {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
@@ -34,6 +113,9 @@ export default function DisplaySettingsPage() {
     // Notice Board features
     show_approval_messages: false,
   });
+
+  // 1 field by default; 2 when tertiary has content or user clicks +
+  const [scrollingFieldCount, setScrollingFieldCount] = useState(1);
   
   // Notice Board (Message System) state
   const [messageText, setMessageText] = useState('');
@@ -44,6 +126,9 @@ export default function DisplaySettingsPage() {
   
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [moodApplying, setMoodApplying] = useState(false);
+  const [moodStatus, setMoodStatus] = useState('');
+  const formHydratedRef = useRef(false);
   
   // Collapsible sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -60,27 +145,43 @@ export default function DisplaySettingsPage() {
     }));
   };
 
-  // Update form data when eventSettings loads
+  // Hydrate once from server; later refreshes only sync mood (instant apply)
+  // so unsaved message edits are not wiped.
   useEffect(() => {
-    if (eventSettings) {
+    if (!eventSettings) return;
+
+    const resolvedMood = resolveDisplayMood(
+      eventSettings.display_mood,
+      eventSettings.theme_primary_color
+    );
+
+    if (!formHydratedRef.current) {
+      formHydratedRef.current = true;
+      const secondary = eventSettings.secondary_message || '';
+      const tertiary = eventSettings.tertiary_message || '';
       setFormData({
         welcome_message: eventSettings.welcome_message || '',
-        secondary_message: eventSettings.secondary_message || '',
-        tertiary_message: eventSettings.tertiary_message || '',
+        secondary_message: secondary,
+        tertiary_message: tertiary,
         show_qr_code: eventSettings.show_qr_code ?? true,
         qr_boost_duration: eventSettings.qr_boost_duration || 5,
-        display_mood: resolveDisplayMood(
-          eventSettings.display_mood,
-          eventSettings.theme_primary_color
-        ),
+        display_mood: resolvedMood,
         show_scrolling_bar: eventSettings.show_scrolling_bar ?? true,
         karaoke_mode: eventSettings.karaoke_mode || false,
         show_approval_messages: eventSettings.show_approval_messages || false,
       });
+      setScrollingFieldCount(tertiary.trim() ? 2 : 1);
+      return;
     }
+
+    setFormData((prev) =>
+      prev.display_mood === resolvedMood
+        ? prev
+        : { ...prev, display_mood: resolvedMood }
+    );
   }, [eventSettings]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -88,12 +189,34 @@ export default function DisplaySettingsPage() {
     }));
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCheckboxChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: checked
     }));
+  };
+
+  const handleMoodSelect = async (moodId: DisplayMood) => {
+    if (formData.display_mood === moodId || moodApplying) return;
+
+    const previousMood = formData.display_mood;
+    setFormData((prev) => ({ ...prev, display_mood: moodId }));
+    setMoodApplying(true);
+    setMoodStatus('');
+
+    try {
+      await updateEventSettings({ display_mood: moodId });
+      setMoodStatus('Mood applied');
+      setTimeout(() => setMoodStatus(''), 2000);
+    } catch (error) {
+      console.error('❌ Error applying display mood:', error);
+      setFormData((prev) => ({ ...prev, display_mood: previousMood }));
+      setMoodStatus('Could not apply mood');
+      setTimeout(() => setMoodStatus(''), 3000);
+    } finally {
+      setMoodApplying(false);
+    }
   };
 
   // Notice Board message functions
@@ -173,7 +296,7 @@ export default function DisplaySettingsPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSaveMessage('');
@@ -280,33 +403,38 @@ export default function DisplaySettingsPage() {
               <label className="block text-sm font-medium text-muted mb-2">
                 Scrolling Messages
               </label>
-              
-              {/* First Scrolling Message */}
-              <div className="mb-4">
-                <textarea
+
+              <div className="space-y-3">
+                <ScrollingMessageRow
                   id="secondary_message"
                   name="secondary_message"
                   value={formData.secondary_message}
-                  onChange={handleInputChange}
+                  placeholder={SCROLLING_MESSAGE_PLACEHOLDER}
                   disabled={!formData.show_scrolling_bar}
-                  rows={1}
-                  className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Request your song now! Scan the QR code, or visit partyplaylist.co.uk"
-                />
-              </div>
-              
-              {/* Second Scrolling Message */}
-              <div className="mb-2">
-                <textarea
-                  id="tertiary_message"
-                  name="tertiary_message"
-                  value={formData.tertiary_message}
                   onChange={handleInputChange}
-                  disabled={!formData.show_scrolling_bar}
-                  rows={1}
-                  className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Secondary message to be placed here!"
+                  showAdd={scrollingFieldCount < MAX_SCROLLING_MESSAGES}
+                  showDelete={false}
+                  onAdd={() => setScrollingFieldCount(2)}
+                  onDelete={() => {}}
                 />
+
+                {scrollingFieldCount >= 2 && (
+                  <ScrollingMessageRow
+                    id="tertiary_message"
+                    name="tertiary_message"
+                    value={formData.tertiary_message}
+                    placeholder={SCROLLING_MESSAGE_SECOND_PLACEHOLDER}
+                    disabled={!formData.show_scrolling_bar}
+                    onChange={handleInputChange}
+                    showAdd={false}
+                    showDelete
+                    onAdd={() => {}}
+                    onDelete={() => {
+                      setFormData((prev) => ({ ...prev, tertiary_message: '' }));
+                      setScrollingFieldCount(1);
+                    }}
+                  />
+                )}
               </div>
               
               <p className="text-faint text-sm mt-1">
@@ -337,19 +465,34 @@ export default function DisplaySettingsPage() {
             
             {expandedSections.moodTheme && (
               <div className="p-4 space-y-4">
-                <p className="text-sm text-muted">
-                  Applies to the guest request page and the TV display for this event.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {(Object.keys(DISPLAY_MOODS) as DisplayMood[]).map((moodId) => {
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm text-muted">
+                    Applies instantly to the guest request page and the TV display for this event.
+                  </p>
+                  {moodStatus && (
+                    <p
+                      className={`text-xs shrink-0 ${
+                        moodStatus.includes('Could not') ? 'text-red-400' : 'text-accent'
+                      }`}
+                    >
+                      {moodApplying ? 'Applying...' : moodStatus}
+                    </p>
+                  )}
+                  {!moodStatus && moodApplying && (
+                    <p className="text-xs shrink-0 text-muted">Applying...</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {DISPLAY_MOOD_IDS.map((moodId) => {
                     const mood = DISPLAY_MOODS[moodId];
                     const selected = formData.display_mood === moodId;
                     return (
                       <button
                         key={moodId}
                         type="button"
-                        onClick={() => setFormData((prev) => ({ ...prev, display_mood: moodId }))}
-                        className={`text-left rounded-xl border p-4 transition-all ${
+                        disabled={moodApplying}
+                        onClick={() => handleMoodSelect(moodId)}
+                        className={`text-left rounded-xl border p-4 transition-all disabled:opacity-70 ${
                           selected
                             ? 'border-accent ring-2 ring-accent/30 bg-accent/10'
                             : 'border-white/10 bg-elevated hover:border-white/20'

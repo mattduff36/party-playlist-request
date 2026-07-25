@@ -58,11 +58,36 @@ export async function createTestUser(userData: {
   return result.rows[0];
 }
 
+/**
+ * Delete users by exact username. Only intended for allowlisted test accounts
+ * (testuser1/testuser2 or test_* helpers). Prefer scripts/cleanup-test-data.ts
+ * for suite-level seed cleanup.
+ */
+export async function deleteTestUsersByUsernames(usernames: string[]) {
+  const pool = getTestDbPool();
+  if (usernames.length === 0) return [];
+
+  const allowed = usernames.filter(
+    (username) =>
+      username === 'testuser1' ||
+      username === 'testuser2' ||
+      username.startsWith('test_')
+  );
+
+  if (allowed.length === 0) return [];
+
+  const result = await pool.query(
+    `DELETE FROM users WHERE username = ANY($1::text[]) RETURNING username`,
+    [allowed]
+  );
+  return result.rows.map((row: { username: string }) => row.username);
+}
+
 export async function createTestEvent(eventData: {
   user_id: string;
   pin: string;
   status: string;
-  config: any;
+  config: Record<string, unknown>;
 }) {
   const pool = getTestDbPool();
   

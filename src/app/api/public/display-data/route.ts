@@ -92,8 +92,8 @@ export async function GET(req: NextRequest) {
       event_settings: {
         event_title: settings.event_title || 'Party DJ Requests',
         welcome_message: settings.welcome_message || 'Request your favorite songs!',
-        secondary_message: settings.secondary_message || 'Your requests will be reviewed by the DJ',
-        tertiary_message: settings.tertiary_message || 'Keep the party going!',
+        secondary_message: settings.secondary_message ?? '',
+        tertiary_message: settings.tertiary_message ?? '',
         show_qr_code: settings.show_qr_code ?? true,
         display_refresh_interval: settings.display_refresh_interval || 20,
         pin: eventPin,

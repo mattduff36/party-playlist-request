@@ -188,8 +188,8 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
           dj_name: '',
           venue_info: '',
           welcome_message: 'Request your favorite songs!',
-          secondary_message: 'Your requests will be reviewed by the DJ',
-          tertiary_message: 'Keep the party going!',
+          secondary_message: '',
+          tertiary_message: '',
           show_qr_code: true,
         });
       }

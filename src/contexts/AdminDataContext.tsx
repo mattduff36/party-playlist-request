@@ -3,6 +3,7 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { usePusher } from '@/hooks/usePusher';
 import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
+import type { DisplayMood } from '@/styles/theme';
 
 // Types (simplified from the old useAdminData)
 export interface Request {
@@ -46,7 +47,7 @@ export interface EventSettings {
   auto_approve?: boolean;
   decline_explicit?: boolean;
   qr_boost_duration?: number;
-  display_mood?: 'club' | 'venue' | 'dj';
+  display_mood?: DisplayMood;
   theme_primary_color?: string;
   theme_secondary_color?: string;
   theme_tertiary_color?: string;

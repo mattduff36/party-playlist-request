@@ -3,7 +3,16 @@
  * Landing uses Spotify skin helpers; guest/display use mood presets.
  */
 
-export type DisplayMood = 'club' | 'venue' | 'dj';
+export type DisplayMood = 'club' | 'venue' | 'dj' | 'neon' | 'amber' | 'frost';
+
+export const DISPLAY_MOOD_IDS: DisplayMood[] = [
+  'club',
+  'venue',
+  'dj',
+  'neon',
+  'amber',
+  'frost',
+];
 
 export const stageSignal = {
   colors: {
@@ -97,10 +106,55 @@ export const DISPLAY_MOODS: Record<DisplayMood, MoodTokens> = {
     density: 'compact',
     radius: '0.375rem',
   },
+  neon: {
+    id: 'neon',
+    label: 'Neon Pulse',
+    description: 'Electric cyan on deep indigo - late-night energy.',
+    background: '#06080F',
+    surface: '#101628',
+    text: '#EAF2FF',
+    textMuted: '#8FA3C4',
+    accent: '#22D3EE',
+    accentHover: '#67E8F9',
+    border: 'rgba(34, 211, 238, 0.35)',
+    density: 'comfortable',
+    radius: '0.5rem',
+  },
+  amber: {
+    id: 'amber',
+    label: 'Amber Lounge',
+    description: 'Warm copper and espresso - cocktail bars and late sets.',
+    background: '#120C08',
+    surface: '#1E1510',
+    text: '#F7EDE3',
+    textMuted: '#B9A090',
+    accent: '#E8A04B',
+    accentHover: '#F0B86A',
+    border: 'rgba(232, 160, 75, 0.32)',
+    density: 'comfortable',
+    radius: '1.25rem',
+  },
+  frost: {
+    id: 'frost',
+    label: 'Frost Stage',
+    description: 'Cool slate and ice blue - crisp, modern, and clear.',
+    background: '#0A1016',
+    surface: '#141C26',
+    text: '#E8EEF5',
+    textMuted: '#8E9AAB',
+    accent: '#7DD3FC',
+    accentHover: '#BAE6FD',
+    border: 'rgba(125, 211, 252, 0.30)',
+    density: 'comfortable',
+    radius: '0.625rem',
+  },
 };
 
 export function isDisplayMood(value: unknown): value is DisplayMood {
-  return value === 'club' || value === 'venue' || value === 'dj';
+  return (
+    typeof value === 'string' &&
+    (DISPLAY_MOOD_IDS as string[]).includes(value)
+  );
 }
 
 /** Map legacy free-form theme colors to the closest mood preset. */

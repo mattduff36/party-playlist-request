@@ -894,6 +894,15 @@ async function main(): Promise<void> {
         }
       } finally {
         await stopManagedProcess(testServer);
+
+        // Playwright globalTeardown also runs cleanup; call again so api-only
+        // paths and teardown failures still remove accounts created by seed.
+        console.log('Cleaning up seed test users created by this run...');
+        try {
+          runCommand('npm', ['run', 'test:cleanup-db'], { allowFailure: true });
+        } catch (cleanupError) {
+          console.warn('Seed user cleanup skipped or failed:', cleanupError);
+        }
       }
     } else {
       console.log('No api/e2e scripts found; skipping server-backed tests.');

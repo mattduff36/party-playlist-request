@@ -3,6 +3,7 @@ import { requireAuth } from '@/middleware/auth';
 import { getEventSettings, updateEventSettings, initializeDefaults } from '@/lib/db';
 import { triggerEvent, getUserChannel } from '@/lib/pusher';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
+import { isDisplayMood } from '@/styles/theme';
 
 export async function GET(req: NextRequest) {
   try {
@@ -69,11 +70,7 @@ export async function POST(req: NextRequest) {
       show_approval_messages
     } = body;
 
-    const allowedMoods = new Set(['club', 'venue', 'dj']);
-    const safeMood =
-      typeof display_mood === 'string' && allowedMoods.has(display_mood)
-        ? display_mood
-        : undefined;
+    const safeMood = isDisplayMood(display_mood) ? display_mood : undefined;
     
     console.log('📝 Updating event settings:', {
       event_title,
@@ -106,7 +103,7 @@ export async function POST(req: NextRequest) {
       force_polling,
       decline_explicit,
       qr_boost_duration,
-      ...(safeMood ? { display_mood: safeMood as 'club' | 'venue' | 'dj' } : {}),
+      ...(safeMood ? { display_mood: safeMood } : {}),
       theme_primary_color,
       theme_secondary_color,
       theme_tertiary_color,

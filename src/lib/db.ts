@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import crypto from 'crypto';
+import type { DisplayMood } from '@/styles/theme';
 
 export interface Request {
   id: string;
@@ -80,7 +81,7 @@ export interface EventSettings {
   message_duration: number | null;
   message_created_at: Date | null;
   // Theme customization
-  display_mood: 'club' | 'venue' | 'dj' | null;
+  display_mood: DisplayMood | null;
   theme_primary_color: string | null;
   theme_secondary_color: string | null;
   theme_tertiary_color: string | null;
@@ -173,8 +174,8 @@ export async function initializeDatabase() {
         dj_name TEXT DEFAULT '',
         venue_info TEXT DEFAULT '',
         welcome_message TEXT DEFAULT 'Request your favorite songs!',
-        secondary_message TEXT DEFAULT 'Your requests will be reviewed by the DJ',
-        tertiary_message TEXT DEFAULT 'Keep the party going!',
+        secondary_message TEXT DEFAULT '',
+        tertiary_message TEXT DEFAULT '',
         show_qr_code BOOLEAN DEFAULT TRUE,
         display_refresh_interval INTEGER DEFAULT 20,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -190,8 +191,8 @@ export async function initializeDatabase() {
         dj_name TEXT DEFAULT '',
         venue_info TEXT DEFAULT '',
         welcome_message TEXT DEFAULT 'Request your favorite songs!',
-        secondary_message TEXT DEFAULT 'Your requests will be reviewed by the DJ',
-        tertiary_message TEXT DEFAULT 'Keep the party going!',
+        secondary_message TEXT DEFAULT '',
+        tertiary_message TEXT DEFAULT '',
         show_qr_code BOOLEAN DEFAULT TRUE,
         display_refresh_interval INTEGER DEFAULT 20,
         admin_polling_interval INTEGER DEFAULT 15,
@@ -501,6 +502,23 @@ export async function initializeDatabase() {
       console.log('✅ display_mood columns ensured on user_settings and event_settings');
     } catch (migrationError) {
       console.error('❌ display_mood migration failed:', migrationError);
+    }
+
+    // Empty scrolling message defaults (was prefilled DJ copy)
+    try {
+      await client.query(`
+        ALTER TABLE user_settings
+          ALTER COLUMN secondary_message SET DEFAULT '',
+          ALTER COLUMN tertiary_message SET DEFAULT '';
+      `);
+      await client.query(`
+        ALTER TABLE event_settings
+          ALTER COLUMN secondary_message SET DEFAULT '',
+          ALTER COLUMN tertiary_message SET DEFAULT '';
+      `);
+      console.log('✅ scrolling message column defaults set to empty');
+    } catch (migrationError) {
+      console.error('❌ scrolling message defaults migration failed:', migrationError);
     }
 
     await client.query(`
