@@ -1,6 +1,6 @@
 {
   "name": "party-playlist-request",
-  "version": "0.1.3",
+  "version": "2.1.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
