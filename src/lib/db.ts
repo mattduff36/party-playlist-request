@@ -481,23 +481,26 @@ export async function initializeDatabase() {
         ADD COLUMN IF NOT EXISTS karaoke_mode BOOLEAN DEFAULT FALSE;
       `);
       console.log('✅ karaoke_mode column added to user_settings');
-
-      await client.query(`
-        ALTER TABLE user_settings 
-        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
-      `);
-      console.log('✅ display_mood column added to user_settings');
-
-      await client.query(`
-        ALTER TABLE event_settings 
-        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
-      `);
-      console.log('✅ display_mood column added to event_settings');
       
       console.log('✅ User settings display customization columns migration completed successfully');
     } catch (migrationError) {
       console.error('❌ User settings display customization columns migration failed:', migrationError);
       console.log('ℹ️ This might be expected if columns already exist');
+    }
+
+    // Migration: display_mood (guest/display visual presets) — isolated so earlier ALTER failures cannot skip it
+    try {
+      await client.query(`
+        ALTER TABLE user_settings
+        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
+      `);
+      await client.query(`
+        ALTER TABLE event_settings
+        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
+      `);
+      console.log('✅ display_mood columns ensured on user_settings and event_settings');
+    } catch (migrationError) {
+      console.error('❌ display_mood migration failed:', migrationError);
     }
 
     await client.query(`
@@ -1013,11 +1016,47 @@ export async function getEventSettings(userId?: string): Promise<EventSettings> 
   return result.rows[0];
 }
 
+const EVENT_SETTINGS_UPDATABLE_FIELDS = new Set([
+  'event_title',
+  'dj_name',
+  'venue_info',
+  'welcome_message',
+  'secondary_message',
+  'tertiary_message',
+  'show_qr_code',
+  'display_refresh_interval',
+  'admin_polling_interval',
+  'display_polling_interval',
+  'now_playing_polling_interval',
+  'sse_update_interval',
+  'request_limit',
+  'auto_approve',
+  'decline_explicit',
+  'force_polling',
+  'requests_page_enabled',
+  'display_page_enabled',
+  'message_text',
+  'message_duration',
+  'message_created_at',
+  'display_mood',
+  'theme_primary_color',
+  'theme_secondary_color',
+  'theme_tertiary_color',
+  'show_scrolling_bar',
+  'qr_boost_duration',
+  'karaoke_mode',
+  'show_approval_messages',
+]);
+
 export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {
   const client = getPool();
   
   try {
-    const fields = Object.keys(settings).filter(key => settings[key as keyof typeof settings] !== undefined);
+    const fields = Object.keys(settings).filter(
+      (key) =>
+        EVENT_SETTINGS_UPDATABLE_FIELDS.has(key) &&
+        settings[key as keyof typeof settings] !== undefined
+    );
     const values = fields.map(field => settings[field as keyof typeof settings]);
     
     console.log('💾 [DB] updateEventSettings called with:', {

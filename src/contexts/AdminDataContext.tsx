@@ -421,12 +421,22 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         console.log('✅ [AdminDataContext] Settings updated successfully:', result);
         // Refresh event settings after update
         await refreshEventSettings();
-      } else {
-        const errorText = await response.text();
-        console.error('❌ [AdminDataContext] API error:', errorText);
+        return;
       }
+
+      const errorText = await response.text();
+      console.error('❌ [AdminDataContext] API error:', errorText);
+      let message = 'Failed to update event settings';
+      try {
+        const parsed = JSON.parse(errorText) as { error?: string; detail?: string };
+        message = parsed.detail || parsed.error || message;
+      } catch {
+        if (errorText) message = errorText;
+      }
+      throw new Error(message);
     } catch (error) {
       console.error('❌ [AdminDataContext] Failed to update event settings:', error);
+      throw error;
     }
   }, [refreshEventSettings]);
 

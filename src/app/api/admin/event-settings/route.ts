@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { getEventSettings, updateEventSettings } from '@/lib/db';
+import { getEventSettings, updateEventSettings, initializeDefaults } from '@/lib/db';
 import { triggerEvent, getUserChannel } from '@/lib/pusher';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
+
+    await initializeDefaults();
     
     const userId = auth.user.user_id;
     console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) fetching settings`);
@@ -38,6 +40,8 @@ export async function POST(req: NextRequest) {
       return auth.response!;
     }
     
+    await initializeDefaults();
+
     const userId = auth.user.user_id;
     console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) updating settings`);
     
@@ -144,8 +148,10 @@ export async function POST(req: NextRequest) {
     
     console.error('Error updating event settings:', error);
     reportApiError(req, error);
+    const detail = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ 
-      error: 'Failed to update event settings' 
+      error: 'Failed to update event settings',
+      detail,
     }, { status: 500 });
   }
 }
