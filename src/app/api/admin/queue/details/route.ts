@@ -203,9 +203,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Best-effort device when player payload was empty
+    // Best-effort device when player payload was empty.
+    // Skip when Spotify already rate-limited us this request — devices poll is separate.
     let device = playbackState?.device || null;
-    if (!device) {
+    const alreadyRateLimited = spotifyErrors.some(
+      (err) =>
+        err.includes('429') ||
+        err.includes('backoff') ||
+        err.includes('rate limited')
+    );
+    if (!device && !alreadyRateLimited) {
       try {
         const devicesData = await spotifyService.getAvailableDevices(userId);
         const active = devicesData?.devices?.find((d: any) => d.is_active);

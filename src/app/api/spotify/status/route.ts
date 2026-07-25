@@ -41,8 +41,43 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current playback status (MULTI-TENANT!)
-    let playback = await spotifyService.getCurrentPlayback(userId);
-    const queue = await spotifyService.getQueue(userId);
+    let playback: Awaited<
+      ReturnType<typeof spotifyService.getCurrentPlayback>
+    > = null;
+    let queue: Awaited<ReturnType<typeof spotifyService.getQueue>> = null;
+    let rateLimited = false;
+
+    try {
+      playback = await spotifyService.getCurrentPlayback(userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (
+        message.includes('429') ||
+        message.includes('backoff') ||
+        message.includes('rate limited')
+      ) {
+        rateLimited = true;
+      } else {
+        throw error;
+      }
+    }
+
+    if (!rateLimited) {
+      try {
+        queue = await spotifyService.getQueue(userId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (
+          message.includes('429') ||
+          message.includes('backoff') ||
+          message.includes('rate limited')
+        ) {
+          rateLimited = true;
+        } else {
+          throw error;
+        }
+      }
+    }
 
     // Fallback when /me/player is briefly 204 but queue still knows the track
     const item = playback?.item || queue?.currently_playing || null;
@@ -64,7 +99,7 @@ export async function GET(request: NextRequest) {
         volume_percent: playback.device.volume_percent || 0
       } : null,
       queue: queue?.queue || [],
-      error: null,
+      error: rateLimited ? 'Spotify rate limited (backoff)' : null,
       last_updated: new Date().toISOString()
     });
     
@@ -77,16 +112,22 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // Don't log errors for expected disconnection states
     const errorMessage = error instanceof Error ? error.message : 'Failed to get Spotify status';
-    const isExpectedError = errorMessage.includes('disconnected') || 
-                           errorMessage.includes('backoff') ||
-                           errorMessage.includes('No refresh token');
+    const isRateLimited =
+      errorMessage.includes('429') ||
+      errorMessage.includes('backoff') ||
+      errorMessage.includes('rate limited');
+    const isExpectedError =
+      isRateLimited ||
+      errorMessage.includes('disconnected') ||
+      errorMessage.includes('No refresh token');
     
     if (!isExpectedError) {
       console.error('Spotify status error:', error);
     }
-    
+
+    // Rate limits are transient — stay "connected" so UI does not flap offline
     return NextResponse.json({
-      connected: false,
+      connected: isRateLimited,
       is_playing: false,
       current_track: null,
       device: null,

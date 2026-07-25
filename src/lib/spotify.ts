@@ -75,6 +75,12 @@ class SpotifyService {
   private redirectUri: string;
   private baseURL = 'https://api.spotify.com/v1';
   private authURL = 'https://accounts.spotify.com';
+  /** Per-user cooldown after Spotify 429 — blocks further API calls until expiry. */
+  private rateLimitedUntilByUser = new Map<string, number>();
+  /** Throttle support_errors inserts for 429s (user+endpoint → last log ms). */
+  private rateLimitLogAtByKey = new Map<string, number>();
+  private static readonly RATE_LIMIT_LOG_COOLDOWN_MS = 60_000;
+  private static readonly RATE_LIMIT_MAX_WAIT_MS = 60_000;
   // NOTE: Existing connected users must disconnect + reconnect Spotify after deploy
   // so tokens pick up playlist-read-* and user-library-read scopes. Dashboard app
   // settings do not need changes — scopes are requested at authorize time from this list.
@@ -377,10 +383,64 @@ class SpotifyService {
     }
   }
 
+  private rateLimitUserKey(userId?: string): string {
+    return userId || 'default';
+  }
+
+  /** Fail fast while a prior 429 cooldown is active (stops parallel request storms). */
+  private assertNotRateLimited(userId?: string): void {
+    const until = this.rateLimitedUntilByUser.get(this.rateLimitUserKey(userId));
+    if (until && Date.now() < until) {
+      const remainingSec = Math.ceil((until - Date.now()) / 1000);
+      throw new Error(
+        `Spotify rate limited (backoff) — retry in ${remainingSec}s`
+      );
+    }
+  }
+
+  /** Record Retry-After cooldown for the user; returns wait ms. */
+  private noteRateLimit(
+    userId: string | undefined,
+    retryAfterHeader: string | null,
+    retries: number
+  ): number {
+    const retryAfterSeconds = retryAfterHeader
+      ? Number.parseInt(retryAfterHeader, 10)
+      : NaN;
+    const waitMs = Number.isFinite(retryAfterSeconds)
+      ? Math.min(
+          Math.max(retryAfterSeconds, 1) * 1000,
+          SpotifyService.RATE_LIMIT_MAX_WAIT_MS
+        )
+      : Math.min(1000 * Math.pow(2, 2 - retries), 15_000);
+    const key = this.rateLimitUserKey(userId);
+    const until = Date.now() + waitMs;
+    const prev = this.rateLimitedUntilByUser.get(key) || 0;
+    if (until > prev) {
+      this.rateLimitedUntilByUser.set(key, until);
+    }
+    return waitMs;
+  }
+
+  /** Log at most one 429 per user+endpoint per cooldown window. */
+  private shouldLogRateLimit(userId: string | undefined, endpoint: string): boolean {
+    const key = `${this.rateLimitUserKey(userId)}:${endpoint}`;
+    const now = Date.now();
+    const last = this.rateLimitLogAtByKey.get(key) || 0;
+    if (now - last < SpotifyService.RATE_LIMIT_LOG_COOLDOWN_MS) {
+      return false;
+    }
+    this.rateLimitLogAtByKey.set(key, now);
+    return true;
+  }
+
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, userId?: string, retries = 1): Promise<any> {
     const requestId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
     spotifyDebug(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint}${userId ? ` (user: ${userId})` : ''} (retries left: ${retries})`);
+
+    // Short-circuit while Spotify has rate-limited this user
+    this.assertNotRateLimited(userId);
     
     // Always use real Spotify API
     
@@ -425,15 +485,17 @@ class SpotifyService {
         }
       }
 
-      // Respect Spotify rate limits: backoff using Retry-After when present
+      // Respect Spotify rate limits: set shared cooldown, then backoff + retry once
       if (response.status === 429 && retries > 0) {
-        const retryAfterHeader = response.headers.get('Retry-After');
-        const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : NaN;
-        const waitMs = Number.isFinite(retryAfterSeconds)
-          ? Math.min(Math.max(retryAfterSeconds, 1) * 1000, 30_000)
-          : Math.min(1000 * Math.pow(2, 2 - retries), 8_000);
+        const waitMs = this.noteRateLimit(
+          userId,
+          response.headers.get('Retry-After'),
+          retries
+        );
         console.warn(`⏳ [${requestId}] Spotify 429 — waiting ${waitMs}ms before retry (${retries} left)`);
         await new Promise((resolve) => setTimeout(resolve, waitMs));
+        // Clear so this waited retry can proceed; parallel callers stayed blocked during wait
+        this.rateLimitedUntilByUser.delete(this.rateLimitUserKey(userId));
         return await this.makeAuthenticatedRequest(method, endpoint, data, userId, retries - 1);
       }
 
@@ -446,7 +508,35 @@ class SpotifyService {
           endpoint,
           method
         });
-        if (response.status === 429 || response.status >= 500 || retries === 0) {
+        if (response.status === 429) {
+          this.noteRateLimit(
+            userId,
+            response.headers.get('Retry-After'),
+            retries
+          );
+          // External rate limits are expected under load — log at most once/min
+          if (this.shouldLogRateLimit(userId, endpoint)) {
+            logErrorAsync({
+              source: 'spotify',
+              level: 'error',
+              message: `Spotify API 429 on ${method} ${endpoint}`,
+              route: endpoint,
+              method,
+              userId: userId || null,
+              meta: {
+                status: 429,
+                statusText: response.statusText,
+                body: errorText.slice(0, 400),
+                retriesLeft: retries,
+                throttled: true,
+              },
+            });
+          }
+          throw new Error(
+            `Spotify API error: 429 (backoff) ${errorText}`
+          );
+        }
+        if (response.status >= 500 || retries === 0) {
           logErrorAsync({
             source: 'spotify',
             level: 'error',
@@ -476,7 +566,12 @@ class SpotifyService {
         return null;
       }
     } catch (error) {
-      console.error(`❌ [${requestId}] Request failed after ${Date.now() - startTime}ms:`, (error as Error).message);
+      const message = (error as Error).message || '';
+      if (message.includes('backoff') || message.includes('rate limited')) {
+        spotifyDebug(`⏳ [${requestId}] ${message}`);
+      } else {
+        console.error(`❌ [${requestId}] Request failed after ${Date.now() - startTime}ms:`, message);
+      }
       throw error;
     }
   }

@@ -255,8 +255,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     }
   };
 
-  // Sidebar component
-  const Sidebar = () => (
+  // JSX elements (not inner components) so layout re-renders do not remount Spotify controls
+  const sidebar = (
     <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-elevated border-r border-white/10 z-40">
       <div className="flex flex-col flex-1 min-h-0">
         <div className="relative flex items-center h-16 px-4 bg-ink border-b border-white/10">
@@ -342,8 +342,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     </div>
   );
 
-  // Top navigation for mobile
-  const TopNav = () => (
+  const topNav = (
     <div className="md:hidden sticky top-0 z-50 flex items-center justify-between h-16 px-4 bg-elevated border-b border-white/10">
       <div className="flex items-center min-w-0">
         <span className="font-display text-accent text-sm mr-2">PP</span>
@@ -368,8 +367,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     </div>
   );
 
-  // Mobile bottom navigation
-  const BottomNav = () => (
+  const bottomNav = (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-elevated border-t border-white/10 z-50">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
@@ -407,8 +405,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     <>
       <NotificationInitializer />
       <div className="min-h-screen bg-ink text-bone md:h-screen md:overflow-hidden">
-        <Sidebar />
-        <TopNav />
+        {sidebar}
+        {topNav}
         
         <div className="md:pl-64 md:h-full md:flex md:flex-col">
           {/* Top action bar (desktop) — full width above main + queue */}
@@ -458,7 +456,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
           </div>
         </div>
 
-        <BottomNav />
+        {bottomNav}
         {/* Inline JSX (not an inner component) so parent re-renders do not remount the modal */}
         {showLogoutModal && (
           <div className="fixed inset-0 bg-ink/70 flex items-center justify-center z-50 p-4">

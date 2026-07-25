@@ -105,6 +105,10 @@ export default function SidebarSpotifyControls({
   const [volume, setVolume] = useState(50);
   const [error, setError] = useState<string | null>(null);
   const devicesHydratedRef = useRef(false);
+  const trackNameRef = useRef(playbackState?.track_name);
+  trackNameRef.current = playbackState?.track_name;
+  const fetchStatusRef = useRef<() => Promise<boolean>>(async () => false);
+  const fetchDevicesRef = useRef<() => Promise<void>>(async () => {});
   /** While set, keep optimistic active device / name and ignore stale Spotify replies. */
   const deviceTransferLockRef = useRef<{
     deviceId: string;
@@ -305,7 +309,7 @@ export default function SidebarSpotifyControls({
       }
 
       // Fill context gap when status sees a track but hydrate is still empty
-      if (isConnected && data.current_track && !playbackState?.track_name) {
+      if (isConnected && data.current_track && !trackNameRef.current) {
         patchPlaybackState({
           spotify_connected: true,
           is_playing: Boolean(data.is_playing),
@@ -325,12 +329,7 @@ export default function SidebarSpotifyControls({
       applyConnectedFalse();
       return false;
     }
-  }, [
-    applyConnectedFalse,
-    applyConnectedTrue,
-    patchPlaybackState,
-    playbackState?.track_name,
-  ]);
+  }, [applyConnectedFalse, applyConnectedTrue, patchPlaybackState]);
 
   const fetchDevices = useCallback(async () => {
     // Only disable the list before first hydrate — not on every poll
@@ -354,25 +353,32 @@ export default function SidebarSpotifyControls({
     }
   }, [applyDevices]);
 
+  fetchStatusRef.current = fetchStatus;
+  fetchDevicesRef.current = fetchDevices;
+
   useEffect(() => {
     // Restore last-known devices immediately on mount (disabled until hydrate)
     const stored = readStoredDevices(user?.username);
     if (stored.length > 0) {
       setDevices(stored);
     }
-    void fetchStatus();
-    void fetchDevices();
-    const interval = setInterval(() => {
-      void fetchStatus();
-      void fetchDevices();
-    }, 8000);
+    void fetchStatusRef.current();
+    void fetchDevicesRef.current();
+    // Status can refresh more often; devices rarely change — avoid Spotify 429 storms
+    const statusInterval = setInterval(() => {
+      void fetchStatusRef.current();
+    }, 10_000);
+    const devicesInterval = setInterval(() => {
+      void fetchDevicesRef.current();
+    }, 30_000);
     return () => {
-      clearInterval(interval);
+      clearInterval(statusInterval);
+      clearInterval(devicesInterval);
       if (emptyConfirmTimeoutRef.current) {
         clearTimeout(emptyConfirmTimeoutRef.current);
       }
     };
-  }, [fetchDevices, fetchStatus, user?.username]);
+  }, [user?.username]);
 
   useEffect(() => {
     const lock = deviceTransferLockRef.current;
