@@ -23,7 +23,7 @@ const EMAIL_BRAND = {
   elevated: '#171B21',
   bone: '#F2F0EB',
   muted: '#9AA3AD',
-  accent: '#F5A623',
+  accent: '#1DB954',
   border: '#2A3038',
 } as const;
 

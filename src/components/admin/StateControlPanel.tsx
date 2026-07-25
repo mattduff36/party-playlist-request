@@ -201,7 +201,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
           label: 'Live',
           description: 'Event in progress',
           icon: Play,
-          activeClass: 'bg-accent border-accent text-ink font-semibold shadow-[0_0_0_1px_rgba(245,166,35,0.35)]',
+          activeClass: 'bg-accent border-accent text-ink font-semibold shadow-[0_0_0_1px_rgba(29,185,84,0.35)]',
         };
     }
   };

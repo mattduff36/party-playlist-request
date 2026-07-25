@@ -106,7 +106,7 @@ export default function LoginPage() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at 20% 0%, rgba(245,166,35,0.16), transparent 45%), radial-gradient(ellipse at 100% 80%, rgba(245,166,35,0.06), transparent 40%)',
+            'radial-gradient(ellipse at 20% 0%, rgba(29,185,84,0.16), transparent 45%), radial-gradient(ellipse at 100% 80%, rgba(29,185,84,0.06), transparent 40%)',
         }}
       />
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">

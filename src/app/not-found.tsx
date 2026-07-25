@@ -8,7 +8,7 @@ export default function NotFound() {
         className="pointer-events-none absolute inset-0 opacity-50"
         style={{
           background:
-            'radial-gradient(ellipse at 30% 20%, rgba(245,166,35,0.18), transparent 50%)',
+            'radial-gradient(ellipse at 30% 20%, rgba(29,185,84,0.18), transparent 50%)',
         }}
       />
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 text-center">

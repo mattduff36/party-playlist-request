@@ -12,7 +12,7 @@ export default function RegisterPage() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at 80% 0%, rgba(245,166,35,0.14), transparent 45%)',
+            'radial-gradient(ellipse at 80% 0%, rgba(29,185,84,0.14), transparent 45%)',
         }}
       />
       <div className="relative z-10 flex min-h-screen items-center justify-center p-4">

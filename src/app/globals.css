@@ -8,9 +8,9 @@
   --bone: #f2f0eb;
   --muted: #9aa3ad;
   --faint: #6b737c;
-  --accent: #f5a623;
-  --accent-hover: #ffb84d;
-  --accent-muted: rgba(245, 166, 35, 0.14);
+  --accent: #1db954;
+  --accent-hover: #1ed760;
+  --accent-muted: rgba(29, 185, 84, 0.14);
   --border: rgba(242, 240, 235, 0.1);
   --border-strong: rgba(242, 240, 235, 0.18);
   --success: #3ddc97;
@@ -105,10 +105,10 @@ body {
 @keyframes ssPulseAccent {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.35);
+    box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.35);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(245, 166, 35, 0);
+    box-shadow: 0 0 0 8px rgba(29, 185, 84, 0);
   }
 }
 
