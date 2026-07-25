@@ -6,7 +6,6 @@ import axios from 'axios';
 import { usePusher } from '@/hooks/usePusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
-import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import MoodShell from '@/components/MoodShell';
 import PageLoader from '@/components/ui/PageLoader';
@@ -16,50 +15,18 @@ import {
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
 import type { SpotifySearchErrorResponse } from '@/lib/spotify-search-errors';
-
-interface Track {
-  id: string;
-  uri: string;
-  name: string;
-  artists: string[];
-  album: string;
-  duration_ms: number;
-  explicit: boolean;
-  preview_url?: string;
-  image?: string;
-}
-
-interface SearchResult {
-  tracks: Track[];
-  query: string;
-  total: number;
-}
-
-interface SearchFeedback {
-  message: string;
-}
-
-interface RequestResponse {
-  success: boolean;
-  message: string;
-  request?: {
-    id: string;
-    track: {
-      name: string;
-      artists: string[];
-      album: string;
-    };
-  };
-}
+import {
+  TrackSearch,
+  RequestSubmitForm,
+  PinEntryForm,
+  type Track,
+  type SearchResult,
+  type SearchFeedback,
+  type RequestResponse,
+  type RequestNotification,
+} from '@/components/request';
 
 const API_BASE = '/api';
-
-// Helper function to format duration
-const formatDuration = (ms: number): string => {
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
 
 export default function UserRequestPage() {
   const params = useParams();
@@ -119,13 +86,7 @@ export default function UserRequestPage() {
     return `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
   });
   const [userRequests, setUserRequests] = useState<Set<string>>(new Set());
-  const [notifications, setNotifications] = useState<Array<{
-    id: string;
-    type: 'approved' | 'play_next';
-    trackName: string;
-    artistName: string;
-    timestamp: number;
-  }>>([]);
+  const [notifications, setNotifications] = useState<RequestNotification[]>([]);
 
   // Auto-verify if bypass token is present
   useEffect(() => {
@@ -236,9 +197,9 @@ export default function UserRequestPage() {
       if (data.user_session_id === userSessionId || userRequests.has(data.id)) {
         console.log('✅ This is our request! Adding notification...');
         
-        const notification = {
+        const notification: RequestNotification = {
           id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-          type: data.play_next ? 'play_next' : 'approved' as 'approved' | 'play_next',
+          type: data.play_next ? 'play_next' : 'approved',
           trackName: data.track_name,
           artistName: data.artist_name,
           timestamp: Date.now()
@@ -519,6 +480,11 @@ export default function UserRequestPage() {
     }
   };
 
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+    setSearchFeedback(null);
+  };
+
   const moodProps = {
     mood: eventSettings?.display_mood,
     legacyPrimaryColor: eventSettings?.theme_primary_color,
@@ -537,72 +503,15 @@ export default function UserRequestPage() {
   if (!authenticated) {
     return (
       <MoodShell {...moodProps} className="flex flex-col items-center justify-center p-4">
-        <div className="mood-surface w-full max-w-md shadow-2xl p-8">
-          <div className="flex flex-col items-center mb-8">
-            <Music2 className="h-16 w-16 mood-accent-text mb-4" />
-            <h1 className="font-display text-3xl font-bold text-center">
-              {username}&apos;s Party Playlist
-            </h1>
-            <p className="text-[color:var(--mood-muted)] text-center mt-2">
-              Enter the 4-digit PIN to request songs
-            </p>
-          </div>
-
-          {pinError && (
-            <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg flex items-center mb-6">
-              <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-              <span>{pinError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handlePinSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="pin" className="block text-[color:var(--mood-muted)] text-sm font-medium mb-2">
-                <Lock className="inline h-4 w-4 mr-2" />
-                Event PIN
-              </label>
-              <input
-                type="text"
-                id="pin"
-                maxLength={4}
-                pattern="[0-9]{4}"
-                className="w-full px-4 py-3 bg-black/10 border border-[color:var(--mood-border)] rounded-[var(--mood-radius)] focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent outline-none text-center text-2xl tracking-widest font-mono"
-                style={{ color: 'var(--mood-text)' }}
-                placeholder="••••"
-                value={pin}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-                  setPin(value);
-                  setPinError('');
-                }}
-                disabled={verifying}
-                autoFocus
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="mood-btn w-full py-3 px-4 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={verifying || pin.length !== 4}
-            >
-              {verifying ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <Lock className="mr-2 h-5 w-5" />
-                  Access Playlist
-                </>
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-[color:var(--mood-muted)] text-sm mt-6">
-            PIN displayed on the DJ&apos;s screen
-          </p>
-        </div>
+        <PinEntryForm
+          username={username}
+          pin={pin}
+          pinError={pinError}
+          verifying={verifying}
+          onPinChange={setPin}
+          onClearPinError={() => setPinError('')}
+          onSubmit={handlePinSubmit}
+        />
       </MoodShell>
     );
   }
@@ -642,184 +551,29 @@ export default function UserRequestPage() {
           </h1>
         </div>
 
-        {/* Success Modal */}
-        {showSuccessModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-fade-in">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Thank you for your request!</h3>
-              <p className="text-gray-600 mb-8">It has been submitted successfully.</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleMakeAnotherRequest}
-                  className="flex-1 mood-accent-bg text-white py-3 px-6 rounded-lg font-semibold hover:mood-accent-bg transition-colors"
-                >
-                  Make another Request
-                </button>
-                <button
-                  onClick={handleImDone}
-                  className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-                >
-                  I'm done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {requestStatus === 'error' && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-            <div className="bg-red-500 text-white px-8 py-6 rounded-2xl shadow-2xl border-4 border-red-400 max-w-md mx-4 transform animate-pulse">
-              <div className="flex items-center justify-center">
-                <span className="text-4xl mr-4">❌</span>
-                <span className="text-xl font-bold text-center">{statusMessage}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="flex-1 flex items-start justify-center px-3 py-4">
-          <div className="max-w-xl w-full flex flex-col h-full space-y-3">
-            {/* Name Input */}
-            <div className="bg-white/10 backdrop-blur-md rounded-lg p-4">
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => handleNicknameChange(e.target.value)}
-                placeholder="👤 Your name"
-                className={`w-full px-4 py-3 text-base bg-white/20 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:border-transparent ${
-                  nicknameError 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-white/30 focus:ring-[color:var(--mood-accent)]'
-                }`}
-                style={{ 
-                  fontSize: '16px',
-                  transform: 'translateZ(0)', // Prevent iOS zoom
-                  WebkitAppearance: 'none', // Remove iOS styling
-                  WebkitTextSizeAdjust: '100%', // Prevent iOS zoom
-                  textSizeAdjust: '100%', // Prevent iOS zoom
-                  zoom: '1' // Prevent iOS zoom
-                }}
-                required
-              />
-              {nicknameError && (
-                <p className="text-red-400 text-sm mt-2 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {nicknameError}
-                </p>
-              )}
-            </div>
-
-            {/* Search Section */}
-            <div className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity flex flex-col flex-1 ${!nickname.trim() || !isNicknameValid ? 'opacity-50 pointer-events-none' : ''}`}>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setSearchFeedback(null);
-                  }}
-                  placeholder={
-                    !nickname.trim() 
-                      ? "Enter your name first" 
-                      : !isNicknameValid 
-                        ? "Please enter a valid name" 
-                        : "Search songs, artists, or paste Spotify link"
-                  }
-                  className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent"
-                  style={{ 
-                    fontSize: '16px',
-                    transform: 'translateZ(0)', // Prevent iOS zoom
-                    WebkitAppearance: 'none', // Remove iOS styling
-                    WebkitTextSizeAdjust: '100%', // Prevent iOS zoom
-                    textSizeAdjust: '100%', // Prevent iOS zoom
-                    zoom: '1' // Prevent iOS zoom
-                  }}
-                  disabled={!nickname.trim() || !isNicknameValid}
-                  onBlur={() => {
-                    // Dismiss keyboard when input loses focus
-                    setTimeout(() => dismissKeyboard(), 100);
-                  }}
-                />
-              </div>
-
-              {isSearching && nickname.trim() && isNicknameValid && (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[color:var(--mood-accent)] mx-auto"></div>
-                  <p className="text-gray-300 mt-2">Searching...</p>
-                </div>
-              )}
-
-              {searchFeedback && !isSearching && (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="mt-3 rounded-lg border border-[color:var(--mood-accent)]/30 mood-accent-bg/10 px-4 py-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl" aria-hidden="true">🎉</span>
-                    <div>
-                      <p className="font-medium mood-accent-text">Popular night!</p>
-                      <p className="mt-1 text-sm leading-relaxed text-gray-200">
-                        {searchFeedback.message}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Search Results */}
-              {searchResults.length > 0 && nickname.trim() && isNicknameValid && (
-                <div className="space-y-2 flex-1 overflow-y-auto mt-3" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                  {searchResults.map((track) => (
-                    <button
-                      key={track.id}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        submitRequest(track);
-                      }}
-                      disabled={isSubmitting || !nickname.trim() || !isNicknameValid}
-                      className="w-full bg-white/20 rounded-lg p-3 hover:bg-white/30 active:bg-white/40 transition-colors disabled:opacity-50 text-left touch-manipulation"
-                    >
-                      <div className="flex items-center space-x-3">
-                        {track.image && (
-                          <img
-                            src={track.image}
-                            alt={track.album}
-                            className="w-12 h-12 rounded object-cover flex-shrink-0"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-medium truncate text-sm">
-                            {track.name}
-                            {track.explicit && (
-                              <span className="ml-2 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">
-                                E
-                              </span>
-                            )}
-                          </h3>
-                          <p className="text-gray-300 text-xs truncate">
-                            {track.artists.join(', ')} • {track.album}
-                          </p>
-                          <p className="text-gray-400 text-xs">
-                            {formatDuration(track.duration_ms)}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <RequestSubmitForm
+          nickname={nickname}
+          nicknameError={nicknameError}
+          onNicknameChange={handleNicknameChange}
+          showSuccessModal={showSuccessModal}
+          requestStatus={requestStatus}
+          statusMessage={statusMessage}
+          onMakeAnotherRequest={handleMakeAnotherRequest}
+          onImDone={handleImDone}
+        >
+          <TrackSearch
+            query={searchQuery}
+            onQueryChange={handleSearchQueryChange}
+            results={searchResults}
+            isSearching={isSearching}
+            searchFeedback={searchFeedback}
+            nickname={nickname}
+            isNicknameValid={isNicknameValid}
+            isSubmitting={isSubmitting}
+            onSelectTrack={(track) => submitRequest(track)}
+            onDismissKeyboard={dismissKeyboard}
+          />
+        </RequestSubmitForm>
       </div>
       
       {/* Notification Toasts */}
@@ -829,32 +583,32 @@ export default function UserRequestPage() {
           <div
             key={notification.id}
             onClick={() => dismissNotification(notification.id)}
-            className="bg-white rounded-lg shadow-lg border border-gray-200 max-w-sm w-full p-4 cursor-pointer hover:shadow-xl transition-all duration-200 animate-slide-down"
+            className="bg-[color:var(--mood-surface)] rounded-lg shadow-lg border border-[color:var(--mood-border)] max-w-sm w-full p-4 cursor-pointer hover:shadow-xl transition-all duration-200 animate-slide-down"
           >
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0">
                 {notification.type === 'play_next' ? (
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-8 h-8 bg-[color:var(--mood-accent)]/15 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 mood-accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
                 ) : (
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-8 h-8 bg-[color:var(--mood-accent)]/15 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 mood-accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 text-sm mb-1">
+                <div className="font-semibold text-[color:var(--mood-text)] text-sm mb-1">
                   {notification.type === 'play_next' ? 'Playing Next!' : 'Request Approved!'}
                 </div>
-                <div className="text-sm text-gray-700 font-medium truncate">
+                <div className="text-sm text-[color:var(--mood-text)] font-medium truncate">
                   {notification.trackName}
                 </div>
-                <div className="text-xs text-gray-500 truncate">
+                <div className="text-xs text-[color:var(--mood-muted)] truncate">
                   by {notification.artistName}
                 </div>
               </div>
@@ -863,7 +617,7 @@ export default function UserRequestPage() {
                   e.stopPropagation();
                   dismissNotification(notification.id);
                 }}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex-shrink-0 text-[color:var(--mood-muted)] hover:text-[color:var(--mood-muted)] transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
