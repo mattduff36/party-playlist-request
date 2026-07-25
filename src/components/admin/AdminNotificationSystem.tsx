@@ -108,24 +108,24 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
         };
       case 'success':
         return {
-          bg: 'bg-green-900/20',
-          border: 'border-green-600',
-          text: 'text-green-400',
-          icon: 'text-green-400'
+          bg: 'bg-accent/10',
+          border: 'border-accent',
+          text: 'text-accent',
+          icon: 'text-accent'
         };
       case 'info':
         return {
-          bg: 'bg-blue-900/20',
-          border: 'border-blue-600',
-          text: 'text-blue-400',
-          icon: 'text-blue-400'
+          bg: 'bg-accent/10',
+          border: 'border-accent/40',
+          text: 'text-accent',
+          icon: 'text-accent'
         };
       default:
         return {
-          bg: 'bg-gray-900/20',
-          border: 'border-gray-600',
-          text: 'text-gray-400',
-          icon: 'text-gray-400'
+          bg: 'bg-ink/20',
+          border: 'border-white/10',
+          text: 'text-muted',
+          icon: 'text-muted'
         };
     }
   };
@@ -197,7 +197,7 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
       {/* Notification Bell */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="relative p-2 text-gray-400 hover:text-white transition-colors"
+        className="relative p-2 text-muted hover:text-bone transition-colors"
       >
         {isMuted ? (
           <BellOff className="w-6 h-6" />
@@ -206,7 +206,7 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
         )}
         
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-600 text-bone text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -214,12 +214,12 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
 
       {/* Notification Panel */}
       {isExpanded && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50">
+        <div className="absolute right-0 top-full mt-2 w-96 bg-elevated border border-white/10 rounded-lg shadow-xl z-50">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-600">
+          <div className="flex items-center justify-between p-4 border-b border-white/10">
             <div>
-              <h3 className="font-semibold text-white">Notifications</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="font-semibold text-bone">Notifications</h3>
+              <p className="text-muted text-sm">
                 {unreadCount} notification{unreadCount !== 1 ? 's' : ''}
                 {errorCount > 0 && ` • ${errorCount} error${errorCount !== 1 ? 's' : ''}`}
                 {warningCount > 0 && ` • ${warningCount} warning${warningCount !== 1 ? 's' : ''}`}
@@ -229,7 +229,7 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setIsMuted(!isMuted)}
-                className="p-1 text-gray-400 hover:text-white transition-colors"
+                className="p-1 text-muted hover:text-bone transition-colors"
                 title={isMuted ? 'Unmute notifications' : 'Mute notifications'}
               >
                 {isMuted ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
@@ -238,7 +238,7 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
               {unreadCount > 0 && (
                 <button
                   onClick={clearAllNotifications}
-                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                  className="text-xs text-muted hover:text-bone transition-colors"
                 >
                   Clear All
                 </button>
@@ -250,11 +250,11 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-8 text-center">
-                <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-400">No notifications</p>
+                <Bell className="w-8 h-8 text-muted mx-auto mb-2" />
+                <p className="text-muted">No notifications</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-600">
+              <div className="divide-y divide-white/10">
                 {notifications.map((notification) => {
                   const Icon = getNotificationIcon(notification.type);
                   const colors = getNotificationColors(notification.type);
@@ -274,25 +274,25 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
                             </h4>
                             <button
                               onClick={() => removeNotification(notification.id)}
-                              className="text-gray-400 hover:text-white transition-colors"
+                              className="text-muted hover:text-bone transition-colors"
                             >
                               <X className="w-4 h-4" />
                             </button>
                           </div>
                           
-                          <p className="text-gray-300 text-sm mt-1">
+                          <p className="text-muted text-sm mt-1">
                             {notification.message}
                           </p>
                           
                           <div className="flex items-center justify-between mt-2">
-                            <span className="text-gray-500 text-xs">
+                            <span className="text-faint text-xs">
                               {formatTimestamp(notification.timestamp)}
                             </span>
                             
                             {notification.action && (
                               <button
                                 onClick={notification.action.onClick}
-                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                                className="text-xs text-accent hover:text-accent transition-colors"
                               >
                                 {notification.action.label}
                               </button>
@@ -309,8 +309,8 @@ export default function AdminNotificationSystem({ className = '' }: AdminNotific
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="p-4 border-t border-gray-600 bg-gray-700/50">
-              <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="p-4 border-t border-white/10 bg-surface/60">
+              <div className="flex items-center justify-between text-xs text-muted">
                 <span>
                   {errorCount > 0 && `${errorCount} error${errorCount !== 1 ? 's' : ''}`}
                   {errorCount > 0 && warningCount > 0 && ', '}

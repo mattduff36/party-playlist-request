@@ -198,30 +198,30 @@ export default function EventStateDropdown() {
   };
 
   const getStateColor = () => {
-    if (!state) return 'text-gray-400';
+    if (!state) return 'text-muted';
     switch (state.status) {
       case 'offline':
-        return 'text-gray-400';
+        return 'text-muted';
       case 'standby':
         return 'text-yellow-400';
       case 'live':
-        return 'text-green-400';
+        return 'text-accent';
       default:
-        return 'text-gray-400';
+        return 'text-muted';
     }
   };
 
   const getStateDotColor = () => {
-    if (!state) return 'bg-gray-500';
+    if (!state) return 'bg-surface';
     switch (state.status) {
       case 'offline':
-        return 'bg-gray-500';
+        return 'bg-surface';
       case 'standby':
         return 'bg-yellow-500';
       case 'live':
-        return 'bg-green-500 animate-pulse';
+        return 'bg-accent animate-pulse';
       default:
-        return 'bg-gray-500';
+        return 'bg-surface';
     }
   };
 
@@ -230,7 +230,7 @@ export default function EventStateDropdown() {
   if (!state) {
     return (
       <div className="relative p-2">
-        <Power className="w-5 h-5 text-gray-400" />
+        <Power className="w-5 h-5 text-muted" />
       </div>
     );
   }
@@ -240,7 +240,7 @@ export default function EventStateDropdown() {
       {/* State Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-gray-700 rounded-lg transition-colors"
+        className="relative p-2 hover:bg-surface rounded-lg transition-colors"
         title={`Event Status: ${state.status}`}
       >
         <StateIcon className={`w-5 h-5 ${getStateColor()}`} />
@@ -251,10 +251,10 @@ export default function EventStateDropdown() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-50">
+        <div className="absolute right-0 mt-2 w-64 bg-elevated rounded-lg shadow-xl border border-white/10 z-50">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-700">
-            <h3 className="text-white font-semibold flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-white/10">
+            <h3 className="text-bone font-semibold flex items-center gap-2">
               <StateIcon className="w-4 h-4" />
               Event Status
             </h3>
@@ -264,12 +264,12 @@ export default function EventStateDropdown() {
           <div className="p-4 space-y-2">
             {isTransitioning ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                <Loader2 className="w-6 h-6 text-muted animate-spin" />
               </div>
             ) : (
               <>
                 {/* Current Status */}
-                <div className="text-xs text-gray-400 mb-3">
+                <div className="text-xs text-muted mb-3">
                   Current: <span className={`font-medium ${getStateColor()}`}>{state.status.toUpperCase()}</span>
                 </div>
 
@@ -284,9 +284,9 @@ export default function EventStateDropdown() {
                     case 'offline':
                       Icon = Power;
                       label = 'Offline';
-                      color = 'text-gray-400';
-                      bgColor = 'bg-gray-800';
-                      borderColor = 'border-gray-600';
+                      color = 'text-muted';
+                      bgColor = 'bg-elevated';
+                      borderColor = 'border-white/10';
                       break;
                     case 'standby':
                       Icon = Pause;
@@ -298,9 +298,9 @@ export default function EventStateDropdown() {
                     case 'live':
                       Icon = Play;
                       label = 'Live';
-                      color = 'text-green-400';
-                      bgColor = 'bg-green-900/20';
-                      borderColor = 'border-green-600';
+                      color = 'text-accent';
+                      bgColor = 'bg-accent/10';
+                      borderColor = 'border-accent';
                       break;
                   }
 
@@ -314,8 +314,8 @@ export default function EventStateDropdown() {
                         ${isActive 
                           ? `${bgColor} ${borderColor} ${color}` 
                           : canTransition
-                            ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
-                            : 'bg-gray-800 border-gray-700 text-gray-500'
+                            ? 'bg-surface border-white/10 text-muted hover:bg-surface'
+                            : 'bg-elevated border-white/10 text-faint'
                         }
                         ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                       `}

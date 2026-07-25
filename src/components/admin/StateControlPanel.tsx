@@ -22,10 +22,10 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
   // Safety check - if state is not available, show loading
   if (!state) {
     return (
-      <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
+      <div className={`bg-elevated rounded-lg p-6 ${className}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading event state...</p>
+          <p className="text-muted">Loading event state...</p>
         </div>
       </div>
     );
@@ -187,38 +187,29 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
           label: 'Offline',
           description: 'Event not started',
           icon: Power,
-          color: 'text-gray-400',
-          bgColor: 'bg-gray-800',
-          borderColor: 'border-gray-600',
-          hoverColor: 'hover:bg-gray-700'
+          activeClass: 'bg-surface border-white/20 text-bone',
         };
       case 'standby':
         return {
           label: 'Standby',
           description: 'Event ready to start',
           icon: Pause,
-          color: 'text-yellow-400',
-          bgColor: 'bg-yellow-900/20',
-          borderColor: 'border-yellow-600',
-          hoverColor: 'hover:bg-yellow-900/30'
+          activeClass: 'bg-accent/20 border-accent text-accent',
         };
       case 'live':
         return {
           label: 'Live',
           description: 'Event in progress',
           icon: Play,
-          color: 'text-green-400',
-          bgColor: 'bg-green-900/20',
-          borderColor: 'border-green-600',
-          hoverColor: 'hover:bg-green-900/30'
+          activeClass: 'bg-accent border-accent text-ink font-semibold shadow-[0_0_0_1px_rgba(245,166,35,0.35)]',
         };
     }
   };
 
   return (
-    <div className={`bg-gray-800 rounded-lg p-3 ${className}`}>
+    <div className={`bg-elevated rounded-lg p-3 ${className}`}>
       <div className="mb-2">
-        <h2 className="text-lg font-semibold text-white">Event Control</h2>
+        <h2 className="font-display text-lg font-semibold text-bone">Event Control</h2>
       </div>
 
       {/* State Control Buttons - More Compact */}
@@ -237,12 +228,12 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
               className={`
                 flex flex-col items-center space-y-1 p-2 rounded-lg border-2 transition-all duration-200
                 ${isActive 
-                  ? `${config.bgColor} ${config.borderColor} ${config.color} shadow-lg` 
+                  ? config.activeClass
                   : canTransition
-                    ? 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
-                    : 'bg-gray-800 border-gray-700 text-gray-500'
+                    ? 'bg-elevated border-white/10 text-muted hover:border-accent/40 hover:text-bone'
+                    : 'bg-ink border-white/5 text-faint'
                 }
-                ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                ${isDisabled && !isActive ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
               title={!canTransition ? `Cannot transition from ${state.status} to ${status}` : undefined}
             >

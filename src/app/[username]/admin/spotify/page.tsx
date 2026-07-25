@@ -255,8 +255,8 @@ export default function SpotifyPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#1DB954] animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading Spotify controls...</p>
+          <Loader2 className="w-12 h-12 text-accent animate-spin mx-auto mb-4" />
+          <p className="text-muted">Loading Spotify controls...</p>
         </div>
       </div>
     );
@@ -264,18 +264,18 @@ export default function SpotifyPage() {
 
   if (!isConnected) {
     return (
-      <div className="bg-gray-800 rounded-lg p-8">
+      <div className="bg-elevated rounded-lg p-8">
         <div className="text-center">
-          <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Music2 className="w-12 h-12 text-gray-400" />
+          <div className="w-24 h-24 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
+            <Music2 className="w-12 h-12 text-muted" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Spotify Not Connected</h2>
-          <p className="text-gray-400 text-lg max-w-md mx-auto mb-6">
+          <h2 className="text-3xl font-bold text-bone mb-4">Spotify Not Connected</h2>
+          <p className="text-muted text-lg max-w-md mx-auto mb-6">
             Connect your Spotify account to access playback controls.
           </p>
           <button
             onClick={() => window.location.href = '/api/spotify/auth'}
-            className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-8 rounded-lg transition-all duration-300"
+            className="bg-accent hover:bg-accent-hover text-black font-bold py-3 px-8 rounded-lg transition-all duration-300"
           >
             Connect Spotify
           </button>
@@ -303,15 +303,15 @@ export default function SpotifyPage() {
       )}
 
       {/* Now Playing Card */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-elevated rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-white">Now Playing</h2>
+          <h2 className="text-2xl font-bold text-bone">Now Playing</h2>
           <button
             onClick={() => {
               fetchSpotifyStatus();
               fetchDevices();
             }}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg text-muted hover:text-bone hover:bg-surface transition-colors"
             title="Refresh"
           >
             <RefreshCw className="w-5 h-5" />
@@ -330,13 +330,13 @@ export default function SpotifyPage() {
                 />
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-semibold text-white truncate">
+                <h3 className="text-xl font-semibold text-bone truncate">
                   {currentTrack.name}
                 </h3>
-                <p className="text-gray-400 truncate">
+                <p className="text-muted truncate">
                   {currentTrack.artists?.join(', ') || 'Unknown Artist'}
                 </p>
-                <p className="text-gray-500 text-sm truncate">
+                <p className="text-faint text-sm truncate">
                   {currentTrack.album || 'Unknown Album'}
                 </p>
               </div>
@@ -344,15 +344,15 @@ export default function SpotifyPage() {
 
             {/* Progress Bar */}
             <div className="space-y-2">
-              <div className="w-full bg-gray-700 rounded-full h-2">
+              <div className="w-full bg-surface rounded-full h-2">
                 <div
-                  className="bg-[#1DB954] h-2 rounded-full transition-all duration-1000"
+                  className="bg-accent h-2 rounded-full transition-all duration-1000"
                   style={{
                     width: `${(currentTrack.progress_ms / currentTrack.duration_ms) * 100}%`
                   }}
                 ></div>
               </div>
-              <div className="flex justify-between text-xs text-gray-400">
+              <div className="flex justify-between text-xs text-muted">
                 <span>{formatDuration(currentTrack.progress_ms)}</span>
                 <span>{formatDuration(currentTrack.duration_ms)}</span>
               </div>
@@ -363,7 +363,7 @@ export default function SpotifyPage() {
               <button
                 onClick={handlePrevious}
                 disabled={isPerformingAction}
-                className="p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 rounded-full bg-surface hover:bg-surface text-bone transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Previous"
               >
                 <SkipBack className="w-6 h-6" />
@@ -372,7 +372,7 @@ export default function SpotifyPage() {
               <button
                 onClick={handlePlayPause}
                 disabled={isPerformingAction}
-                className="p-4 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="p-4 rounded-full bg-accent hover:bg-accent-hover text-black transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 title={currentTrack.is_playing ? 'Pause' : 'Play'}
               >
                 {isPerformingAction ? (
@@ -387,7 +387,7 @@ export default function SpotifyPage() {
               <button
                 onClick={handleNext}
                 disabled={isPerformingAction}
-                className="p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 rounded-full bg-surface hover:bg-surface text-bone transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Next"
               >
                 <SkipForward className="w-6 h-6" />
@@ -396,9 +396,9 @@ export default function SpotifyPage() {
           </div>
         ) : (
           <div className="text-center py-8">
-            <Music2 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No track currently playing</p>
-            <p className="text-gray-500 text-sm mt-2">
+            <Music2 className="w-16 h-16 text-faint mx-auto mb-4" />
+            <p className="text-muted">No track currently playing</p>
+            <p className="text-faint text-sm mt-2">
               Start playing music on your Spotify app
             </p>
           </div>
@@ -406,12 +406,12 @@ export default function SpotifyPage() {
       </div>
 
       {/* Volume Control */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">Volume Control</h2>
+      <div className="bg-elevated rounded-lg p-6">
+        <h2 className="text-xl font-bold text-bone mb-4">Volume Control</h2>
         <div className="flex items-center space-x-4">
           <button
             onClick={() => handleVolumeChange(0)}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg text-muted hover:text-bone hover:bg-surface transition-colors"
           >
             <VolumeX className="w-6 h-6" />
           </button>
@@ -422,25 +422,25 @@ export default function SpotifyPage() {
             max="100"
             value={volume}
             onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
-            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#1DB954] [&::-webkit-slider-thumb]:cursor-pointer"
+            className="flex-1 h-2 bg-surface rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer"
           />
 
           <button
             onClick={() => handleVolumeChange(100)}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg text-muted hover:text-bone hover:bg-surface transition-colors"
           >
             <Volume2 className="w-6 h-6" />
           </button>
 
           <div className="w-12 text-right">
-            <span className="text-white font-semibold">{volume}%</span>
+            <span className="text-bone font-semibold">{volume}%</span>
           </div>
         </div>
       </div>
 
       {/* Device Selector */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">Available Devices</h2>
+      <div className="bg-elevated rounded-lg p-6">
+        <h2 className="text-xl font-bold text-bone mb-4">Available Devices</h2>
         {devices.length > 0 ? (
           <div className="space-y-2">
             {devices.map((device) => {
@@ -451,31 +451,31 @@ export default function SpotifyPage() {
                   onClick={() => !device.is_active && handleDeviceChange(device.id)}
                   className={`w-full flex items-center justify-between p-4 rounded-lg transition-all ${
                     device.is_active
-                      ? 'bg-[#1DB954]/20 border-2 border-[#1DB954]'
-                      : 'bg-gray-700 hover:bg-gray-600 border-2 border-transparent'
+                      ? 'bg-accent/20 border-2 border-accent'
+                      : 'bg-surface hover:bg-surface border-2 border-transparent'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
                     <DeviceIcon
                       className={`w-6 h-6 ${
-                        device.is_active ? 'text-[#1DB954]' : 'text-gray-400'
+                        device.is_active ? 'text-accent' : 'text-muted'
                       }`}
                     />
                     <div className="text-left">
                       <div
                         className={`font-semibold ${
-                          device.is_active ? 'text-[#1DB954]' : 'text-white'
+                          device.is_active ? 'text-accent' : 'text-bone'
                         }`}
                       >
                         {device.name}
                       </div>
-                      <div className="text-gray-400 text-sm capitalize">
+                      <div className="text-muted text-sm capitalize">
                         {device.type}
                       </div>
                     </div>
                   </div>
                   {device.is_active && (
-                    <span className="text-[#1DB954] font-semibold text-sm">
+                    <span className="text-accent font-semibold text-sm">
                       Active
                     </span>
                   )}
@@ -485,9 +485,9 @@ export default function SpotifyPage() {
           </div>
         ) : (
           <div className="text-center py-8">
-            <Speaker className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No devices available</p>
-            <p className="text-gray-500 text-sm mt-2">
+            <Speaker className="w-16 h-16 text-faint mx-auto mb-4" />
+            <p className="text-muted">No devices available</p>
+            <p className="text-faint text-sm mt-2">
               Open Spotify on a device to see it here
             </p>
           </div>
@@ -495,8 +495,8 @@ export default function SpotifyPage() {
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-900/20 border border-blue-600/50 rounded-lg p-4">
-        <p className="text-blue-300 text-sm">
+      <div className="bg-accent/10 border border-accent/40/50 rounded-lg p-4">
+        <p className="text-accent text-sm">
           💡 <strong>Tip:</strong> These controls work with your active Spotify session. 
           If you don't see any devices, open Spotify on your phone, computer, or smart speaker.
         </p>

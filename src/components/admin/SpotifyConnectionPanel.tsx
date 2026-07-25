@@ -221,17 +221,17 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
   };
 
   return (
-    <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
+    <div className={`bg-elevated rounded-lg p-6 ${className}`}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-white mb-1">Spotify Connection</h2>
-          <p className="text-gray-400 text-sm">Connect your Spotify account to control playback</p>
+          <h2 className="text-xl font-semibold text-bone mb-1">Spotify Connection</h2>
+          <p className="text-muted text-sm">Connect your Spotify account to control playback</p>
         </div>
         
         <button
           onClick={checkConnectionStatus}
           disabled={state.isConnecting}
-          className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          className="p-2 text-muted hover:text-bone transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`w-5 h-5 ${state.isConnecting ? 'animate-spin' : ''}`} />
         </button>
@@ -242,22 +242,22 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
         <div className={`
           flex items-center space-x-3 p-4 rounded-lg border-2
           ${state.isConnected 
-            ? 'bg-green-900/20 border-green-600' 
-            : 'bg-gray-700 border-gray-600'
+            ? 'bg-accent/10 border-accent' 
+            : 'bg-surface border-white/10'
           }
         `}>
           {state.isConnected ? (
-            <CheckCircle className="w-6 h-6 text-green-400" />
+            <CheckCircle className="w-6 h-6 text-accent" />
           ) : (
-            <WifiOff className="w-6 h-6 text-gray-400" />
+            <WifiOff className="w-6 h-6 text-muted" />
           )}
           
           <div className="flex-1">
-            <div className={`font-semibold ${state.isConnected ? 'text-green-400' : 'text-gray-300'}`}>
+            <div className={`font-semibold ${state.isConnected ? 'text-accent' : 'text-muted'}`}>
               {state.isConnected ? 'Connected to Spotify' : 'Not Connected'}
             </div>
             {state.user && (
-              <div className="text-gray-400 text-sm">
+              <div className="text-muted text-sm">
                 Logged in as {state.user.display_name}
               </div>
             )}
@@ -271,27 +271,27 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           <button
             onClick={connectToSpotify}
             disabled={state.isConnecting}
-            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-accent hover:bg-accent-hover text-bone font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             <Music className="w-5 h-5" />
             <span>{state.isConnecting ? 'Connecting...' : 'Connect to Spotify'}</span>
             <ExternalLink className="w-4 h-4" />
           </button>
           
-          <p className="text-gray-400 text-sm text-center">
+          <p className="text-muted text-sm text-center">
             You'll be redirected to Spotify to authorize the connection
           </p>
 
           {/* Reset connection state button (for when retries are exhausted) */}
-          <div className="pt-2 border-t border-gray-700">
+          <div className="pt-2 border-t border-white/10">
             <button
               onClick={resetConnectionState}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-muted hover:text-bone text-sm transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Reset Connection State</span>
             </button>
-            <p className="text-gray-500 text-xs text-center mt-1">
+            <p className="text-faint text-xs text-center mt-1">
               Use if connection keeps failing
             </p>
           </div>
@@ -302,7 +302,7 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           <button
             onClick={disconnectFromSpotify}
             disabled={state.isConnecting}
-            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-bone font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             <WifiOff className="w-5 h-5" />
             <span>{state.isConnecting ? 'Disconnecting...' : 'Disconnect from Spotify'}</span>
@@ -311,7 +311,7 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           {/* Device Selection */}
           {state.devices.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Select Playback Device</h3>
+              <h3 className="text-lg font-semibold text-bone mb-4">Select Playback Device</h3>
               <div className="space-y-2">
                 {state.devices.map((device) => {
                   const DeviceIcon = getDeviceIcon(device.type);
@@ -325,26 +325,26 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
                       className={`
                         w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all duration-200
                         ${isSelected 
-                          ? 'bg-green-900/20 border-green-600' 
-                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                          ? 'bg-accent/10 border-accent' 
+                          : 'bg-surface border-white/10 hover:bg-surface'
                         }
                         ${state.isConnecting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                       `}
                     >
                       <div className="flex items-center space-x-3">
-                        <DeviceIcon className={`w-5 h-5 ${isSelected ? 'text-green-400' : 'text-gray-400'}`} />
+                        <DeviceIcon className={`w-5 h-5 ${isSelected ? 'text-accent' : 'text-muted'}`} />
                         <div className="text-left">
-                          <div className={`font-medium ${isSelected ? 'text-green-400' : 'text-white'}`}>
+                          <div className={`font-medium ${isSelected ? 'text-accent' : 'text-bone'}`}>
                             {device.name}
                           </div>
-                          <div className="text-gray-400 text-sm capitalize">
+                          <div className="text-muted text-sm capitalize">
                             {device.type} • {device.volume_percent}% volume
                           </div>
                         </div>
                       </div>
                       
                       {isSelected && (
-                        <CheckCircle className="w-5 h-5 text-green-400" />
+                        <CheckCircle className="w-5 h-5 text-accent" />
                       )}
                     </button>
                   );
@@ -356,9 +356,9 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           {/* No Devices Message */}
           {state.devices.length === 0 && (
             <div className="text-center py-8">
-              <Music className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-400 mb-4">No Spotify devices found</p>
-              <p className="text-gray-500 text-sm">
+              <Music className="w-12 h-12 text-muted mx-auto mb-4" />
+              <p className="text-muted mb-4">No Spotify devices found</p>
+              <p className="text-faint text-sm">
                 Make sure Spotify is open on one of your devices
               </p>
             </div>

@@ -50,11 +50,11 @@ export default function SessionTransferModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[70] p-4">
-      <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border border-amber-600 relative">
+      <div className="bg-elevated rounded-lg p-8 max-w-md w-full shadow-2xl border border-amber-600 relative">
         <button
           onClick={onCancel}
           disabled={isTransferring}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          className="absolute top-4 right-4 text-muted hover:text-bone transition-colors disabled:opacity-50"
           title="Cancel"
         >
           <X className="w-6 h-6" />
@@ -67,21 +67,21 @@ export default function SessionTransferModal({
           <h3 className="text-2xl font-bold text-amber-400 mb-2">
             Active Session Detected
           </h3>
-          <p className="text-gray-300 text-sm mb-4">
+          <p className="text-muted text-sm mb-4">
             You're already logged in on another device
           </p>
 
           {sessionInfo && (
-            <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
-              <div className="flex items-center justify-center space-x-2 text-gray-300 mb-2">
+            <div className="bg-surface/60 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-center space-x-2 text-muted mb-2">
                 <Smartphone className="w-5 h-5 text-accent" />
                 <span className="text-sm font-medium">Current Session</span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted">
                 Started {formatSessionAge(sessionInfo.created_at)}
               </p>
               {sessionInfo.device_info && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-faint mt-1">
                   {sessionInfo.device_info}
                 </p>
               )}
@@ -92,7 +92,7 @@ export default function SessionTransferModal({
             <p className="text-amber-300 text-sm font-medium mb-2">
               Do you want to transfer the event to this device?
             </p>
-            <p className="text-gray-400 text-xs">
+            <p className="text-muted text-xs">
               Your other session will be automatically logged out, and your event will continue here.
             </p>
           </div>
@@ -102,7 +102,7 @@ export default function SessionTransferModal({
           <button
             onClick={handleTransfer}
             disabled={isTransferring}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full bg-amber-600 hover:bg-amber-700 text-bone font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isTransferring ? (
               <>
@@ -120,13 +120,13 @@ export default function SessionTransferModal({
           <button
             onClick={onCancel}
             disabled={isTransferring}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+            className="w-full bg-surface hover:bg-surface text-bone font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
           >
             No, Stay on Other Device
           </button>
         </div>
 
-        <p className="text-xs text-gray-500 text-center mt-4">
+        <p className="text-xs text-faint text-center mt-4">
           Only one admin session can be active at a time
         </p>
       </div>

@@ -246,13 +246,13 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
 
   if (loading) {
     return (
-      <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
+      <div className={`bg-elevated rounded-lg p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-700 rounded w-1/4 mb-4"></div>
-          <div className="h-8 bg-gray-700 rounded w-1/2 mb-6"></div>
+          <div className="h-6 bg-surface rounded w-1/4 mb-4"></div>
+          <div className="h-8 bg-surface rounded w-1/2 mb-6"></div>
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-gray-700 rounded"></div>
+              <div key={i} className="h-20 bg-surface rounded"></div>
             ))}
           </div>
         </div>
@@ -261,12 +261,12 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
   }
 
   return (
-    <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
+    <div className={`bg-elevated rounded-lg p-6 ${className}`}>
       {/* Header */}
       {showHeader && (
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-white mb-1">Song Requests</h2>
-          <p className="text-gray-400 text-sm">
+          <h2 className="text-xl font-semibold text-bone mb-1">Song Requests</h2>
+          <p className="text-muted text-sm">
             Manage song requests from users
           </p>
         </div>
@@ -277,13 +277,13 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
         {/* Search */}
         <div className="flex-1">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
             <input
               type="text"
               placeholder="Search requests..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
         </div>
@@ -293,7 +293,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent"
           >
             <option value="all">All ({requests?.length || 0})</option>
             <option value="pending">Pending ({requests?.filter(r => r.status === 'pending').length || 0})</option>
@@ -305,10 +305,10 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           <button
             onClick={handleAddRandomSong}
             disabled={isAddingRandomSong || !playbackState?.spotify_connected}
-            className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
+            className={`flex items-center gap-2 px-4 py-2 text-ink font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
               isAddingRandomSong || !playbackState?.spotify_connected
-                ? 'bg-accent/70 cursor-not-allowed opacity-50' 
-                : 'bg-accent hover:bg-accent'
+                ? 'bg-accent/50 cursor-not-allowed opacity-50' 
+                : 'bg-accent hover:bg-accent-hover'
             }`}
             title={!playbackState?.spotify_connected ? 'Connect Spotify to add random songs' : 'Add a random popular song to requests'}
           >
@@ -322,29 +322,29 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
 
       {/* Batch Actions */}
       {selectedRequests.size > 0 && (
-        <div className="mb-4 p-4 bg-blue-900/20 border border-blue-600 rounded-lg">
+        <div className="mb-4 p-4 bg-accent/10 border border-accent/30 rounded-lg">
           <div className="flex items-center justify-between">
-            <span className="text-blue-400 text-sm">
+            <span className="text-accent text-sm">
               {selectedRequests.size} request{selectedRequests.size !== 1 ? 's' : ''} selected
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => handleBatchApprove(false)}
-                className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-accent hover:bg-accent-hover text-ink text-sm font-semibold rounded transition-colors"
               >
                 <CheckCircle className="w-4 h-4" />
                 Approve
               </button>
               <button
                 onClick={handleBatchReject}
-                className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-bone text-sm rounded transition-colors"
               >
                 <XCircle className="w-4 h-4" />
                 Decline
               </button>
               <button
                 onClick={handleBatchDelete}
-                className="flex items-center gap-1 px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-surface hover:bg-elevated border border-white/10 text-bone text-sm rounded transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -358,23 +358,23 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
       <div className="space-y-4">
         {allRequests.length === 0 ? (
           <div className="text-center py-12">
-            <Music className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-300 mb-2">No requests found</h3>
-            <p className="text-gray-500">
+            <Music className="w-16 h-16 text-muted mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-muted mb-2">No requests found</h3>
+            <p className="text-faint">
               {filterStatus === 'all' ? 'No song requests yet.' : `No ${filterStatus} requests.`}
             </p>
           </div>
         ) : (
           <>
             {/* Select All */}
-            <div className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-surface/60 rounded-lg">
               <input
                 type="checkbox"
                 checked={selectedRequests.size === allRequests.length && allRequests.length > 0}
                 onChange={handleSelectAll}
-                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent"
               />
-              <span className="text-gray-300 text-sm">
+              <span className="text-muted text-sm">
                 Select all {allRequests.length} request{allRequests.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -385,9 +385,9 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                 key={request.id}
                 className={`p-4 rounded-lg border transition-colors ${
                   request.status === 'pending' ? 'bg-yellow-400/5 border-yellow-400/20' :
-                  request.status === 'approved' ? 'bg-green-400/5 border-green-400/20' :
+                  request.status === 'approved' ? 'bg-accent/5 border-accent/20' :
                   request.status === 'rejected' ? 'bg-red-400/5 border-red-400/20' :
-                  'bg-blue-400/5 border-blue-400/20'
+                  'bg-info/5 border-info/20'
                 }`}>
                 <div className="flex items-center gap-3">
                   {/* Checkbox */}
@@ -395,24 +395,24 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                     type="checkbox"
                     checked={selectedRequests.has(request.id)}
                     onChange={() => handleSelectRequest(request.id)}
-                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent"
                   />
 
                   {/* Album Art */}
-                  <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Music className="w-6 h-6 text-gray-400" />
+                  <div className="w-12 h-12 bg-ink border border-white/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Music className="w-6 h-6 text-accent" />
                   </div>
                   
                   {/* Track Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-medium mb-1 break-words">
+                    <h3 className="text-bone font-medium mb-1 break-words">
                       {request.track_name}
                     </h3>
-                    <p className="text-gray-400 text-sm break-words">
+                    <p className="text-muted text-sm break-words">
                       {request.artist_name}
                       {request.album_name && ` • ${request.album_name}`}
                     </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-faint">
                       <span>{formatDuration(request.duration_ms)}</span>
                       <span>{formatTimeAgo(request.created_at)}</span>
                       {request.requester_nickname && (
@@ -429,17 +429,17 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       <>
                         <button
                           onClick={() => handleApprove(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          className="flex items-center justify-center p-2 bg-accent hover:bg-accent-hover rounded-lg transition-colors min-w-[72px] min-h-[36px]"
                           title="Approve"
                         >
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <CheckCircle className="w-4 h-4 text-ink" />
                         </button>
                         <button
                           onClick={() => handleReject(request.id)}
                           className="flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
                           title="Decline"
                         >
-                          <XCircle className="w-4 h-4 text-white" />
+                          <XCircle className="w-4 h-4 text-bone" />
                         </button>
                       </>
                     )}
@@ -448,10 +448,10 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       <>
                         <button
                           onClick={() => handleResubmit(request.id)}
-                          className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          className="flex items-center justify-center p-2 bg-surface hover:bg-elevated border border-white/10 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
                           title="Re-submit"
                         >
-                          <RotateCcw className="w-4 h-4 text-white" />
+                          <RotateCcw className="w-4 h-4 text-accent" />
                         </button>
                       </>
                     )}
@@ -460,17 +460,17 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       <>
                         <button
                           onClick={() => handlePlayAgain(request.id)}
-                          className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors min-w-[72px] min-h-[36px]"
+                          className="flex items-center justify-center p-2 bg-accent hover:bg-accent-hover rounded-lg transition-colors min-w-[72px] min-h-[36px]"
                           title="Play Again"
                         >
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <CheckCircle className="w-4 h-4 text-ink" />
                         </button>
                       </>
                     )}
                     
                     <button
                       onClick={() => handleDelete(request.id)}
-                      className="flex items-center justify-center p-2 text-gray-400 hover:text-red-400 transition-colors min-h-[36px] min-w-[36px] rounded hover:bg-gray-700"
+                      className="flex items-center justify-center p-2 text-muted hover:text-red-400 transition-colors min-h-[36px] min-w-[36px] rounded hover:bg-surface"
                       title="Delete Request"
                     >
                       <Trash2 className="w-4 h-4" />

@@ -198,11 +198,11 @@ export default function DisplaySettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-elevated rounded-lg p-6">
           <div className="animate-pulse">
-            <div className="h-4 bg-gray-700 rounded w-1/4 mb-4"></div>
-            <div className="h-8 bg-gray-700 rounded w-1/2 mb-4"></div>
-            <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+            <div className="h-4 bg-surface rounded w-1/4 mb-4"></div>
+            <div className="h-8 bg-surface rounded w-1/2 mb-4"></div>
+            <div className="h-4 bg-surface rounded w-3/4"></div>
           </div>
         </div>
       </div>
@@ -211,22 +211,22 @@ export default function DisplaySettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-elevated rounded-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Display Messages Section */}
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <div className="border border-white/10 rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection('displayMessages')}
-              className="w-full flex items-center justify-between p-4 bg-gray-700/50 hover:bg-gray-700/70 transition-colors"
+              className="w-full flex items-center justify-between p-4 bg-surface/60 hover:bg-surface/70 transition-colors"
             >
-              <h3 className="text-lg font-semibold text-white flex items-center">
+              <h3 className="text-lg font-semibold text-bone flex items-center">
                 💬 Display Messages
               </h3>
               {expandedSections.displayMessages ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-5 h-5 text-muted" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-5 h-5 text-muted" />
               )}
             </button>
             
@@ -234,7 +234,7 @@ export default function DisplaySettingsPage() {
               <div className={`p-4 space-y-6 transition-opacity ${!formData.show_scrolling_bar ? 'opacity-50' : ''}`}>
             
             {/* Scrolling Bar Toggle */}
-            <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-accent/30 mb-6">
+            <div className="bg-surface/60 rounded-lg p-4 border-2 border-accent/30 mb-6">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -242,20 +242,20 @@ export default function DisplaySettingsPage() {
                   name="show_scrolling_bar"
                   checked={formData.show_scrolling_bar}
                   onChange={handleCheckboxChange}
-                  className="w-5 h-5 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
+                  className="w-5 h-5 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
                 />
-                <label htmlFor="show_scrolling_bar" className="ml-3 text-base font-semibold text-white">
+                <label htmlFor="show_scrolling_bar" className="ml-3 text-base font-semibold text-bone">
                   Show Scrolling Message Bar
                 </label>
               </div>
-              <p className="text-gray-400 text-sm mt-2 ml-8">
+              <p className="text-muted text-sm mt-2 ml-8">
                 Display the scrolling message bar at the bottom of the screen. When disabled, the display messages below will not be shown.
               </p>
             </div>
             
             {/* Welcome Message */}
             <div className="mb-6">
-              <label htmlFor="welcome_message" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="welcome_message" className="block text-sm font-medium text-muted mb-2">
                 Welcome Message
               </label>
               <textarea
@@ -265,17 +265,17 @@ export default function DisplaySettingsPage() {
                 onChange={handleInputChange}
                 disabled={!formData.show_scrolling_bar}
                 rows={1}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Welcome! This is a welcome message."
               />
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-faint text-sm mt-1">
                 Primary message shown on the request page and display screen
               </p>
             </div>
 
             {/* Scrolling Messages */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted mb-2">
                 Scrolling Messages
               </label>
               
@@ -288,7 +288,7 @@ export default function DisplaySettingsPage() {
                   onChange={handleInputChange}
                   disabled={!formData.show_scrolling_bar}
                   rows={1}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Request your song now! Scan the QR code, or visit partyplaylist.co.uk"
                 />
               </div>
@@ -302,12 +302,12 @@ export default function DisplaySettingsPage() {
                   onChange={handleInputChange}
                   disabled={!formData.show_scrolling_bar}
                   rows={1}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Secondary message to be placed here!"
                 />
               </div>
               
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-faint text-sm mt-1">
                 Messages shown in the scrolling bar at the bottom of the display screen
               </p>
             </div>
@@ -380,31 +380,31 @@ export default function DisplaySettingsPage() {
           </div>
 
           {/* Notice Board Section */}
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <div className="border border-white/10 rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection('noticeBoard')}
-              className="w-full flex items-center justify-between p-4 bg-gray-700/50 hover:bg-gray-700/70 transition-colors"
+              className="w-full flex items-center justify-between p-4 bg-surface/60 hover:bg-surface/70 transition-colors"
             >
-              <h3 className="text-lg font-semibold text-white flex items-center">
+              <h3 className="text-lg font-semibold text-bone flex items-center">
                 📢 Notice Board
               </h3>
               {expandedSections.noticeBoard ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-5 h-5 text-muted" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-5 h-5 text-muted" />
               )}
             </button>
             
             {expandedSections.noticeBoard && (
               <div className="p-4 space-y-6">
-            <p className="text-gray-400 text-sm mb-6">
+            <p className="text-muted text-sm mb-6">
               Send messages to display in the center of the display screen. Perfect for announcements, requests, or special messages.
             </p>
             
             <div className="space-y-4">
               {/* Auto-Approval Messages Setting */}
-              <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-accent/30 mb-4">
+              <div className="bg-surface/60 rounded-lg p-4 border-2 border-accent/30 mb-4">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -412,20 +412,20 @@ export default function DisplaySettingsPage() {
                     name="show_approval_messages"
                     checked={formData.show_approval_messages}
                     onChange={handleCheckboxChange}
-                    className="w-5 h-5 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
+                    className="w-5 h-5 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
                   />
-                  <label htmlFor="show_approval_messages" className="ml-3 text-base font-semibold text-white">
+                  <label htmlFor="show_approval_messages" className="ml-3 text-base font-semibold text-bone">
                     Show Requests when Approved
                   </label>
                 </div>
-                <p className="text-gray-400 text-sm mt-2 ml-8">
+                <p className="text-muted text-sm mt-2 ml-8">
                   Automatically display a 10-second Notice Board message when a request is approved, showing the requester's name and song details.
                 </p>
               </div>
 
               {/* Message Text Input */}
               <div>
-                <label htmlFor="message_text" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="message_text" className="block text-sm font-medium text-muted mb-2">
                   Message Text
                 </label>
                 <textarea
@@ -433,18 +433,18 @@ export default function DisplaySettingsPage() {
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none"
                   placeholder="Enter your message here..."
                   maxLength={500}
                 />
-                <p className="text-gray-500 text-xs mt-1">
+                <p className="text-faint text-xs mt-1">
                   {messageText.length}/500 characters
                 </p>
               </div>
 
               {/* Duration Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Display Duration
                 </label>
                 <div className="space-y-2">
@@ -456,9 +456,9 @@ export default function DisplaySettingsPage() {
                         value="10"
                         checked={messageDuration === '10'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
+                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
-                      <span className="ml-2 text-gray-300">10 seconds</span>
+                      <span className="ml-2 text-muted">10 seconds</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -467,9 +467,9 @@ export default function DisplaySettingsPage() {
                         value="30"
                         checked={messageDuration === '30'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
+                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
-                      <span className="ml-2 text-gray-300">30 seconds</span>
+                      <span className="ml-2 text-muted">30 seconds</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -478,9 +478,9 @@ export default function DisplaySettingsPage() {
                         value="60"
                         checked={messageDuration === '60'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
+                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
-                      <span className="ml-2 text-gray-300">1 minute</span>
+                      <span className="ml-2 text-muted">1 minute</span>
                     </label>
                   </div>
                   <div className="flex items-center space-x-4">
@@ -491,9 +491,9 @@ export default function DisplaySettingsPage() {
                         value="custom"
                         checked={messageDuration === 'custom'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
+                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
-                      <span className="ml-2 text-gray-300">Custom:</span>
+                      <span className="ml-2 text-muted">Custom:</span>
                     </label>
                     {messageDuration === 'custom' && (
                       <div className="flex items-center space-x-2">
@@ -503,9 +503,9 @@ export default function DisplaySettingsPage() {
                           max="60"
                           value={customMinutes}
                           onChange={(e) => setCustomMinutes(e.target.value)}
-                          className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                          className="w-16 px-2 py-1 bg-surface border border-white/10 rounded text-bone text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                         />
-                        <span className="text-gray-300 text-sm">minutes</span>
+                        <span className="text-muted text-sm">minutes</span>
                       </div>
                     )}
                     <label className="flex items-center">
@@ -515,9 +515,9 @@ export default function DisplaySettingsPage() {
                         value="indefinite"
                         checked={messageDuration === 'indefinite'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
+                        className="w-4 h-4 text-accent bg-surface border-white/10 focus:ring-accent focus:ring-2"
                       />
-                      <span className="ml-2 text-gray-300">Until removed</span>
+                      <span className="ml-2 text-muted">Until removed</span>
                     </label>
                   </div>
                 </div>
@@ -531,8 +531,8 @@ export default function DisplaySettingsPage() {
                   disabled={sendingMessage || !messageText.trim()}
                   className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
                     sendingMessage || !messageText.trim()
-                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-accent hover:bg-accent text-white'
+                      ? 'bg-surface text-muted cursor-not-allowed'
+                      : 'bg-accent hover:bg-accent text-bone'
                   }`}
                 >
                   {sendingMessage ? (
@@ -553,8 +553,8 @@ export default function DisplaySettingsPage() {
                   disabled={sendingMessage}
                   className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
                     sendingMessage
-                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700 text-white'
+                      ? 'bg-surface text-muted cursor-not-allowed'
+                      : 'bg-red-600 hover:bg-red-700 text-bone'
                   }`}
                 >
                   Clear Message
@@ -565,7 +565,7 @@ export default function DisplaySettingsPage() {
               {messageStatus && (
                 <div className={`p-3 rounded-lg text-sm ${
                   messageStatus.includes('successfully') || messageStatus.includes('cleared')
-                    ? 'bg-green-900/50 text-green-300 border border-green-700'
+                    ? 'bg-accent/15 text-accent border border-accent/40'
                     : 'bg-red-900/50 text-red-300 border border-red-700'
                 }`}>
                   {messageStatus}
@@ -577,20 +577,20 @@ export default function DisplaySettingsPage() {
           </div>
 
           {/* Advanced Features Section */}
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <div className="border border-white/10 rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection('advancedFeatures')}
-              className="w-full flex items-center justify-between p-4 bg-gray-700/50 hover:bg-gray-700/70 transition-colors"
+              className="w-full flex items-center justify-between p-4 bg-surface/60 hover:bg-surface/70 transition-colors"
             >
-              <h3 className="text-lg font-semibold text-white flex items-center">
+              <h3 className="text-lg font-semibold text-bone flex items-center">
                 <Mic className="w-5 h-5 mr-2" />
                 Advanced Features
               </h3>
               {expandedSections.advancedFeatures ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-5 h-5 text-muted" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-5 h-5 text-muted" />
               )}
             </button>
             
@@ -608,16 +608,16 @@ export default function DisplaySettingsPage() {
                     checked={formData.karaoke_mode}
                     onChange={handleCheckboxChange}
                     disabled={true}
-                    className="w-4 h-4 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2 cursor-not-allowed"
+                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2 cursor-not-allowed"
                   />
-                  <label htmlFor="karaoke_mode" className="ml-3 text-sm font-medium text-gray-300 cursor-not-allowed">
+                  <label htmlFor="karaoke_mode" className="ml-3 text-sm font-medium text-muted cursor-not-allowed">
                     Karaoke Mode
                   </label>
                   <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-yellow-900/50 text-yellow-300 rounded-full border border-yellow-700">
                     COMING SOON
                   </span>
                 </div>
-                <p className="text-gray-500 text-sm mt-2 ml-7">
+                <p className="text-faint text-sm mt-2 ml-7">
                   Enable karaoke-style lyrics display on the screen (feature in development)
                 </p>
               </div>
@@ -631,7 +631,7 @@ export default function DisplaySettingsPage() {
             <div>
               {saveMessage && (
                 <p className={`text-sm ${
-                  saveMessage.includes('Error') ? 'text-red-400' : 'text-green-400'
+                  saveMessage.includes('Error') ? 'text-red-400' : 'text-accent'
                 }`}>
                   {saveMessage}
                 </p>
@@ -640,7 +640,7 @@ export default function DisplaySettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center px-6 py-3 bg-accent hover:bg-accent disabled:bg-accent/40 text-white font-medium rounded-lg transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-accent hover:bg-accent disabled:bg-accent/40 text-bone font-medium rounded-lg transition-colors"
             >
               {saving ? (
                 <>

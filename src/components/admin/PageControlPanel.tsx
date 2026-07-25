@@ -23,10 +23,10 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
   // Safety check - if state is not available, show loading
   if (!state) {
     return (
-      <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
+      <div className={`bg-elevated rounded-lg p-6 ${className}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading page controls...</p>
+          <p className="text-muted">Loading page controls...</p>
         </div>
       </div>
     );
@@ -74,9 +74,9 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
   ];
 
   return (
-    <div className={`bg-gray-800 rounded-lg p-3 ${className}`}>
+    <div className={`bg-elevated rounded-lg p-3 ${className}`}>
       <div className="mb-2">
-        <h2 className="text-lg font-semibold text-white">Page Controls</h2>
+        <h2 className="font-display text-lg font-semibold text-bone">Page Controls</h2>
       </div>
 
       {/* Toggles on same line - Whole box clickable */}
@@ -94,16 +94,16 @@ export default function PageControlPanel({ className = '' }: PageControlPanelPro
               className={`
                 flex flex-col items-center space-y-1 p-2 rounded-lg border-2 transition-all duration-200
                 ${isEnabled 
-                  ? 'bg-green-900/20 border-green-600' 
-                  : 'bg-gray-700 border-gray-600'
+                  ? 'bg-accent border-accent text-ink font-semibold' 
+                  : 'bg-elevated border-white/10 text-muted hover:border-accent/40'
                 }
                 ${isTogglingThis ? 'opacity-50' : ''}
                 ${!canControlPages ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80'}
               `}
               title={!canControlPages ? 'Enable event first' : `Click to ${isEnabled ? 'disable' : 'enable'}`}
             >
-              <Icon className={`w-5 h-5 ${isEnabled ? 'text-green-400' : 'text-gray-400'}`} />
-              <div className={`font-medium text-xs ${isEnabled ? 'text-green-400' : 'text-gray-300'}`}>
+              <Icon className={`w-5 h-5 ${isEnabled ? 'text-ink' : 'text-muted'}`} />
+              <div className={`font-medium text-xs ${isEnabled ? 'text-ink' : 'text-muted'}`}>
                 {page.key === 'requests' ? 'Requests' : 'Display'}
               </div>
             </button>

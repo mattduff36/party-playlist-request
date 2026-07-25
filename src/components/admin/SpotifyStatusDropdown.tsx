@@ -145,10 +145,10 @@ export default function SpotifyStatusDropdown() {
 
   // Get status icon color
   const getStatusColor = () => {
-    if (loading) return 'text-gray-400';
-    if (status.connected) return 'text-green-400';
+    if (loading) return 'text-muted';
+    if (status.connected) return 'text-accent';
     if (status.requires_manual_reconnect) return 'text-amber-400';
-    return 'text-gray-400';
+    return 'text-muted';
   };
 
   return (
@@ -156,7 +156,7 @@ export default function SpotifyStatusDropdown() {
       {/* Status Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-gray-700 rounded-lg transition-colors"
+        className="relative p-2 hover:bg-surface rounded-lg transition-colors"
         title="Spotify Status"
       >
         <Music2 className={`w-5 h-5 ${getStatusColor()}`} />
@@ -164,7 +164,7 @@ export default function SpotifyStatusDropdown() {
         {/* Status Indicator Dot */}
         {!loading && (
           <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
-            status.connected ? 'bg-green-500' : 'bg-gray-500'
+            status.connected ? 'bg-accent' : 'bg-surface'
           }`} />
         )}
         
@@ -176,20 +176,20 @@ export default function SpotifyStatusDropdown() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-50">
+        <div className="absolute right-0 mt-2 w-80 bg-elevated rounded-lg shadow-xl border border-white/10 z-50">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-700">
+          <div className="px-4 py-3 border-b border-white/10">
             <div className="flex items-center justify-between">
-              <h3 className="text-white font-semibold flex items-center gap-2">
+              <h3 className="text-bone font-semibold flex items-center gap-2">
                 <Music2 className="w-4 h-4" />
                 Spotify Status
               </h3>
               <button
                 onClick={fetchStatus}
-                className="p-1 hover:bg-gray-700 rounded transition-colors"
+                className="p-1 hover:bg-surface rounded transition-colors"
                 title="Refresh"
               >
-                <RefreshCw className="w-4 h-4 text-gray-400" />
+                <RefreshCw className="w-4 h-4 text-muted" />
               </button>
             </div>
           </div>
@@ -198,19 +198,19 @@ export default function SpotifyStatusDropdown() {
           <div className="p-4 space-y-3">
             {loading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                <Loader2 className="w-6 h-6 text-muted animate-spin" />
               </div>
             ) : (
               <>
                 {/* Offline State Warning */}
                 {isDisabledDueToOffline ? (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-700/30 border border-gray-600">
-                    <Power className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-surface/30 border border-white/10">
+                    <Power className="w-5 h-5 text-muted flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm text-gray-300">
+                      <div className="font-medium text-sm text-muted">
                         Disabled (Event Offline)
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-xs text-muted mt-1">
                         Spotify is disabled when the event is offline. Change event status to Standby or Live to enable Spotify.
                       </div>
                     </div>
@@ -220,24 +220,24 @@ export default function SpotifyStatusDropdown() {
                     {/* Connection Status */}
                     <div className={`flex items-start gap-3 p-3 rounded-lg ${
                       status.connected 
-                        ? 'bg-green-900/20 border border-green-700/30' 
-                        : 'bg-gray-700/30 border border-gray-600'
+                        ? 'bg-accent/10 border border-accent/30' 
+                        : 'bg-surface/30 border border-white/10'
                     }`}>
                       {status.connected ? (
-                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                        <CheckCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
                       ) : (
-                        <WifiOff className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                        <WifiOff className="w-5 h-5 text-muted flex-shrink-0 mt-0.5" />
                       )}
                       
                       <div className="flex-1 min-w-0">
                         <div className={`font-medium text-sm ${
-                          status.connected ? 'text-green-400' : 'text-gray-300'
+                          status.connected ? 'text-accent' : 'text-muted'
                         }`}>
                           {status.connected ? 'Connected' : 'Not Connected'}
                         </div>
                         
                         {status.status_message && (
-                          <div className="text-xs text-gray-400 mt-1">
+                          <div className="text-xs text-muted mt-1">
                             {status.status_message}
                           </div>
                         )}
@@ -255,8 +255,8 @@ export default function SpotifyStatusDropdown() {
 
                 {/* Current Track */}
                 {status.connected && status.currentTrack && (
-                  <div className="p-3 bg-gray-700/30 rounded-lg">
-                    <div className="text-xs text-gray-400 mb-2">Now Playing</div>
+                  <div className="p-3 bg-surface/30 rounded-lg">
+                    <div className="text-xs text-muted mb-2">Now Playing</div>
                     <div className="flex gap-3">
                       {status.currentTrack.image_url && (
                         <img 
@@ -266,10 +266,10 @@ export default function SpotifyStatusDropdown() {
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium text-sm truncate">
+                        <div className="text-bone font-medium text-sm truncate">
                           {status.currentTrack.name}
                         </div>
-                        <div className="text-gray-400 text-xs truncate">
+                        <div className="text-muted text-xs truncate">
                           {status.currentTrack.artist}
                         </div>
                       </div>
@@ -279,19 +279,19 @@ export default function SpotifyStatusDropdown() {
 
                 {/* Device */}
                 {status.connected && status.device && (
-                  <div className="text-xs text-gray-400">
-                    Playing on: <span className="text-gray-300">{status.device.name}</span>
+                  <div className="text-xs text-muted">
+                    Playing on: <span className="text-muted">{status.device.name}</span>
                   </div>
                 )}
 
                 {/* Actions - only show when not offline */}
                 {!isDisabledDueToOffline && (
-                  <div className="pt-2 border-t border-gray-700 space-y-2">
+                  <div className="pt-2 border-t border-white/10 space-y-2">
                     {!status.connected ? (
                       <>
                         <button
                           onClick={handleConnect}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-bone text-sm font-medium rounded-lg transition-colors"
                         >
                           <Music2 className="w-4 h-4" />
                           Connect to Spotify
@@ -301,7 +301,7 @@ export default function SpotifyStatusDropdown() {
                         {status.requires_manual_reconnect && (
                           <button
                             onClick={handleResetState}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-muted hover:text-bone text-xs transition-colors"
                           >
                             <RefreshCw className="w-3 h-3" />
                             Reset Connection State
@@ -311,7 +311,7 @@ export default function SpotifyStatusDropdown() {
                     ) : (
                       <button
                         onClick={() => window.location.href = '/admin/spotify'}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-muted hover:text-bone text-sm transition-colors"
                       >
                         Manage Spotify
                         <ExternalLink className="w-3 h-3" />

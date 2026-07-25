@@ -46,8 +46,8 @@ export default function PageToggleIcons() {
         className={`
           relative p-2 rounded-lg border-2 transition-all
           ${requestsEnabled 
-            ? 'bg-green-900/20 border-green-600 text-green-400' 
-            : 'bg-gray-800 border-gray-600 text-gray-400'
+            ? 'bg-accent/10 border-accent text-accent' 
+            : 'bg-elevated border-white/10 text-muted'
           }
           ${!canControlPages ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}
           ${isToggling === 'requests' ? 'opacity-50' : ''}
@@ -68,8 +68,8 @@ export default function PageToggleIcons() {
         className={`
           relative p-2 rounded-lg border-2 transition-all
           ${displayEnabled 
-            ? 'bg-green-900/20 border-green-600 text-green-400' 
-            : 'bg-gray-800 border-gray-600 text-gray-400'
+            ? 'bg-accent/10 border-accent text-accent' 
+            : 'bg-elevated border-white/10 text-muted'
           }
           ${!canControlPages ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}
           ${isToggling === 'display' ? 'opacity-50' : ''}

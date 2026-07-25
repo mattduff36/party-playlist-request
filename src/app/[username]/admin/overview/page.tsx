@@ -205,17 +205,17 @@ export default function AdminOverviewPage() {
   // Safety check - ensure pagesEnabled exists
   if (!state || !state.pagesEnabled) {
     return (
-      <div className="min-h-screen bg-gray-900 p-8">
+      <div className="min-h-screen bg-ink p-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
-          <p className="text-gray-400 mt-4">Loading...</p>
+          <p className="text-muted mt-4">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
+    <div className="min-h-screen bg-ink p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Main Control Panels - Side by Side */}
@@ -226,42 +226,42 @@ export default function AdminOverviewPage() {
 
         {/* Spotify Status - Only show when event is Standby or Live */}
         {(state.status === 'standby' || state.status === 'live') && (
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <div className="border border-white/10 rounded-lg overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection('spotifyStatus')}
-              className="w-full flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700/70 transition-colors"
+              className="w-full flex items-center justify-between p-4 bg-elevated hover:bg-surface/70 transition-colors"
             >
-              <h3 className="text-lg font-semibold text-white flex items-center">
-                🎵 Spotify Status
+              <h3 className="font-display text-lg font-semibold text-bone flex items-center">
+                Spotify Status
               </h3>
               <div className="flex items-center gap-3">
                 {spotifyStatus?.connected && spotifyStatus?.device && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded-lg">
                     {(() => {
                       const DeviceIcon = getDeviceIcon(spotifyStatus.device.type);
-                      return <DeviceIcon className="w-4 h-4 text-gray-400" />;
+                      return <DeviceIcon className="w-4 h-4 text-muted" />;
                     })()}
-                    <span className="text-xs text-gray-300">{spotifyStatus.device.name}</span>
-                    <div className="flex items-center gap-1 text-gray-400">
+                    <span className="text-xs text-muted">{spotifyStatus.device.name}</span>
+                    <div className="flex items-center gap-1 text-muted">
                       <Volume2 className="w-3 h-3" />
                       <span className="text-xs">{spotifyStatus.device.volume_percent}%</span>
                     </div>
                   </div>
                 )}
                 {spotifyStatus?.connected === false && (
-                  <span className="text-sm text-gray-400 px-3 py-1.5 bg-gray-700/50 rounded-lg">Not Connected</span>
+                  <span className="text-sm text-muted px-3 py-1.5 bg-surface/60 rounded-lg">Not Connected</span>
                 )}
                 {expandedSections.spotifyStatus ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                  <ChevronUp className="w-5 h-5 text-muted" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                  <ChevronDown className="w-5 h-5 text-muted" />
                 )}
               </div>
             </button>
             
             {expandedSections.spotifyStatus && (
-              <div className="bg-gray-900">
+              <div className="bg-ink">
                 <SpotifyErrorBoundary>
                   <SpotifyStatusDisplay showHeader={false} />
                 </SpotifyErrorBoundary>
@@ -271,24 +271,24 @@ export default function AdminOverviewPage() {
         )}
 
         {/* Request Management - Full Width */}
-        <div className="border border-gray-700 rounded-lg overflow-hidden">
+        <div className="border border-white/10 rounded-lg overflow-hidden">
           <button
             type="button"
             onClick={() => toggleSection('songRequests')}
-            className="w-full flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700/70 transition-colors"
+            className="w-full flex items-center justify-between p-4 bg-elevated hover:bg-surface/70 transition-colors"
           >
-            <h3 className="text-lg font-semibold text-white flex items-center">
-              🎶 Song Requests
+            <h3 className="font-display text-lg font-semibold text-bone flex items-center">
+              Song Requests
             </h3>
             {expandedSections.songRequests ? (
-              <ChevronUp className="w-5 h-5 text-gray-400" />
+              <ChevronUp className="w-5 h-5 text-muted" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
+              <ChevronDown className="w-5 h-5 text-muted" />
             )}
           </button>
           
           {expandedSections.songRequests && (
-            <div className="bg-gray-900">
+            <div className="bg-ink">
               <RequestManagementPanel showHeader={false} />
             </div>
           )}

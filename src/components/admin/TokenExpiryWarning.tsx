@@ -70,7 +70,7 @@ export default function TokenExpiryWarning({ expiryTime, onExtendSession }: Toke
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
-      <div className={`bg-gray-800 rounded-lg p-8 max-w-md w-full shadow-2xl border ${
+      <div className={`bg-elevated rounded-lg p-8 max-w-md w-full shadow-2xl border ${
         isCritical ? 'border-red-600' : 'border-amber-600'
       } relative animate-pulse-slow`}>
         <div className="text-center mb-6">
@@ -88,7 +88,7 @@ export default function TokenExpiryWarning({ expiryTime, onExtendSession }: Toke
           }`}>
             {isCritical ? 'Session Expiring Soon!' : 'Session Warning'}
           </h3>
-          <p className="text-gray-300 text-sm mb-4">
+          <p className="text-muted text-sm mb-4">
             Your admin session will expire in:
           </p>
           <div className={`text-4xl font-mono font-bold mb-4 ${
@@ -96,7 +96,7 @@ export default function TokenExpiryWarning({ expiryTime, onExtendSession }: Toke
           }`}>
             {timeRemaining}
           </div>
-          <p className="text-gray-400 text-sm">
+          <p className="text-muted text-sm">
             {isCritical 
               ? 'Extend your session now to avoid being logged out!'
               : 'Would you like to extend your session?'}
@@ -109,8 +109,8 @@ export default function TokenExpiryWarning({ expiryTime, onExtendSession }: Toke
             disabled={isExtending}
             className={`w-full font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center ${
               isCritical 
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-amber-600 hover:bg-amber-700 text-white'
+                ? 'bg-red-600 hover:bg-red-700 text-bone'
+                : 'bg-amber-600 hover:bg-amber-700 text-bone'
             }`}
           >
             {isExtending ? (
@@ -128,13 +128,13 @@ export default function TokenExpiryWarning({ expiryTime, onExtendSession }: Toke
 
           <button
             onClick={handleLogout}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            className="w-full bg-surface hover:bg-surface text-bone font-medium py-3 px-4 rounded-lg transition-colors"
           >
             Logout Now
           </button>
         </div>
 
-        <p className="text-xs text-gray-500 text-center mt-4">
+        <p className="text-xs text-faint text-center mt-4">
           Your event will remain active if you extend your session.
         </p>
       </div>

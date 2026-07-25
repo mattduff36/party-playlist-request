@@ -64,21 +64,21 @@ export default function EventTitleEditor() {
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-1.5">
+      <div className="flex items-center gap-2 bg-surface rounded-lg px-3 py-1.5">
         <input
           ref={inputRef}
           type="text"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="bg-transparent text-white font-semibold text-base outline-none min-w-[200px] max-w-[400px]"
+          className="bg-transparent text-bone font-semibold text-base outline-none min-w-[200px] max-w-[400px]"
           disabled={isSaving}
           maxLength={100}
         />
         <button
           onClick={handleSave}
           disabled={isSaving || !editValue.trim()}
-          className="p-1 hover:bg-green-600 rounded transition-colors text-green-400 hover:text-white disabled:opacity-50"
+          className="p-1 hover:bg-accent-hover rounded transition-colors text-accent hover:text-bone disabled:opacity-50"
           title="Save"
         >
           <Check className="w-4 h-4" />
@@ -86,7 +86,7 @@ export default function EventTitleEditor() {
         <button
           onClick={handleCancel}
           disabled={isSaving}
-          className="p-1 hover:bg-red-600 rounded transition-colors text-red-400 hover:text-white disabled:opacity-50"
+          className="p-1 hover:bg-red-600 rounded transition-colors text-red-400 hover:text-bone disabled:opacity-50"
           title="Cancel"
         >
           <X className="w-4 h-4" />
@@ -98,11 +98,11 @@ export default function EventTitleEditor() {
   return (
     <button
       onClick={handleStartEdit}
-      className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-700 rounded-lg transition-colors group"
+      className="flex items-center gap-2 px-3 py-1.5 hover:bg-surface rounded-lg transition-colors group"
       title="Click to edit event title"
     >
-      <span className="text-white font-semibold text-base">{currentTitle}</span>
-      <Pencil className="w-4 h-4 text-gray-400 group-hover:text-accent transition-colors" />
+      <span className="text-bone font-semibold text-base">{currentTitle}</span>
+      <Pencil className="w-4 h-4 text-muted group-hover:text-accent transition-colors" />
     </button>
   );
 }

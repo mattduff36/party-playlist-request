@@ -140,7 +140,7 @@ describe('StateControlPanel', () => {
     render(<StateControlPanel />);
     
     const liveButton = screen.getByText('Live').closest('button');
-    expect(liveButton).toHaveClass('bg-green-900/20', 'border-green-600', 'text-green-400');
+    expect(liveButton).toHaveClass('bg-accent', 'border-accent', 'text-ink');
   });
 
   it('applies correct styling for inactive states', () => {
@@ -149,7 +149,7 @@ describe('StateControlPanel', () => {
     const standbyButton = screen.getByText('Standby').closest('button');
     const liveButton = screen.getByText('Live').closest('button');
     
-    expect(standbyButton).toHaveClass('bg-gray-700', 'border-gray-600', 'text-gray-400');
-    expect(liveButton).toHaveClass('bg-gray-700', 'border-gray-600', 'text-gray-400');
+    expect(standbyButton).toHaveClass('bg-elevated', 'border-white/10', 'text-muted');
+    expect(liveButton).toHaveClass('bg-elevated', 'border-white/10', 'text-muted');
   });
 });

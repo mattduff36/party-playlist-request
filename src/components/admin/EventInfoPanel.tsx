@@ -60,10 +60,10 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-elevated rounded-lg p-6">
         <div className="flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-accent mr-3" />
-          <span className="text-gray-400">Loading event info...</span>
+          <span className="text-muted">Loading event info...</span>
         </div>
       </div>
     );
@@ -71,8 +71,8 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
 
   if (!event || state?.status === 'offline') {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <p className="text-gray-400 text-center">
+      <div className="bg-elevated rounded-lg p-6">
+        <p className="text-muted text-center">
           {state?.status === 'offline' 
             ? 'No active event - Set event to Live or Standby to start'
             : 'No active event'}
@@ -86,23 +86,23 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
   const displayUrl = `${window.location.origin}/${username}/display/${event.pin}`;
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 space-y-6">
+    <div className="bg-elevated rounded-lg p-6 space-y-6">
       {showHeader && (
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Event Information</h2>
+          <h2 className="text-xl font-bold text-bone">Event Information</h2>
           <div className="flex items-center space-x-4">
             {/* PIN Display - Compact */}
             <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
               <Lock className="h-4 w-4 text-accent" />
-              <span className="text-gray-400 text-sm">PIN:</span>
-              <span className="text-2xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
+              <span className="text-muted text-sm">PIN:</span>
+              <span className="text-2xl font-bold text-bone tracking-wider font-mono">{event.pin}</span>
             </div>
             <button
               onClick={fetchEvent}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 hover:bg-surface rounded-lg transition-colors"
               title="Refresh"
             >
-              <RefreshCw className="h-5 w-5 text-gray-400" />
+              <RefreshCw className="h-5 w-5 text-muted" />
             </button>
           </div>
         </div>
@@ -110,34 +110,34 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
 
       {/* Request URL */}
       <div className="space-y-3">
-        <label className="block text-gray-300 font-medium">Request Page URL</label>
+        <label className="block text-muted font-medium">Request Page URL</label>
         <div className="flex items-center space-x-2">
           <input
             type="text"
             value={requestUrl}
             readOnly
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+            className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm"
           />
           <button
             onClick={() => copyToClipboard(requestUrl, 'requestUrl')}
-            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
             title="Copy URL"
           >
             {copied === 'requestUrl' ? (
-              <CheckCircle className="h-5 w-5 text-green-400" />
+              <CheckCircle className="h-5 w-5 text-accent" />
             ) : (
-              <Copy className="h-5 w-5 text-gray-400" />
+              <Copy className="h-5 w-5 text-muted" />
             )}
           </button>
         </div>
-        <p className="text-gray-500 text-xs">
+        <p className="text-faint text-xs">
           Guests will need to enter the PIN when they visit this URL
         </p>
       </div>
 
       {/* QR Code URL (with bypass token) */}
       <div className="space-y-3">
-        <label className="block text-gray-300 font-medium flex items-center">
+        <label className="block text-muted font-medium flex items-center">
           <QrCode className="h-5 w-5 mr-2 text-accent" />
           QR Code URL (No PIN Required)
         </label>
@@ -146,28 +146,28 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
             type="text"
             value={requestUrlWithBypass}
             readOnly
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+            className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
           />
           <button
             onClick={() => copyToClipboard(requestUrlWithBypass, 'qrUrl')}
-            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
             title="Copy URL"
           >
             {copied === 'qrUrl' ? (
-              <CheckCircle className="h-5 w-5 text-green-400" />
+              <CheckCircle className="h-5 w-5 text-accent" />
             ) : (
-              <Copy className="h-5 w-5 text-gray-400" />
+              <Copy className="h-5 w-5 text-muted" />
             )}
           </button>
         </div>
-        <p className="text-gray-500 text-xs">
+        <p className="text-faint text-xs">
           Use this URL to generate QR codes - guests won't need the PIN
         </p>
       </div>
 
       {/* Display Screen URL */}
-      <div className="space-y-3 border-t border-gray-700 pt-6">
-        <label className="block text-gray-300 font-medium flex items-center">
+      <div className="space-y-3 border-t border-white/10 pt-6">
+        <label className="block text-muted font-medium flex items-center">
           <Monitor className="h-5 w-5 mr-2 text-accent" />
           Display Screen URL
         </label>
@@ -176,17 +176,17 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
             type="text"
             value={displayUrl}
             readOnly
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+            className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
           />
           <button
             onClick={() => copyToClipboard(displayUrl, 'displayUrl')}
-            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
             title="Copy URL"
           >
             {copied === 'displayUrl' ? (
-              <CheckCircle className="h-5 w-5 text-green-400" />
+              <CheckCircle className="h-5 w-5 text-accent" />
             ) : (
-              <Copy className="h-5 w-5 text-gray-400" />
+              <Copy className="h-5 w-5 text-muted" />
             )}
           </button>
         </div>
@@ -194,17 +194,17 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
           href={displayUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center"
+          className="block w-full bg-surface hover:bg-surface text-bone font-medium py-2 px-4 rounded-lg transition-colors text-center"
         >
           Open Display Screen →
         </a>
-        <p className="text-gray-500 text-xs">
+        <p className="text-faint text-xs">
           Open this URL on your display screen (TV, projector, etc.) - Uses event PIN for access
         </p>
       </div>
 
       {/* Event Expiry */}
-      <div className="text-center text-gray-500 text-xs border-t border-gray-700 pt-4">
+      <div className="text-center text-faint text-xs border-t border-white/10 pt-4">
         Event expires: {new Date(event.expires_at).toLocaleString()}
       </div>
     </div>

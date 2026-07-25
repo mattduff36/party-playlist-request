@@ -124,11 +124,11 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-elevated rounded-lg p-6">
           <div className="animate-pulse">
-            <div className="h-4 bg-gray-700 rounded w-1/4 mb-4"></div>
-            <div className="h-8 bg-gray-700 rounded w-1/2 mb-4"></div>
-            <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+            <div className="h-4 bg-surface rounded w-1/4 mb-4"></div>
+            <div className="h-8 bg-surface rounded w-1/2 mb-4"></div>
+            <div className="h-4 bg-surface rounded w-3/4"></div>
           </div>
         </div>
       </div>
@@ -137,13 +137,13 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-white mb-6">Event Settings</h2>
+      <div className="bg-elevated rounded-lg p-6">
+        <h2 className="text-2xl font-bold text-bone mb-6">Event Settings</h2>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Event Title */}
           <div>
-            <label htmlFor="event_title" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="event_title" className="block text-sm font-medium text-muted mb-2">
               Event Title
             </label>
             <input
@@ -152,17 +152,17 @@ export default function SettingsPage() {
               name="event_title"
               value={formData.event_title}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
               placeholder="Enter event title..."
             />
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-faint text-sm mt-1">
               This will be displayed on the main request page
             </p>
           </div>
 
           {/* Request Limit */}
           <div>
-            <label htmlFor="request_limit" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="request_limit" className="block text-sm font-medium text-muted mb-2">
               Request Limit per User
             </label>
             <input
@@ -173,17 +173,17 @@ export default function SettingsPage() {
               onChange={handleInputChange}
               min="1"
               max="50"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              className="w-full px-4 py-3 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
             />
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-faint text-sm mt-1">
               Maximum number of songs each user can request
             </p>
           </div>
 
 
           {/* Request Management Section */}
-          <div className="border-t border-gray-700 pt-6">
-            <h3 className="text-lg font-semibold text-white mb-4">🎵 Request Management</h3>
+          <div className="border-t border-white/10 pt-6">
+            <h3 className="text-lg font-semibold text-bone mb-4">🎵 Request Management</h3>
             
             <div className="space-y-4">
               {/* Auto-approve checkbox */}
@@ -195,13 +195,13 @@ export default function SettingsPage() {
                     name="auto_approve"
                     checked={formData.auto_approve}
                     onChange={handleCheckboxChange}
-                    className="w-4 h-4 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
+                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
                   />
-                  <label htmlFor="auto_approve" className="ml-3 text-sm font-medium text-gray-300">
+                  <label htmlFor="auto_approve" className="ml-3 text-sm font-medium text-muted">
                     Auto-approve all requests
                   </label>
                 </div>
-                <p className="text-gray-500 text-sm mt-2 ml-7">
+                <p className="text-faint text-sm mt-2 ml-7">
                   When enabled, all song requests will be automatically approved and added to the queue
                 </p>
               </div>
@@ -215,13 +215,13 @@ export default function SettingsPage() {
                     name="decline_explicit"
                     checked={formData.decline_explicit}
                     onChange={handleCheckboxChange}
-                    className="w-4 h-4 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
+                    className="w-4 h-4 text-accent bg-surface border-white/10 rounded focus:ring-accent focus:ring-2"
                   />
-                  <label htmlFor="decline_explicit" className="ml-3 text-sm font-medium text-gray-300">
+                  <label htmlFor="decline_explicit" className="ml-3 text-sm font-medium text-muted">
                     Auto-decline explicit songs
                   </label>
                 </div>
-                <p className="text-gray-500 text-sm mt-2 ml-7">
+                <p className="text-faint text-sm mt-2 ml-7">
                   When enabled, any song request marked as EXPLICIT will be automatically declined
                 </p>
               </div>
@@ -233,7 +233,7 @@ export default function SettingsPage() {
             <div>
               {saveMessage && (
                 <p className={`text-sm ${
-                  saveMessage.includes('Error') ? 'text-red-400' : 'text-green-400'
+                  saveMessage.includes('Error') ? 'text-red-400' : 'text-accent'
                 }`}>
                   {saveMessage}
                 </p>
@@ -242,7 +242,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center px-6 py-3 bg-accent hover:bg-accent disabled:bg-accent/40 text-white font-medium rounded-lg transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-accent hover:bg-accent disabled:bg-accent/40 text-bone font-medium rounded-lg transition-colors"
             >
               {saving ? (
                 <>
@@ -262,17 +262,17 @@ export default function SettingsPage() {
 
 
       {/* Event Information */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">ℹ️ Event Information</h3>
+      <div className="bg-elevated rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-bone mb-4">ℹ️ Event Information</h3>
         
         {loadingEvent ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-accent mr-3" />
-            <span className="text-gray-400">Loading event info...</span>
+            <span className="text-muted">Loading event info...</span>
           </div>
         ) : !event || state?.status === 'offline' ? (
-          <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-600">
-            <p className="text-gray-400 text-center">
+          <div className="p-4 bg-surface/30 rounded-lg border border-white/10">
+            <p className="text-muted text-center">
               {state?.status === 'offline' 
                 ? 'No active event - Set event to Live or Standby to view information'
                 : 'No active event'}
@@ -283,45 +283,45 @@ export default function SettingsPage() {
             {/* Event PIN */}
             <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent/40 rounded-lg">
               <div>
-                <h4 className="text-white font-medium mb-1">Event PIN</h4>
-                <p className="text-gray-400 text-sm">Guests need this PIN to access the request page</p>
+                <h4 className="text-bone font-medium mb-1">Event PIN</h4>
+                <p className="text-muted text-sm">Guests need this PIN to access the request page</p>
               </div>
               <div className="flex items-center space-x-2">
                 <Lock className="h-5 w-5 text-accent" />
-                <span className="text-3xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
+                <span className="text-3xl font-bold text-bone tracking-wider font-mono">{event.pin}</span>
               </div>
             </div>
 
             {/* Request URL */}
             <div className="space-y-3">
-              <label className="block text-gray-300 font-medium">Request Page URL</label>
+              <label className="block text-muted font-medium">Request Page URL</label>
               <div className="flex items-center space-x-2">
                 <input
                   type="text"
                   value={`${window.location.origin}/${username}/request`}
                   readOnly
-                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+                  className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm"
                 />
                 <button
                   onClick={() => copyToClipboard(`${window.location.origin}/${username}/request`, 'requestUrl')}
-                  className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
                   title="Copy URL"
                 >
                   {copied === 'requestUrl' ? (
-                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <CheckCircle className="h-5 w-5 text-accent" />
                   ) : (
-                    <Copy className="h-5 w-5 text-gray-400" />
+                    <Copy className="h-5 w-5 text-muted" />
                   )}
                 </button>
               </div>
-              <p className="text-gray-500 text-xs">
+              <p className="text-faint text-xs">
                 Guests will need to enter the PIN when they visit this URL
               </p>
             </div>
 
             {/* QR Code URL (with bypass token) */}
             <div className="space-y-3">
-              <label className="block text-gray-300 font-medium flex items-center">
+              <label className="block text-muted font-medium flex items-center">
                 <QrCode className="h-5 w-5 mr-2 text-accent" />
                 QR Code URL (No PIN Required)
               </label>
@@ -330,28 +330,28 @@ export default function SettingsPage() {
                   type="text"
                   value={`${window.location.origin}/${username}/request?bt=${event.bypass_token}`}
                   readOnly
-                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+                  className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
                 />
                 <button
                   onClick={() => copyToClipboard(`${window.location.origin}/${username}/request?bt=${event.bypass_token}`, 'qrUrl')}
-                  className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
                   title="Copy URL"
                 >
                   {copied === 'qrUrl' ? (
-                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <CheckCircle className="h-5 w-5 text-accent" />
                   ) : (
-                    <Copy className="h-5 w-5 text-gray-400" />
+                    <Copy className="h-5 w-5 text-muted" />
                   )}
                 </button>
               </div>
-              <p className="text-gray-500 text-xs">
+              <p className="text-faint text-xs">
                 Use this URL to generate QR codes - guests won't need the PIN
               </p>
             </div>
 
             {/* Display Screen URL */}
-            <div className="space-y-3 border-t border-gray-700 pt-6">
-              <label className="block text-gray-300 font-medium flex items-center">
+            <div className="space-y-3 border-t border-white/10 pt-6">
+              <label className="block text-muted font-medium flex items-center">
                 <Monitor className="h-5 w-5 mr-2 text-accent" />
                 Display Screen URL
               </label>
@@ -360,27 +360,27 @@ export default function SettingsPage() {
                   type="text"
                   value={`${window.location.origin}/${username}/display/${event.pin}`}
                   readOnly
-                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm overflow-x-auto"
+                  className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
                 />
                 <button
                   onClick={() => copyToClipboard(`${window.location.origin}/${username}/display/${event.pin}`, 'displayUrl')}
-                  className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                  className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
                   title="Copy URL"
                 >
                   {copied === 'displayUrl' ? (
-                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <CheckCircle className="h-5 w-5 text-accent" />
                   ) : (
-                    <Copy className="h-5 w-5 text-gray-400" />
+                    <Copy className="h-5 w-5 text-muted" />
                   )}
                 </button>
               </div>
-              <p className="text-gray-500 text-xs">
+              <p className="text-faint text-xs">
                 Open this URL on your display screen (TV, projector, etc.) - Uses event PIN for access
               </p>
             </div>
 
             {/* Event Expiry */}
-            <div className="text-center text-gray-500 text-xs border-t border-gray-700 pt-4">
+            <div className="text-center text-faint text-xs border-t border-white/10 pt-4">
               Event expires: {new Date(event.expires_at).toLocaleString()}
             </div>
           </div>
@@ -388,17 +388,17 @@ export default function SettingsPage() {
       </div>
 
       {/* Spotify Setup */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">🎵 Spotify Integration</h3>
+      <div className="bg-elevated rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-bone mb-4">🎵 Spotify Integration</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-surface rounded-lg">
             <div>
-              <h4 className="text-white font-medium">Spotify Connection</h4>
-              <p className="text-gray-400 text-sm">Connect your Spotify account to control music playback</p>
+              <h4 className="text-bone font-medium">Spotify Connection</h4>
+              <p className="text-muted text-sm">Connect your Spotify account to control music playback</p>
             </div>
             <button
               onClick={handleSpotifyConnect}
-              className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-accent hover:bg-accent-hover text-bone rounded-lg transition-colors"
             >
               Connect Spotify
             </button>

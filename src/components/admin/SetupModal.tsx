@@ -103,19 +103,19 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+      <div className="bg-ink rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
         {/* Header */}
-        <div className="p-6 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-900 z-10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-ink z-10">
           <div className="flex items-center space-x-3">
-            <Music2 className="w-8 h-8 text-[#1DB954]" />
+            <Music2 className="w-8 h-8 text-accent" />
             <div>
-              <h2 className="text-2xl font-bold text-white">Party Setup</h2>
-              <p className="text-gray-400 text-sm">Configure your event settings</p>
+              <h2 className="text-2xl font-bold text-bone">Party Setup</h2>
+              <p className="text-muted text-sm">Configure your event settings</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-muted hover:text-bone transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -128,7 +128,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
             <div className="space-y-6">
               {/* Event Title */}
               <div>
-                <label className="block text-white font-medium mb-2">
+                <label className="block text-bone font-medium mb-2">
                   What is the name of the Party?
                 </label>
                 <input
@@ -136,13 +136,13 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   value={formData.eventTitle}
                   onChange={(e) => setFormData({ ...formData, eventTitle: e.target.value })}
                   placeholder="Party Playlist!"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                  className="w-full px-4 py-3 bg-elevated border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                 />
               </div>
 
               {/* Welcome Message */}
               <div>
-                <label className="block text-white font-medium mb-2">
+                <label className="block text-bone font-medium mb-2">
                   What is the Welcome message?
                 </label>
                 <input
@@ -150,15 +150,15 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   value={formData.welcomeMessage}
                   onChange={(e) => setFormData({ ...formData, welcomeMessage: e.target.value })}
                   placeholder="Welcome to the Party!"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                  className="w-full px-4 py-3 bg-elevated border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                 />
               </div>
 
               {/* Auto-decline explicit */}
-              <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="flex items-center justify-between p-4 bg-elevated rounded-lg border border-white/10">
                 <div>
-                  <div className="text-white font-medium">Auto-decline explicit songs?</div>
-                  <div className="text-gray-400 text-sm">Automatically reject songs marked as explicit</div>
+                  <div className="text-bone font-medium">Auto-decline explicit songs?</div>
+                  <div className="text-muted text-sm">Automatically reject songs marked as explicit</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -167,15 +167,15 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                     onChange={(e) => setFormData({ ...formData, autoDeclineExplicit: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1DB954]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1DB954]"></div>
+                  <div className="w-11 h-6 bg-surface peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/20 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>
               </div>
 
               {/* Auto-approve */}
-              <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="flex items-center justify-between p-4 bg-elevated rounded-lg border border-white/10">
                 <div>
-                  <div className="text-white font-medium">Auto-approve all requests?</div>
-                  <div className="text-gray-400 text-sm">Approve all song requests automatically</div>
+                  <div className="text-bone font-medium">Auto-approve all requests?</div>
+                  <div className="text-muted text-sm">Approve all song requests automatically</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -184,15 +184,15 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                     onChange={(e) => setFormData({ ...formData, autoApprove: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1DB954]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1DB954]"></div>
+                  <div className="w-11 h-6 bg-surface peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/20 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>
               </div>
 
               {/* Max requests per user */}
               <div>
-                <label className="block text-white font-medium mb-2">
+                <label className="block text-bone font-medium mb-2">
                   Maximum number of requests per user?
-                  <span className="text-gray-400 text-sm ml-2">(Type 0 for unlimited)</span>
+                  <span className="text-muted text-sm ml-2">(Type 0 for unlimited)</span>
                 </label>
                 <input
                   type="text"
@@ -207,7 +207,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                     }
                   }}
                   placeholder="10"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-full px-4 py-3 bg-elevated border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
@@ -223,7 +223,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
               <button
                 onClick={handleSaveSettings}
                 disabled={isSaving || formData.maxRequestsPerUser === ''}
-                className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-accent hover:bg-accent-hover text-black font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
                   <>
@@ -243,16 +243,16 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
             <div className="space-y-6">
               {isSpotifyConnected ? (
                 <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Check className="w-10 h-10 text-green-400" />
+                  <div className="w-20 h-20 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-10 h-10 text-accent" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">You're all set!</h3>
-                  <p className="text-gray-400 mb-6">
+                  <h3 className="text-2xl font-bold text-bone mb-2">You're all set!</h3>
+                  <p className="text-muted mb-6">
                     Your Spotify account is connected and settings are configured.
                   </p>
                   <button
                     onClick={handleComplete}
-                    className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
+                    className="bg-accent hover:bg-accent-hover text-black font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
                   >
                     <Check className="w-5 h-5" />
                     <span>Complete Setup</span>
@@ -263,13 +263,13 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Music2 className="w-10 h-10 text-yellow-400" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">One more step!</h3>
-                  <p className="text-gray-400 mb-6">
+                  <h3 className="text-2xl font-bold text-bone mb-2">One more step!</h3>
+                  <p className="text-muted mb-6">
                     Connect your Spotify account to start playing music.
                   </p>
                   <button
                     onClick={handleConnectSpotify}
-                    className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
+                    className="bg-accent hover:bg-accent-hover text-black font-bold py-3 px-8 rounded-lg transition-all duration-300 inline-flex items-center space-x-2"
                   >
                     <Music2 className="w-5 h-5" />
                     <span>Connect Spotify Account</span>
