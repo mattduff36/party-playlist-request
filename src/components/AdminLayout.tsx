@@ -5,13 +5,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import { 
   Home,
   LogOut,
-  Music,
   Play,
   Settings,
   Monitor,
   Eye,
   Lock,
-  ExternalLink,
   Wand2,
   Shield
 } from 'lucide-react';
@@ -27,6 +25,8 @@ import EventTitleEditor from '@/components/admin/EventTitleEditor';
 import SetupPartyModal from '@/components/admin/SetupPartyModal';
 import TokenExpiryWarning from '@/components/admin/TokenExpiryWarning';
 import SetupModal from '@/components/admin/SetupModal';
+import AdminQueueSidebar from '@/components/admin/AdminQueueSidebar';
+import SidebarSpotifyControls from '@/components/admin/SidebarSpotifyControls';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { APP_VERSION } from '@/lib/app-version';
 
@@ -78,6 +78,9 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   };
 
   const activeTab = getActiveTab();
+  const showQueueSidebar =
+    activeTab === 'overview' &&
+    (state?.status === 'standby' || state?.status === 'live');
 
   // Get username from pathname if not provided
   const displayUsername = username || pathname?.split('/')[1] || 'DJ Admin';
@@ -260,8 +263,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             v{APP_VERSION}
           </p>
         </div>
-        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-          <div className="flex-1 px-3 space-y-1">
+        <div className="flex-1 flex flex-col min-h-0 pt-5 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 space-y-1 pb-2">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -295,24 +298,21 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                 </button>
               );
             })}
-          </div>
-          <div className="px-3 pt-4 border-t border-gray-700 space-y-2">
-            {/* Open Display Screen Button */}
+
             {displayUrl && (
               <a
                 href={displayUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-accent hover:text-white transition-colors"
+                className="w-full flex items-center px-4 py-3 mb-2 rounded-lg text-muted hover:bg-surface hover:text-bone transition-colors"
               >
                 <Monitor className="w-5 h-5 mr-3" />
                 <span>Open Display</span>
               </a>
             )}
-            {/* Setup Button */}
             <button
               onClick={() => setShowSetupModal(true)}
-              className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-accent hover:text-white transition-colors"
+              className="w-full flex items-center px-4 py-3 mb-2 rounded-lg text-muted hover:bg-surface hover:text-bone transition-colors"
             >
               <Wand2 className="w-5 h-5 mr-3" />
               <span>Setup</span>
@@ -320,12 +320,16 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             {isSuperAdmin && (
               <Link
                 href="/superadmin"
-                className="w-full flex items-center px-4 py-3 rounded-lg text-red-400 hover:bg-white/10 transition-colors"
+                className="w-full flex items-center px-4 py-3 mb-2 rounded-lg text-red-400 hover:bg-white/10 transition-colors"
               >
                 <Shield className="w-5 h-5 mr-3" />
                 <span>Super Admin</span>
               </Link>
             )}
+          </div>
+
+          <div className="shrink-0 border-t border-white/10 max-h-[45%] overflow-y-auto">
+            <SidebarSpotifyControls />
           </div>
         </div>
       </div>
@@ -424,49 +428,55 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   return (
     <>
       <NotificationInitializer />
-      <div className="min-h-screen bg-ink text-bone">
-      <Sidebar />
+      <div className="min-h-screen bg-ink text-bone md:h-screen md:overflow-hidden">
+        <Sidebar />
         <TopNav />
         
-        <div className="md:pl-64">
-          <div className="pb-20 md:pb-0">
-            {/* Top action bar (desktop) */}
-            <div className="hidden md:flex items-center justify-between px-6 py-4 bg-elevated border-b border-white/10">
-              <div className="flex items-center space-x-4">
-                <EventStateDropdown />
-                <SpotifyStatusDropdown />
-                <PageToggleIcons />
-              </div>
-              <div className="flex-1 flex justify-center">
-                <EventTitleEditor />
-              </div>
-              <div className="flex items-center space-x-3">
-                {eventPin && (
-                  <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
-                    <Lock className="h-4 w-4 text-accent" />
-                    <span className="text-gray-400 text-sm">PIN:</span>
-                    <span className="text-xl font-bold text-white tracking-wider font-mono">{eventPin}</span>
-                  </div>
-                )}
-                <NotificationsDropdown />
-                <button
-                  onClick={handleLogout}
-                  className="p-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
+        <div className="md:pl-64 md:h-full md:flex md:flex-col">
+          {/* Top action bar (desktop) — full width above main + queue */}
+          <div className="hidden md:flex shrink-0 items-center justify-between px-6 py-4 bg-elevated border-b border-white/10">
+            <div className="flex items-center space-x-4">
+              <EventStateDropdown />
+              <SpotifyStatusDropdown />
+              <PageToggleIcons />
             </div>
-            
+            <div className="flex-1 flex justify-center">
+              <EventTitleEditor />
+            </div>
+            <div className="flex items-center space-x-3">
+              {eventPin && (
+                <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
+                  <Lock className="h-4 w-4 text-accent" />
+                  <span className="text-gray-400 text-sm">PIN:</span>
+                  <span className="text-xl font-bold text-white tracking-wider font-mono">{eventPin}</span>
+                </div>
+              )}
+              <NotificationsDropdown />
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-1 min-h-0 flex-col lg:flex-row pb-20 md:pb-0">
             {/* Main content — gate until admin data ready */}
-            <main className="p-6">
+            <main className="flex-1 min-w-0 overflow-y-auto p-6">
               {adminDataLoading ? (
                 <PageLoader label="Loading admin data..." fullScreen={false} />
               ) : (
                 children
               )}
             </main>
+
+            {showQueueSidebar && !adminDataLoading && (
+              <aside className="w-full lg:w-72 xl:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-white/10 bg-elevated lg:overflow-y-auto">
+                <AdminQueueSidebar />
+              </aside>
+            )}
           </div>
         </div>
 

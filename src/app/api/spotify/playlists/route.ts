@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { spotifyService } from '@/lib/spotify';
+import {
+  SPOTIFY_LIKED_SONGS_ID,
+  spotifyService,
+  type SpotifyPlaylist,
+} from '@/lib/spotify';
 
 function parseSpotifyStatus(error: unknown): number | null {
   if (!(error instanceof Error)) return null;
@@ -51,9 +55,28 @@ export async function GET(req: NextRequest) {
     try {
       const playlists = await spotifyService.getUserPlaylists(userId);
 
+      // Liked Songs always pinned first (saved tracks via GET /me/tracks)
+      let liked: SpotifyPlaylist = {
+        id: SPOTIFY_LIKED_SONGS_ID,
+        name: 'Liked Songs',
+        uri: 'spotify:collection:tracks',
+        collaborative: false,
+        public: false,
+        track_count: 0,
+        owner_name: 'You',
+      };
+      const hasLibraryScopes = await spotifyService.hasLibraryReadScopes(userId);
+      if (hasLibraryScopes) {
+        try {
+          liked = await spotifyService.getLikedSongsPlaylist(userId);
+        } catch (likedError) {
+          console.warn('Could not load Liked Songs meta; using stub entry:', likedError);
+        }
+      }
+
       return NextResponse.json({
         connected: true,
-        playlists,
+        playlists: [liked, ...playlists],
         needs_reconnect: false,
       });
     } catch (error) {

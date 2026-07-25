@@ -19,6 +19,7 @@ import {
   Power
 } from 'lucide-react';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
+import { markSpotifyOAuthPending } from '@/lib/spotify-oauth-client';
 
 interface SpotifyStatus {
   connected: boolean;
@@ -89,6 +90,7 @@ export default function SpotifyStatusDropdown() {
   // Connect to Spotify — navigate directly so the browser follows the 307 to Spotify.
   // Do not fetch() this endpoint: it returns a redirect, not JSON, so fetch fails silently.
   function handleConnect() {
+    markSpotifyOAuthPending();
     window.location.href = '/api/spotify/auth';
   }
 

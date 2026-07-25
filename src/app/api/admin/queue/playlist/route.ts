@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { getSetting } from '@/lib/db';
-import { spotifyService } from '@/lib/spotify';
+import { isLikedSongsPlaylistId, spotifyService } from '@/lib/spotify';
 
 /**
- * Queue every readable track from a Spotify playlist.
- * Read-only for the playlist itself — never writes to the playlist.
+ * Queue every readable track from a Spotify playlist (or Liked Songs).
+ * Read-only for the playlist itself; never writes to the playlist.
  * Spotify's queue API accepts one track URI at a time.
  */
 export async function POST(req: NextRequest) {
@@ -24,7 +24,11 @@ export async function POST(req: NextRequest) {
         ? body.device_id.trim()
         : (await getSetting('target_device_id')) || undefined;
 
-    if (!playlistId || !/^[a-zA-Z0-9]{10,40}$/.test(playlistId)) {
+    const isLikedSongs = isLikedSongsPlaylistId(playlistId);
+    if (
+      !playlistId ||
+      (!isLikedSongs && !/^[a-zA-Z0-9]{10,40}$/.test(playlistId))
+    ) {
       return NextResponse.json({ error: 'Valid playlist_id is required' }, { status: 400 });
     }
 
@@ -35,8 +39,9 @@ export async function POST(req: NextRequest) {
     if (tracks.length === 0) {
       return NextResponse.json(
         {
-          error:
-            'No queueable tracks found. Spotify only exposes tracks for playlists you own or collaborate on.',
+          error: isLikedSongs
+            ? 'No queueable tracks found in Liked Songs.'
+            : 'No queueable tracks found. Spotify only exposes tracks for playlists you own or collaborate on.',
           queued: 0,
           failed: 0,
         },

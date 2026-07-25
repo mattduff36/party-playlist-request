@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
+  Heart,
   ListMusic,
   Loader2,
   ListPlus,
@@ -11,6 +12,8 @@ import {
   Search,
 } from 'lucide-react';
 import Checkbox from '@/components/ui/Checkbox';
+
+const LIKED_SONGS_ID = 'liked-songs';
 
 interface PlaylistBrowserProps {
   isConnected: boolean;
@@ -26,6 +29,10 @@ interface SpotifyPlaylistRow {
   track_count: number;
   owner_name?: string;
   owner_id?: string;
+}
+
+function isLikedSongs(playlist: SpotifyPlaylistRow | null): boolean {
+  return playlist?.id === LIKED_SONGS_ID;
 }
 
 interface SpotifyPlaylistTrackRow {
@@ -104,7 +111,11 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
 
       setTracks(Array.isArray(data.tracks) ? data.tracks : []);
       if (data.truncated) {
-        setStatusMessage('Showing the first 200 tracks from this playlist.');
+        setStatusMessage(
+          isLikedSongs(playlist)
+            ? 'Showing the first 200 tracks from Liked Songs.'
+            : 'Showing the first 200 tracks from this playlist.'
+        );
       }
     } catch (err) {
       setTracks([]);
@@ -308,35 +319,47 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
             </div>
           ) : (
             <ul className="space-y-1 max-h-80 overflow-y-auto">
-              {filteredPlaylists.map((playlist) => (
-                <li key={playlist.id}>
-                  <button
-                    type="button"
-                    onClick={() => openPlaylist(playlist)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface hover:bg-surface/80 border border-transparent hover:border-white/10 transition-colors text-left"
-                  >
-                    {playlist.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={playlist.image}
-                        alt=""
-                        className="w-10 h-10 rounded object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded bg-elevated flex items-center justify-center flex-shrink-0">
-                        <ListMusic className="w-4 h-4 text-faint" />
+              {filteredPlaylists.map((playlist) => {
+                const liked = isLikedSongs(playlist);
+                return (
+                  <li key={playlist.id}>
+                    <button
+                      type="button"
+                      onClick={() => openPlaylist(playlist)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface hover:bg-surface/80 border border-transparent hover:border-white/10 transition-colors text-left"
+                    >
+                      {playlist.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={playlist.image}
+                          alt=""
+                          className="w-10 h-10 rounded object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${
+                            liked ? 'bg-accent/15' : 'bg-elevated'
+                          }`}
+                        >
+                          {liked ? (
+                            <Heart className="w-4 h-4 text-accent fill-accent" />
+                          ) : (
+                            <ListMusic className="w-4 h-4 text-faint" />
+                          )}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-bone font-medium truncate">{playlist.name}</div>
+                        <div className="text-faint text-xs truncate">
+                          {playlist.track_count} track
+                          {playlist.track_count === 1 ? '' : 's'}
+                          {playlist.owner_name ? ` · ${playlist.owner_name}` : ''}
+                        </div>
                       </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-bone font-medium truncate">{playlist.name}</div>
-                      <div className="text-faint text-xs truncate">
-                        {playlist.track_count} track{playlist.track_count === 1 ? '' : 's'}
-                        {playlist.owner_name ? ` · ${playlist.owner_name}` : ''}
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              ))}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>
@@ -371,7 +394,7 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
               ) : (
                 <ListPlus className="w-4 h-4" />
               )}
-              Queue playlist
+              {isLikedSongs(selectedPlaylist) ? 'Queue all' : 'Queue playlist'}
             </button>
           </div>
 
@@ -382,10 +405,20 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
             </div>
           ) : tracks.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted text-sm">
-                No tracks available. Spotify only exposes tracks for playlists you own or
-                collaborate on.
-              </p>
+              {isLikedSongs(selectedPlaylist) ? (
+                <>
+                  <Heart className="w-10 h-10 text-faint mx-auto mb-3" />
+                  <p className="text-muted text-sm">No liked songs yet</p>
+                  <p className="text-faint text-sm mt-1">
+                    Like tracks in Spotify, then refresh this section
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted text-sm">
+                  No tracks available. Spotify only exposes tracks for playlists you own or
+                  collaborate on.
+                </p>
+              )}
             </div>
           ) : (
             <>

@@ -19,8 +19,19 @@ import {
   Sparkles
 } from 'lucide-react';
 import { usePartySimulator } from '@/hooks/usePartySimulator';
-import { SimulationConfig } from '@/lib/party-simulator-shared';
+import { SimulationConfig, SimulationStats } from '@/lib/party-simulator-shared';
 import Checkbox from '@/components/ui/Checkbox';
+
+const EMPTY_STATS: SimulationStats = {
+  isRunning: false,
+  requestsSent: 0,
+  requestsSuccessful: 0,
+  requestsFailed: 0,
+  startedAt: null,
+  lastRequestAt: null,
+  activeRequesters: [],
+  logs: []
+};
 
 export default function PartyTestPage() {
   // Environment detection
@@ -28,9 +39,9 @@ export default function PartyTestPage() {
                       window.location.hostname !== 'localhost';
   const useClientSide = isProduction;
 
-  // Client-side simulator hook
+  // Client-side simulator hook (production)
   const {
-    stats,
+    stats: clientStats,
     startSimulation: startClientSimulation,
     stopSimulation: stopClientSimulation,
     triggerManualRequest: triggerClientManualRequest,
@@ -50,6 +61,9 @@ export default function PartyTestPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [manualTriggerLoading, setManualTriggerLoading] = useState(false);
+  // Server-side simulator stats (local development)
+  const [serverStats, setServerStats] = useState<SimulationStats>(EMPTY_STATS);
+  const stats = useClientSide ? clientStats : serverStats;
 
   // Server-side stats polling (only for local development)
   useEffect(() => {
@@ -70,7 +84,7 @@ export default function PartyTestPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setStats(data.stats);
+        setServerStats(data.stats);
       } else if (response.status === 500) {
         // Don't spam errors for 500s during polling, just log
         console.error('Error fetching stats: 500 Internal Server Error');
@@ -108,7 +122,7 @@ export default function PartyTestPage() {
           return;
         }
 
-        setStats(data.stats);
+        setServerStats(data.stats);
       }
     } catch (error: any) {
       setError(`Network error: ${error.message || 'Could not connect to server'}`);
@@ -139,7 +153,7 @@ export default function PartyTestPage() {
           return;
         }
 
-        setStats(data.stats);
+        setServerStats(data.stats);
       }
     } catch (error: any) {
       setError(error.message || 'Network error');

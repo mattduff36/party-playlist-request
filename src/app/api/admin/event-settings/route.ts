@@ -3,7 +3,7 @@ import { requireAuth } from '@/middleware/auth';
 import { getEventSettings, updateEventSettings, initializeDefaults } from '@/lib/db';
 import { triggerEvent, getUserChannel } from '@/lib/pusher';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
-import { isDisplayMood } from '@/styles/theme';
+import { isDisplayMood, type DisplayMood } from '@/styles/theme';
 
 export async function GET(req: NextRequest) {
   try {
@@ -70,7 +70,12 @@ export async function POST(req: NextRequest) {
       show_approval_messages
     } = body;
 
-    const safeMood = isDisplayMood(display_mood) ? display_mood : undefined;
+    // frost removed; map leftover saved values so writes still land on a valid mood
+    const safeMood: DisplayMood | undefined = isDisplayMood(display_mood)
+      ? display_mood
+      : display_mood === 'frost'
+        ? 'dayrose'
+        : undefined;
     
     console.log('📝 Updating event settings:', {
       event_title,

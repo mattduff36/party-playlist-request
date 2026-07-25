@@ -3,6 +3,7 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { usePusher } from '@/hooks/usePusher';
 import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
+import { formatArtists } from '@/lib/format-artists';
 import type { DisplayMood } from '@/styles/theme';
 
 // Types (simplified from the old useAdminData)
@@ -19,6 +20,17 @@ export interface Request {
   approved_by?: string;
 }
 
+export interface QueueTrack {
+  id?: string;
+  uri?: string;
+  name: string;
+  artists?: string | string[] | Array<{ name?: string }>;
+  image_url?: string | null;
+  album?: string | { name?: string; images?: Array<{ url?: string }> };
+  requester_nickname?: string | null;
+  requesterNickname?: string | null;
+}
+
 export interface PlaybackState {
   spotify_connected: boolean;
   is_playing: boolean;
@@ -30,7 +42,7 @@ export interface PlaybackState {
   image_url?: string;
   device_name?: string;
   volume_percent?: number;
-  queue?: any[];
+  queue?: QueueTrack[];
 }
 
 export interface EventSettings {
@@ -188,49 +200,54 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       });
       
       if (data.current_track || data.queue || data.is_playing !== undefined) {
-        const newPlaybackState = {
-          spotify_connected: true, // If we're getting playback updates, we're connected
-          is_playing: data.is_playing || false,
-          track_name: data.current_track?.name,
-          artist_name: Array.isArray(data.current_track?.artists) 
-            ? data.current_track.artists.join(', ')
-            : data.current_track?.artists || '',
-          album_name: data.current_track?.album?.name || data.current_track?.album || '',
-          duration_ms: data.current_track?.duration_ms,
-          progress_ms: data.progress_ms || 0,
-          image_url: data.current_track?.album?.images?.[1]?.url || data.current_track?.album?.images?.[0]?.url,
-          device_name: data.device?.name,
-          volume_percent: data.device?.volume_percent,
-          queue: data.queue || []
-        };
-        
         setPlaybackState(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(newPlaybackState)) {
+          const next: PlaybackState = {
+            ...(prev || {
+              spotify_connected: false,
+              is_playing: false,
+            }),
+            spotify_connected: true,
+          };
+
+          if (data.is_playing !== undefined) {
+            next.is_playing = Boolean(data.is_playing);
+          }
+          if (data.progress_ms !== undefined) {
+            next.progress_ms = data.progress_ms;
+          }
+          if (data.current_track) {
+            next.track_name = data.current_track.name;
+            next.artist_name = formatArtists(data.current_track.artists ?? null);
+            next.album_name =
+              data.current_track.album?.name || data.current_track.album || '';
+            next.duration_ms = data.current_track.duration_ms;
+            next.image_url =
+              data.current_track.album?.images?.[1]?.url ||
+              data.current_track.album?.images?.[0]?.url ||
+              data.current_track.image_url;
+          }
+          // Compact Pusher payloads often omit device — keep previous values
+          if (data.device?.name) {
+            next.device_name = data.device.name;
+          }
+          if (typeof data.device?.volume_percent === 'number') {
+            next.volume_percent = data.device.volume_percent;
+          }
+          if (Array.isArray(data.queue)) {
+            next.queue = data.queue;
+          }
+
+          if (JSON.stringify(prev) !== JSON.stringify(next)) {
             console.log('🎵 Admin: Updating playback state from Pusher:', {
-              track_name: newPlaybackState.track_name,
-              is_playing: newPlaybackState.is_playing,
-              queue_length: newPlaybackState.queue.length
+              track_name: next.track_name,
+              is_playing: next.is_playing,
+              queue_length: next.queue?.length || 0
             });
-            console.log('🎵 Admin: New playback state:', newPlaybackState);
-            return newPlaybackState;
-          } else {
-            console.log('🎵 Admin: Playback state unchanged, skipping update');
+            return next;
           }
           return prev;
         });
       }
-    },
-    onStatsUpdate: (data: any) => {
-      console.log('📊 Admin: Stats updated via Pusher!', data);
-      setStats(prev => {
-        // Only update if stats actually changed
-        if (JSON.stringify(prev) !== JSON.stringify(data)) {
-          console.log('📊 Admin: Stats actually changed, updating');
-          return data;
-        }
-        console.log('📊 Admin: Stats unchanged, skipping update');
-        return prev;
-      });
     },
     onTokenExpired: (data: any) => {
       console.log('🔒 Admin: Token expired via Pusher!', data);
@@ -288,11 +305,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           debug: data.debug
         });
         
-        const newPlaybackState = {
+        const newPlaybackState: PlaybackState = {
           spotify_connected: data.spotify_connected,
           is_playing: data.is_playing,
           track_name: data.current_track?.name,
-          artist_name: data.current_track?.artists?.join(', '),
+          artist_name: data.current_track
+            ? formatArtists(data.current_track.artists ?? null)
+            : undefined,
           album_name: data.current_track?.album,
           duration_ms: data.current_track?.duration_ms,
           progress_ms: data.current_track?.progress_ms,
@@ -442,18 +461,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   }, [refreshEventSettings]);
 
   // Handle Spotify disconnect
+  // Do not call refreshData() here: it toggles `loading`, and AdminLayout unmounts
+  // children while loading — remounting the Spotify page and re-firing disconnect.
   const handleSpotifyDisconnect = useCallback(async () => {
     try {
-      // Immediately update state to reflect disconnected status
       setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
       setStats(prev => prev ? { ...prev, spotify_connected: false } : prev);
-      
-      // Refresh all data to ensure consistency
-      await refreshData();
+
+      await Promise.all([
+        refreshPlaybackState(),
+        refreshStats(),
+      ]);
     } catch (error) {
       console.error('Failed to refresh data after disconnect:', error);
     }
-  }, [refreshData]);
+  }, [refreshPlaybackState, refreshStats]);
 
   // Initial data load and start Spotify watcher
   useEffect(() => {

@@ -20,9 +20,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`🎵 [transfer-playback] User ${auth.user.username} transferring playback to device ${device_id}`);
+    // When `play` is omitted, keep current playback state so device switches
+    // do not pause. Spotify often stops on transfer unless play:true while playing.
+    let shouldPlay = typeof play === 'boolean' ? play : undefined;
+    if (shouldPlay === undefined) {
+      try {
+        const playback = await spotifyService.getCurrentPlayback(userId);
+        shouldPlay = Boolean(playback?.is_playing);
+      } catch {
+        shouldPlay = true;
+      }
+    }
+
+    console.log(
+      `🎵 [transfer-playback] User ${auth.user.username} transferring playback to device ${device_id} (play=${shouldPlay})`
+    );
     
-    await spotifyService.transferPlayback(device_id, play || false, userId);
+    await spotifyService.transferPlayback(device_id, shouldPlay, userId);
     
     return NextResponse.json({
       success: true,

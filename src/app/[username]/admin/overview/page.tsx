@@ -8,12 +8,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Volume2, Monitor, Smartphone, Music } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import StateControlPanel from '@/components/admin/StateControlPanel';
 import PageControlPanel from '@/components/admin/PageControlPanel';
-import SpotifyStatusDisplay from '@/components/admin/SpotifyStatusDisplay';
+import SpotifyConnectingScreen from '@/components/admin/SpotifyConnectingScreen';
 import RequestManagementPanel from '@/components/admin/RequestManagementPanel';
-import { SpotifyErrorBoundary } from '@/components/error/SpotifyErrorBoundary';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 
 export default function AdminOverviewPage() {
@@ -21,12 +20,10 @@ export default function AdminOverviewPage() {
   
   // Collapsible sections state
   const [expandedSections, setExpandedSections] = useState({
-    spotifyStatus: true,
     songRequests: true,
   });
   
-  // Spotify status for header display
-  const [spotifyStatus, setSpotifyStatus] = useState<any>(null);
+  const [isRedirectingSpotifyOAuth, setIsRedirectingSpotifyOAuth] = useState(false);
   
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
@@ -35,264 +32,69 @@ export default function AdminOverviewPage() {
     }));
   };
   
-  // Fetch Spotify status for header display
-  useEffect(() => {
-    if (state?.status === 'live' || state?.status === 'standby') {
-      fetchSpotifyStatus();
-      const interval = setInterval(fetchSpotifyStatus, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [state?.status]);
-  
-  const fetchSpotifyStatus = async () => {
-    try {
-      const response = await fetch('/api/spotify/status');
-      const data = await response.json();
-      if (response.ok) {
-        setSpotifyStatus(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch Spotify status:', error);
-    }
-  };
-  
-  const getDeviceIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'computer':
-        return Monitor;
-      case 'smartphone':
-        return Smartphone;
-      default:
-        return Music;
-    }
-  };
-  
-  // Handle OAuth callback from Spotify
+  // Legacy OAuth return URLs pointed at overview. Forward to the Spotify page
+  // so the connecting gate can finish without flashing "Not Connected".
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const oauthState = urlParams.get('state');
-    const error = urlParams.get('error');
+    const hasOAuthReturn =
+      urlParams.has('code') ||
+      urlParams.has('state') ||
+      urlParams.has('error') ||
+      urlParams.get('spotify') === 'connected';
 
-    if (error) {
-      console.error('Spotify authorization failed:', error);
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
+    if (!hasOAuthReturn) return;
 
-    if (code && oauthState) {
-      // Prevent duplicate processing (React strict mode, hot reload, etc.)
-      const processedKey = `oauth_processed_${oauthState}`;
-      if (sessionStorage.getItem(processedKey)) {
-        console.log('OAuth callback already processed, skipping...');
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      }
-      
-      // Mark as being processed
-      sessionStorage.setItem(processedKey, 'true');
-      console.log('Processing Spotify callback...');
-      handleSpotifyCallback(code, oauthState);
-    }
+    setIsRedirectingSpotifyOAuth(true);
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const username = pathParts[0] && pathParts[0] !== 'admin' ? pathParts[0] : null;
+    const spotifyPath = username ? `/${username}/admin/spotify` : '/admin/spotify';
+    window.location.replace(`${spotifyPath}${window.location.search}`);
   }, []);
 
-  const handleSpotifyCallback = async (code: string, oauthState: string) => {
-    console.log('Processing Spotify callback:', {
-      hasCode: !!code,
-      hasState: !!oauthState
-    });
-
-    // Try to get code_verifier from server-side OAuth session first
-    let codeVerifier: string | null = null;
-    
-    try {
-      // Fetch OAuth session data from server
-      const sessionResponse = await fetch(`/api/spotify/oauth-session?state=${oauthState}`, {
-        credentials: 'include'
-      });
-      
-      if (sessionResponse.ok) {
-        const sessionData = await sessionResponse.json();
-        codeVerifier = sessionData.code_verifier;
-        console.log('Retrieved code_verifier from server-side OAuth session');
-      }
-    } catch (error) {
-      console.log('Could not fetch server-side OAuth session, falling back to localStorage');
-    }
-
-    // Fallback to localStorage for backwards compatibility
-    if (!codeVerifier) {
-      const storedState = localStorage.getItem('spotify_state');
-      codeVerifier = localStorage.getItem('spotify_code_verifier');
-
-      console.log('Using localStorage OAuth data:', {
-        hasStoredState: !!storedState,
-        hasCodeVerifier: !!codeVerifier,
-        stateMatches: oauthState === storedState
-      });
-
-      if (!storedState || oauthState !== storedState) {
-        console.error('State mismatch - possible CSRF attack');
-        localStorage.removeItem('spotify_state');
-        localStorage.removeItem('spotify_code_verifier');
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      }
-    }
-
-    if (!codeVerifier) {
-      console.error('No code verifier found in server session or localStorage');
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
-
-    try {
-      console.log('🔄 Sending POST request to /api/spotify/callback with:', {
-        hasCode: !!code,
-        hasState: !!oauthState,
-        hasCodeVerifier: !!codeVerifier
-      });
-      
-      // JWT auth is handled by HTTP-only cookies automatically
-      const response = await fetch('/api/spotify/callback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Include cookies
-        body: JSON.stringify({
-          code,
-          state: oauthState,
-          code_verifier: codeVerifier
-        })
-      });
-
-      console.log('📡 Received response from callback:', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Spotify connected successfully!', data);
-        // Clean up OAuth data
-        localStorage.removeItem('spotify_state');
-        localStorage.removeItem('spotify_code_verifier');
-        // Clear URL parameters
-        window.history.replaceState({}, document.title, window.location.pathname);
-        // Force a refresh of the page to show updated status
-        console.log('🔄 Reloading page to show updated Spotify status...');
-        window.location.reload();
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Failed to exchange code for token:', errorData);
-        alert(`Spotify connection failed: ${errorData.error || 'Unknown error'}`);
-        localStorage.removeItem('spotify_state');
-        localStorage.removeItem('spotify_code_verifier');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } catch (error) {
-      console.error('❌ Error during Spotify callback:', error);
-      alert(`Spotify connection error: ${error.message}`);
-      localStorage.removeItem('spotify_state');
-      localStorage.removeItem('spotify_code_verifier');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  };
+  if (isRedirectingSpotifyOAuth) {
+    return <SpotifyConnectingScreen phase="connecting" />;
+  }
   
   // Safety check - ensure pagesEnabled exists
   if (!state || !state.pagesEnabled) {
     return (
-      <div className="min-h-screen bg-ink p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
-          <p className="text-muted mt-4">Loading...</p>
-        </div>
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+        <p className="text-muted mt-4">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-ink p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        
-        {/* Main Control Panels - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StateControlPanel />
-          <PageControlPanel />
-        </div>
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Main Control Panels - Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <StateControlPanel />
+        <PageControlPanel />
+      </div>
 
-        {/* Spotify Status - Only show when event is Standby or Live */}
-        {(state.status === 'standby' || state.status === 'live') && (
-          <div className="border border-white/10 rounded-lg overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleSection('spotifyStatus')}
-              className="w-full flex items-center justify-between p-4 bg-elevated hover:bg-surface/70 transition-colors"
-            >
-              <h3 className="font-display text-lg font-semibold text-bone flex items-center">
-                Spotify Status
-              </h3>
-              <div className="flex items-center gap-3">
-                {spotifyStatus?.connected && spotifyStatus?.device && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded-lg">
-                    {(() => {
-                      const DeviceIcon = getDeviceIcon(spotifyStatus.device.type);
-                      return <DeviceIcon className="w-4 h-4 text-muted" />;
-                    })()}
-                    <span className="text-xs text-muted">{spotifyStatus.device.name}</span>
-                    <div className="flex items-center gap-1 text-muted">
-                      <Volume2 className="w-3 h-3" />
-                      <span className="text-xs">{spotifyStatus.device.volume_percent}%</span>
-                    </div>
-                  </div>
-                )}
-                {spotifyStatus?.connected === false && (
-                  <span className="text-sm text-muted px-3 py-1.5 bg-surface/60 rounded-lg">Not Connected</span>
-                )}
-                {expandedSections.spotifyStatus ? (
-                  <ChevronUp className="w-5 h-5 text-muted" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-muted" />
-                )}
-              </div>
-            </button>
-            
-            {expandedSections.spotifyStatus && (
-              <div className="bg-ink">
-                <SpotifyErrorBoundary>
-                  <SpotifyStatusDisplay showHeader={false} />
-                </SpotifyErrorBoundary>
-              </div>
-            )}
+      {/* Request Management */}
+      <div className="border border-white/10 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleSection('songRequests')}
+          className="w-full flex items-center justify-between p-4 bg-elevated hover:bg-surface/70 transition-colors"
+        >
+          <h3 className="font-display text-lg font-semibold text-bone flex items-center">
+            Song Requests
+          </h3>
+          {expandedSections.songRequests ? (
+            <ChevronUp className="w-5 h-5 text-muted" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-muted" />
+          )}
+        </button>
+        
+        {expandedSections.songRequests && (
+          <div className="bg-ink">
+            <RequestManagementPanel showHeader={false} />
           </div>
         )}
-
-        {/* Request Management - Full Width */}
-        <div className="border border-white/10 rounded-lg overflow-hidden">
-          <button
-            type="button"
-            onClick={() => toggleSection('songRequests')}
-            className="w-full flex items-center justify-between p-4 bg-elevated hover:bg-surface/70 transition-colors"
-          >
-            <h3 className="font-display text-lg font-semibold text-bone flex items-center">
-              Song Requests
-            </h3>
-            {expandedSections.songRequests ? (
-              <ChevronUp className="w-5 h-5 text-muted" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-muted" />
-            )}
-          </button>
-          
-          {expandedSections.songRequests && (
-            <div className="bg-ink">
-              <RequestManagementPanel showHeader={false} />
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

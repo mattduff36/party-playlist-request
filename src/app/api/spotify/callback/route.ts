@@ -17,14 +17,16 @@ export async function GET(req: NextRequest) {
         const session = await getOAuthSession(state);
         if (session?.username) {
           username = session.username;
-          console.log(`🔀 [spotify/callback] Redirecting to /${username}/admin/overview`);
+          console.log(`🔀 [spotify/callback] Redirecting to /${username}/admin/spotify`);
         }
       } catch (sessionError) {
         console.error('Failed to get OAuth session for redirect:', sessionError);
       }
     }
 
-    const baseUrl = username === 'admin' ? '/admin/overview' : `/${username}/admin/overview`;
+    // Land on the Spotify admin page so the connecting gate can finish OAuth
+    // without flashing disconnected UI on overview.
+    const baseUrl = username === 'admin' ? '/admin/spotify' : `/${username}/admin/spotify`;
 
     // If there's an error from Spotify
     if (error) {
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in Spotify callback:', error);
-    const redirectUrl = new URL('/admin/overview', req.url);
+    const redirectUrl = new URL('/admin/spotify', req.url);
     redirectUrl.searchParams.set('error', 'Failed to process Spotify callback');
     return NextResponse.redirect(redirectUrl);
   }

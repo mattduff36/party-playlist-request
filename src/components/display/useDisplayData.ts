@@ -8,7 +8,12 @@ import { RequestApprovedEvent } from '@/lib/pusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
 import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';
-import { DISPLAY_MOODS, moodCssVariables, resolveDisplayMood } from '@/styles/theme';
+import {
+  DISPLAY_MOODS,
+  moodCssVariables,
+  qrModuleColors,
+  resolveDisplayMood,
+} from '@/styles/theme';
 import type {
   CurrentTrack,
   DisplayDeviceType,
@@ -565,12 +570,18 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
           console.log('⚠️ QR Code generated without bypass token - PIN will be required');
         }
 
+        const mood = resolveDisplayMood(
+          eventSettings?.display_mood,
+          eventSettings?.theme_primary_color
+        );
+        const qrColors = qrModuleColors(mood);
+
         const url = await QRCode.toDataURL(requestUrl, {
           width: 200,
           margin: 2,
           color: {
-            dark: '#000000',
-            light: '#FFFFFF',
+            dark: qrColors.dark,
+            light: qrColors.light,
           },
         });
         setQrCodeUrl(url);
@@ -580,7 +591,12 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     };
 
     generateQR();
-  }, [username, globalState.bypassToken]);
+  }, [
+    username,
+    globalState.bypassToken,
+    eventSettings?.display_mood,
+    eventSettings?.theme_primary_color,
+  ]);
 
   // Fetch all display data
   useEffect(() => {

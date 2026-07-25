@@ -176,11 +176,17 @@ export const triggerRequestSubmitted = async (data: RequestSubmittedEvent & { us
 
 export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId: string }) => {
   // Reduce payload size to avoid Pusher 10KB limit
+  const compactArtist = (artist: string | { name?: string } | null | undefined) => {
+    const name = typeof artist === 'string' ? artist : artist?.name;
+    return { name: (name || '').substring(0, 50) };
+  };
+
   const compactData = {
     current_track: data.current_track ? {
       id: data.current_track.id,
       name: data.current_track.name?.substring(0, 100) || '',
-      artists: data.current_track.artists?.slice(0, 2).map((a: any) => ({ name: a.name?.substring(0, 50) || '' })) || [],
+      // Watcher may send string[] or Spotify-style { name }[]; support both
+      artists: data.current_track.artists?.slice(0, 2).map(compactArtist) || [],
       album: data.current_track.album ? {
         name: data.current_track.album.name?.substring(0, 100) || '',
         images: data.current_track.album.images?.slice(0, 1).map((img: any) => ({
@@ -195,7 +201,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
     queue: data.queue?.slice(0, 10).map((track: any) => ({ // Limit to 10 tracks to stay under 10KB
       id: track.id,
       name: track.name?.substring(0, 100) || '', // Truncate long names
-      artists: track.artists?.slice(0, 2).map((a: any) => ({ name: a.name?.substring(0, 50) || '' })) || [],
+      artists: track.artists?.slice(0, 2).map(compactArtist) || [],
       uri: track.uri,
       requester_nickname: track.requester_nickname?.substring(0, 30) || null
     })) || [],

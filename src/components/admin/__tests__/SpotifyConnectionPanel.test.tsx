@@ -12,6 +12,7 @@ global.fetch = jest.fn();
 describe('SpotifyConnectionPanel', () => {
   beforeEach(() => {
     (global.fetch as jest.Mock).mockClear();
+    sessionStorage.clear();
   });
 
   it('renders correctly when not connected', async () => {
@@ -65,8 +66,9 @@ describe('SpotifyConnectionPanel', () => {
     fireEvent.click(connectButton);
 
     // jsdom cannot assign window.location.href (non-configurable Location).
-    // connectToSpotify sets isConnecting before redirecting to /api/spotify/auth.
-    expect(screen.getByText('Connecting...')).toBeInTheDocument();
+    // connectToSpotify sets the connecting gate before redirecting to /api/spotify/auth.
+    expect(screen.getByText('Connecting to Spotify...')).toBeInTheDocument();
+    expect(sessionStorage.getItem('spotify_oauth_pending')).toBe('1');
   });
 
   it('renders correctly when connected with active device', async () => {
@@ -136,6 +138,38 @@ describe('SpotifyConnectionPanel', () => {
     });
   });
 
+  it('clears OAuth pending flag on disconnect so reconnect gate does not reopen', async () => {
+    sessionStorage.setItem('spotify_oauth_pending', '1');
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            connected: true,
+            device: null,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+    await act(async () => {
+      render(<SpotifyConnectionPanel />);
+    });
+
+    fireEvent.click(screen.getByText('Disconnect from Spotify'));
+
+    await waitFor(() => {
+      expect(sessionStorage.getItem('spotify_oauth_pending')).toBeNull();
+    });
+
+    expect(await screen.findByText('Not Connected')).toBeInTheDocument();
+    expect(screen.getByText('Connect to Spotify')).toBeInTheDocument();
+    expect(screen.queryByText('Connecting to Spotify...')).not.toBeInTheDocument();
+  });
+
   it('displays error messages', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
@@ -159,13 +193,14 @@ describe('SpotifyConnectionPanel', () => {
     expect(screen.getByText('Network error checking connection status')).toBeInTheDocument();
   });
 
-  it('shows loading state during connection check', async () => {
+  it('shows checking state before status resolves', async () => {
     (global.fetch as jest.Mock).mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
 
     await act(async () => {
       render(<SpotifyConnectionPanel />);
     });
 
-    expect(screen.getByText('Processing...')).toBeInTheDocument();
+    expect(screen.getByText('Checking Spotify connection...')).toBeInTheDocument();
+    expect(screen.queryByText('Not Connected')).not.toBeInTheDocument();
   });
 });

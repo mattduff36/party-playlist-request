@@ -59,6 +59,16 @@ export const SPOTIFY_PLAYLIST_READ_SCOPES = [
   'playlist-read-collaborative',
 ] as const;
 
+/** Scope required for Liked Songs (GET /me/tracks) */
+export const SPOTIFY_LIBRARY_READ_SCOPES = ['user-library-read'] as const;
+
+/** Synthetic playlist id for the user's Liked Songs library */
+export const SPOTIFY_LIKED_SONGS_ID = 'liked-songs';
+
+export function isLikedSongsPlaylistId(playlistId: string): boolean {
+  return playlistId === SPOTIFY_LIKED_SONGS_ID;
+}
+
 class SpotifyService {
   private clientId: string;
   private clientSecret: string;
@@ -66,8 +76,8 @@ class SpotifyService {
   private baseURL = 'https://api.spotify.com/v1';
   private authURL = 'https://accounts.spotify.com';
   // NOTE: Existing connected users must disconnect + reconnect Spotify after deploy
-  // so tokens pick up the new playlist-read-* scopes. Dashboard app settings do not
-  // need changes — scopes are requested at authorize time from this list.
+  // so tokens pick up playlist-read-* and user-library-read scopes. Dashboard app
+  // settings do not need changes — scopes are requested at authorize time from this list.
   private scopes = [
     'user-modify-playback-state',
     'user-read-playback-state',
@@ -76,6 +86,7 @@ class SpotifyService {
     'playlist-modify-private',
     'playlist-read-private',
     'playlist-read-collaborative',
+    'user-library-read',
     'user-read-private'
   ].join(' ');
 
@@ -584,7 +595,7 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('GET', '/me/player/devices', undefined, userId);
   }
 
-  async transferPlayback(deviceId: string, play: boolean = false, userId?: string) {
+  async transferPlayback(deviceId: string, play: boolean, userId?: string) {
     if (isSpotifyMockEnabled()) {
       return null;
     }
@@ -740,14 +751,106 @@ class SpotifyService {
   }
 
   /**
+   * Synthetic playlist row for Liked Songs (Spotify saved tracks).
+   * Uses GET /me/tracks?limit=1 for the total count only.
+   */
+  async getLikedSongsPlaylist(userId?: string): Promise<SpotifyPlaylist> {
+    if (isSpotifyMockEnabled()) {
+      return {
+        id: SPOTIFY_LIKED_SONGS_ID,
+        name: 'Liked Songs',
+        uri: 'spotify:collection:tracks',
+        collaborative: false,
+        public: false,
+        track_count: 2,
+        owner_name: 'You',
+      };
+    }
+
+    const data = await this.makeAuthenticatedRequest(
+      'GET',
+      '/me/tracks?limit=1',
+      undefined,
+      userId
+    );
+
+    return {
+      id: SPOTIFY_LIKED_SONGS_ID,
+      name: 'Liked Songs',
+      uri: 'spotify:collection:tracks',
+      collaborative: false,
+      public: false,
+      track_count: typeof data?.total === 'number' ? data.total : 0,
+      owner_name: 'You',
+    };
+  }
+
+  /**
+   * Read Liked Songs (saved tracks). Uses GET /me/tracks. Never modifies the library.
+   */
+  async getSavedTracks(
+    userId?: string,
+    options?: { maxTracks?: number }
+  ): Promise<SpotifyPlaylistTrack[]> {
+    if (isSpotifyMockEnabled()) {
+      return this.getPlaylistItems('mock', userId, options);
+    }
+
+    const pageLimit = 50;
+    const maxTracks = options?.maxTracks ?? 200;
+    const tracks: SpotifyPlaylistTrack[] = [];
+    let offset = 0;
+
+    while (tracks.length < maxTracks) {
+      const limit = Math.min(pageLimit, maxTracks - tracks.length);
+      const data = await this.makeAuthenticatedRequest(
+        'GET',
+        `/me/tracks?limit=${limit}&offset=${offset}`,
+        undefined,
+        userId
+      );
+
+      const items = Array.isArray(data?.items) ? data.items : [];
+      for (const entry of items) {
+        const track = entry?.track;
+        if (!track?.uri || track.type === 'episode' || track.is_local) continue;
+        tracks.push({
+          id: track.id || track.uri,
+          uri: track.uri,
+          name: track.name || 'Unknown track',
+          artists: Array.isArray(track.artists)
+            ? track.artists.map((a: { name?: string }) => a?.name).filter(Boolean)
+            : [],
+          album: track.album?.name || '',
+          duration_ms: typeof track.duration_ms === 'number' ? track.duration_ms : 0,
+          image: track.album?.images?.[0]?.url,
+        });
+      }
+
+      if (!data?.next || items.length === 0) {
+        break;
+      }
+
+      offset += items.length;
+    }
+
+    return tracks;
+  }
+
+  /**
    * Read playlist tracks (owned / collaborative playlists only after Feb 2026).
    * Uses GET /playlists/{id}/items. Never modifies the playlist.
+   * Pass liked-songs id to read saved tracks instead.
    */
   async getPlaylistItems(
     playlistId: string,
     userId?: string,
     options?: { maxTracks?: number }
   ): Promise<SpotifyPlaylistTrack[]> {
+    if (isLikedSongsPlaylistId(playlistId)) {
+      return this.getSavedTracks(userId, options);
+    }
+
     if (isSpotifyMockEnabled()) {
       return [
         {
@@ -813,12 +916,24 @@ class SpotifyService {
     return tracks;
   }
 
-  /** True if the stored token scope includes playlist list/read permissions. */
-  async hasPlaylistReadScopes(userId?: string): Promise<boolean> {
+  private async hasGrantedScopes(
+    required: readonly string[],
+    userId?: string
+  ): Promise<boolean> {
     const auth = await getSpotifyAuth(userId);
     if (!auth?.scope) return false;
     const granted = new Set(auth.scope.split(/[\s,]+/).filter(Boolean));
-    return SPOTIFY_PLAYLIST_READ_SCOPES.every((scope) => granted.has(scope));
+    return required.every((scope) => granted.has(scope));
+  }
+
+  /** True if the stored token scope includes playlist list/read permissions. */
+  async hasPlaylistReadScopes(userId?: string): Promise<boolean> {
+    return this.hasGrantedScopes(SPOTIFY_PLAYLIST_READ_SCOPES, userId);
+  }
+
+  /** True if the stored token scope includes Liked Songs (library) read. */
+  async hasLibraryReadScopes(userId?: string): Promise<boolean> {
+    return this.hasGrantedScopes(SPOTIFY_LIBRARY_READ_SCOPES, userId);
   }
 
   async getAlbumArt(trackId: string, userId?: string): Promise<string | null> {

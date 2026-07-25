@@ -3,7 +3,7 @@
  * Landing uses Spotify skin helpers; guest/display use mood presets.
  */
 
-export type DisplayMood = 'club' | 'venue' | 'dj' | 'neon' | 'amber' | 'frost';
+export type DisplayMood = 'club' | 'venue' | 'dj' | 'neon' | 'amber' | 'dayrose';
 
 export const DISPLAY_MOOD_IDS: DisplayMood[] = [
   'club',
@@ -11,7 +11,7 @@ export const DISPLAY_MOOD_IDS: DisplayMood[] = [
   'dj',
   'neon',
   'amber',
-  'frost',
+  'dayrose',
 ];
 
 export const stageSignal = {
@@ -134,19 +134,19 @@ export const DISPLAY_MOODS: Record<DisplayMood, MoodTokens> = {
     density: 'comfortable',
     radius: '1.25rem',
   },
-  frost: {
-    id: 'frost',
-    label: 'Frost Stage',
-    description: 'Cool slate and ice blue - crisp, modern, and clear.',
-    background: '#0A1016',
-    surface: '#141C26',
-    text: '#E8EEF5',
-    textMuted: '#8E9AAB',
-    accent: '#7DD3FC',
-    accentHover: '#BAE6FD',
-    border: 'rgba(125, 211, 252, 0.30)',
+  dayrose: {
+    id: 'dayrose',
+    label: 'Day Rose',
+    description: 'Warm daylight with soft rose accents - brunch, garden parties, and daytime events.',
+    background: '#F2E4D6',
+    surface: '#FAF3EB',
+    text: '#1A1416',
+    textMuted: '#6A5C61',
+    accent: '#C45C7A',
+    accentHover: '#D47890',
+    border: 'rgba(168, 96, 110, 0.28)',
     density: 'comfortable',
-    radius: '0.625rem',
+    radius: '1rem',
   },
 };
 
@@ -157,12 +157,14 @@ export function isDisplayMood(value: unknown): value is DisplayMood {
   );
 }
 
-/** Map legacy free-form theme colors to the closest mood preset. */
+/** Map legacy free-form theme colors / removed moods to the closest mood preset. */
 export function resolveDisplayMood(
   mood: unknown,
   legacyPrimary?: string | null
 ): DisplayMood {
   if (isDisplayMood(mood)) return mood;
+  // Frost Stage removed (too similar to Neon Pulse) — keep displays working
+  if (mood === 'frost') return 'dayrose';
   const primary = (legacyPrimary || '').toLowerCase();
   if (!primary || primary === '#1db954' || primary === '#1ed760') return 'club';
   // Light backgrounds historically used pale secondaries — prefer venue for light primaries
@@ -172,8 +174,25 @@ export function resolveDisplayMood(
   return 'club';
 }
 
+/**
+ * QR module colors from mood tokens.
+ * `dark` paints data modules; `light` paints the pad / quiet zone.
+ * Pad uses `surface` so the QR matches the QR section (`mood-panel`), not the page `background`.
+ * Dark moods use brighter accent modules on a dark pad (inverted QR).
+ * Light moods use darker accent modules on a light pad (standard QR).
+ * The qrcode package accepts either polarity when contrast is usable.
+ */
+export function qrModuleColors(mood: DisplayMood): { dark: string; light: string } {
+  const tokens = DISPLAY_MOODS[mood];
+  // Day Rose accent-on-surface is borderline for cameras (~3.3:1);
+  // deepen modules slightly while staying rose-toned (~4.8:1).
+  const modules = mood === 'dayrose' ? '#A04560' : tokens.accent;
+  return { dark: modules, light: tokens.surface };
+}
+
 export function moodCssVariables(mood: DisplayMood): Record<string, string> {
   const tokens = DISPLAY_MOODS[mood];
+  const qr = qrModuleColors(mood);
   return {
     '--mood-bg': tokens.background,
     '--mood-surface': tokens.surface,
@@ -183,6 +202,7 @@ export function moodCssVariables(mood: DisplayMood): Record<string, string> {
     '--mood-accent-hover': tokens.accentHover,
     '--mood-border': tokens.border,
     '--mood-radius': tokens.radius,
+    '--mood-qr-pad': qr.light,
   };
 }
 
