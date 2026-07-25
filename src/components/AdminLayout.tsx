@@ -246,11 +246,11 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   // Sidebar component
   const Sidebar = () => (
-    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-gray-800 border-r border-gray-700 z-40">
+    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-elevated border-r border-white/10 z-40">
       <div className="flex flex-col flex-1 min-h-0">
-        <div className="flex items-center h-16 px-4 bg-gray-900">
-          <span className="text-2xl mr-2">🎵</span>
-          <h1 className="text-xl font-bold text-white">{displayUsername}</h1>
+        <div className="flex items-center h-16 px-4 bg-ink border-b border-white/10">
+          <span className="font-display text-accent text-lg mr-2 tracking-tight">PP</span>
+          <h1 className="font-display text-xl font-bold text-bone truncate">{displayUsername}</h1>
         </div>
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex-1 px-3 space-y-1">
@@ -269,8 +269,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                   }}
                   className={`w-full flex items-center justify-between px-4 py-3 mb-2 rounded-lg text-left transition-colors ${
                     isActive
-                      ? 'bg-purple-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-700'
+                      ? 'bg-accent text-ink font-semibold'
+                      : 'text-muted hover:bg-surface hover:text-bone'
                   }`}
                 >
                   <div className="flex items-center">
@@ -278,8 +278,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                     <span>{item.label}</span>
                   </div>
                   {item.badge && (
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      isActive ? 'bg-white text-purple-600' : 'bg-purple-600 text-white'
+                    <span className={`px-2 py-1 text-xs rounded-full font-bold ${
+                      isActive ? 'bg-ink text-accent' : 'bg-accent text-ink'
                     }`}>
                       {item.badge}
                     </span>
@@ -295,7 +295,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                 href={displayUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-purple-600 hover:text-white transition-colors"
+                className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-accent hover:text-white transition-colors"
               >
                 <Monitor className="w-5 h-5 mr-3" />
                 <span>Open Display</span>
@@ -304,7 +304,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
             {/* Setup Button */}
             <button
               onClick={() => setShowSetupModal(true)}
-              className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-purple-600 hover:text-white transition-colors"
+              className="w-full flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-accent hover:text-white transition-colors"
             >
               <Wand2 className="w-5 h-5 mr-3" />
               <span>Setup</span>
@@ -326,15 +326,15 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   // Top navigation for mobile
   const TopNav = () => (
-    <div className="md:hidden sticky top-0 z-50 flex items-center justify-between h-16 px-4 bg-gray-800 border-b border-gray-700">
-      <div className="flex items-center">
-        <span className="text-2xl mr-2">🎵</span>
-        <h1 className="text-lg font-bold text-white">{displayUsername}</h1>
+    <div className="md:hidden sticky top-0 z-50 flex items-center justify-between h-16 px-4 bg-elevated border-b border-white/10">
+      <div className="flex items-center min-w-0">
+        <span className="font-display text-accent text-sm mr-2">PP</span>
+        <h1 className="font-display text-lg font-bold text-bone truncate">{displayUsername}</h1>
       </div>
       <div className="flex items-center space-x-2">
         {eventPin && (
-          <div className="flex items-center space-x-1 bg-purple-900/20 border border-purple-600/50 rounded-lg px-2 py-1">
-            <Lock className="h-3 w-3 text-purple-400" />
+          <div className="flex items-center space-x-1 bg-accent/10 border border-accent/40 rounded-lg px-2 py-1">
+            <Lock className="h-3 w-3 text-accent" />
             <span className="text-xs font-mono font-bold text-white">{eventPin}</span>
           </div>
         )}
@@ -352,7 +352,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   // Mobile bottom navigation
   const BottomNav = () => (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-50">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-elevated border-t border-white/10 z-50">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -367,14 +367,14 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                   router.push(item.href);
                 }
               }}
-              className={`flex flex-col items-center justify-center flex-1 h-full relative ${
-                isActive ? 'text-purple-400' : 'text-gray-400'
+              className={`flex flex-col items-center justify-center flex-1 h-full relative touch-manipulation ${
+                isActive ? 'text-accent' : 'text-faint'
               }`}
             >
               <Icon className="w-6 h-6" />
-              <span className="text-xs mt-1">{item.label}</span>
+              <span className="text-[10px] mt-1 font-medium">{item.label}</span>
               {item.badge && (
-                <span className="absolute top-2 right-1/4 bg-purple-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute top-2 right-1/4 bg-accent text-ink text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {item.badge}
                 </span>
               )}
@@ -416,14 +416,14 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   return (
     <>
       <NotificationInitializer />
-      <div className="min-h-screen bg-gray-900 text-white">
+      <div className="min-h-screen bg-ink text-bone">
       <Sidebar />
         <TopNav />
         
         <div className="md:pl-64">
           <div className="pb-20 md:pb-0">
             {/* Top action bar (desktop) */}
-            <div className="hidden md:flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
+            <div className="hidden md:flex items-center justify-between px-6 py-4 bg-elevated border-b border-white/10">
               <div className="flex items-center space-x-4">
                 <EventStateDropdown />
                 <SpotifyStatusDropdown />
@@ -434,8 +434,8 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               </div>
               <div className="flex items-center space-x-3">
                 {eventPin && (
-                  <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
-                    <Lock className="h-4 w-4 text-purple-400" />
+                  <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
+                    <Lock className="h-4 w-4 text-accent" />
                     <span className="text-gray-400 text-sm">PIN:</span>
                     <span className="text-xl font-bold text-white tracking-wider font-mono">{eventPin}</span>
                   </div>

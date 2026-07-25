@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Syne, DM_Sans } from "next/font/google";
 import { Analytics } from '@vercel/analytics/react';
 import ServerStartup from '@/components/ServerStartup';
 import MobileCacheBuster from '@/components/MobileCacheBuster';
@@ -7,17 +7,29 @@ import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { QueryProvider } from '@/providers/QueryProvider';
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "Party DJ Request System",
-  description: "Request songs for the party playlist",
-  viewport: {
-    width: 'device-width',
-    initialScale: 1.0,
-    maximumScale: 1.0,
-    userScalable: false,
-  },
+  title: "Party Playlist — Guest song requests for live events",
+  description: "Let guests request Spotify tracks. DJs approve, venues display the night.",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1.0,
+  maximumScale: 1.0,
+  userScalable: false,
+  themeColor: '#0E1114',
 };
 
 export default function RootLayout({
@@ -26,8 +38,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} antialiased bg-gray-50 min-h-screen`}>
+    <html lang="en" className={`${syne.variable} ${dmSans.variable}`}>
+      <body className="font-sans antialiased bg-ink text-bone min-h-screen">
         <QueryProvider>
           <GlobalEventProvider>
             <MobileCacheBuster />

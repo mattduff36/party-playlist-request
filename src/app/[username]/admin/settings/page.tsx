@@ -152,7 +152,7 @@ export default function SettingsPage() {
               name="event_title"
               value={formData.event_title}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
               placeholder="Enter event title..."
             />
             <p className="text-gray-500 text-sm mt-1">
@@ -173,7 +173,7 @@ export default function SettingsPage() {
               onChange={handleInputChange}
               min="1"
               max="50"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
             />
             <p className="text-gray-500 text-sm mt-1">
               Maximum number of songs each user can request
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                     name="auto_approve"
                     checked={formData.auto_approve}
                     onChange={handleCheckboxChange}
-                    className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                    className="w-4 h-4 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
                   />
                   <label htmlFor="auto_approve" className="ml-3 text-sm font-medium text-gray-300">
                     Auto-approve all requests
@@ -215,7 +215,7 @@ export default function SettingsPage() {
                     name="decline_explicit"
                     checked={formData.decline_explicit}
                     onChange={handleCheckboxChange}
-                    className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                    className="w-4 h-4 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
                   />
                   <label htmlFor="decline_explicit" className="ml-3 text-sm font-medium text-gray-300">
                     Auto-decline explicit songs
@@ -242,7 +242,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white font-medium rounded-lg transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-accent hover:bg-accent disabled:bg-accent/40 text-white font-medium rounded-lg transition-colors"
             >
               {saving ? (
                 <>
@@ -267,7 +267,7 @@ export default function SettingsPage() {
         
         {loadingEvent ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-purple-500 mr-3" />
+            <Loader2 className="h-6 w-6 animate-spin text-accent mr-3" />
             <span className="text-gray-400">Loading event info...</span>
           </div>
         ) : !event || state?.status === 'offline' ? (
@@ -281,13 +281,13 @@ export default function SettingsPage() {
         ) : (
           <div className="space-y-6">
             {/* Event PIN */}
-            <div className="flex items-center justify-between p-4 bg-purple-900/20 border border-purple-600/50 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent/40 rounded-lg">
               <div>
                 <h4 className="text-white font-medium mb-1">Event PIN</h4>
                 <p className="text-gray-400 text-sm">Guests need this PIN to access the request page</p>
               </div>
               <div className="flex items-center space-x-2">
-                <Lock className="h-5 w-5 text-purple-400" />
+                <Lock className="h-5 w-5 text-accent" />
                 <span className="text-3xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
               </div>
             </div>
@@ -322,7 +322,7 @@ export default function SettingsPage() {
             {/* QR Code URL (with bypass token) */}
             <div className="space-y-3">
               <label className="block text-gray-300 font-medium flex items-center">
-                <QrCode className="h-5 w-5 mr-2 text-purple-400" />
+                <QrCode className="h-5 w-5 mr-2 text-accent" />
                 QR Code URL (No PIN Required)
               </label>
               <div className="flex items-center space-x-2">
@@ -352,7 +352,7 @@ export default function SettingsPage() {
             {/* Display Screen URL */}
             <div className="space-y-3 border-t border-gray-700 pt-6">
               <label className="block text-gray-300 font-medium flex items-center">
-                <Monitor className="h-5 w-5 mr-2 text-purple-400" />
+                <Monitor className="h-5 w-5 mr-2 text-accent" />
                 Display Screen URL
               </label>
               <div className="flex items-center space-x-2">

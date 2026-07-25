@@ -51,7 +51,11 @@ Your app will request these permissions:
 - `user-read-currently-playing` - Get current track info
 - `playlist-modify-public` - Add songs to public playlists
 - `playlist-modify-private` - Add songs to private playlists
+- `playlist-read-private` - List private playlists (party playlist picker)
+- `playlist-read-collaborative` - List collaborative playlists
 - `user-read-private` - Get user profile info
+
+**After deploying scope changes:** existing DJs must disconnect and reconnect Spotify so the new scopes are granted. No Spotify Developer Dashboard change is required for scopes (they are requested at authorize time).
 
 ### **7. Testing Your Setup**
 

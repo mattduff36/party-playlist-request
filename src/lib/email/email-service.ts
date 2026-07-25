@@ -1,11 +1,10 @@
 /**
  * Email Service using Resend API
- * Handles transactional emails for user registration, verification, and password reset
+ * Stage Signal professional templates for transactional mail
  */
 
 import { Resend } from 'resend';
 
-// Initialize Resend only if API key is provided
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -17,6 +16,16 @@ const APP_NAME = 'Party Playlist';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 const EMAIL_ENABLED = !!RESEND_API_KEY;
+
+/** Stage Signal brand tokens (email-safe hex) */
+const EMAIL_BRAND = {
+  ink: '#0E1114',
+  elevated: '#171B21',
+  bone: '#F2F0EB',
+  muted: '#9AA3AD',
+  accent: '#F5A623',
+  border: '#2A3038',
+} as const;
 
 export interface EmailVerificationData {
   username: string;
@@ -35,74 +44,120 @@ export interface WelcomeEmailData {
   email: string;
 }
 
+interface EmailLayoutContent {
+  preheader: string;
+  title: string;
+  bodyHtml: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  footerNote?: string;
+}
+
 /**
- * Send email verification email
+ * Shared Stage Signal email shell — use for all future transactional templates.
  */
-export async function sendVerificationEmail(data: EmailVerificationData): Promise<{ success: boolean; error?: string }> {
+export function renderEmailLayout(content: EmailLayoutContent): string {
+  const ctaBlock =
+    content.ctaLabel && content.ctaUrl
+      ? `
+        <tr>
+          <td align="center" style="padding: 28px 0 8px;">
+            <a href="${content.ctaUrl}"
+               style="background-color: ${EMAIL_BRAND.accent}; color: ${EMAIL_BRAND.ink}; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 15px; display: inline-block;">
+              ${content.ctaLabel}
+            </a>
+          </td>
+        </tr>`
+      : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${content.title}</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:${EMAIL_BRAND.ink}; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">${content.preheader}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:${EMAIL_BRAND.ink}; padding: 32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px; background-color:${EMAIL_BRAND.elevated}; border:1px solid ${EMAIL_BRAND.border}; border-radius:12px; overflow:hidden;">
+            <tr>
+              <td style="padding: 28px 32px 20px; border-bottom: 1px solid ${EMAIL_BRAND.border};">
+                <p style="margin:0; font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:${EMAIL_BRAND.accent}; font-weight:700;">
+                  ${APP_NAME}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 32px;">
+                <h1 style="margin:0 0 16px; font-size:24px; line-height:1.3; color:${EMAIL_BRAND.bone}; font-weight:700;">
+                  ${content.title}
+                </h1>
+                <div style="font-size:15px; line-height:1.7; color:${EMAIL_BRAND.muted};">
+                  ${content.bodyHtml}
+                </div>
+                ${ctaBlock}
+                ${
+                  content.ctaUrl
+                    ? `<p style="margin:24px 0 0; font-size:12px; color:${EMAIL_BRAND.muted}; word-break:break-all;">
+                         Or open this link:<br>
+                         <a href="${content.ctaUrl}" style="color:${EMAIL_BRAND.accent};">${content.ctaUrl}</a>
+                       </p>`
+                    : ''
+                }
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 20px 32px; background-color:${EMAIL_BRAND.ink}; border-top:1px solid ${EMAIL_BRAND.border};">
+                <p style="margin:0; font-size:12px; color:${EMAIL_BRAND.muted}; text-align:center;">
+                  ${content.footerNote || `You received this email because of activity on ${APP_NAME}.`}
+                </p>
+                <p style="margin:8px 0 0; font-size:12px; color:${EMAIL_BRAND.muted}; text-align:center;">
+                  <a href="${APP_URL}" style="color:${EMAIL_BRAND.accent}; text-decoration:none;">${APP_URL.replace(/^https?:\/\//, '')}</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+export async function sendVerificationEmail(
+  data: EmailVerificationData
+): Promise<{ success: boolean; error?: string }> {
   try {
     if (!EMAIL_ENABLED || !resend) {
       console.warn('⚠️ Email service not configured. Verification email not sent.');
       console.log(`📧 Would have sent verification email to: ${data.email}`);
-      console.log(`🔗 Verification URL: ${APP_URL}/auth/verify-email?token=${data.verificationToken}`);
+      console.log(
+        `🔗 Verification URL: ${APP_URL}/auth/verify-email?token=${data.verificationToken}`
+      );
       return { success: false, error: 'Email service not configured' };
     }
 
     const verificationUrl = `${APP_URL}/auth/verify-email?token=${data.verificationToken}`;
-    
+
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: data.email,
       subject: `Verify your ${APP_NAME} account`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Verify Your Email</title>
-          </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">🎵 ${APP_NAME}</h1>
-            </div>
-            
-            <div style="background: #f9f9f9; padding: 40px 30px; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #333; margin-top: 0;">Welcome, ${data.username}! 👋</h2>
-              
-              <p style="font-size: 16px; line-height: 1.8;">
-                Thank you for signing up! Please verify your email address to activate your account and start creating amazing playlist experiences.
-              </p>
-              
-              <div style="text-align: center; margin: 40px 0;">
-                <a href="${verificationUrl}" 
-                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          color: white; 
-                          padding: 15px 40px; 
-                          text-decoration: none; 
-                          border-radius: 8px; 
-                          font-weight: bold; 
-                          font-size: 16px;
-                          display: inline-block;">
-                  Verify Email Address
-                </a>
-              </div>
-              
-              <p style="font-size: 14px; color: #666; margin-top: 40px;">
-                If the button doesn't work, copy and paste this link into your browser:
-              </p>
-              <p style="font-size: 12px; color: #999; word-break: break-all;">
-                ${verificationUrl}
-              </p>
-              
-              <hr style="border: none; border-top: 1px solid #ddd; margin: 40px 0;">
-              
-              <p style="font-size: 12px; color: #999; text-align: center;">
-                This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
-              </p>
-            </div>
-          </body>
-        </html>
-      `,
+      html: renderEmailLayout({
+        preheader: `Confirm your email to activate ${APP_NAME}`,
+        title: `Welcome, ${data.username}`,
+        bodyHtml: `
+          <p style="margin:0 0 12px;">
+            Thanks for signing up. Verify your email to activate your account and start hosting interactive playlist nights.
+          </p>
+        `,
+        ctaLabel: 'Verify email address',
+        ctaUrl: verificationUrl,
+        footerNote: 'This link expires in 24 hours. If you did not create an account, you can ignore this email.',
+      }),
     });
 
     if (error) {
@@ -112,17 +167,16 @@ export async function sendVerificationEmail(data: EmailVerificationData): Promis
 
     console.log('✅ Verification email sent to:', data.email);
     return { success: true };
-    
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send email';
     console.error('❌ Email service error:', error);
-    return { success: false, error: error.message || 'Failed to send email' };
+    return { success: false, error: message };
   }
 }
 
-/**
- * Send password reset email
- */
-export async function sendPasswordResetEmail(data: PasswordResetData): Promise<{ success: boolean; error?: string }> {
+export async function sendPasswordResetEmail(
+  data: PasswordResetData
+): Promise<{ success: boolean; error?: string }> {
   try {
     if (!EMAIL_ENABLED || !resend) {
       console.warn('⚠️ Email service not configured. Password reset email not sent.');
@@ -132,65 +186,25 @@ export async function sendPasswordResetEmail(data: PasswordResetData): Promise<{
     }
 
     const resetUrl = `${APP_URL}/auth/reset-password?token=${data.resetToken}`;
-    
+
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: data.email,
       subject: `Reset your ${APP_NAME} password`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Reset Your Password</title>
-          </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">🎵 ${APP_NAME}</h1>
-            </div>
-            
-            <div style="background: #f9f9f9; padding: 40px 30px; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #333; margin-top: 0;">Password Reset Request 🔐</h2>
-              
-              <p style="font-size: 16px; line-height: 1.8;">
-                Hi ${data.username},
-              </p>
-              
-              <p style="font-size: 16px; line-height: 1.8;">
-                We received a request to reset your password. Click the button below to create a new password:
-              </p>
-              
-              <div style="text-align: center; margin: 40px 0;">
-                <a href="${resetUrl}" 
-                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          color: white; 
-                          padding: 15px 40px; 
-                          text-decoration: none; 
-                          border-radius: 8px; 
-                          font-weight: bold; 
-                          font-size: 16px;
-                          display: inline-block;">
-                  Reset Password
-                </a>
-              </div>
-              
-              <p style="font-size: 14px; color: #666; margin-top: 40px;">
-                If the button doesn't work, copy and paste this link into your browser:
-              </p>
-              <p style="font-size: 12px; color: #999; word-break: break-all;">
-                ${resetUrl}
-              </p>
-              
-              <hr style="border: none; border-top: 1px solid #ddd; margin: 40px 0;">
-              
-              <p style="font-size: 12px; color: #999; text-align: center;">
-                This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email - your password will not be changed.
-              </p>
-            </div>
-          </body>
-        </html>
-      `,
+      html: renderEmailLayout({
+        preheader: 'Reset your Party Playlist password',
+        title: 'Password reset',
+        bodyHtml: `
+          <p style="margin:0 0 12px;">Hi ${data.username},</p>
+          <p style="margin:0 0 12px;">
+            We received a request to reset your password. Use the button below to choose a new one.
+          </p>
+        `,
+        ctaLabel: 'Reset password',
+        ctaUrl: resetUrl,
+        footerNote:
+          'This link expires in 1 hour. If you did not request a reset, you can ignore this email — your password will not change.',
+      }),
     });
 
     if (error) {
@@ -200,17 +214,16 @@ export async function sendPasswordResetEmail(data: PasswordResetData): Promise<{
 
     console.log('✅ Password reset email sent to:', data.email);
     return { success: true };
-    
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send email';
     console.error('❌ Email service error:', error);
-    return { success: false, error: error.message || 'Failed to send email' };
+    return { success: false, error: message };
   }
 }
 
-/**
- * Send welcome email after verification
- */
-export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<{ success: boolean; error?: string }> {
+export async function sendWelcomeEmail(
+  data: WelcomeEmailData
+): Promise<{ success: boolean; error?: string }> {
   try {
     if (!EMAIL_ENABLED || !resend) {
       console.warn('⚠️ Email service not configured. Welcome email not sent.');
@@ -219,68 +232,35 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<{ succes
     }
 
     const dashboardUrl = `${APP_URL}/${data.username}/admin/overview`;
-    
+    const requestUrl = `${APP_URL}/${data.username}/request`;
+
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: data.email,
-      subject: `Welcome to ${APP_NAME}! 🎉`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Welcome!</title>
-          </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">🎵 ${APP_NAME}</h1>
-            </div>
-            
-            <div style="background: #f9f9f9; padding: 40px 30px; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #333; margin-top: 0;">Welcome aboard, ${data.username}! 🎉</h2>
-              
-              <p style="font-size: 16px; line-height: 1.8;">
-                Your account is now active! You're all set to create interactive playlist experiences for your parties, events, and gatherings.
-              </p>
-              
-              <h3 style="color: #667eea; margin-top: 30px;">Getting Started:</h3>
-              
-              <ul style="font-size: 15px; line-height: 1.8; color: #555;">
-                <li>🔌 Connect your Spotify account</li>
-                <li>🎯 Set up your event details</li>
-                <li>📱 Share your custom request page with guests</li>
-                <li>🎶 Manage song requests in real-time</li>
-              </ul>
-              
-              <div style="text-align: center; margin: 40px 0;">
-                <a href="${dashboardUrl}" 
-                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          color: white; 
-                          padding: 15px 40px; 
-                          text-decoration: none; 
-                          border-radius: 8px; 
-                          font-weight: bold; 
-                          font-size: 16px;
-                          display: inline-block;">
-                  Go to Dashboard
-                </a>
-              </div>
-              
-              <hr style="border: none; border-top: 1px solid #ddd; margin: 40px 0;">
-              
-              <p style="font-size: 14px; color: #666;">
-                Your unique request page URL:<br>
-                <strong style="color: #667eea;">${APP_URL}/${data.username}/request</strong>
-              </p>
-              
-              <p style="font-size: 12px; color: #999; text-align: center; margin-top: 40px;">
-                Need help? Check out our docs or contact support.
-              </p>
-            </div>
-          </body>
-        </html>
-      `,
+      subject: `Welcome to ${APP_NAME}`,
+      html: renderEmailLayout({
+        preheader: 'Your Party Playlist account is ready',
+        title: `You're in, ${data.username}`,
+        bodyHtml: `
+          <p style="margin:0 0 12px;">
+            Your account is active. Connect Spotify, set your event live, and share your request link with guests.
+          </p>
+          <p style="margin:16px 0 8px; color:${EMAIL_BRAND.bone}; font-weight:600;">Getting started</p>
+          <ol style="margin:0; padding-left:18px;">
+            <li style="margin-bottom:6px;">Connect your Spotify account</li>
+            <li style="margin-bottom:6px;">Configure display mood and messages</li>
+            <li style="margin-bottom:6px;">Share your guest request page</li>
+            <li>Approve songs and run the night</li>
+          </ol>
+          <p style="margin:20px 0 0;">
+            Your guest link:<br>
+            <a href="${requestUrl}" style="color:${EMAIL_BRAND.accent}; word-break:break-all;">${requestUrl}</a>
+          </p>
+        `,
+        ctaLabel: 'Open dashboard',
+        ctaUrl: dashboardUrl,
+        footerNote: `Thanks for hosting with ${APP_NAME}.`,
+      }),
     });
 
     if (error) {
@@ -290,9 +270,9 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<{ succes
 
     console.log('✅ Welcome email sent to:', data.email);
     return { success: true };
-    
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send email';
     console.error('❌ Email service error:', error);
-    return { success: false, error: error.message || 'Failed to send email' };
+    return { success: false, error: message };
   }
 }

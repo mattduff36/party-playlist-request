@@ -3,8 +3,10 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Music2, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import SessionTransferModal from '@/components/admin/SessionTransferModal';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,7 +15,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferData, setTransferData] = useState<any>(null);
+  const [transferData, setTransferData] = useState<{
+    username: string;
+    password: string;
+    sessionInfo?: {
+      created_at: string;
+      device_info?: string;
+    };
+  } | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -35,7 +44,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if session transfer is required
       if (data.requiresTransfer) {
         setTransferData({ ...data, password });
         setShowTransferModal(true);
@@ -43,15 +51,13 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if super admin - redirect to super admin panel
       if (data.user?.role === 'superadmin') {
         router.push('/superadmin');
         return;
       }
 
-      // Success! Redirect to user's admin panel
       router.push(`/${username}/admin/overview`);
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
       setLoading(false);
     }
@@ -78,10 +84,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Session transferred successfully
       setShowTransferModal(false);
       router.push(`/${transferData.username}/admin/overview`);
-    } catch (err) {
+    } catch {
       setError('Network error during transfer');
       setLoading(false);
       setShowTransferModal(false);
@@ -95,101 +100,90 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#191414] flex items-center justify-center px-6">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <Music2 className="w-10 h-10 text-[#1DB954]" />
-          <span className="text-3xl font-bold text-white">PartyPlaylist</span>
-        </Link>
+    <div className="relative min-h-screen overflow-hidden bg-ink text-bone">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse at 20% 0%, rgba(245,166,35,0.16), transparent 45%), radial-gradient(ellipse at 100% 80%, rgba(245,166,35,0.06), transparent 40%)',
+        }}
+      />
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md ss-reveal">
+          <Link href="/" className="mb-10 flex items-center justify-center gap-2">
+            <span className="font-display text-2xl font-bold tracking-tight">
+              Party <span className="text-accent">Playlist</span>
+            </span>
+          </Link>
 
-        {/* Login Card */}
-        <div className="bg-black/50 backdrop-blur-lg rounded-2xl p-8 border border-[#1DB954]/20 shadow-2xl">
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-400 mb-8">Login to your account</p>
+          <div className="rounded-2xl border border-white/10 bg-elevated/90 p-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <h1 className="font-display text-3xl font-bold">Welcome back</h1>
+            <p className="mt-1 text-muted">Sign in to run your event</p>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
-              <p className="text-red-200 text-sm">{error}</p>
-            </div>
-          )}
+            {error && (
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-error/40 bg-error/10 p-4">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-error" />
+                <p className="text-sm text-bone/90">{error}</p>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
-                Username
-              </label>
-              <input
-                type="text"
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+              <Input
+                label="Username"
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase())}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent transition-all"
-                placeholder="johnsmith"
+                placeholder="yourname"
                 autoComplete="username"
                 disabled={loading}
               />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
+              <Input
+                label="Password"
                 id="password"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent transition-all"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 disabled={loading}
               />
-            </div>
 
-            <div className="text-right">
-              <Link href="/auth/forgot-password" className="text-[#1DB954] hover:text-[#1ed760] text-sm transition-colors">
-                Forgot password?
-              </Link>
-            </div>
+              <div className="text-right">
+                <Link href="/auth/forgot-password" className="text-sm text-accent hover:text-accent-hover">
+                  Forgot password?
+                </Link>
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-6 py-3 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold rounded-full transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                'Login'
-              )}
-            </button>
-          </form>
+              <Button type="submit" disabled={loading} className="w-full" size="lg">
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign in'
+                )}
+              </Button>
+            </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-400">
-              Don't have an account?{' '}
-              <Link href="/register" className="text-[#1DB954] hover:text-[#1ed760] font-semibold transition-colors">
-                Register here
+            <p className="mt-6 text-center text-sm text-muted">
+              No account?{' '}
+              <Link href="/register" className="font-semibold text-accent hover:text-accent-hover">
+                Request access
               </Link>
             </p>
-          </div>
-
-          <div className="mt-4 text-center">
-            <Link href="/" className="text-gray-500 hover:text-white text-sm transition-colors">
-              ← Back to home
-            </Link>
+            <p className="mt-3 text-center">
+              <Link href="/" className="text-sm text-faint hover:text-bone">
+                ← Back to home
+              </Link>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Session Transfer Modal */}
       <SessionTransferModal
         isOpen={showTransferModal && !!transferData}
         onTransfer={handleTransferSession}

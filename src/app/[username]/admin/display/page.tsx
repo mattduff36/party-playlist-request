@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Save, RefreshCw, Palette, Eye, Mic, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
+import {
+  DISPLAY_MOODS,
+  DisplayMood,
+  resolveDisplayMood,
+} from '@/styles/theme';
 
 export default function DisplaySettingsPage() {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
@@ -17,10 +22,8 @@ export default function DisplaySettingsPage() {
     show_qr_code: true,
     qr_boost_duration: 5, // seconds
     
-    // UI Customization
-    theme_primary_color: '#1DB954', // Spotify green
-    theme_secondary_color: '#191414', // Black
-    theme_tertiary_color: '#1ed760', // Light green
+    // Guest + display visual mood
+    display_mood: 'club' as DisplayMood,
     show_scrolling_bar: true,
     
     // Advanced features
@@ -43,7 +46,7 @@ export default function DisplaySettingsPage() {
   // Collapsible sections state
   const [expandedSections, setExpandedSections] = useState({
     displayMessages: true,
-    colorTheme: false,
+    moodTheme: true,
     noticeBoard: false,
     advancedFeatures: false,
   });
@@ -64,9 +67,10 @@ export default function DisplaySettingsPage() {
         tertiary_message: (eventSettings as any).tertiary_message || '',
         show_qr_code: (eventSettings as any).show_qr_code ?? true,
         qr_boost_duration: (eventSettings as any).qr_boost_duration || 5,
-        theme_primary_color: (eventSettings as any).theme_primary_color || '#1DB954',
-        theme_secondary_color: (eventSettings as any).theme_secondary_color || '#191414',
-        theme_tertiary_color: (eventSettings as any).theme_tertiary_color || '#1ed760',
+        display_mood: resolveDisplayMood(
+          (eventSettings as any).display_mood,
+          (eventSettings as any).theme_primary_color
+        ),
         show_scrolling_bar: (eventSettings as any).show_scrolling_bar ?? true,
         karaoke_mode: (eventSettings as any).karaoke_mode || false,
         show_approval_messages: (eventSettings as any).show_approval_messages || false,
@@ -230,7 +234,7 @@ export default function DisplaySettingsPage() {
               <div className={`p-4 space-y-6 transition-opacity ${!formData.show_scrolling_bar ? 'opacity-50' : ''}`}>
             
             {/* Scrolling Bar Toggle */}
-            <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-purple-500/30 mb-6">
+            <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-accent/30 mb-6">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -238,7 +242,7 @@ export default function DisplaySettingsPage() {
                   name="show_scrolling_bar"
                   checked={formData.show_scrolling_bar}
                   onChange={handleCheckboxChange}
-                  className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                  className="w-5 h-5 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
                 />
                 <label htmlFor="show_scrolling_bar" className="ml-3 text-base font-semibold text-white">
                   Show Scrolling Message Bar
@@ -261,7 +265,7 @@ export default function DisplaySettingsPage() {
                 onChange={handleInputChange}
                 disabled={!formData.show_scrolling_bar}
                 rows={1}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Welcome! This is a welcome message."
               />
               <p className="text-gray-500 text-sm mt-1">
@@ -284,7 +288,7 @@ export default function DisplaySettingsPage() {
                   onChange={handleInputChange}
                   disabled={!formData.show_scrolling_bar}
                   rows={1}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Request your song now! Scan the QR code, or visit partyplaylist.co.uk"
                 />
               </div>
@@ -298,7 +302,7 @@ export default function DisplaySettingsPage() {
                   onChange={handleInputChange}
                   disabled={!formData.show_scrolling_bar}
                   rows={1}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Secondary message to be placed here!"
                 />
               </div>
@@ -311,120 +315,66 @@ export default function DisplaySettingsPage() {
             )}
           </div>
 
-          {/* Theme Colors Section */}
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
+          {/* Display Mood Section */}
+          <div className="border border-white/10 rounded-xl overflow-hidden">
             <button
               type="button"
-              onClick={() => toggleSection('colorTheme')}
-              className="w-full flex items-center justify-between p-4 bg-gray-700/50 hover:bg-gray-700/70 transition-colors"
+              onClick={() => toggleSection('moodTheme')}
+              className="w-full flex items-center justify-between p-4 bg-surface/60 hover:bg-surface transition-colors"
             >
-              <h3 className="text-lg font-semibold text-white flex items-center">
-                <Palette className="w-5 h-5 mr-2" />
-                Colour Theme
+              <h3 className="text-lg font-semibold text-bone flex items-center font-display">
+                <Palette className="w-5 h-5 mr-2 text-accent" />
+                Display Mood
               </h3>
-              {expandedSections.colorTheme ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+              {expandedSections.moodTheme ? (
+                <ChevronUp className="w-5 h-5 text-muted" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-5 h-5 text-muted" />
               )}
             </button>
             
-            {expandedSections.colorTheme && (
-              <div className="p-4 space-y-6">
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Primary Colour */}
-              <div>
-                <label htmlFor="theme_primary_color" className="block text-sm font-medium text-gray-300 mb-2">
-                  Primary Colour
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    id="theme_primary_color"
-                    name="theme_primary_color"
-                    value={formData.theme_primary_color}
-                    onChange={handleInputChange}
-                    className="w-12 h-12 rounded cursor-pointer bg-gray-700 border-2 border-gray-600"
-                  />
-                  <input
-                    type="text"
-                    value={formData.theme_primary_color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, theme_primary_color: e.target.value }))}
-                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="#9333ea"
-                  />
-                </div>
-                <p className="text-gray-500 text-xs mt-1">
-                  Main gradient color
+            {expandedSections.moodTheme && (
+              <div className="p-4 space-y-4">
+                <p className="text-sm text-muted">
+                  Applies to the guest request page and the TV display for this event.
                 </p>
-              </div>
-
-              {/* Secondary Colour */}
-              <div>
-                <label htmlFor="theme_secondary_color" className="block text-sm font-medium text-gray-300 mb-2">
-                  Secondary Colour
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    id="theme_secondary_color"
-                    name="theme_secondary_color"
-                    value={formData.theme_secondary_color}
-                    onChange={handleInputChange}
-                    className="w-12 h-12 rounded cursor-pointer bg-gray-700 border-2 border-gray-600"
-                  />
-                  <input
-                    type="text"
-                    value={formData.theme_secondary_color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, theme_secondary_color: e.target.value }))}
-                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="#3b82f6"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {(Object.keys(DISPLAY_MOODS) as DisplayMood[]).map((moodId) => {
+                    const mood = DISPLAY_MOODS[moodId];
+                    const selected = formData.display_mood === moodId;
+                    return (
+                      <button
+                        key={moodId}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, display_mood: moodId }))}
+                        className={`text-left rounded-xl border p-4 transition-all ${
+                          selected
+                            ? 'border-accent ring-2 ring-accent/30 bg-accent/10'
+                            : 'border-white/10 bg-elevated hover:border-white/20'
+                        }`}
+                      >
+                        <div
+                          className="h-16 rounded-lg mb-3 border"
+                          style={{
+                            background: `linear-gradient(135deg, ${mood.background}, ${mood.surface})`,
+                            borderColor: mood.border,
+                          }}
+                        >
+                          <div className="h-full flex items-end p-2">
+                            <span
+                              className="text-xs font-bold px-2 py-0.5 rounded"
+                              style={{ background: mood.accent, color: '#0a0a0a' }}
+                            >
+                              {mood.label}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="font-semibold text-bone">{mood.label}</p>
+                        <p className="text-xs text-muted mt-1 leading-relaxed">{mood.description}</p>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="text-gray-500 text-xs mt-1">
-                  Middle gradient color
-                </p>
-              </div>
-
-              {/* Tertiary Colour */}
-              <div>
-                <label htmlFor="theme_tertiary_color" className="block text-sm font-medium text-gray-300 mb-2">
-                  Tertiary Colour
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    id="theme_tertiary_color"
-                    name="theme_tertiary_color"
-                    value={formData.theme_tertiary_color}
-                    onChange={handleInputChange}
-                    className="w-12 h-12 rounded cursor-pointer bg-gray-700 border-2 border-gray-600"
-                  />
-                  <input
-                    type="text"
-                    value={formData.theme_tertiary_color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, theme_tertiary_color: e.target.value }))}
-                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="#4f46e5"
-                  />
-                </div>
-                <p className="text-gray-500 text-xs mt-1">
-                  End gradient color
-                </p>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="mt-4">
-              <p className="text-sm font-medium text-gray-300 mb-2">Colour Preview</p>
-              <div 
-                className="h-24 rounded-lg"
-                style={{
-                  background: `linear-gradient(to bottom right, ${formData.theme_primary_color}, ${formData.theme_secondary_color}, ${formData.theme_tertiary_color})`
-                }}
-              />
-            </div>
               </div>
             )}
           </div>
@@ -454,7 +404,7 @@ export default function DisplaySettingsPage() {
             
             <div className="space-y-4">
               {/* Auto-Approval Messages Setting */}
-              <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-purple-500/30 mb-4">
+              <div className="bg-gray-700/50 rounded-lg p-4 border-2 border-accent/30 mb-4">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -462,7 +412,7 @@ export default function DisplaySettingsPage() {
                     name="show_approval_messages"
                     checked={formData.show_approval_messages}
                     onChange={handleCheckboxChange}
-                    className="w-5 h-5 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                    className="w-5 h-5 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2"
                   />
                   <label htmlFor="show_approval_messages" className="ml-3 text-base font-semibold text-white">
                     Show Requests when Approved
@@ -483,7 +433,7 @@ export default function DisplaySettingsPage() {
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none"
                   placeholder="Enter your message here..."
                   maxLength={500}
                 />
@@ -506,7 +456,7 @@ export default function DisplaySettingsPage() {
                         value="10"
                         checked={messageDuration === '10'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 focus:ring-purple-500 focus:ring-2"
+                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-gray-300">10 seconds</span>
                     </label>
@@ -517,7 +467,7 @@ export default function DisplaySettingsPage() {
                         value="30"
                         checked={messageDuration === '30'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 focus:ring-purple-500 focus:ring-2"
+                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-gray-300">30 seconds</span>
                     </label>
@@ -528,7 +478,7 @@ export default function DisplaySettingsPage() {
                         value="60"
                         checked={messageDuration === '60'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 focus:ring-purple-500 focus:ring-2"
+                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-gray-300">1 minute</span>
                     </label>
@@ -541,7 +491,7 @@ export default function DisplaySettingsPage() {
                         value="custom"
                         checked={messageDuration === 'custom'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 focus:ring-purple-500 focus:ring-2"
+                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-gray-300">Custom:</span>
                     </label>
@@ -553,7 +503,7 @@ export default function DisplaySettingsPage() {
                           max="60"
                           value={customMinutes}
                           onChange={(e) => setCustomMinutes(e.target.value)}
-                          className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                         />
                         <span className="text-gray-300 text-sm">minutes</span>
                       </div>
@@ -565,7 +515,7 @@ export default function DisplaySettingsPage() {
                         value="indefinite"
                         checked={messageDuration === 'indefinite'}
                         onChange={(e) => setMessageDuration(e.target.value)}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 focus:ring-purple-500 focus:ring-2"
+                        className="w-4 h-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent focus:ring-2"
                       />
                       <span className="ml-2 text-gray-300">Until removed</span>
                     </label>
@@ -582,7 +532,7 @@ export default function DisplaySettingsPage() {
                   className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
                     sendingMessage || !messageText.trim()
                       ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-accent hover:bg-accent text-white'
                   }`}
                 >
                   {sendingMessage ? (
@@ -658,7 +608,7 @@ export default function DisplaySettingsPage() {
                     checked={formData.karaoke_mode}
                     onChange={handleCheckboxChange}
                     disabled={true}
-                    className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2 cursor-not-allowed"
+                    className="w-4 h-4 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2 cursor-not-allowed"
                   />
                   <label htmlFor="karaoke_mode" className="ml-3 text-sm font-medium text-gray-300 cursor-not-allowed">
                     Karaoke Mode
@@ -690,7 +640,7 @@ export default function DisplaySettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white font-medium rounded-lg transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-accent hover:bg-accent disabled:bg-accent/40 text-white font-medium rounded-lg transition-colors"
             >
               {saving ? (
                 <>

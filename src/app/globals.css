@@ -1,28 +1,119 @@
 @import "tailwindcss";
 
+/* Stage Signal design tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #0e1114;
+  --elevated: #171b21;
+  --surface: #1e242c;
+  --bone: #f2f0eb;
+  --muted: #9aa3ad;
+  --faint: #6b737c;
+  --accent: #f5a623;
+  --accent-hover: #ffb84d;
+  --accent-muted: rgba(245, 166, 35, 0.14);
+  --border: rgba(242, 240, 235, 0.1);
+  --border-strong: rgba(242, 240, 235, 0.18);
+  --success: #3ddc97;
+  --error: #e85d4c;
+  --warning: #f5a623;
+  --info: #5b9fd4;
+  --background: var(--ink);
+  --foreground: var(--bone);
+
+  /* Mood defaults (overridden per guest/display shell) */
+  --mood-bg: #07080a;
+  --mood-surface: #12151a;
+  --mood-text: #f7f7f5;
+  --mood-muted: #a8adb5;
+  --mood-accent: #ff3d8b;
+  --mood-accent-hover: #ff6ba8;
+  --mood-border: rgba(255, 61, 139, 0.28);
+  --mood-radius: 1rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ink: var(--ink);
+  --color-elevated: var(--elevated);
+  --color-surface: var(--surface);
+  --color-bone: var(--bone);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-mood-bg: var(--mood-bg);
+  --color-mood-surface: var(--mood-surface);
+  --color-mood-text: var(--mood-text);
+  --color-mood-muted: var(--mood-muted);
+  --color-mood-accent: var(--mood-accent);
+  --color-mood-accent-hover: var(--mood-accent-hover);
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Atmosphere: subtle grain for Stage Signal surfaces */
+.ss-grain::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: 0;
+}
+
+.ss-reveal {
+  animation: ssReveal 0.7s ease-out both;
+}
+
+.ss-reveal-delay-1 {
+  animation-delay: 0.08s;
+}
+.ss-reveal-delay-2 {
+  animation-delay: 0.16s;
+}
+.ss-reveal-delay-3 {
+  animation-delay: 0.24s;
+}
+
+@keyframes ssReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ssPulseAccent {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 166, 35, 0);
+  }
+}
+
+.ss-pulse-accent {
+  animation: ssPulseAccent 2.4s ease-in-out infinite;
 }
 
 /* Marquee animation for scrolling messages */
@@ -39,7 +130,6 @@ body {
   animation: marquee 60s linear infinite;
 }
 
-/* Individual message scrolling animation */
 @keyframes scrollMessage {
   0% {
     transform: translateX(100%);
@@ -53,7 +143,6 @@ body {
   animation: scrollMessage 15s linear;
 }
 
-/* Professional notification animations */
 @keyframes slideDown {
   0% {
     transform: translateY(-100%);
@@ -68,11 +157,11 @@ body {
 @keyframes fadeIn {
   0% {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translateY(-10px);
   }
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -81,15 +170,18 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.5s ease-out;
 }
 
 @keyframes progress {
-  from { width: 0%; }
-  to { width: 100%; }
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
 }
 
-/* Pop-up notification animations */
 @keyframes slideInFromTop {
   0% {
     transform: translate(-50%, -100%);
@@ -99,26 +191,6 @@ body {
     transform: translate(-50%, 0);
     opacity: 1;
   }
-}
-
-/* Fade in animation for state changes */
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
-.animate-fade-in-out {
-  animation: fadeInOut 1s ease-in-out;
 }
 
 @keyframes fadeInOut {
@@ -140,8 +212,13 @@ body {
   }
 }
 
+.animate-fade-in-out {
+  animation: fadeInOut 1s ease-in-out;
+}
+
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
   }
   50% {
@@ -157,7 +234,6 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* Slide in from right animation for notifications */
 @keyframes slideInRight {
   0% {
     transform: translateX(100%);
@@ -173,12 +249,49 @@ body {
   animation: slideInRight 0.3s ease-out;
 }
 
-/* Hide scrollbars while keeping scroll functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* Internet Explorer 10+ */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Safari and Chrome */
+  display: none;
+}
+
+/* Mood shell helpers */
+.mood-shell {
+  background: var(--mood-bg);
+  color: var(--mood-text);
+  min-height: 100vh;
+}
+
+.mood-surface {
+  background: var(--mood-surface);
+  border: 1px solid var(--mood-border);
+  border-radius: var(--mood-radius);
+}
+
+.mood-accent-bg {
+  background: var(--mood-accent);
+  color: #0a0a0a;
+}
+
+.mood-accent-text {
+  color: var(--mood-accent);
+}
+
+.mood-btn {
+  background: var(--mood-accent);
+  color: #0a0a0a;
+  border-radius: var(--mood-radius);
+  font-weight: 700;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.mood-btn:hover {
+  background: var(--mood-accent-hover);
+}
+
+.mood-btn:active {
+  transform: scale(0.98);
 }

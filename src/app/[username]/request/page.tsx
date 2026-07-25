@@ -8,6 +8,7 @@ import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
 import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import PartyNotStarted from '@/components/PartyNotStarted';
+import MoodShell from '@/components/MoodShell';
 import { validateRequesterName } from '@/lib/profanity-filter';
 import {
   SPOTIFY_SEARCH_BUSY_CODE,
@@ -517,55 +518,55 @@ export default function UserRequestPage() {
     }
   };
 
-  // Use site-wide black and green theme
-  const gradientStyle = {
-    background: 'linear-gradient(to bottom right, #191414, #0a0a0a)'
+  const moodProps = {
+    mood: eventSettings?.display_mood,
+    legacyPrimaryColor: eventSettings?.theme_primary_color,
   };
 
   // Loading Screen
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={gradientStyle}>
-        <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-white/20 text-center">
+      <MoodShell {...moodProps} className="flex flex-col items-center justify-center p-4">
+        <div className="mood-surface w-full max-w-md shadow-2xl p-8 text-center">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-[#1DB954] rounded-full flex items-center justify-center mb-6 animate-pulse">
-              <Music2 className="h-8 w-8 text-white" />
+            <div className="w-16 h-16 mood-accent-bg rounded-full flex items-center justify-center mb-6 animate-pulse">
+              <Music2 className="h-8 w-8" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">
+            <h1 className="font-display text-2xl font-bold mb-2">
               {verifying ? 'Verifying Access...' : 'Loading...'}
             </h1>
-            <p className="text-gray-300 text-sm">
+            <p className="text-[color:var(--mood-muted)] text-sm">
               {verifying ? 'Please wait while we verify your access' : 'Preparing your experience'}
             </p>
           </div>
           
           <div className="flex justify-center mb-6">
             <div className="flex space-x-2">
-              <div className="w-3 h-3 bg-[#1DB954] rounded-full animate-bounce"></div>
-              <div className="w-3 h-3 bg-[#1DB954] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-3 h-3 bg-[#1DB954] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-3 h-3 mood-accent-bg rounded-full animate-bounce"></div>
+              <div className="w-3 h-3 mood-accent-bg rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-3 h-3 mood-accent-bg rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
             </div>
           </div>
           
-          <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-            <div className="h-full bg-[#1DB954] rounded-full animate-pulse"></div>
+          <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden">
+            <div className="h-full mood-accent-bg rounded-full animate-pulse"></div>
           </div>
         </div>
-      </div>
+      </MoodShell>
     );
   }
 
   // PIN Entry Screen
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={gradientStyle}>
-        <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-white/20">
+      <MoodShell {...moodProps} className="flex flex-col items-center justify-center p-4">
+        <div className="mood-surface w-full max-w-md shadow-2xl p-8">
           <div className="flex flex-col items-center mb-8">
-            <Music2 className="h-16 w-16 text-[#1DB954] mb-4" />
-            <h1 className="text-3xl font-bold text-center text-white">
-              {username}'s Party Playlist
+            <Music2 className="h-16 w-16 mood-accent-text mb-4" />
+            <h1 className="font-display text-3xl font-bold text-center">
+              {username}&apos;s Party Playlist
             </h1>
-            <p className="text-gray-300 text-center mt-2">
+            <p className="text-[color:var(--mood-muted)] text-center mt-2">
               Enter the 4-digit PIN to request songs
             </p>
           </div>
@@ -579,7 +580,7 @@ export default function UserRequestPage() {
 
           <form onSubmit={handlePinSubmit} className="space-y-6">
             <div>
-              <label htmlFor="pin" className="block text-gray-300 text-sm font-medium mb-2">
+              <label htmlFor="pin" className="block text-[color:var(--mood-muted)] text-sm font-medium mb-2">
                 <Lock className="inline h-4 w-4 mr-2" />
                 Event PIN
               </label>
@@ -588,7 +589,8 @@ export default function UserRequestPage() {
                 id="pin"
                 maxLength={4}
                 pattern="[0-9]{4}"
-                className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:ring-2 focus:ring-[#1DB954] focus:border-transparent outline-none text-white text-center text-2xl tracking-widest font-mono"
+                className="w-full px-4 py-3 bg-black/10 border border-[color:var(--mood-border)] rounded-[var(--mood-radius)] focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent outline-none text-center text-2xl tracking-widest font-mono"
+                style={{ color: 'var(--mood-text)' }}
                 placeholder="••••"
                 value={pin}
                 onChange={(e) => {
@@ -603,7 +605,7 @@ export default function UserRequestPage() {
 
             <button
               type="submit"
-              className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mood-btn w-full py-3 px-4 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={verifying || pin.length !== 4}
             >
               {verifying ? (
@@ -620,11 +622,11 @@ export default function UserRequestPage() {
             </button>
           </form>
 
-          <p className="text-center text-gray-400 text-sm mt-6">
-            PIN displayed on the DJ's screen
+          <p className="text-center text-[color:var(--mood-muted)] text-sm mt-6">
+            PIN displayed on the DJ&apos;s screen
           </p>
         </div>
-      </div>
+      </MoodShell>
     );
   }
 
@@ -638,28 +640,27 @@ export default function UserRequestPage() {
     // Requests page is disabled
     if (!globalState.pagesEnabled?.requests) {
       return (
-        <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
-          <div className="bg-white/10 backdrop-blur-md p-12 rounded-2xl max-w-md w-full mx-4 text-center">
-            <div className="text-6xl mb-6">🚫</div>
-            <h1 className="text-3xl font-bold text-white mb-4">Requests Disabled</h1>
-            <p className="text-gray-300 mb-4">
+        <MoodShell {...moodProps} className="flex items-center justify-center p-4">
+          <div className="mood-surface p-12 max-w-md w-full text-center">
+            <h1 className="font-display text-3xl font-bold mb-4">Requests Disabled</h1>
+            <p className="text-[color:var(--mood-muted)] mb-4">
               The DJ has temporarily disabled song requests. Check back later!
             </p>
-            <p className="text-sm text-gray-400">@{username}</p>
+            <p className="text-sm text-[color:var(--mood-muted)]">@{username}</p>
           </div>
-        </div>
+        </MoodShell>
       );
     }
   }
 
   // Main Request Form (after authentication and checks passed)
   return (
-    <div className="min-h-screen relative" style={gradientStyle}>
+    <MoodShell {...moodProps} className="relative">
       {/* Hero Section */}
       <div className="min-h-screen flex flex-col">
         {/* Header */}
         <div className="text-center pt-3 pb-2">
-          <h1 className="text-xl font-semibold text-white">
+          <h1 className="font-display text-xl font-semibold">
             {eventSettings?.event_title || 'Party DJ Requests'}
           </h1>
         </div>
@@ -678,7 +679,7 @@ export default function UserRequestPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handleMakeAnotherRequest}
-                  className="flex-1 bg-[#1DB954] text-white py-3 px-6 rounded-lg font-semibold hover:bg-[#1ed760] transition-colors"
+                  className="flex-1 mood-accent-bg text-white py-3 px-6 rounded-lg font-semibold hover:mood-accent-bg transition-colors"
                 >
                   Make another Request
                 </button>
@@ -717,7 +718,7 @@ export default function UserRequestPage() {
                 className={`w-full px-4 py-3 text-base bg-white/20 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:border-transparent ${
                   nicknameError 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-white/30 focus:ring-[#1DB954]'
+                    : 'border-white/30 focus:ring-[color:var(--mood-accent)]'
                 }`}
                 style={{ 
                   fontSize: '16px',
@@ -755,7 +756,7 @@ export default function UserRequestPage() {
                         ? "Please enter a valid name" 
                         : "Search songs, artists, or paste Spotify link"
                   }
-                  className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent"
                   style={{ 
                     fontSize: '16px',
                     transform: 'translateZ(0)', // Prevent iOS zoom
@@ -774,7 +775,7 @@ export default function UserRequestPage() {
 
               {isSearching && nickname.trim() && isNicknameValid && (
                 <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1DB954] mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[color:var(--mood-accent)] mx-auto"></div>
                   <p className="text-gray-300 mt-2">Searching...</p>
                 </div>
               )}
@@ -783,12 +784,12 @@ export default function UserRequestPage() {
                 <div
                   role="status"
                   aria-live="polite"
-                  className="mt-3 rounded-lg border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3"
+                  className="mt-3 rounded-lg border border-[color:var(--mood-accent)]/30 mood-accent-bg/10 px-4 py-3"
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-xl" aria-hidden="true">🎉</span>
                     <div>
-                      <p className="font-medium text-[#1ed760]">Popular night!</p>
+                      <p className="font-medium mood-accent-text">Popular night!</p>
                       <p className="mt-1 text-sm leading-relaxed text-gray-200">
                         {searchFeedback.message}
                       </p>
@@ -897,9 +898,9 @@ export default function UserRequestPage() {
       </div>
 
       {/* Debug footer */}
-      <div className="fixed bottom-2 left-2 text-gray-500 text-xs bg-black/20 px-2 py-1 rounded">
+      <div className="fixed bottom-2 left-2 text-[color:var(--mood-muted)] text-xs bg-black/20 px-2 py-1 rounded">
         @{username}
       </div>
-    </div>
+    </MoodShell>
   );
 }

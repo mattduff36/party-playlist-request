@@ -102,7 +102,7 @@ export default function EventTitleEditor() {
       title="Click to edit event title"
     >
       <span className="text-white font-semibold text-base">{currentTitle}</span>
-      <Pencil className="w-4 h-4 text-gray-400 group-hover:text-purple-400 transition-colors" />
+      <Pencil className="w-4 h-4 text-gray-400 group-hover:text-accent transition-colors" />
     </button>
   );
 }

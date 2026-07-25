@@ -73,7 +73,7 @@ export default function NotificationsDropdown() {
       case 'info':
         return <Info className="w-5 h-5 text-blue-400" />;
       case 'debug':
-        return <Bug className="w-5 h-5 text-purple-400" />;
+        return <Bug className="w-5 h-5 text-accent" />;
       case 'success':
         return <CheckCircle className="w-5 h-5 text-green-400" />;
       default:
@@ -91,7 +91,7 @@ export default function NotificationsDropdown() {
       case 'info':
         return 'bg-blue-900/20 border-blue-700/30';
       case 'debug':
-        return 'bg-purple-900/20 border-purple-700/30';
+        return 'bg-accent/10 border-accent/30';
       case 'success':
         return 'bg-green-900/20 border-green-700/30';
       default:

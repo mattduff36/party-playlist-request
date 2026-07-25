@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Lock } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -9,8 +9,10 @@ import { useLiveProgress } from '@/hooks/useLiveProgress';
 import { RequestApprovedEvent } from '@/lib/pusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
+import MoodShell from '@/components/MoodShell';
 import { EventConfig } from '@/lib/db/schema';
 import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';
+import { DISPLAY_MOODS, moodCssVariables, resolveDisplayMood } from '@/styles/theme';
 
 interface CurrentTrack {
   name: string;
@@ -122,7 +124,7 @@ export default function UserDisplayPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-[#1DB954] mx-auto mb-4" />
+          <Loader2 className="h-12 w-12 animate-spin mood-accent-text mx-auto mb-4" />
           <p className="text-lg">Loading display page...</p>
         </div>
       </div>
@@ -145,7 +147,7 @@ export default function UserDisplayPage() {
           {error.includes('logged in as') && (
             <button
               onClick={() => router.push('/login')}
-              className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 mb-3"
+              className="w-full mood-accent-bg hover:mood-accent-bg text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 mb-3"
             >
               <Lock className="inline h-5 w-5 mr-2" />
               Switch Account
@@ -854,28 +856,29 @@ function DisplayPage({ username }: { username: string }) {
 
   // Message rotation is now handled by the individual scrolling system below
 
-  // Dynamic theme colors (defined early for use in all return statements)
-  const themeColors = {
-    primary: (eventSettings as any)?.theme_primary_color || '#1DB954',
-    secondary: (eventSettings as any)?.theme_secondary_color || '#191414',
-    tertiary: (eventSettings as any)?.theme_tertiary_color || '#1ed760',
-  };
-  
+  // DJ-selected display mood (replaces free-form colour theme)
+  const displayMood = resolveDisplayMood(
+    (eventSettings as any)?.display_mood,
+    (eventSettings as any)?.theme_primary_color
+  );
+  const moodTokens = DISPLAY_MOODS[displayMood];
   const gradientStyle = {
-    background: `linear-gradient(to bottom right, ${themeColors.primary}, ${themeColors.secondary}, ${themeColors.tertiary})`
-  };
+    background: `linear-gradient(160deg, ${moodTokens.background} 0%, ${moodTokens.surface} 55%, ${moodTokens.background} 100%)`,
+    color: moodTokens.text,
+    ...moodCssVariables(displayMood),
+  } as CSSProperties;
 
   // Show loading state while mounting or waiting for global state
   const isLoadingEssentialData = !mounted || globalState.isLoading;
     
   if (isLoadingEssentialData) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={gradientStyle}>
+      <MoodShell mood={displayMood} className="flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-white text-xl">Loading...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[color:var(--mood-accent)] mx-auto mb-4"></div>
+          <p className="text-xl">Loading...</p>
         </div>
-      </div>
+      </MoodShell>
     );
   }
 
@@ -977,7 +980,7 @@ function DisplayPage({ username }: { username: string }) {
           <div className="text-center py-4 flex-shrink-0">
             <h1 className="text-5xl font-bold mb-2">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-              <p className="text-xl text-[#1ed760]">DJ {eventSettings.dj_name}</p>
+              <p className="text-xl mood-accent-text">DJ {eventSettings.dj_name}</p>
             )}
             {eventSettings.venue_info && (
               <p className="text-lg text-gray-300 mt-1">{eventSettings.venue_info}</p>
@@ -1125,7 +1128,7 @@ function DisplayPage({ username }: { username: string }) {
                           }`}
                         >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <div className="text-xl font-bold text-[#1DB954] flex-shrink-0 w-8">
+                            <div className="text-xl font-bold mood-accent-text flex-shrink-0 w-8">
                           🎵
                         </div>
                             <div className="flex-1 min-w-0">
@@ -1137,7 +1140,7 @@ function DisplayPage({ username }: { username: string }) {
                       </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-3">
-                              <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                              <div className="mood-accent-bg px-3 py-1 rounded-full text-sm font-bold shadow-lg">
                                 {sanitizeName(song.requester_nickname)}
                               </div>
                             </div>
@@ -1239,7 +1242,7 @@ function DisplayPage({ username }: { username: string }) {
             <div className="text-center py-2 flex-shrink-0">
               <h1 className="text-3xl font-bold mb-1">{eventSettings.event_title}</h1>
               {eventSettings.dj_name && (
-                <p className="text-base text-[#1ed760]">DJ {eventSettings.dj_name}</p>
+                <p className="text-base mood-accent-text">DJ {eventSettings.dj_name}</p>
               )}
               {eventSettings.venue_info && (
                 <p className="text-sm text-gray-300">{eventSettings.venue_info}</p>
@@ -1335,7 +1338,7 @@ function DisplayPage({ username }: { username: string }) {
                           </div>
                           {song.requester_nickname && (
                             <div className="flex-shrink-0 ml-2">
-                              <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-2 py-1 rounded-full text-xs font-bold">
+                              <div className="mood-accent-bg px-2 py-1 rounded-full text-xs font-bold">
                                 {sanitizeName(song.requester_nickname)}
                               </div>
                             </div>
@@ -1427,7 +1430,7 @@ function DisplayPage({ username }: { username: string }) {
             <div className="text-center py-3 flex-shrink-0">
               <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-                <p className="text-sm text-[#1ed760]">DJ {eventSettings.dj_name}</p>
+                <p className="text-sm mood-accent-text">DJ {eventSettings.dj_name}</p>
             )}
           </div>
 
@@ -1479,7 +1482,7 @@ function DisplayPage({ username }: { username: string }) {
                       </div>
                       {song.requester_nickname && (
                         <div className="flex-shrink-0 ml-3">
-                          <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-3 py-1 rounded-full text-sm font-bold">
+                          <div className="mood-accent-bg px-3 py-1 rounded-full text-sm font-bold">
                             {sanitizeName(song.requester_nickname)}
                           </div>
                         </div>
@@ -1534,7 +1537,7 @@ function DisplayPage({ username }: { username: string }) {
           <div className="text-center py-1 flex-shrink-0">
             <h1 className="text-lg font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
-              <p className="text-xs text-[#1ed760]">DJ {eventSettings.dj_name}</p>
+              <p className="text-xs mood-accent-text">DJ {eventSettings.dj_name}</p>
             )}
             {eventSettings.venue_info && (
               <p className="text-xs text-gray-300">{eventSettings.venue_info}</p>
@@ -1629,7 +1632,7 @@ function DisplayPage({ username }: { username: string }) {
                         </div>
                         {song.requester_nickname && (
                           <div className="flex-shrink-0 ml-1">
-                            <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-1 py-0.5 rounded-full text-xs font-bold">
+                            <div className="mood-accent-bg px-1 py-0.5 rounded-full text-xs font-bold">
                               {sanitizeName(song.requester_nickname)}
                             </div>
                           </div>
@@ -1716,7 +1719,7 @@ function DisplayPage({ username }: { username: string }) {
           <div className="text-center flex-shrink-0 mb-3">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
           {eventSettings.dj_name && (
-              <p className="text-xs text-[#1ed760]">DJ {eventSettings.dj_name}</p>
+              <p className="text-xs mood-accent-text">DJ {eventSettings.dj_name}</p>
           )}
         </div>
 
@@ -1768,7 +1771,7 @@ function DisplayPage({ username }: { username: string }) {
                     </div>
                     {song.requester_nickname && (
                       <div className="flex-shrink-0 ml-2">
-                        <div className="bg-gradient-to-r from-[#1DB954] to-[#1ed760] text-white px-2 py-1 rounded-full text-xs font-bold">
+                        <div className="mood-accent-bg px-2 py-1 rounded-full text-xs font-bold">
                           {sanitizeName(song.requester_nickname)}
                         </div>
                       </div>

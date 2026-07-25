@@ -63,7 +63,7 @@ function VerifyEmailContent() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center justify-center mb-4">
-            <Music2 className="w-12 h-12 text-[#1DB954]" />
+            <Music2 className="w-12 h-12 text-accent" />
           </Link>
         </div>
 
@@ -73,13 +73,13 @@ function VerifyEmailContent() {
           {/* Loading State */}
           {status === 'loading' && (
             <>
-              <div className="bg-gradient-to-br from-yellow-400/20 to-pink-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin" />
+              <div className="bg-gradient-to-br from-yellow-400/20 to-pink-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6">
+                <Loader2 className="w-10 h-10 text-accent animate-spin" />
               </div>
-              <h1 className="text-2xl font-bold text-white mb-4">
+              <h1 className="text-2xl font-bold text-bone mb-4">
                 Verifying Your Email...
               </h1>
-              <p className="text-gray-400">
+              <p className="text-muted">
                 Please wait while we confirm your email address.
               </p>
             </>
@@ -88,20 +88,20 @@ function VerifyEmailContent() {
           {/* Success State */}
           {status === 'success' && (
             <>
-              <div className="bg-gradient-to-br from-green-400/20 to-emerald-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+              <div className="bg-gradient-to-br from-green-400/20 to-emerald-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6 animate-bounce">
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
-              <h1 className="text-3xl font-bold text-white mb-4">
+              <h1 className="text-3xl font-bold text-bone mb-4">
                 Email Verified! 🎉
               </h1>
-              <p className="text-gray-300 mb-6">
+              <p className="text-muted mb-6">
                 {message}
               </p>
 
               {username && (
                 <div className="bg-white/5 rounded-lg p-4 mb-6">
-                  <p className="text-gray-400 text-sm mb-2">Your account is now active:</p>
-                  <p className="text-[#1DB954] font-semibold text-lg">@{username}</p>
+                  <p className="text-muted text-sm mb-2">Your account is now active:</p>
+                  <p className="text-accent font-semibold text-lg">@{username}</p>
                 </div>
               )}
 
@@ -111,13 +111,13 @@ function VerifyEmailContent() {
                 </p>
               </div>
 
-              <p className="text-gray-400 text-sm mb-6">
+              <p className="text-muted text-sm mb-6">
                 Redirecting to login page in a few seconds...
               </p>
 
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
+                className="inline-flex items-center justify-center w-full bg-accent hover:bg-accent-hover text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
               >
                 Go to Login Now
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -128,13 +128,13 @@ function VerifyEmailContent() {
           {/* Error State */}
           {status === 'error' && (
             <>
-              <div className="bg-gradient-to-br from-red-400/20 to-rose-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="bg-gradient-to-br from-red-400/20 to-rose-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6">
                 <XCircle className="w-10 h-10 text-red-400" />
               </div>
-              <h1 className="text-2xl font-bold text-white mb-4">
+              <h1 className="text-2xl font-bold text-bone mb-4">
                 Verification Failed
               </h1>
-              <p className="text-gray-300 mb-6">
+              <p className="text-muted mb-6">
                 {message}
               </p>
 
@@ -149,13 +149,13 @@ function VerifyEmailContent() {
               <div className="space-y-3">
                 <Link
                   href="/register"
-                  className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
+                  className="block w-full bg-accent hover:bg-accent-hover text-gray-900 font-bold py-3 px-4 rounded-lg transition-all duration-300"
                 >
                   Register Again
                 </Link>
                 <Link
                   href="/login"
-                  className="block w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 border border-white/20"
+                  className="block w-full bg-white/10 hover:bg-white/20 text-bone font-medium py-3 px-4 rounded-lg transition-all duration-300 border border-white/20"
                 >
                   Go to Login
                 </Link>
@@ -166,7 +166,7 @@ function VerifyEmailContent() {
 
         {/* Back Link */}
         <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm">
+          <Link href="/" className="text-muted hover:text-accent transition-colors text-sm">
             ← Back to home
           </Link>
         </div>
@@ -180,8 +180,8 @@ export default function VerifyEmailPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br [#191414] flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin mb-4" />
-          <p className="text-white">Loading verification...</p>
+          <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
+          <p className="text-bone">Loading verification...</p>
         </div>
       </div>
     }>

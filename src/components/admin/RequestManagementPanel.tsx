@@ -305,10 +305,10 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           <button
             onClick={handleAddRandomSong}
             disabled={isAddingRandomSong || !playbackState?.spotify_connected}
-            className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+            className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
               isAddingRandomSong || !playbackState?.spotify_connected
-                ? 'bg-purple-400 cursor-not-allowed opacity-50' 
-                : 'bg-purple-600 hover:bg-purple-700'
+                ? 'bg-accent/70 cursor-not-allowed opacity-50' 
+                : 'bg-accent hover:bg-accent'
             }`}
             title={!playbackState?.spotify_connected ? 'Connect Spotify to add random songs' : 'Add a random popular song to requests'}
           >
@@ -416,7 +416,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       <span>{formatDuration(request.duration_ms)}</span>
                       <span>{formatTimeAgo(request.created_at)}</span>
                       {request.requester_nickname && (
-                        <span className="text-purple-300">
+                        <span className="text-accent">
                           by {request.requester_nickname}
                         </span>
                       )}

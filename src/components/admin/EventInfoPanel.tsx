@@ -62,7 +62,7 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
     return (
       <div className="bg-gray-800 rounded-lg p-6">
         <div className="flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-purple-500 mr-3" />
+          <Loader2 className="h-6 w-6 animate-spin text-accent mr-3" />
           <span className="text-gray-400">Loading event info...</span>
         </div>
       </div>
@@ -92,8 +92,8 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
           <h2 className="text-xl font-bold text-white">Event Information</h2>
           <div className="flex items-center space-x-4">
             {/* PIN Display - Compact */}
-            <div className="flex items-center space-x-2 bg-purple-900/20 border border-purple-600/50 rounded-lg px-4 py-2">
-              <Lock className="h-4 w-4 text-purple-400" />
+            <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
+              <Lock className="h-4 w-4 text-accent" />
               <span className="text-gray-400 text-sm">PIN:</span>
               <span className="text-2xl font-bold text-white tracking-wider font-mono">{event.pin}</span>
             </div>
@@ -138,7 +138,7 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
       {/* QR Code URL (with bypass token) */}
       <div className="space-y-3">
         <label className="block text-gray-300 font-medium flex items-center">
-          <QrCode className="h-5 w-5 mr-2 text-purple-400" />
+          <QrCode className="h-5 w-5 mr-2 text-accent" />
           QR Code URL (No PIN Required)
         </label>
         <div className="flex items-center space-x-2">
@@ -168,7 +168,7 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
       {/* Display Screen URL */}
       <div className="space-y-3 border-t border-gray-700 pt-6">
         <label className="block text-gray-300 font-medium flex items-center">
-          <Monitor className="h-5 w-5 mr-2 text-purple-400" />
+          <Monitor className="h-5 w-5 mr-2 text-accent" />
           Display Screen URL
         </label>
         <div className="flex items-center space-x-2">

@@ -110,15 +110,15 @@ function ResetPasswordContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#191414] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-ink flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center justify-center mb-4">
-            <Music2 className="w-12 h-12 text-[#1DB954]" />
+            <Music2 className="w-12 h-12 text-accent" />
           </Link>
-          <h1 className="text-3xl font-bold text-white mb-2">Create New Password</h1>
-          <p className="text-gray-400">Enter your new password below</p>
+          <h1 className="text-3xl font-bold text-bone mb-2">Create New Password</h1>
+          <p className="text-muted">Enter your new password below</p>
         </div>
 
         {/* Content Card */}
@@ -127,11 +127,11 @@ function ResetPasswordContent() {
           {/* Success State */}
           {status === 'success' ? (
             <div className="text-center">
-              <div className="bg-gradient-to-br from-green-400/20 to-emerald-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+              <div className="bg-gradient-to-br from-green-400/20 to-emerald-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6 animate-bounce">
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-4">Password Reset! 🎉</h2>
-              <p className="text-gray-300 mb-6">{message}</p>
+              <h2 className="text-2xl font-bold text-bone mb-4">Password Reset! 🎉</h2>
+              <p className="text-muted mb-6">{message}</p>
               
               <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-4 mb-6">
                 <p className="text-green-200 text-sm">
@@ -139,13 +139,13 @@ function ResetPasswordContent() {
                 </p>
               </div>
 
-              <p className="text-gray-400 text-sm mb-6">
+              <p className="text-muted text-sm mb-6">
                 Redirecting to login page...
               </p>
 
               <Link
                 href="/login"
-                className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
+                className="block w-full bg-accent hover:bg-accent-hover text-black font-bold py-3 px-4 rounded-lg transition-all duration-300 text-center"
               >
                 Go to Login Now
               </Link>
@@ -153,11 +153,11 @@ function ResetPasswordContent() {
           ) : status === 'error' && !token ? (
             // Invalid Token State
             <div className="text-center">
-              <div className="bg-gradient-to-br from-red-400/20 to-rose-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="bg-gradient-to-br from-red-400/20 to-rose-500/20 w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6">
                 <XCircle className="w-10 h-10 text-red-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-4">Invalid Reset Link</h2>
-              <p className="text-gray-300 mb-6">{message}</p>
+              <h2 className="text-2xl font-bold text-bone mb-4">Invalid Reset Link</h2>
+              <p className="text-muted mb-6">{message}</p>
               
               <div className="bg-red-400/10 border border-red-400/30 rounded-lg p-4 mb-6">
                 <p className="text-red-200 text-sm">
@@ -168,13 +168,13 @@ function ResetPasswordContent() {
               <div className="space-y-3">
                 <Link
                   href="/auth/forgot-password"
-                  className="block w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-full transition-all duration-300 text-center"
+                  className="block w-full bg-accent hover:bg-accent-hover text-black font-bold py-3 px-4 rounded-lg transition-all duration-300 text-center"
                 >
                   Request New Reset Link
                 </Link>
                 <Link
                   href="/login"
-                  className="block w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 border border-white/20 text-center"
+                  className="block w-full bg-white/10 hover:bg-white/20 text-bone font-medium py-3 px-4 rounded-lg transition-all duration-300 border border-white/20 text-center"
                 >
                   Back to Login
                 </Link>
@@ -204,16 +204,16 @@ function ResetPasswordContent() {
                     onChange={(e) => setPassword(e.target.value)}
                     className={`w-full pl-12 pr-12 py-3 bg-white/10 border ${
                       errors.password ? 'border-red-500' : 'border-white/30'
-                    } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent`}
+                    } rounded-lg text-bone placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent`}
                     placeholder="••••••••"
                     disabled={isSubmitting}
                     autoFocus
                   />
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-bone"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -226,12 +226,12 @@ function ResetPasswordContent() {
                       {[...Array(5)].map((_, i) => (
                         <div
                           key={i}
-                          className={`h-1 flex-1 rounded-full ${
+                          className={`h-1 flex-1 rounded-lg ${
                             i < passwordStrength.score
                               ? passwordStrength.level === 'weak'
                                 ? 'bg-red-500'
                                 : passwordStrength.level === 'medium'
-                                ? 'bg-[#1DB954]'
+                                ? 'bg-accent'
                                 : 'bg-green-500'
                               : 'bg-gray-600'
                           }`}
@@ -243,7 +243,7 @@ function ResetPasswordContent() {
                         passwordStrength.level === 'weak'
                           ? 'text-red-400'
                           : passwordStrength.level === 'medium'
-                          ? 'text-[#1DB954]'
+                          ? 'text-accent'
                           : 'text-green-400'
                       }`}
                     >
@@ -270,15 +270,15 @@ function ResetPasswordContent() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className={`w-full pl-12 pr-12 py-3 bg-white/10 border ${
                       errors.confirmPassword ? 'border-red-500' : 'border-white/30'
-                    } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent`}
+                    } rounded-lg text-bone placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent`}
                     placeholder="••••••••"
                     disabled={isSubmitting}
                   />
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-bone"
                   >
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -292,7 +292,7 @@ function ResetPasswordContent() {
               <button
                 type="submit"
                 disabled={isSubmitting || !password || !confirmPassword}
-                className="w-full bg-[#1DB954] hover:bg-[#1ed760] disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-bold py-3 px-4 rounded-full transition-all duration-300 flex items-center justify-center"
+                className="w-full bg-accent hover:bg-accent-hover disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-black font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center"
               >
                 {isSubmitting ? (
                   <>
@@ -311,7 +311,7 @@ function ResetPasswordContent() {
             <div className="mt-6 pt-6 border-t border-white/10 text-center">
               <Link
                 href="/login"
-                className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm"
+                className="text-muted hover:text-accent transition-colors text-sm"
               >
                 Remember your password? <span className="font-medium">Log in</span>
               </Link>
@@ -321,7 +321,7 @@ function ResetPasswordContent() {
 
         {/* Back Link */}
         <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-400 hover:text-[#1DB954] transition-colors text-sm">
+          <Link href="/" className="text-muted hover:text-accent transition-colors text-sm">
             ← Back to home
           </Link>
         </div>
@@ -333,10 +333,10 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
+      <div className="min-h-screen bg-ink flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin mb-4" />
-          <p className="text-white">Loading...</p>
+          <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
+          <p className="text-bone">Loading...</p>
         </div>
       </div>
     }>

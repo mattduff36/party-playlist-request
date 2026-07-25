@@ -102,9 +102,10 @@ export function useSpotifyStatus() {
       
       return response.json();
     },
-    staleTime: 10 * 1000, // 10 seconds - matches cache header
+    staleTime: 20 * 1000,
     gcTime: 1 * 60 * 1000, // 1 minute
-    refetchInterval: 15 * 1000, // Auto-refetch every 15 seconds for playback state
+    refetchInterval: 30 * 1000, // Softer polling to stay within Spotify rate limits
+    refetchIntervalInBackground: false,
   });
 }
 

@@ -14,18 +14,40 @@ export interface SpotifyTrack {
   image?: string;
 }
 
+export interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  uri: string;
+  collaborative: boolean;
+  public: boolean | null;
+  image?: string;
+  track_count: number;
+  owner_name?: string;
+}
+
+/** Scopes required to list private / collaborative playlists via GET /me/playlists */
+export const SPOTIFY_PLAYLIST_READ_SCOPES = [
+  'playlist-read-private',
+  'playlist-read-collaborative',
+] as const;
+
 class SpotifyService {
   private clientId: string;
   private clientSecret: string;
   private redirectUri: string;
   private baseURL = 'https://api.spotify.com/v1';
   private authURL = 'https://accounts.spotify.com';
+  // NOTE: Existing connected users must disconnect + reconnect Spotify after deploy
+  // so tokens pick up the new playlist-read-* scopes. Dashboard app settings do not
+  // need changes — scopes are requested at authorize time from this list.
   private scopes = [
     'user-modify-playback-state',
     'user-read-playback-state',
     'user-read-currently-playing',
     'playlist-modify-public',
     'playlist-modify-private',
+    'playlist-read-private',
+    'playlist-read-collaborative',
     'user-read-private'
   ].join(' ');
 
@@ -358,6 +380,18 @@ class SpotifyService {
         }
       }
 
+      // Respect Spotify rate limits: backoff using Retry-After when present
+      if (response.status === 429 && retries > 0) {
+        const retryAfterHeader = response.headers.get('Retry-After');
+        const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : NaN;
+        const waitMs = Number.isFinite(retryAfterSeconds)
+          ? Math.min(Math.max(retryAfterSeconds, 1) * 1000, 30_000)
+          : Math.min(1000 * Math.pow(2, 2 - retries), 8_000);
+        console.warn(`⏳ [${requestId}] Spotify 429 — waiting ${waitMs}ms before retry (${retries} left)`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        return await this.makeAuthenticatedRequest(method, endpoint, data, userId, retries - 1);
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ [${requestId}] Request failed:`, {
@@ -565,6 +599,59 @@ class SpotifyService {
 
   async getUserProfile(userId?: string) {
     return await this.makeAuthenticatedRequest('GET', '/me', undefined, userId);
+  }
+
+  /**
+   * List playlists for the connected Spotify user (owned + followed).
+   * Paginates GET /me/playlists (max 50 per page). Requires playlist-read-private
+   * (and playlist-read-collaborative for collaborative playlists).
+   */
+  async getUserPlaylists(userId?: string, options?: { maxPlaylists?: number }): Promise<SpotifyPlaylist[]> {
+    const pageLimit = 50;
+    const maxPlaylists = options?.maxPlaylists ?? 200;
+    const playlists: SpotifyPlaylist[] = [];
+    let offset = 0;
+
+    while (playlists.length < maxPlaylists) {
+      const limit = Math.min(pageLimit, maxPlaylists - playlists.length);
+      const data = await this.makeAuthenticatedRequest(
+        'GET',
+        `/me/playlists?limit=${limit}&offset=${offset}`,
+        undefined,
+        userId
+      );
+
+      const items = Array.isArray(data?.items) ? data.items : [];
+      for (const item of items) {
+        if (!item?.id) continue;
+        playlists.push({
+          id: item.id,
+          name: item.name || 'Untitled playlist',
+          uri: item.uri || `spotify:playlist:${item.id}`,
+          collaborative: !!item.collaborative,
+          public: typeof item.public === 'boolean' ? item.public : null,
+          image: item.images?.[0]?.url,
+          track_count: item.tracks?.total ?? item.items?.total ?? 0,
+          owner_name: item.owner?.display_name || undefined,
+        });
+      }
+
+      if (!data?.next || items.length === 0) {
+        break;
+      }
+
+      offset += items.length;
+    }
+
+    return playlists;
+  }
+
+  /** True if the stored token scope includes playlist list/read permissions. */
+  async hasPlaylistReadScopes(userId?: string): Promise<boolean> {
+    const auth = await getSpotifyAuth(userId);
+    if (!auth?.scope) return false;
+    const granted = new Set(auth.scope.split(/[\s,]+/).filter(Boolean));
+    return SPOTIFY_PLAYLIST_READ_SCOPES.every((scope) => granted.has(scope));
   }
 
   async getAlbumArt(trackId: string, userId?: string): Promise<string | null> {

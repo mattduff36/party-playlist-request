@@ -151,6 +151,9 @@ export interface EventConfig {
   message_created_at?: string;
   // Display screen settings
   qr_boost_duration?: number;
+  /** Guest request + TV display visual mood preset */
+  display_mood?: 'club' | 'venue' | 'dj';
+  /** @deprecated Prefer display_mood; kept for migration fallback */
   theme_primary_color?: string;
   theme_secondary_color?: string;
   theme_tertiary_color?: string;

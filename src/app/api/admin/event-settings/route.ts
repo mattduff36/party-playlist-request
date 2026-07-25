@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       force_polling,
       decline_explicit,
       qr_boost_duration,
+      display_mood,
       theme_primary_color,
       theme_secondary_color,
       theme_tertiary_color,
@@ -62,6 +63,12 @@ export async function POST(req: NextRequest) {
       karaoke_mode,
       show_approval_messages
     } = body;
+
+    const allowedMoods = new Set(['club', 'venue', 'dj']);
+    const safeMood =
+      typeof display_mood === 'string' && allowedMoods.has(display_mood)
+        ? display_mood
+        : undefined;
     
     console.log('📝 Updating event settings:', {
       event_title,
@@ -72,9 +79,7 @@ export async function POST(req: NextRequest) {
       show_scrolling_bar,
       karaoke_mode,
       qr_boost_duration,
-      theme_primary_color,
-      theme_secondary_color,
-      theme_tertiary_color,
+      display_mood: safeMood,
       welcome_message,
       secondary_message,
       tertiary_message,
@@ -96,6 +101,7 @@ export async function POST(req: NextRequest) {
       force_polling,
       decline_explicit,
       qr_boost_duration,
+      ...(safeMood ? { display_mood: safeMood as 'club' | 'venue' | 'dj' } : {}),
       theme_primary_color,
       theme_secondary_color,
       theme_tertiary_color,

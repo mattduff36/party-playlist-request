@@ -70,6 +70,7 @@ export interface EventSettings {
   // Admin settings
   request_limit: number | null;
   auto_approve: boolean;
+  decline_explicit: boolean;
   force_polling: boolean;
   // Page control settings
   requests_page_enabled: boolean;
@@ -79,6 +80,7 @@ export interface EventSettings {
   message_duration: number | null;
   message_created_at: Date | null;
   // Theme customization
+  display_mood: 'club' | 'venue' | 'dj' | null;
   theme_primary_color: string | null;
   theme_secondary_color: string | null;
   theme_tertiary_color: string | null;
@@ -208,6 +210,7 @@ export async function initializeDatabase() {
         theme_primary_color TEXT DEFAULT NULL,
         theme_secondary_color TEXT DEFAULT NULL,
         theme_tertiary_color TEXT DEFAULT NULL,
+        display_mood TEXT DEFAULT 'club',
         show_scrolling_bar BOOLEAN DEFAULT TRUE,
         qr_boost_duration INTEGER DEFAULT 5,
         karaoke_mode BOOLEAN DEFAULT FALSE,
@@ -478,6 +481,18 @@ export async function initializeDatabase() {
         ADD COLUMN IF NOT EXISTS karaoke_mode BOOLEAN DEFAULT FALSE;
       `);
       console.log('✅ karaoke_mode column added to user_settings');
+
+      await client.query(`
+        ALTER TABLE user_settings 
+        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
+      `);
+      console.log('✅ display_mood column added to user_settings');
+
+      await client.query(`
+        ALTER TABLE event_settings 
+        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
+      `);
+      console.log('✅ display_mood column added to event_settings');
       
       console.log('✅ User settings display customization columns migration completed successfully');
     } catch (migrationError) {

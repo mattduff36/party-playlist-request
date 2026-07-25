@@ -260,7 +260,7 @@ export default function PartyTestPage() {
             <button
               onClick={handleManualRequest}
               disabled={manualTriggerLoading}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200"
+              className="flex items-center space-x-2 px-4 py-2 bg-accent hover:bg-accent disabled:bg-accent/70 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200"
               title="Manually trigger a single random request"
             >
               <Plus className={`w-4 h-4 ${manualTriggerLoading ? 'animate-spin' : ''}`} />

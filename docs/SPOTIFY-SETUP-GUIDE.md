@@ -106,6 +106,10 @@ Production: https://your-frontend-domain.com
 - `user-read-currently-playing` - Get current track
 - `playlist-modify-public` - Modify public playlists
 - `playlist-modify-private` - Modify private playlists
+- `playlist-read-private` - List private playlists (party playlist picker)
+- `playlist-read-collaborative` - List collaborative playlists
+
+**Note:** After adding scopes in code, existing users must disconnect + reconnect Spotify. Dashboard app settings do not need updates for scopes.
 - `user-read-private` - Get user profile
 
 ## **⚠️ Important Requirements**

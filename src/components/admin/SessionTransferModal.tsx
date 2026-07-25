@@ -74,7 +74,7 @@ export default function SessionTransferModal({
           {sessionInfo && (
             <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-center space-x-2 text-gray-300 mb-2">
-                <Smartphone className="w-5 h-5 text-purple-400" />
+                <Smartphone className="w-5 h-5 text-accent" />
                 <span className="text-sm font-medium">Current Session</span>
               </div>
               <p className="text-xs text-gray-400">
