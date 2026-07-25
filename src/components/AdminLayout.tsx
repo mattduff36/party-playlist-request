@@ -28,6 +28,7 @@ import SetupPartyModal from '@/components/admin/SetupPartyModal';
 import TokenExpiryWarning from '@/components/admin/TokenExpiryWarning';
 import SetupModal from '@/components/admin/SetupModal';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
+import { APP_VERSION } from '@/lib/app-version';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -319,6 +320,9 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                 <span>Super Admin</span>
               </Link>
             )}
+            <p className="px-4 pt-1 pb-1 text-[10px] font-mono tracking-wide text-faint" aria-label="App version">
+              v{APP_VERSION}
+            </p>
           </div>
         </div>
       </div>

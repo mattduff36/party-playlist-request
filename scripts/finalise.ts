@@ -1,6 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from 'child_process';
 import { config } from 'dotenv';
-import { existsSync, readFileSync, rmSync, cpSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, rmSync, cpSync, mkdirSync } from 'fs';
 import path from 'path';
 import pg from 'pg';
 
@@ -15,11 +15,18 @@ if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'producti
 const { Client } = pg;
 const REPO_ROOT = process.cwd();
 const NEXT_BUILD_DIR = path.join(REPO_ROOT, '.next');
+const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
+const APP_VERSION_PATH = path.join(REPO_ROOT, 'src/lib/app-version.ts');
 const DEV_SERVER_PORT = 3000;
 const DEFAULT_COMMIT_MESSAGE = 'chore(finalise): repo finalisation';
 const FULL_COMMIT_MESSAGE = 'chore(finalise): full repo finalisation';
 const PRIVATE_PATH_PREFIX = 'private/';
 const DRIZZLE_MIGRATIONS_PREFIX = 'src/lib/db/migrations/';
+
+interface PackageJsonWithVersion {
+  version: string;
+  [key: string]: unknown;
+}
 
 interface FinaliseOptions {
   full: boolean;
@@ -597,6 +604,55 @@ function removeNextBuildOutput(): boolean {
   return true;
 }
 
+function bumpSemverPatch(version: string): string {
+  const parts = version.split('.');
+  if (parts.length !== 3) {
+    throw new Error(`Expected semver major.minor.patch in package.json, got: ${version}`);
+  }
+
+  const major = Number(parts[0]);
+  const minor = Number(parts[1]);
+  const patch = Number(parts[2]);
+  if (![major, minor, patch].every((value) => Number.isInteger(value) && value >= 0)) {
+    throw new Error(`Invalid semver version in package.json: ${version}`);
+  }
+
+  return `${major}.${minor}.${patch + 1}`;
+}
+
+function writeAppVersionModule(version: string): void {
+  const contents = `/**
+ * App version shown in admin UI.
+ * Bumped by scripts/finalise.ts when running with --push.
+ * Prefer not editing by hand; finalise push regenerates this file.
+ */
+export interface AppVersionInfo {
+  version: string;
+}
+
+export const APP_VERSION_INFO: AppVersionInfo = {
+  version: '${version}',
+};
+
+export const APP_VERSION = APP_VERSION_INFO.version;
+`;
+
+  writeFileSync(APP_VERSION_PATH, contents, 'utf8');
+}
+
+function bumpAppVersion(): string {
+  const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8')) as PackageJsonWithVersion;
+  if (typeof packageJson.version !== 'string' || !packageJson.version.trim()) {
+    throw new Error('package.json is missing a version string');
+  }
+
+  const nextVersion = bumpSemverPatch(packageJson.version.trim());
+  packageJson.version = nextVersion;
+  writeFileSync(PACKAGE_JSON_PATH, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
+  writeAppVersionModule(nextVersion);
+  return nextVersion;
+}
+
 function commitAllChanges(commitMessage: string): boolean {
   if (!hasUncommittedChanges()) {
     return false;
@@ -635,7 +691,7 @@ function printHelp(): void {
 
 Variants:
   --full     Run the full automated test suite after the clean build
-  --push     Push the current branch after commit
+  --push     Bump patch version, commit, then push the current branch
   --dry-run  Print the planned actions without changing anything
 `);
 }
@@ -680,7 +736,20 @@ async function main(): Promise<void> {
           : 'skipped'
       }`
     );
-    console.log(`Commit: ${hasUncommittedChanges() ? `would commit with "${commitMessage}"` : 'no changes to commit'}`);
+    console.log(
+      `Version: ${
+        options.push
+          ? 'would bump package.json patch and regenerate src/lib/app-version.ts'
+          : 'unchanged (bump only on --push)'
+      }`
+    );
+    console.log(
+      `Commit: ${
+        options.push || hasUncommittedChanges()
+          ? `would commit with "${commitMessage}"`
+          : 'no changes to commit'
+      }`
+    );
     console.log(`Push: ${options.push ? 'would push current branch' : 'skipped'}`);
     return;
   }
@@ -834,6 +903,16 @@ async function main(): Promise<void> {
     console.log('Skipped for non-full finalise.');
   }
 
+  let bumpedVersion: string | null = null;
+  if (options.push) {
+    console.log('\n==> Bump app version for push');
+    bumpedVersion = bumpAppVersion();
+    console.log(`Bumped app version to ${bumpedVersion}`);
+  } else {
+    console.log('\n==> Bump app version for push');
+    console.log('Skipped for non-push finalise.');
+  }
+
   console.log('\n==> Commit workspace changes');
   const committed = commitAllChanges(commitMessage);
   console.log(committed ? `Created commit: ${commitMessage}` : 'No uncommitted changes, so no commit was created.');
@@ -852,6 +931,7 @@ async function main(): Promise<void> {
   console.log(`- Migrations run: ${pendingMigrationFiles.length}`);
   console.log(`- Build: passed`);
   console.log(`- Tests: ${options.full ? 'passed' : 'skipped'}`);
+  console.log(`- Version: ${bumpedVersion ? `bumped to ${bumpedVersion}` : 'unchanged'}`);
   console.log(`- Commit: ${committed ? 'created' : 'skipped'}`);
   console.log(`- Push: ${pushedBranch ? `pushed ${pushedBranch}` : 'skipped'}`);
 }
