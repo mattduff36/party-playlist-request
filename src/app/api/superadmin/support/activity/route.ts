@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       action: searchParams.get('action') || 'all',
       username: searchParams.get('username') || undefined,
       since: searchParams.get('since'),
+      after: searchParams.get('after'),
       limit: parseInt(searchParams.get('limit') || '50', 10),
       offset: parseInt(searchParams.get('offset') || '0', 10),
     });

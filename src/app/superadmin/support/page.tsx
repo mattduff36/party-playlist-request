@@ -8,13 +8,15 @@ import {
   Search,
   CheckCircle2,
   RefreshCw,
+  Terminal,
 } from 'lucide-react';
 import PageLoader from '@/components/ui/PageLoader';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import SupportConsoleFeed from '@/components/support/SupportConsoleFeed';
 import type { SupportActivityRow, SupportErrorRow } from '@/lib/support/types';
 
-type Panel = 'errors' | 'activity' | 'health' | 'drilldown';
+type Panel = 'errors' | 'activity' | 'health' | 'drilldown' | 'console';
 
 interface HealthPayload {
   health: {
@@ -154,6 +156,7 @@ export default function SuperAdminSupportPage() {
     { id: 'activity', label: 'Activity', icon: Activity },
     { id: 'health', label: 'Health', icon: HeartPulse },
     { id: 'drilldown', label: 'Drill-down', icon: Search },
+    { id: 'console', label: 'Console', icon: Terminal },
   ];
 
   return (
@@ -162,7 +165,8 @@ export default function SuperAdminSupportPage() {
         <div>
           <h1 className="font-display text-3xl font-bold">Support</h1>
           <p className="mt-1 text-sm text-muted">
-            Errors, activity audit, system health, and per-user timelines. Retention: 90 days.
+            Errors, activity audit, system health, per-user timelines, and live console.
+            Retention: 90 days.
           </p>
         </div>
         <Button
@@ -475,6 +479,8 @@ export default function SuperAdminSupportPage() {
           </div>
         </div>
       )}
+
+      {panel === 'console' && <SupportConsoleFeed active={panel === 'console'} />}
     </div>
   );
 }

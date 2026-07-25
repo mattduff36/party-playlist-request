@@ -250,9 +250,15 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const Sidebar = () => (
     <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-elevated border-r border-white/10 z-40">
       <div className="flex flex-col flex-1 min-h-0">
-        <div className="flex items-center h-16 px-4 bg-ink border-b border-white/10">
+        <div className="relative flex items-center h-16 px-4 bg-ink border-b border-white/10">
           <span className="font-display text-accent text-lg mr-2 tracking-tight">PP</span>
           <h1 className="font-display text-xl font-bold text-bone truncate">{displayUsername}</h1>
+          <p
+            className="pointer-events-none absolute bottom-1 right-2 text-[10px] font-mono tracking-wide text-faint"
+            aria-label="App version"
+          >
+            v{APP_VERSION}
+          </p>
         </div>
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex-1 px-3 space-y-1">
@@ -320,9 +326,6 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
                 <span>Super Admin</span>
               </Link>
             )}
-            <p className="px-4 pt-1 pb-1 text-[10px] font-mono tracking-wide text-faint" aria-label="App version">
-              v{APP_VERSION}
-            </p>
           </div>
         </div>
       </div>

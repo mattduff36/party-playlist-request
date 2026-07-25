@@ -22,17 +22,20 @@ interface StatusDotsProps {
 }
 
 function StatusDots({ isConnected, connectionState, spotifyConnected }: StatusDotsProps) {
+  // Theme-independent colors so mood accents (e.g. Club Night pink) never recolor these
   return (
-    <div className="fixed bottom-4 left-4 flex space-x-2 z-50">
-      {/* Pusher Status Dot */}
-      <div
-        className={`w-3 h-3 rounded-full ${isConnected ? 'mood-accent-bg animate-pulse' : 'bg-red-500'} opacity-60`}
-        title={`Pusher: ${connectionState}`}
-      />
-      {/* Spotify Status Dot */}
+    <div className="fixed top-4 left-4 flex space-x-2 z-50 pointer-events-none">
+      {/* Pusher realtime connection */}
       <div
         className={`w-3 h-3 rounded-full opacity-60 ${
-          spotifyConnected ? 'mood-accent-bg' : 'bg-[color:var(--mood-muted)]'
+          isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+        }`}
+        title={`Pusher: ${connectionState}`}
+      />
+      {/* Spotify / current-track presence */}
+      <div
+        className={`w-3 h-3 rounded-full opacity-60 ${
+          spotifyConnected ? 'bg-green-500' : 'bg-zinc-500'
         }`}
         title={spotifyConnected ? 'Spotify Connected' : 'No Current Track'}
       />

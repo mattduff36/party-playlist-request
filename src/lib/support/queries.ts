@@ -54,6 +54,8 @@ export async function listSupportActivity(options: {
   limit?: number;
   offset?: number;
   since?: string | null;
+  /** Exclusive lower bound on created_at (for live polling cursors). */
+  after?: string | null;
 }): Promise<{ rows: SupportActivityRow[]; total: number }> {
   const client = getPool();
   const clauses: string[] = ['1=1'];
@@ -68,7 +70,10 @@ export async function listSupportActivity(options: {
     clauses.push(`username ILIKE $${i++}`);
     params.push(`%${options.username}%`);
   }
-  if (options.since) {
+  if (options.after) {
+    clauses.push(`created_at > $${i++}`);
+    params.push(options.after);
+  } else if (options.since) {
     clauses.push(`created_at >= $${i++}`);
     params.push(options.since);
   }
