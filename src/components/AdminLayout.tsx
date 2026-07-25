@@ -12,8 +12,10 @@ import {
   Eye,
   Lock,
   ExternalLink,
-  Wand2
+  Wand2,
+  Shield
 } from 'lucide-react';
+import Link from 'next/link';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import SpotifyStatusDropdown from '@/components/admin/SpotifyStatusDropdown';
 import NotificationsDropdown from '@/components/admin/NotificationsDropdown';
@@ -40,10 +42,27 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const [eventPin, setEventPin] = useState<string | null>(null);
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
   // Get admin data for notifications
   const { stats } = useAdminData();
   const { state } = useGlobalEvent();
+
+  // Gate Super Admin sidebar link to logged-in superadmins only
+  useEffect(() => {
+    async function checkSuperAdminRole() {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!response.ok) return;
+        const data = await response.json();
+        setIsSuperAdmin(data.user?.role === 'superadmin');
+      } catch {
+        setIsSuperAdmin(false);
+      }
+    }
+
+    checkSuperAdminRole();
+  }, []);
 
   // Determine active tab based on pathname
   const getActiveTab = () => {
@@ -290,6 +309,15 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               <Wand2 className="w-5 h-5 mr-3" />
               <span>Setup</span>
             </button>
+            {isSuperAdmin && (
+              <Link
+                href="/superadmin"
+                className="w-full flex items-center px-4 py-3 rounded-lg text-red-500 hover:bg-gray-700 transition-colors"
+              >
+                <Shield className="w-5 h-5 mr-3" />
+                <span>Super Admin</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDefaults, getPool } from '@/lib/db';
+import {
+  isSpotifySearchBusyError,
+  SPOTIFY_SEARCH_BUSY_CODE,
+  SPOTIFY_SEARCH_BUSY_MESSAGE
+} from '@/lib/spotify-search-errors';
 
 export async function GET(req: NextRequest) {
   try {
@@ -75,6 +80,17 @@ export async function GET(req: NextRequest) {
         auth.access_token = refreshedResult.rows[0].access_token;
       } catch (refreshError) {
         console.error(`❌ [search] Failed to refresh token for ${username}:`, refreshError);
+
+        if (isSpotifySearchBusyError(refreshError)) {
+          return NextResponse.json(
+            {
+              code: SPOTIFY_SEARCH_BUSY_CODE,
+              error: SPOTIFY_SEARCH_BUSY_MESSAGE
+            },
+            { status: 429 }
+          );
+        }
+
         return NextResponse.json(
           { error: 'Spotify connection expired. Please reconnect in the admin panel.' },
           { status: 503 }
@@ -91,6 +107,21 @@ export async function GET(req: NextRequest) {
         'Authorization': `Bearer ${auth.access_token}`
       }
     });
+
+    if (searchResponse.status === 429) {
+      const response = NextResponse.json(
+        {
+          code: SPOTIFY_SEARCH_BUSY_CODE,
+          error: SPOTIFY_SEARCH_BUSY_MESSAGE
+        },
+        { status: 429 }
+      );
+      const retryAfter = searchResponse.headers.get('Retry-After');
+
+      if (retryAfter) response.headers.set('Retry-After', retryAfter);
+
+      return response;
+    }
 
     if (!searchResponse.ok) {
       console.error(`❌ [search] Spotify API error: ${searchResponse.status} ${searchResponse.statusText}`);

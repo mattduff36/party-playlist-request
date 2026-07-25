@@ -9,6 +9,11 @@ import { EventConfig } from '@/lib/db/schema';
 import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import { validateRequesterName } from '@/lib/profanity-filter';
+import {
+  SPOTIFY_SEARCH_BUSY_CODE,
+  SPOTIFY_SEARCH_BUSY_MESSAGE
+} from '@/lib/spotify-search-errors';
+import type { SpotifySearchErrorResponse } from '@/lib/spotify-search-errors';
 
 interface Track {
   id: string;
@@ -26,6 +31,10 @@ interface SearchResult {
   tracks: Track[];
   query: string;
   total: number;
+}
+
+interface SearchFeedback {
+  message: string;
 }
 
 interface RequestResponse {
@@ -66,6 +75,7 @@ export default function UserRequestPage() {
   // Request Form State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [searchFeedback, setSearchFeedback] = useState<SearchFeedback | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -337,8 +347,11 @@ export default function UserRequestPage() {
   const searchTracks = async (query: string) => {
     if (query.trim().length < 2) {
       setSearchResults([]);
+      setSearchFeedback(null);
       return;
     }
+
+    setSearchFeedback(null);
 
     // If it's a Spotify URL, submit directly
     if (isSpotifyUrl(query)) {
@@ -369,9 +382,21 @@ export default function UserRequestPage() {
       }));
       
       setSearchResults(transformedTracks);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Search error:', error);
       setSearchResults([]);
+
+      if (
+        axios.isAxiosError<SpotifySearchErrorResponse>(error) &&
+        (
+          error.response?.status === 429 ||
+          error.response?.data?.code === SPOTIFY_SEARCH_BUSY_CODE
+        )
+      ) {
+        setSearchFeedback({
+          message: error.response?.data?.error || SPOTIFY_SEARCH_BUSY_MESSAGE
+        });
+      }
     } finally {
       setIsSearching(false);
     }
@@ -384,6 +409,7 @@ export default function UserRequestPage() {
         searchTracks(searchQuery);
       } else {
         setSearchResults([]);
+        setSearchFeedback(null);
       }
     }, 500);
 
@@ -718,7 +744,10 @@ export default function UserRequestPage() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setSearchFeedback(null);
+                  }}
                   placeholder={
                     !nickname.trim() 
                       ? "Enter your name first" 
@@ -747,6 +776,24 @@ export default function UserRequestPage() {
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1DB954] mx-auto"></div>
                   <p className="text-gray-300 mt-2">Searching...</p>
+                </div>
+              )}
+
+              {searchFeedback && !isSearching && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="mt-3 rounded-lg border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl" aria-hidden="true">🎉</span>
+                    <div>
+                      <p className="font-medium text-[#1ed760]">Popular night!</p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-200">
+                        {searchFeedback.message}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
 import { initializeDefaults } from '@/lib/db';
+import {
+  isSpotifySearchBusyError,
+  SPOTIFY_SEARCH_BUSY_CODE,
+  SPOTIFY_SEARCH_BUSY_MESSAGE
+} from '@/lib/spotify-search-errors';
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,6 +58,13 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error searching tracks:', error);
+
+    if (isSpotifySearchBusyError(error)) {
+      return NextResponse.json({
+        code: SPOTIFY_SEARCH_BUSY_CODE,
+        error: SPOTIFY_SEARCH_BUSY_MESSAGE
+      }, { status: 429 });
+    }
     
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ 

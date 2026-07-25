@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Shield, Users, LogOut, Loader2, Radio } from 'lucide-react';
+import { Shield, Users, LogOut, Loader2, Radio, Music } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
@@ -122,6 +122,14 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             >
               <Radio className="w-5 h-5 text-[#1DB954]" />
               <span>Party Simulator</span>
+            </Link>
+
+            <Link
+              href={`/${username}/admin/overview`}
+              className="flex items-center space-x-2 px-4 py-2 backdrop-blur-md rounded-lg transition-all duration-300 bg-black/50 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-white"
+            >
+              <Music className="w-5 h-5 text-[#1DB954]" />
+              <span>DJ Dashboard</span>
             </Link>
           </div>
         </div>
