@@ -39,6 +39,9 @@ config/jest/test.env
 # vercel
 .vercel
 
+# Local fixerrors / automation artifacts
+/docs_private/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,0 +1,77 @@
+---
+description: Triggered when the user types "fixerrors" or "fix errors" in chat. Runs the error analysis script, reads the report, and fixes codebase issues.
+globs:
+alwaysApply: false
+---
+
+# fixerrors — Automated Error Analysis & Fix Workflow
+
+When the user types `fixerrors` or `fix errors`, execute the following steps **in order** without asking for confirmation:
+
+## Step 1: Run the analysis script
+
+Run this command in the terminal:
+
+```bash
+npm run fixerrors
+```
+
+Wait for it to complete. It fetches **unresolved** rows from Neon `support_errors` (localhost included by default), groups them into patterns, and writes a structured report under `docs_private/`.
+
+Optional flags (only if the user asks):
+- `npm run fixerrors -- --exclude-localhost` — skip localhost routes
+- `npm run fixerrors -- --resolve` — mark previously analyzed error IDs as resolved (use after code fixes)
+
+## Step 2: Read the analysis report
+
+Read the file `docs_private/error-analysis.md`. This file is overwritten each run and contains:
+
+- A summary table of all error patterns (sorted by frequency)
+- Detailed breakdowns per pattern including: error message, affected pages, source file references (parsed from stack traces), stack trace excerpts, and timestamps
+- An actionable items list
+- Error IDs used later by `--resolve`
+
+Also read `docs_private/error-fix-log.md` when it exists for historical status.
+
+## Step 3: Analyze and fix codebase issues
+
+For **each error pattern** in the report:
+
+1. Read the source files listed under "Source files (from stack trace or inference)" if any are present.
+2. Determine whether the error is caused by a bug or issue in the codebase (as opposed to external/network/user-input issues).
+3. If it IS a codebase issue, fix it directly by editing the relevant source file(s).
+4. If it is NOT a codebase issue (e.g., network timeout, third-party API failure, user error), note it but do not attempt a fix.
+
+## Step 4: Pattern analysis
+
+After processing individual errors:
+
+- Look for components or pages that appear in multiple error patterns — these indicate systemic issues.
+- Look for source files that appear across multiple patterns — these are high-value fix targets.
+- Investigate and resolve any cross-cutting issues you identify.
+
+## Step 5: Resolve analyzed errors in the database
+
+After applying code fixes for the actionable patterns (or confirming no codebase fix is needed for remaining noise):
+
+```bash
+npm run fixerrors -- --resolve
+```
+
+This marks the error IDs from the latest analysis as resolved (`resolved_by = 'fixerrors'`). Do **not** resolve before fixes are applied.
+
+## Step 6: Report back
+
+After completing all fixes, provide a clear summary:
+
+- List each error pattern and what action was taken (fixed / not a codebase issue / needs manual investigation)
+- Confirm whether `--resolve` succeeded and how many rows were marked resolved
+- If any errors could not be fixed automatically, explain why and suggest what the user should investigate manually
+
+## Important notes
+
+- Error data comes from Neon Postgres table `support_errors` (same source as Super Admin → Support → Errors).
+- Analysis does **not** auto-resolve or delete rows; resolve only after code fixes via `--resolve`.
+- Localhost errors are included by default (unlike some other MPDEE projects).
+- Generated artifacts under `docs_private/` are local-only and gitignored.
+- After fixing errors, commit only if the user asks. Do NOT push unless the user says `push to GitHub`.

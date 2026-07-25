@@ -28,7 +28,8 @@ If the mapped repo command fails:
 - Do not stop at the first failure if the issue is local and safely fixable.
 - Inspect the command output, diagnose the failing step, fix the code/config/test issue directly, and then rerun the exact same finalise command automatically.
 - Keep looping through fix → retry until the command succeeds or you hit a real blocker.
-- Prefer fixing the reported local build/lint/type/test/finalise issue directly. Do not expect a `fixerrors` script in this repo (Supabase digidocs tooling is not ported).
+- Prefer fixing the reported local build/lint/type/test/finalise issue directly.
+- For Support console / runtime error triage, use the `fixerrors` workflow (`npm run fixerrors`) which reads Neon `support_errors`. That is separate from finalise.
 
 Treat these as blocking issues that should stop the loop and be reported to the user before making further changes:
 - merge conflicts or an unexpectedly dirty/conflicting worktree that makes the safe fix unclear
