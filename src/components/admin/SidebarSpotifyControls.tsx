@@ -40,8 +40,12 @@ export default function SidebarSpotifyControls({
   variant = 'sidebar',
   onConnectionChange,
 }: SidebarSpotifyControlsProps) {
-  const { playbackState, handleSpotifyDisconnect, refreshPlaybackState } =
-    useAdminData();
+  const {
+    playbackState,
+    handleSpotifyDisconnect,
+    refreshPlaybackState,
+    patchPlaybackState,
+  } = useAdminData();
 
   const isPage = variant === 'page';
 
@@ -215,6 +219,9 @@ export default function SidebarSpotifyControls({
   };
 
   const handleDeviceChange = async (deviceId: string) => {
+    const wasPlaying = Boolean(playbackState?.is_playing);
+    const targetDevice = devices.find((device) => device.id === deviceId);
+
     try {
       const response = await fetch('/api/spotify/transfer-playback', {
         method: 'POST',
@@ -223,17 +230,42 @@ export default function SidebarSpotifyControls({
         // Keep music going when switching devices while playing
         body: JSON.stringify({
           device_id: deviceId,
-          play: Boolean(playbackState?.is_playing),
+          play: wasPlaying,
         }),
       });
       if (!response.ok) throw new Error('transfer failed');
-      setTimeout(() => {
-        void fetchDevices();
-        void fetchStatus();
-        void refreshPlaybackState();
-      }, 800);
+
+      // Optimistic UI: Spotify often returns empty playback briefly after transfer
+      setDevices((prev) =>
+        prev.map((device) => ({
+          ...device,
+          is_active: device.id === deviceId,
+        }))
+      );
+      patchPlaybackState({
+        device_name: targetDevice?.name ?? playbackState?.device_name,
+        volume_percent:
+          typeof targetDevice?.volume_percent === 'number'
+            ? targetDevice.volume_percent
+            : playbackState?.volume_percent,
+        is_playing: wasPlaying || Boolean(playbackState?.is_playing),
+      });
+      if (typeof targetDevice?.volume_percent === 'number') {
+        setVolume(targetDevice.volume_percent);
+      }
+
+      // Retry refresh until Spotify reports the track again on the new device
+      const retryDelaysMs = [600, 1500, 3000];
+      for (const delayMs of retryDelaysMs) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await fetchDevices();
+        await fetchStatus();
+        await refreshPlaybackState();
+      }
     } catch {
       setError('Failed to transfer playback');
+      void fetchDevices();
+      void refreshPlaybackState();
     }
   };
 
@@ -278,18 +310,11 @@ export default function SidebarSpotifyControls({
         <CheckCircle
           className={`${isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} text-accent flex-shrink-0`}
         />
-        <div className="min-w-0 flex-1">
-          <p
-            className={`${isPage ? 'text-sm' : 'text-xs'} font-medium text-bone truncate`}
-          >
-            Connected
-          </p>
-          {!isPage && playbackState?.device_name && (
-            <p className="text-[10px] text-muted truncate">
-              {playbackState.device_name}
-            </p>
-          )}
-        </div>
+        <p
+          className={`${isPage ? 'text-sm' : 'text-xs'} font-medium text-bone truncate`}
+        >
+          Connected
+        </p>
       </div>
       <button
         type="button"

@@ -95,6 +95,7 @@ interface AdminDataContextType {
   handlePlaybackControl: (action: string) => Promise<void>;
   refreshData: () => Promise<void>;
   refreshPlaybackState: () => Promise<void>;
+  patchPlaybackState: (patch: Partial<PlaybackState>) => void;
   updateEventSettings: (settings: Partial<EventSettings>) => Promise<void>;
   handleSpotifyDisconnect: () => Promise<void>;
   handleApprove: (id: string, playNext?: boolean) => Promise<void>;
@@ -209,9 +210,6 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             spotify_connected: true,
           };
 
-          if (data.is_playing !== undefined) {
-            next.is_playing = Boolean(data.is_playing);
-          }
           if (data.progress_ms !== undefined) {
             next.progress_ms = data.progress_ms;
           }
@@ -225,7 +223,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               data.current_track.album?.images?.[1]?.url ||
               data.current_track.album?.images?.[0]?.url ||
               data.current_track.image_url;
+            if (data.is_playing !== undefined) {
+              next.is_playing = Boolean(data.is_playing);
+            }
+          } else if (data.is_playing === true) {
+            next.is_playing = true;
           }
+          // Ignore is_playing:false with no track — often a transient transfer gap
           // Compact Pusher payloads often omit device — keep previous values
           if (data.device?.name) {
             next.device_name = data.device.name;
@@ -290,6 +294,19 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [handleTokenExpiration]);
 
+  const patchPlaybackState = useCallback((patch: Partial<PlaybackState>) => {
+    setPlaybackState(prev => {
+      if (!prev) {
+        return {
+          spotify_connected: false,
+          is_playing: false,
+          ...patch,
+        };
+      }
+      return { ...prev, ...patch };
+    });
+  }, []);
+
   // Fetch playback state
   const refreshPlaybackState = useCallback(async () => {
     try {
@@ -305,23 +322,52 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           debug: data.debug
         });
         
-        const newPlaybackState: PlaybackState = {
-          spotify_connected: data.spotify_connected,
-          is_playing: data.is_playing,
-          track_name: data.current_track?.name,
-          artist_name: data.current_track
-            ? formatArtists(data.current_track.artists ?? null)
-            : undefined,
-          album_name: data.current_track?.album,
-          duration_ms: data.current_track?.duration_ms,
-          progress_ms: data.current_track?.progress_ms,
-          image_url: data.current_track?.image_url,
-          device_name: data.device?.name,
-          volume_percent: data.device?.volume_percent,
-          queue: data.queue || []
-        };
-        
         setPlaybackState(prev => {
+          const connected = Boolean(data.spotify_connected);
+          const incomingTrack = data.current_track;
+
+          // Spotify often returns null playback briefly during device transfer.
+          // Keep the previous now-playing UI instead of flashing "Nothing playing".
+          if (connected && !incomingTrack && prev?.track_name) {
+            const preserved: PlaybackState = {
+              ...prev,
+              spotify_connected: true,
+              device_name: data.device?.name ?? prev.device_name,
+              volume_percent:
+                typeof data.device?.volume_percent === 'number'
+                  ? data.device.volume_percent
+                  : prev.volume_percent,
+              queue:
+                Array.isArray(data.queue) && data.queue.length > 0
+                  ? data.queue
+                  : prev.queue || [],
+              // Prefer previous playing flag when API omits a track mid-transfer
+              is_playing:
+                typeof data.is_playing === 'boolean' && data.device
+                  ? data.is_playing
+                  : prev.is_playing,
+            };
+            return JSON.stringify(prev) !== JSON.stringify(preserved)
+              ? preserved
+              : prev;
+          }
+
+          const newPlaybackState: PlaybackState = {
+            spotify_connected: connected,
+            is_playing: Boolean(data.is_playing),
+            track_name: incomingTrack?.name,
+            artist_name: incomingTrack
+              ? formatArtists(incomingTrack.artists ?? null)
+              : undefined,
+            album_name: incomingTrack?.album,
+            duration_ms: incomingTrack?.duration_ms,
+            progress_ms: incomingTrack?.progress_ms,
+            image_url: incomingTrack?.image_url,
+            device_name: data.device?.name,
+            volume_percent: data.device?.volume_percent,
+            queue: data.queue || [],
+          };
+
           if (JSON.stringify(prev) !== JSON.stringify(newPlaybackState)) {
             console.log('🎵 AdminDataContext: Updating playback state:', {
               spotify_connected: newPlaybackState.spotify_connected,
@@ -699,6 +745,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     handlePlaybackControl,
     refreshData,
     refreshPlaybackState,
+    patchPlaybackState,
     updateEventSettings,
     handleSpotifyDisconnect,
     handleApprove,
