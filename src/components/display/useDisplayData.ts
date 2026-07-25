@@ -10,10 +10,15 @@ import { EventConfig } from '@/lib/db/schema';
 import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';
 import {
   DISPLAY_MOODS,
+  fallbackDisplayMoodSettings,
+  hasConfirmedDisplayMood,
   moodCssVariables,
   qrModuleColors,
   resolveDisplayMood,
 } from '@/styles/theme';
+
+/** Max wait for display-data / event-config before applying default mood. */
+const MOOD_CONFIRM_TIMEOUT_MS = 8000;
 import type {
   CurrentTrack,
   DisplayDeviceType,
@@ -31,6 +36,8 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
+  /** Gates themed UI until server mood is applied (avoids default `dj` flash). */
+  const [moodConfirmed, setMoodConfirmed] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [deviceType, setDeviceType] = useState<DisplayDeviceType>('tv');
 
@@ -173,33 +180,55 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     }
   }, [currentMessage]);
 
+  const applyEventSettings = useCallback((settings: EventConfig | null | undefined) => {
+    if (!settings) return;
+    setEventSettings(settings);
+    if (hasConfirmedDisplayMood(settings)) {
+      setMoodConfirmed(true);
+    }
+  }, []);
+
+  /** After confirmation failure/timeout — DJ Tool default, never leave the loader stuck. */
+  const applyMoodFallback = useCallback(() => {
+    setEventSettings((prev) => {
+      if (prev && hasConfirmedDisplayMood(prev)) return prev;
+      return {
+        ...(prev || {}),
+        ...fallbackDisplayMoodSettings(),
+      } as EventConfig;
+    });
+    setMoodConfirmed(true);
+  }, []);
+
   // Fetch all display data - moved outside useEffect to be accessible from Pusher handlers
   const fetchDisplayData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/public/display-data?username=${username}`);
+      const response = await fetch(`/api/public/display-data?username=${username}`, {
+        signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
+      });
       if (response.ok) {
         const data = await response.json();
-        setEventSettings(data.event_settings);
+        applyEventSettings(data.event_settings);
         setCurrentTrack(data.current_track);
         setUpcomingSongs(data.upcoming_songs || []);
+        return;
+      }
+
+      // Fallback: event-config carries the same display_mood as admin settings
+      const configResponse = await fetch(`/api/public/event-config?username=${username}`, {
+        signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
+      });
+      if (configResponse.ok) {
+        const configData = await configResponse.json();
+        if (configData.config && hasConfirmedDisplayMood(configData.config)) {
+          applyEventSettings(configData.config);
+        }
       }
     } catch (error) {
       console.error('Error fetching display data:', error);
-      // Set default settings if fetch fails
-      if (!eventSettings) {
-        setEventSettings({
-          pages_enabled: { requests: true, display: true },
-          event_title: 'Party DJ Requests',
-          dj_name: '',
-          venue_info: '',
-          welcome_message: 'Request your favorite songs!',
-          secondary_message: '',
-          tertiary_message: '',
-          show_qr_code: true,
-        });
-      }
+      // Mood gate fallback is handled by the initial-load path / timeout
     }
-  }, [username, eventSettings]);
+  }, [username, applyEventSettings]);
 
   // 🚀 PUSHER: Real-time updates with animation triggers
   // Note: original page had a duplicate onSettingsUpdate key; the settings-refresh
@@ -339,7 +368,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     onSettingsUpdate: (data: any) => {
       console.log('⚙️ PUSHER: Settings updated!', data);
       if (data.settings) {
-        setEventSettings(data.settings);
+        applyEventSettings(data.settings);
         console.log('✅ Event settings refreshed from Pusher');
       }
     },
@@ -429,9 +458,32 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
 
   // 🔄 Initial data load only (Pusher handles real-time updates)
   useEffect(() => {
+    setMoodConfirmed(false);
+    setEventSettings(null);
+
+    let cancelled = false;
+    let moodConfirmedLocal = false;
+
+    const markMoodConfirmed = () => {
+      moodConfirmedLocal = true;
+      clearTimeout(moodFallbackTimer);
+    };
+
+    // Safety net: if APIs hang or never confirm mood, render with default theme
+    const moodFallbackTimer = setTimeout(() => {
+      if (cancelled || moodConfirmedLocal) return;
+      console.warn(
+        `🎨 Mood confirmation timed out after ${MOOD_CONFIRM_TIMEOUT_MS}ms — using default theme`
+      );
+      applyMoodFallback();
+      moodConfirmedLocal = true;
+    }, MOOD_CONFIRM_TIMEOUT_MS);
+
     const fetchInitialData = async () => {
       try {
-        const displayResponse = await fetch(`/api/public/display-data?username=${username}`);
+        const displayResponse = await fetch(`/api/public/display-data?username=${username}`, {
+          signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
+        });
 
         if (displayResponse.ok) {
           const data = await displayResponse.json();
@@ -449,9 +501,12 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
             });
           }
 
-          // Initialize event settings
+          // Initialize event settings (must include display_mood for cold-load theme)
           if (data.event_settings) {
-            setEventSettings(data.event_settings);
+            applyEventSettings(data.event_settings);
+            if (hasConfirmedDisplayMood(data.event_settings)) {
+              markMoodConfirmed();
+            }
           }
 
           // Initialize upcoming songs
@@ -471,8 +526,10 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
           );
         }
 
-        // Fetch current message (username-scoped)
-        const messageResponse = await fetch(`/api/public/event-config?username=${username}`);
+        // Notice board + mood from event-config (same user_settings source as admin)
+        const messageResponse = await fetch(`/api/public/event-config?username=${username}`, {
+          signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
+        });
         if (messageResponse.ok) {
           const messageData = await messageResponse.json();
           if (messageData.message_text && !messageData.expired) {
@@ -482,15 +539,42 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
               created_at: messageData.message_created_at,
             });
           }
+          // Mood from event-config if display-data omitted display_mood (or failed)
+          if (messageData.config && hasConfirmedDisplayMood(messageData.config)) {
+            setEventSettings((prev) => {
+              if (prev && hasConfirmedDisplayMood(prev)) {
+                // Keep display-data fields; only fill mood if somehow still missing
+                return prev;
+              }
+              return {
+                ...(prev || {}),
+                ...messageData.config,
+              } as EventConfig;
+            });
+            setMoodConfirmed(true);
+            markMoodConfirmed();
+          }
         }
       } catch (error) {
         console.error('Failed to fetch initial display data:', error);
+      }
+
+      // Both APIs exhausted without a confirmed mood — proceed with DJ Tool default
+      if (!cancelled && !moodConfirmedLocal) {
+        console.warn('🎨 Mood confirmation failed — using default theme');
+        applyMoodFallback();
+        markMoodConfirmed();
       }
     };
 
     // One-time initial fetch only - Pusher handles all updates after this!
     fetchInitialData();
-  }, []); // Empty dependency array - run once only
+
+    return () => {
+      cancelled = true;
+      clearTimeout(moodFallbackTimer);
+    };
+  }, [username, applyEventSettings, applyMoodFallback]);
 
   // Detect device type and re-limit songs when device changes
   useEffect(() => {
@@ -667,6 +751,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     currentTrack,
     upcomingSongs,
     eventSettings,
+    moodConfirmed,
     qrCodeUrl,
     deviceType,
     currentNotification,

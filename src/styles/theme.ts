@@ -5,6 +5,9 @@
 
 export type DisplayMood = 'club' | 'venue' | 'dj' | 'neon' | 'amber' | 'dayrose';
 
+/** Default mood for guest request + TV display (DJ Tool). */
+export const DEFAULT_DISPLAY_MOOD: DisplayMood = 'dj';
+
 export const DISPLAY_MOOD_IDS: DisplayMood[] = [
   'club',
   'venue',
@@ -157,6 +160,26 @@ export function isDisplayMood(value: unknown): value is DisplayMood {
   );
 }
 
+/**
+ * True when a settings payload includes `display_mood` from the server.
+ * `null` counts as confirmed (resolve to DEFAULT_DISPLAY_MOOD); missing key does not.
+ */
+export function hasConfirmedDisplayMood(settings: unknown): boolean {
+  return (
+    !!settings &&
+    typeof settings === 'object' &&
+    'display_mood' in (settings as Record<string, unknown>)
+  );
+}
+
+/**
+ * Last-resort settings when mood confirmation APIs fail or time out.
+ * Prefer waiting for a server-confirmed `display_mood`; only use after failure.
+ */
+export function fallbackDisplayMoodSettings(): { display_mood: DisplayMood } {
+  return { display_mood: DEFAULT_DISPLAY_MOOD };
+}
+
 /** Map legacy free-form theme colors / removed moods to the closest mood preset. */
 export function resolveDisplayMood(
   mood: unknown,
@@ -166,12 +189,14 @@ export function resolveDisplayMood(
   // Frost Stage removed (too similar to Neon Pulse) — keep displays working
   if (mood === 'frost') return 'dayrose';
   const primary = (legacyPrimary || '').toLowerCase();
-  if (!primary || primary === '#1db954' || primary === '#1ed760') return 'club';
+  if (!primary || primary === '#1db954' || primary === '#1ed760') {
+    return DEFAULT_DISPLAY_MOOD;
+  }
   // Light backgrounds historically used pale secondaries — prefer venue for light primaries
   if (primary.startsWith('#f') || primary.startsWith('#e') || primary.startsWith('#d')) {
     return 'venue';
   }
-  return 'club';
+  return DEFAULT_DISPLAY_MOOD;
 }
 
 /**

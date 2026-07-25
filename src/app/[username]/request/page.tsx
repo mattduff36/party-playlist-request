@@ -15,6 +15,10 @@ import {
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
 import type { SpotifySearchErrorResponse } from '@/lib/spotify-search-errors';
+import {
+  fallbackDisplayMoodSettings,
+  hasConfirmedDisplayMood,
+} from '@/styles/theme';
 import { Check, X, Zap } from 'lucide-react';
 import {
   TrackSearch,
@@ -55,6 +59,8 @@ export default function UserRequestPage() {
   const [nicknameError, setNicknameError] = useState('');
   const [isNicknameValid, setIsNicknameValid] = useState(true);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
+  /** Gates themed UI until server mood is applied (avoids default `dj` flash). */
+  const [moodConfirmed, setMoodConfirmed] = useState(false);
   const [mounted, setMounted] = useState(false);
   
   // Use global event state
@@ -219,31 +225,12 @@ export default function UserRequestPage() {
       console.log('⚙️ PUSHER: Settings updated!', data);
       if (data.settings) {
         setEventSettings(data.settings);
+        if (hasConfirmedDisplayMood(data.settings)) {
+          setMoodConfirmed(true);
+        }
       }
     }
   });
-
-  // Fetch event settings
-  const fetchEventSettings = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/public/event-config`, {
-        params: { username }
-      });
-      if (response.data.config) {
-        setEventSettings(response.data.config);
-      }
-    } catch (error) {
-      console.error('Error fetching event settings:', error);
-      setEventSettings({
-        event_title: 'Party DJ Requests',
-        welcome_message: 'Request your favorite songs and let\'s keep the party going!',
-        secondary_message: '',
-        tertiary_message: '',
-        show_qr_code: true,
-        display_refresh_interval: 20
-      });
-    }
-  };
 
   // Validate nickname for profanity
   const handleNicknameChange = (newNickname: string) => {
@@ -296,11 +283,63 @@ export default function UserRequestPage() {
     setMounted(true);
   }, []);
 
-  // Fetch event settings on mount
+  // Fetch event settings on mount (including PIN screen) so mood matches /display
   useEffect(() => {
-    if (!mounted || !authenticated) return;
-    fetchEventSettings();
-  }, [mounted, authenticated, username]);
+    if (!mounted) return;
+
+    setMoodConfirmed(false);
+    setEventSettings(null);
+
+    let cancelled = false;
+    let attempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const maxAttempts = 3;
+
+    const applyMoodFallback = () => {
+      if (cancelled) return;
+      console.warn('🎨 Mood confirmation failed — using default theme');
+      setEventSettings((prev) => {
+        if (prev && hasConfirmedDisplayMood(prev)) return prev;
+        return {
+          ...(prev || {}),
+          ...fallbackDisplayMoodSettings(),
+        } as EventConfig;
+      });
+      setMoodConfirmed(true);
+    };
+
+    const loadMood = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/public/event-config`, {
+          params: { username },
+          timeout: 5000,
+        });
+        if (cancelled) return;
+        if (response.data.config && hasConfirmedDisplayMood(response.data.config)) {
+          setEventSettings(response.data.config);
+          setMoodConfirmed(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching event settings:', error);
+      }
+
+      // Retry briefly, then fall back to default mood (never leave the loader stuck)
+      if (cancelled) return;
+      if (attempt < maxAttempts) {
+        attempt += 1;
+        retryTimer = setTimeout(loadMood, 800 * attempt);
+      } else {
+        applyMoodFallback();
+      }
+    };
+
+    loadMood();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [mounted, username]);
 
   // Check if query is a Spotify URL
   const isSpotifyUrl = (query: string): boolean => {
@@ -491,11 +530,17 @@ export default function UserRequestPage() {
     legacyPrimaryColor: eventSettings?.theme_primary_color,
   };
 
-  // Loading Screen — gate content until auth/settings ready
-  if (isLoading) {
+  // Loading Screen — gate content until auth + confirmed server mood
+  if (isLoading || !moodConfirmed || !eventSettings) {
     return (
       <PageLoader
-        label={verifying ? 'Verifying access...' : 'Loading request page...'}
+        label={
+          verifying
+            ? 'Verifying access...'
+            : !moodConfirmed
+              ? 'Loading theme...'
+              : 'Loading request page...'
+        }
       />
     );
   }

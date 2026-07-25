@@ -49,6 +49,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
     currentTrack,
     upcomingSongs,
     eventSettings,
+    moodConfirmed,
     qrCodeUrl,
     deviceType,
     animatingCards,
@@ -70,11 +71,15 @@ export default function DisplayPage({ username }: DisplayPageProps) {
     spotifyConnected,
   } = useDisplayData({ username });
 
-  // Show loading state while mounting or waiting for global state
-  const isLoadingEssentialData = !mounted || globalState.isLoading;
+  // Show loading state while mounting, waiting for global state, or server mood
+  const isLoadingEssentialData = !mounted || globalState.isLoading || !moodConfirmed;
 
   if (isLoadingEssentialData) {
-    return <PageLoader label="Preparing display..." />;
+    return (
+      <PageLoader
+        label={!moodConfirmed ? 'Loading display...' : 'Preparing display...'}
+      />
+    );
   }
 
   // Check event status and page controls using global state (with safety checks)
@@ -114,8 +119,9 @@ export default function DisplayPage({ username }: DisplayPageProps) {
   }
 
   // Party is active and display is enabled - show display content (continue to main UI)
+  // moodConfirmed means server mood or DEFAULT_DISPLAY_MOOD fallback after failure/timeout
   if (!eventSettings) {
-    return <PageLoader label="Loading event settings..." />;
+    return <PageLoader label="Loading display..." />;
   }
 
   const showScrollingBar = eventSettings.show_scrolling_bar !== false;

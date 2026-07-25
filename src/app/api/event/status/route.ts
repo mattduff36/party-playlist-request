@@ -181,6 +181,29 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
+    // Starting a new DJ event (offline → standby/live): reset shared mood to DJ Tool
+    if (
+      currentEvent.status === 'offline' &&
+      (status === 'standby' || status === 'live')
+    ) {
+      try {
+        const { updateEventSettings, getEventSettings } = await import('@/lib/db');
+        const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
+        const { DEFAULT_DISPLAY_MOOD } = await import('@/styles/theme');
+        await updateEventSettings({ display_mood: DEFAULT_DISPLAY_MOOD }, userId);
+        const settings = await getEventSettings(userId);
+        await triggerEvent(getUserChannel(userId), 'settings-update', {
+          settings,
+          timestamp: Date.now(),
+          userId,
+        });
+        console.log(`🎨 Reset display_mood to ${DEFAULT_DISPLAY_MOOD} for new event start (${userId})`);
+      } catch (moodResetError) {
+        console.error('❌ Failed to reset display mood on event start:', moodResetError);
+        // Don't fail the status change if mood reset fails
+      }
+    }
+
     // If status changed to offline, clean up all requests for THIS user
     if (status === 'offline') {
       try {

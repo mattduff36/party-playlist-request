@@ -88,19 +88,33 @@ export async function GET(req: NextRequest) {
       // Continue without playback data
     }
 
-    return NextResponse.json({
-      event_settings: {
-        event_title: settings.event_title || 'Party DJ Requests',
-        welcome_message: settings.welcome_message || 'Request your favorite songs!',
-        secondary_message: settings.secondary_message ?? '',
-        tertiary_message: settings.tertiary_message ?? '',
-        show_qr_code: settings.show_qr_code ?? true,
-        display_refresh_interval: settings.display_refresh_interval || 20,
-        pin: eventPin,
+    return NextResponse.json(
+      {
+        event_settings: {
+          event_title: settings.event_title || 'Party DJ Requests',
+          dj_name: settings.dj_name ?? '',
+          venue_info: settings.venue_info ?? '',
+          welcome_message: settings.welcome_message || 'Request your favorite songs!',
+          secondary_message: settings.secondary_message ?? '',
+          tertiary_message: settings.tertiary_message ?? '',
+          show_qr_code: settings.show_qr_code ?? true,
+          display_refresh_interval: settings.display_refresh_interval || 20,
+          // Same source of truth as admin settings + /public/event-config (cold load)
+          display_mood: settings.display_mood ?? null,
+          theme_primary_color: settings.theme_primary_color ?? null,
+          show_scrolling_bar: settings.show_scrolling_bar !== false,
+          decline_explicit: settings.decline_explicit ?? false,
+          pin: eventPin,
+        },
+        current_track: currentTrack,
+        upcoming_songs: upcomingSongs,
       },
-      current_track: currentTrack,
-      upcoming_songs: upcomingSongs
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Error fetching display data:', error);

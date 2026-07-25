@@ -211,7 +211,7 @@ export async function initializeDatabase() {
         theme_primary_color TEXT DEFAULT NULL,
         theme_secondary_color TEXT DEFAULT NULL,
         theme_tertiary_color TEXT DEFAULT NULL,
-        display_mood TEXT DEFAULT 'club',
+        display_mood TEXT DEFAULT 'dj',
         show_scrolling_bar BOOLEAN DEFAULT TRUE,
         qr_boost_duration INTEGER DEFAULT 5,
         karaoke_mode BOOLEAN DEFAULT FALSE,
@@ -493,13 +493,22 @@ export async function initializeDatabase() {
     try {
       await client.query(`
         ALTER TABLE user_settings
-        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
+        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'dj';
       `);
       await client.query(`
         ALTER TABLE event_settings
-        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'club';
+        ADD COLUMN IF NOT EXISTS display_mood TEXT DEFAULT 'dj';
       `);
-      console.log('✅ display_mood columns ensured on user_settings and event_settings');
+      // Existing installs may still have DEFAULT 'club' from earlier migrations
+      await client.query(`
+        ALTER TABLE user_settings
+        ALTER COLUMN display_mood SET DEFAULT 'dj';
+      `);
+      await client.query(`
+        ALTER TABLE event_settings
+        ALTER COLUMN display_mood SET DEFAULT 'dj';
+      `);
+      console.log('✅ display_mood columns ensured on user_settings and event_settings (default dj)');
     } catch (migrationError) {
       console.error('❌ display_mood migration failed:', migrationError);
     }

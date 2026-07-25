@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import {
+  DEFAULT_DISPLAY_MOOD,
   DISPLAY_MOOD_IDS,
   DISPLAY_MOODS,
   DisplayMood,
@@ -104,7 +105,7 @@ export default function DisplaySettingsPage() {
     qr_boost_duration: 5, // seconds
     
     // Guest + display visual mood
-    display_mood: 'club' as DisplayMood,
+    display_mood: DEFAULT_DISPLAY_MOOD,
     show_scrolling_bar: true,
     
     // Advanced features

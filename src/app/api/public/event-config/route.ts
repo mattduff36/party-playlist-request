@@ -69,19 +69,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      config: {
-        event_title: settings.event_title || 'Party DJ Requests',
-        welcome_message: settings.welcome_message || 'Request your favorite songs!',
-        secondary_message: settings.secondary_message ?? '',
-        tertiary_message: settings.tertiary_message ?? '',
+    return NextResponse.json(
+      {
+        config: {
+          event_title: settings.event_title || 'Party DJ Requests',
+          welcome_message: settings.welcome_message || 'Request your favorite songs!',
+          secondary_message: settings.secondary_message ?? '',
+          tertiary_message: settings.tertiary_message ?? '',
+          // Shared mood tokens for request + display (same source as admin settings)
+          display_mood: settings.display_mood ?? null,
+          theme_primary_color: settings.theme_primary_color ?? null,
+          decline_explicit: settings.decline_explicit ?? false,
+        },
+        // Notice Board message data (approval messages)
+        message_text: messageText,
+        message_duration: messageDuration,
+        message_created_at: messageCreatedAt,
+        expired: isExpired,
       },
-      // Notice Board message data (approval messages)
-      message_text: messageText,
-      message_duration: messageDuration,
-      message_created_at: messageCreatedAt,
-      expired: isExpired
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Error fetching event config:', error);
@@ -92,6 +103,9 @@ export async function GET(req: NextRequest) {
           welcome_message: 'Request your favorite songs!',
           secondary_message: '',
           tertiary_message: '',
+          display_mood: null,
+          theme_primary_color: null,
+          decline_explicit: false,
         },
         message_text: null,
         message_duration: null,

@@ -116,10 +116,10 @@ export default function RequestSubmitForm({
 }: RequestSubmitFormProps) {
   return (
     <>
-      {/* Success Modal */}
+      {/* Success Modal — mood-surface so text tokens match the panel (never white-on-white) */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-fade-in">
+          <div className="mood-surface shadow-2xl max-w-md w-full p-8 text-center animate-fade-in">
             <div className="w-16 h-16 bg-[color:var(--mood-accent)]/15 rounded-full flex items-center justify-center mx-auto mb-6">
               <Check className="w-8 h-8 mood-accent-text stroke-[2.5]" aria-hidden="true" />
             </div>
@@ -128,15 +128,15 @@ export default function RequestSubmitForm({
             <div className="flex gap-3">
               <button
                 onClick={onMakeAnotherRequest}
-                className="flex-1 mood-accent-bg text-white py-3 px-6 rounded-lg font-semibold hover:mood-accent-bg transition-colors"
+                className="flex-1 mood-btn py-3 px-6"
               >
                 Make another Request
               </button>
               <button
                 onClick={onImDone}
-                className="flex-1 bg-[color:var(--mood-surface)] text-[color:var(--mood-text)] py-3 px-6 rounded-lg font-semibold hover:opacity-90 transition-colors"
+                className="flex-1 mood-inset text-[color:var(--mood-text)] py-3 px-6 rounded-[var(--mood-radius)] font-semibold border border-[color:var(--mood-border)] hover:opacity-90 transition-colors"
               >
-                I'm done
+                I&apos;m done
               </button>
             </div>
           </div>
@@ -158,16 +158,16 @@ export default function RequestSubmitForm({
       <div className="flex-1 flex items-start justify-center px-3 py-4">
         <div className="max-w-xl w-full flex flex-col h-full space-y-3">
           {/* Name Input */}
-          <div className="bg-white/10 backdrop-blur-md rounded-lg p-4">
+          <div className="mood-inset backdrop-blur-md rounded-[var(--mood-radius)] p-4 border border-[color:var(--mood-border)]">
             <input
               type="text"
               value={nickname}
               onChange={(e) => onNicknameChange(e.target.value)}
               placeholder="Your name"
-              className={`w-full px-4 py-3 text-base bg-white/20 border rounded-lg text-white placeholder-[color:var(--mood-muted)] focus:outline-none focus:ring-2 focus:border-transparent ${
+              className={`w-full px-4 py-3 text-base mood-inset border rounded-[var(--mood-radius)] text-[color:var(--mood-text)] placeholder-[color:var(--mood-muted)] focus:outline-none focus:ring-2 focus:border-transparent ${
                 nicknameError
                   ? 'border-red-500 focus:ring-red-500'
-                  : 'border-white/30 focus:ring-[color:var(--mood-accent)]'
+                  : 'border-[color:var(--mood-border)] focus:ring-[color:var(--mood-accent)]'
               }`}
               style={{
                 fontSize: '16px',

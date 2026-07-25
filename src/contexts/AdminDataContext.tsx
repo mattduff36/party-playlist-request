@@ -347,6 +347,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     onTokenExpired: () => {
       localStorage.removeItem('admin_token');
     },
+    onSettingsUpdate: (data: { settings?: EventSettings }) => {
+      if (data.settings) {
+        setEventSettings((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(data.settings)
+            ? (data.settings as EventSettings)
+            : prev
+        );
+      }
+    },
   });
 
   const handleTokenExpiration = useCallback(async (reason: string = 'expired') => {

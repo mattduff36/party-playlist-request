@@ -20,15 +20,15 @@
   --background: var(--ink);
   --foreground: var(--bone);
 
-  /* Mood defaults (overridden per guest/display shell) */
-  --mood-bg: #07080a;
-  --mood-surface: #12151a;
-  --mood-text: #f7f7f5;
-  --mood-muted: #a8adb5;
-  --mood-accent: #ff3d8b;
-  --mood-accent-hover: #ff6ba8;
-  --mood-border: rgba(255, 61, 139, 0.28);
-  --mood-radius: 1rem;
+  /* Mood defaults — DJ Tool (overridden per guest/display shell) */
+  --mood-bg: #0b0d10;
+  --mood-surface: #15191f;
+  --mood-text: #e8eaed;
+  --mood-muted: #8b939c;
+  --mood-accent: #1db954;
+  --mood-accent-hover: #1ed760;
+  --mood-border: rgba(29, 185, 84, 0.22);
+  --mood-radius: 0.375rem;
 
   /* Scrollbars — thin, Cursor-like, Stage Signal muted */
   --scrollbar-size: 8px;

@@ -97,6 +97,7 @@ export async function getActiveEvent(userId: string): Promise<UserEvent | null> 
 /**
  * Create a new event for a user
  * Automatically deactivates any existing active events
+ * Resets display mood to DJ Tool so each new event starts from the default theme
  */
 export async function createEvent(
   userId: string, 
@@ -128,9 +129,34 @@ export async function createEvent(
       [userId, eventName || null, pin, bypassToken]
     );
 
+    // Reset shared request/display mood to DJ Tool for the new event
+    const { DEFAULT_DISPLAY_MOOD } = await import('@/styles/theme');
+    await client.query(
+      `INSERT INTO user_settings (user_id, display_mood)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE
+       SET display_mood = $2, updated_at = NOW()`,
+      [userId, DEFAULT_DISPLAY_MOOD]
+    );
+
     await client.query('COMMIT');
 
     console.log(`✅ Created new event for user ${userId}, PIN: ${pin}`);
+
+    // Notify request + display clients of the mood reset (best-effort)
+    try {
+      const { getEventSettings } = await import('@/lib/db');
+      const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
+      const settings = await getEventSettings(userId);
+      await triggerEvent(getUserChannel(userId), 'settings-update', {
+        settings,
+        timestamp: Date.now(),
+        userId,
+      });
+    } catch (pusherError) {
+      console.error('Failed to broadcast mood reset after createEvent:', pusherError);
+    }
+
     return result.rows[0] as UserEvent;
 
   } catch (error) {

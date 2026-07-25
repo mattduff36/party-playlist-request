@@ -38,7 +38,7 @@ export default function TrackSearch({
 
   return (
     <div
-      className={`bg-white/10 backdrop-blur-md rounded-lg p-4 transition-opacity flex flex-col flex-1 ${
+      className={`mood-inset backdrop-blur-md rounded-[var(--mood-radius)] p-4 border border-[color:var(--mood-border)] transition-opacity flex flex-col flex-1 ${
         !canSearch ? 'opacity-50 pointer-events-none' : ''
       }`}
     >
@@ -55,7 +55,7 @@ export default function TrackSearch({
                 ? 'Please enter a valid name'
                 : 'Search songs, artists, or paste Spotify link'
           }
-          className="w-full pl-10 pr-4 py-3 text-base bg-white/20 border border-white/30 rounded-lg text-white placeholder-[color:var(--mood-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent"
+          className="w-full pl-10 pr-4 py-3 text-base mood-inset border border-[color:var(--mood-border)] rounded-[var(--mood-radius)] text-[color:var(--mood-text)] placeholder-[color:var(--mood-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent"
           style={{
             fontSize: '16px',
             transform: 'translateZ(0)', // Prevent iOS zoom
@@ -108,7 +108,7 @@ export default function TrackSearch({
                 onSelectTrack(track);
               }}
               disabled={isSubmitting || !canSearch}
-              className="w-full bg-white/20 rounded-lg p-3 hover:bg-white/30 active:bg-white/40 transition-colors disabled:opacity-50 text-left touch-manipulation"
+              className="w-full mood-inset rounded-[var(--mood-radius)] p-3 border border-[color:var(--mood-border)] hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50 text-left touch-manipulation"
             >
               <div className="flex items-center space-x-3">
                 {track.image && (
@@ -119,7 +119,7 @@ export default function TrackSearch({
                   />
                 )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-medium truncate text-sm">
+                  <h3 className="text-[color:var(--mood-text)] font-medium truncate text-sm">
                     {track.name}
                     {track.explicit && (
                       <span className="ml-2 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">

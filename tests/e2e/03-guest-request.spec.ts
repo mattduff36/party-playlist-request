@@ -5,6 +5,8 @@ test.describe('Guest request flow', () => {
   test('request page loads for testuser1', async ({ page }) => {
     await page.goto(`/${TEST_USERS.testuser1.username}/request`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await expect(page.locator('body')).toBeVisible();
+    // Theme/mood gate may show briefly; wait until real request UI is ready
+    await expect(page.getByText(/Loading (theme|request page)\.\.\./i)).toHaveCount(0, { timeout: 15000 });
     // Either PIN gate, party-not-started, or search UI
     const body = await page.locator('body').innerText();
     expect(body.length).toBeGreaterThan(20);
