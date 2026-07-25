@@ -16,6 +16,8 @@ import {
   Music2,
   RefreshCw
 } from 'lucide-react';
+import SpotifyConnectionPanel from '@/components/admin/SpotifyConnectionPanel';
+import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface SpotifyDevice {
   id: string;
@@ -36,6 +38,7 @@ interface CurrentTrack {
 }
 
 export default function SpotifyPage() {
+  const { handleSpotifyDisconnect } = useAdminData();
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [volume, setVolume] = useState(50);
@@ -99,6 +102,21 @@ export default function SpotifyPage() {
       console.error('Failed to fetch devices:', error);
     }
   }, []);
+
+  const handleConnectionChange = useCallback(
+    async (connected: boolean) => {
+      setIsConnected(connected);
+      if (!connected) {
+        setCurrentTrack(null);
+        setDevices([]);
+        await handleSpotifyDisconnect();
+        return;
+      }
+      await fetchSpotifyStatus();
+      await fetchDevices();
+    },
+    [fetchDevices, fetchSpotifyStatus, handleSpotifyDisconnect]
+  );
 
   useEffect(() => {
     fetchSpotifyStatus();
@@ -262,30 +280,18 @@ export default function SpotifyPage() {
     );
   }
 
-  if (!isConnected) {
-    return (
-      <div className="bg-elevated rounded-lg p-8">
-        <div className="text-center">
-          <div className="w-24 h-24 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
-            <Music2 className="w-12 h-12 text-muted" />
-          </div>
-          <h2 className="text-3xl font-bold text-bone mb-4">Spotify Not Connected</h2>
-          <p className="text-muted text-lg max-w-md mx-auto mb-6">
-            Connect your Spotify account to access playback controls.
-          </p>
-          <button
-            onClick={() => window.location.href = '/api/spotify/auth'}
-            className="bg-accent hover:bg-accent-hover text-black font-bold py-3 px-8 rounded-lg transition-all duration-300"
-          >
-            Connect Spotify
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      <SpotifyConnectionPanel onConnectionChange={handleConnectionChange} />
+
+      {!isConnected ? (
+        <div className="bg-elevated rounded-lg p-6 border border-white/10">
+          <p className="text-muted text-center">
+            Connect Spotify above to manage playback, devices, and volume.
+          </p>
+        </div>
+      ) : (
+        <>
       {/* Error Display */}
       {error && (
         <div className="bg-red-900/20 border border-red-600 rounded-lg p-4 flex items-start space-x-3">
@@ -495,12 +501,14 @@ export default function SpotifyPage() {
       </div>
 
       {/* Info Box */}
-      <div className="bg-accent/10 border border-accent/40/50 rounded-lg p-4">
+      <div className="bg-accent/10 border border-accent/40 rounded-lg p-4">
         <p className="text-accent text-sm">
-          💡 <strong>Tip:</strong> These controls work with your active Spotify session. 
+          <strong>Tip:</strong> These controls work with your active Spotify session.
           If you don't see any devices, open Spotify on your phone, computer, or smart speaker.
         </p>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Music2,
   WifiOff, 
@@ -40,6 +41,9 @@ interface SpotifyStatus {
 
 export default function SpotifyStatusDropdown() {
   const { state: eventState } = useGlobalEvent();
+  const pathname = usePathname();
+  const router = useRouter();
+  const username = pathname?.split('/')[1] || '';
   const [status, setStatus] = useState<SpotifyStatus>({
     connected: false,
     isPlaying: false,
@@ -310,7 +314,12 @@ export default function SpotifyStatusDropdown() {
                       </>
                     ) : (
                       <button
-                        onClick={() => window.location.href = '/admin/spotify'}
+                        onClick={() => {
+                          setIsOpen(false);
+                          if (username) {
+                            router.push(`/${username}/admin/spotify`);
+                          }
+                        }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2 text-muted hover:text-bone text-sm transition-colors"
                       >
                         Manage Spotify

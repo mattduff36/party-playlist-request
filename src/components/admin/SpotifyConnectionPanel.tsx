@@ -23,6 +23,7 @@ import {
 
 interface SpotifyConnectionPanelProps {
   className?: string;
+  onConnectionChange?: (connected: boolean) => void;
 }
 
 interface SpotifyDevice {
@@ -45,7 +46,10 @@ interface SpotifyConnectionState {
   } | null;
 }
 
-export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnectionPanelProps) {
+export default function SpotifyConnectionPanel({
+  className = '',
+  onConnectionChange,
+}: SpotifyConnectionPanelProps) {
   const [state, setState] = useState<SpotifyConnectionState>({
     isConnected: false,
     isConnecting: false,
@@ -154,6 +158,7 @@ export default function SpotifyConnectionPanel({ className = '' }: SpotifyConnec
           selectedDevice: null,
           user: null
         }));
+        onConnectionChange?.(false);
       } else {
         const data = await response.json();
         setState(prev => ({
