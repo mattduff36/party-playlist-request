@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { getSpotifyAuth, setSpotifyAuth } from './db';
+import { logErrorAsync } from '@/lib/support/logger';
 
 export interface SpotifyTrack {
   id: string;
@@ -401,6 +402,22 @@ class SpotifyService {
           endpoint,
           method
         });
+        if (response.status === 429 || response.status >= 500 || retries === 0) {
+          logErrorAsync({
+            source: 'spotify',
+            level: 'error',
+            message: `Spotify API ${response.status} on ${method} ${endpoint}`,
+            route: endpoint,
+            method,
+            userId: userId || null,
+            meta: {
+              status: response.status,
+              statusText: response.statusText,
+              body: errorText.slice(0, 400),
+              retriesLeft: retries,
+            },
+          });
+        }
         throw new Error(`Spotify API error: ${response.status} ${errorText}`);
       }
 

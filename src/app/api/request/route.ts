@@ -4,6 +4,7 @@ import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted, triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
 import { validateRequesterName } from '@/lib/profanity-filter';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 // Rate limiting storage
 const rateLimitMap = new Map<string, { count: number; resetTime: number; lastRequest: number }>();
@@ -279,6 +280,17 @@ export async function POST(req: NextRequest) {
     // Use generic message - don't reveal auto-approval to users
     const responseMessage = 'Your request has been submitted successfully!';
 
+    reportActivity(req, 'request.submit', `Guest submitted ${trackInfo.name}`, {
+      actorRole: 'guest',
+      userId,
+      username: username || null,
+      meta: {
+        requestId: newRequest.id,
+        track: trackInfo.name,
+        autoApproved: shouldAutoApprove,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: responseMessage,
@@ -298,6 +310,7 @@ export async function POST(req: NextRequest) {
     console.error(`❌ [${requestId}] Error submitting request (${Date.now() - startTime}ms):`, error);
     console.error(`❌ [${requestId}] Error stack:`, (error as Error).stack);
     console.error(`❌ [${requestId}] Error message:`, (error as Error).message);
+    reportApiError(req, error);
     return NextResponse.json({ 
       error: 'Failed to submit request. Please try again.',
       debug: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined

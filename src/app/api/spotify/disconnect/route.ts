@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { clearSpotifyAuth } from '@/lib/db';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 async function handleDisconnect(req: NextRequest) {
   console.log('🔌 [spotify/disconnect] Request received');
@@ -19,6 +20,10 @@ async function handleDisconnect(req: NextRequest) {
     console.log('🗑️ [spotify/disconnect] Clearing Spotify authentication from database...');
     await clearSpotifyAuth(userId); // Multi-tenant: Pass userId to only disconnect this user
     console.log('✅ [spotify/disconnect] Spotify authentication cleared successfully');
+
+    reportActivity(req, 'spotify.disconnect', `Spotify disconnected for ${auth.user.username}`, {
+      user: auth.user,
+    });
     
     const response = {
       success: true,
@@ -30,6 +35,7 @@ async function handleDisconnect(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ [spotify/disconnect] Error:', error);
+    reportApiError(req, error, { source: 'spotify' });
     
     if (error instanceof Error && error.message.includes('token')) {
       return NextResponse.json({ 

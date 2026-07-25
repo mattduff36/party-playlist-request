@@ -9,6 +9,7 @@ import { EventConfig } from '@/lib/db/schema';
 import { Music2, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import MoodShell from '@/components/MoodShell';
+import PageLoader from '@/components/ui/PageLoader';
 import { validateRequesterName } from '@/lib/profanity-filter';
 import {
   SPOTIFY_SEARCH_BUSY_CODE,
@@ -523,36 +524,12 @@ export default function UserRequestPage() {
     legacyPrimaryColor: eventSettings?.theme_primary_color,
   };
 
-  // Loading Screen
+  // Loading Screen — gate content until auth/settings ready
   if (isLoading) {
     return (
-      <MoodShell {...moodProps} className="flex flex-col items-center justify-center p-4">
-        <div className="mood-surface w-full max-w-md shadow-2xl p-8 text-center">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 mood-accent-bg rounded-full flex items-center justify-center mb-6 animate-pulse">
-              <Music2 className="h-8 w-8" />
-            </div>
-            <h1 className="font-display text-2xl font-bold mb-2">
-              {verifying ? 'Verifying Access...' : 'Loading...'}
-            </h1>
-            <p className="text-[color:var(--mood-muted)] text-sm">
-              {verifying ? 'Please wait while we verify your access' : 'Preparing your experience'}
-            </p>
-          </div>
-          
-          <div className="flex justify-center mb-6">
-            <div className="flex space-x-2">
-              <div className="w-3 h-3 mood-accent-bg rounded-full animate-bounce"></div>
-              <div className="w-3 h-3 mood-accent-bg rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-3 h-3 mood-accent-bg rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-          </div>
-          
-          <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden">
-            <div className="h-full mood-accent-bg rounded-full animate-pulse"></div>
-          </div>
-        </div>
-      </MoodShell>
+      <PageLoader
+        label={verifying ? 'Verifying access...' : 'Loading request page...'}
+      />
     );
   }
 

@@ -4,6 +4,7 @@ import { getRequest, updateRequest, getSetting, createNotification, getEventSett
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -164,6 +165,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
+    reportActivity(req, 'request.approve', `Approved request ${id}`, {
+      user: auth.user,
+      meta: { requestId: id, track: request.track_name, queueSuccess, playlistSuccess },
+    });
+
     return NextResponse.json({
       success: true,
       message: play_next && queueSuccess ? 'Request approved and added to queue' : 'Request processed',
@@ -182,6 +188,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     
     console.error('Error approving request:', error);
+    reportApiError(req, error);
     return NextResponse.json({ 
       error: 'Failed to approve request' 
     }, { status: 500 });

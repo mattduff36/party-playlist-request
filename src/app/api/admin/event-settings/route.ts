@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { getEventSettings, updateEventSettings } from '@/lib/db';
 import { triggerEvent, getUserChannel } from '@/lib/pusher';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 export async function GET(req: NextRequest) {
   try {
@@ -124,6 +125,14 @@ export async function POST(req: NextRequest) {
       // Don't fail the request if Pusher fails
     }
     
+    reportActivity(req, 'settings.update', `Settings updated by ${auth.user.username}`, {
+      user: auth.user,
+      meta: {
+        display_mood: safeMood,
+        event_title,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       settings: updatedSettings
@@ -134,6 +143,7 @@ export async function POST(req: NextRequest) {
     }
     
     console.error('Error updating event settings:', error);
+    reportApiError(req, error);
     return NextResponse.json({ 
       error: 'Failed to update event settings' 
     }, { status: 500 });

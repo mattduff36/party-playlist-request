@@ -2,8 +2,9 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Shield, Users, LogOut, Loader2, Radio, Music } from 'lucide-react';
+import { Shield, Users, LogOut, Loader2, Radio, Music, LifeBuoy } from 'lucide-react';
 import Link from 'next/link';
+import PageLoader from '@/components/ui/PageLoader';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -11,10 +12,29 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [username, setUsername] = useState('');
+  const [unresolvedErrors, setUnresolvedErrors] = useState(0);
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (!authorized) return;
+    const loadSummary = async () => {
+      try {
+        const res = await fetch('/api/superadmin/support/summary', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setUnresolvedErrors(data.unresolvedErrors || 0);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    loadSummary();
+    const id = setInterval(loadSummary, 60_000);
+    return () => clearInterval(id);
+  }, [authorized, pathname]);
 
   const checkAuth = async () => {
     try {
@@ -29,7 +49,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
       const data = await response.json();
 
-      // Check if user is super admin
       if (data.user.role !== 'superadmin') {
         router.push('/');
         return;
@@ -58,34 +77,34 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#191414] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-[#1DB954] animate-spin" />
-      </div>
-    );
+    return <PageLoader label="Checking superadmin access..." />;
   }
 
   if (!authorized) {
     return null;
   }
 
+  const tabClass = (active: boolean) =>
+    `flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 border ${
+      active
+        ? 'bg-accent/20 border-accent text-bone'
+        : 'bg-elevated/80 hover:bg-surface border-white/10 text-bone'
+    }`;
+
   return (
-    <div className="min-h-screen bg-[#191414]">
-      {/* Top Navigation */}
-      <nav className="bg-black/50 backdrop-blur-md border-b border-[#1DB954]/20">
+    <div className="min-h-screen bg-ink text-bone">
+      <nav className="border-b border-white/10 bg-elevated/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <Shield className="w-8 h-8 text-[#1DB954]" />
-              <span className="ml-2 text-xl font-bold text-white">Super Admin</span>
+              <Shield className="w-7 h-7 text-accent" />
+              <span className="ml-2 font-display text-xl font-bold">Super Admin</span>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-400">
-                {username}
-              </span>
+              <span className="text-muted text-sm">{username}</span>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 text-white hover:text-red-400 transition-colors"
+                className="flex items-center space-x-2 text-bone hover:text-error transition-colors"
               >
                 <LogOut className="w-5 h-5" />
                 <span>Logout</span>
@@ -95,49 +114,47 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         </div>
       </nav>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
         <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-6">
-            <Link
-              href="/superadmin"
-              className={`flex items-center space-x-2 px-4 py-2 backdrop-blur-md rounded-lg transition-all duration-300 ${
-                pathname === '/superadmin'
-                  ? 'bg-[#1DB954]/30 border-2 border-[#1DB954] text-white'
-                  : 'bg-black/50 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-white'
-              }`}
-            >
-              <Users className="w-5 h-5 text-[#1DB954]" />
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <Link href="/superadmin" className={tabClass(pathname === '/superadmin')}>
+              <Users className="w-5 h-5 text-accent" />
               <span>User Management</span>
             </Link>
-            
+
             <Link
               href="/superadmin/party-test"
-              className={`flex items-center space-x-2 px-4 py-2 backdrop-blur-md rounded-lg transition-all duration-300 ${
-                pathname === '/superadmin/party-test'
-                  ? 'bg-[#1DB954]/30 border-2 border-[#1DB954] text-white'
-                  : 'bg-black/50 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-white'
-              }`}
+              className={tabClass(pathname === '/superadmin/party-test')}
             >
-              <Radio className="w-5 h-5 text-[#1DB954]" />
+              <Radio className="w-5 h-5 text-accent" />
               <span>Party Simulator</span>
             </Link>
 
             <Link
               href={`/${username}/admin/overview`}
-              className="flex items-center space-x-2 px-4 py-2 backdrop-blur-md rounded-lg transition-all duration-300 bg-black/50 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-white"
+              className={tabClass(false)}
             >
-              <Music className="w-5 h-5 text-[#1DB954]" />
+              <Music className="w-5 h-5 text-accent" />
               <span>DJ Dashboard</span>
+            </Link>
+
+            <Link
+              href="/superadmin/support"
+              className={tabClass(pathname?.startsWith('/superadmin/support') ?? false)}
+            >
+              <LifeBuoy className="w-5 h-5 text-accent" />
+              <span>Support</span>
+              {unresolvedErrors > 0 ? (
+                <span className="ml-1 min-w-[1.25rem] rounded-full bg-error px-1.5 py-0.5 text-center text-xs font-bold text-white">
+                  {unresolvedErrors > 99 ? '99+' : unresolvedErrors}
+                </span>
+              ) : null}
             </Link>
           </div>
         </div>
 
-        {/* Page Content */}
         {children}
       </div>
     </div>
   );
 }
-

@@ -10,6 +10,7 @@ import { RequestApprovedEvent } from '@/lib/pusher';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import PartyNotStarted from '@/components/PartyNotStarted';
 import MoodShell from '@/components/MoodShell';
+import PageLoader from '@/components/ui/PageLoader';
 import { EventConfig } from '@/lib/db/schema';
 import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';
 import { DISPLAY_MOODS, moodCssVariables, resolveDisplayMood } from '@/styles/theme';
@@ -121,14 +122,7 @@ export default function UserDisplayPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mood-accent-text mx-auto mb-4" />
-          <p className="text-lg">Loading display page...</p>
-        </div>
-      </div>
-    );
+    return <PageLoader label="Loading display..." />;
   }
 
   if (error) {
@@ -872,14 +866,7 @@ function DisplayPage({ username }: { username: string }) {
   const isLoadingEssentialData = !mounted || globalState.isLoading;
     
   if (isLoadingEssentialData) {
-    return (
-      <MoodShell mood={displayMood} className="flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[color:var(--mood-accent)] mx-auto mb-4"></div>
-          <p className="text-xl">Loading...</p>
-        </div>
-      </MoodShell>
-    );
+    return <PageLoader label="Preparing display..." />;
   }
 
   // Check event status and page controls using global state (with safety checks)
@@ -922,11 +909,7 @@ function DisplayPage({ username }: { username: string }) {
   // Continue to show the main display content UI
 
   if (!eventSettings) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-2xl">Loading...</div>
-      </div>
-    );
+    return <PageLoader label="Loading event settings..." />;
   }
 
   // Admin status and page controls are handled above - this is the main display content

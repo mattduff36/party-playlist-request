@@ -5,6 +5,8 @@ import ServerStartup from '@/components/ServerStartup';
 import MobileCacheBuster from '@/components/MobileCacheBuster';
 import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { QueryProvider } from '@/providers/QueryProvider';
+import ClientErrorCapture from '@/components/support/ClientErrorCapture';
+import ErrorBoundary from '@/components/error/ErrorBoundary';
 import "./globals.css";
 
 const syne = Syne({
@@ -40,13 +42,16 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${syne.variable} ${dmSans.variable}`}>
       <body className="font-sans antialiased bg-ink text-bone min-h-screen">
-        <QueryProvider>
-          <GlobalEventProvider>
-            <MobileCacheBuster />
-            <ServerStartup />
-            {children}
-          </GlobalEventProvider>
-        </QueryProvider>
+        <ErrorBoundary level="page">
+          <QueryProvider>
+            <GlobalEventProvider>
+              <ClientErrorCapture />
+              <MobileCacheBuster />
+              <ServerStartup />
+              {children}
+            </GlobalEventProvider>
+          </QueryProvider>
+        </ErrorBoundary>
         <Analytics />
       </body>
     </html>

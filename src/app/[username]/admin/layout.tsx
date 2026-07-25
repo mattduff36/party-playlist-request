@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import { AdminDataProvider } from '@/contexts/AdminDataContext';
 import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import PageLoader from '@/components/ui/PageLoader';
 
 export default function UserAdminLayout({
   children,
@@ -50,11 +50,7 @@ export default function UserAdminLayout({
   }, [router, username]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-ink via-elevated to-surface flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-white animate-spin" />
-      </div>
-    );
+    return <PageLoader label="Loading DJ admin..." />;
   }
 
   if (!authenticated) {

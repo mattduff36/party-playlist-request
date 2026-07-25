@@ -109,6 +109,15 @@ export async function GET(req: NextRequest) {
     });
 
     if (searchResponse.status === 429) {
+      const { logErrorAsync } = await import('@/lib/support/logger');
+      logErrorAsync({
+        source: 'spotify',
+        message: `Spotify search 429 for ${username}`,
+        route: '/api/spotify/search',
+        method: 'GET',
+        username,
+        meta: { query: query.slice(0, 80) },
+      });
       const response = NextResponse.json(
         {
           code: SPOTIFY_SEARCH_BUSY_CODE,
@@ -125,6 +134,15 @@ export async function GET(req: NextRequest) {
 
     if (!searchResponse.ok) {
       console.error(`❌ [search] Spotify API error: ${searchResponse.status} ${searchResponse.statusText}`);
+      const { logErrorAsync } = await import('@/lib/support/logger');
+      logErrorAsync({
+        source: 'spotify',
+        message: `Spotify search ${searchResponse.status} for ${username}`,
+        route: '/api/spotify/search',
+        method: 'GET',
+        username,
+        meta: { status: searchResponse.status },
+      });
       return NextResponse.json(
         { error: 'Music search is temporarily unavailable. Please try again later.' },
         { status: 503 }

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminData } from '@/contexts/AdminDataContext';
+import PageLoader from '@/components/ui/PageLoader';
 import SpotifyStatusDropdown from '@/components/admin/SpotifyStatusDropdown';
 import NotificationsDropdown from '@/components/admin/NotificationsDropdown';
 import NotificationInitializer from '@/components/admin/NotificationInitializer';
@@ -45,7 +46,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
   // Get admin data for notifications
-  const { stats } = useAdminData();
+  const { stats, loading: adminDataLoading } = useAdminData();
   const { state } = useGlobalEvent();
 
   // Gate Super Admin sidebar link to logged-in superadmins only
@@ -451,9 +452,13 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               </div>
             </div>
             
-            {/* Main content */}
+            {/* Main content — gate until admin data ready */}
             <main className="p-6">
-              {children}
+              {adminDataLoading ? (
+                <PageLoader label="Loading admin data..." fullScreen={false} />
+              ) : (
+                children
+              )}
             </main>
           </div>
         </div>

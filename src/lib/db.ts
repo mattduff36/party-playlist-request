@@ -521,6 +521,66 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Support system: durable errors + activity audit (90-day retention via prune)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS support_errors (
+        id UUID PRIMARY KEY,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        level TEXT NOT NULL DEFAULT 'error' CHECK (level IN ('error', 'fatal')),
+        source TEXT NOT NULL DEFAULT 'unknown'
+          CHECK (source IN ('api', 'client', 'spotify', 'db', 'pusher', 'unknown')),
+        message TEXT NOT NULL,
+        stack TEXT,
+        route TEXT,
+        method TEXT,
+        user_id UUID,
+        username TEXT,
+        event_id UUID,
+        ip_hash TEXT,
+        user_agent TEXT,
+        meta JSONB,
+        resolved BOOLEAN DEFAULT FALSE,
+        resolved_at TIMESTAMP,
+        resolved_by TEXT
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS support_activity (
+        id UUID PRIMARY KEY,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        action TEXT NOT NULL,
+        actor_role TEXT NOT NULL
+          CHECK (actor_role IN ('guest', 'admin', 'superadmin', 'system')),
+        user_id UUID,
+        username TEXT,
+        event_id UUID,
+        route TEXT,
+        ip_hash TEXT,
+        summary TEXT NOT NULL,
+        meta JSONB
+      )
+    `);
+
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_support_errors_created ON support_errors(created_at DESC)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_support_errors_unresolved ON support_errors(resolved, created_at DESC)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_support_errors_username ON support_errors(username)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_support_activity_created ON support_activity(created_at DESC)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_support_activity_username ON support_activity(username)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_support_activity_action ON support_activity(action)`
+    );
+
     // Create indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)`);

@@ -98,23 +98,32 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   private reportToMonitoring = async (error: Error, errorInfo: ErrorInfo, errorId: string) => {
+    const payload = {
+      errorId,
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: Date.now(),
+      level: this.props.level || 'component',
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+    };
+
     try {
-      // Report to our monitoring system
+      await fetch('/api/support/client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      /* ignore */
+    }
+
+    try {
       await fetch('/api/monitoring/errors', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          errorId,
-          message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack,
-          timestamp: Date.now(),
-          level: this.props.level || 'component',
-          userAgent: navigator.userAgent,
-          url: window.location.href,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
     } catch (reportingError) {
       console.error('Failed to report error to monitoring:', reportingError);

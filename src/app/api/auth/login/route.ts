@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { generateToken, comparePassword, getCookieOptions } from '@/lib/auth';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -23,6 +24,10 @@ export async function POST(req: NextRequest) {
     );
 
     if (result.rows.length === 0) {
+      reportActivity(req, 'auth.login_failed', `Failed login for ${username}`, {
+        actorRole: 'guest',
+        meta: { reason: 'unknown_user' },
+      });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -35,6 +40,12 @@ export async function POST(req: NextRequest) {
     const isValidPassword = await comparePassword(password, user.password_hash);
 
     if (!isValidPassword) {
+      reportActivity(req, 'auth.login_failed', `Failed login for ${username}`, {
+        actorRole: 'guest',
+        username,
+        userId: user.id,
+        meta: { reason: 'bad_password' },
+      });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -101,10 +112,17 @@ export async function POST(req: NextRequest) {
 
     console.log('✅ User logged in:', user.username);
 
+    reportActivity(req, 'auth.login', `User ${user.username} logged in`, {
+      actorRole: role === 'superadmin' ? 'superadmin' : 'admin',
+      userId: user.id,
+      username: user.username,
+    });
+
     return response;
 
   } catch (error) {
     console.error('❌ Login error:', error);
+    reportApiError(req, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

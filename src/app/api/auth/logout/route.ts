@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { sql } from '@/lib/db/neon-client';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 export async function POST(req: NextRequest) {
   try {
@@ -81,10 +82,17 @@ export async function POST(req: NextRequest) {
       path: '/'
     });
 
+    if (auth.authenticated && auth.user) {
+      reportActivity(req, 'auth.logout', `User ${auth.user.username} logged out`, {
+        user: auth.user,
+      });
+    }
+
     return response;
     
   } catch (error) {
     console.error('Logout error:', error);
+    reportApiError(req, error);
     
     // Still clear cookie even if there's an error
     const response = NextResponse.json(

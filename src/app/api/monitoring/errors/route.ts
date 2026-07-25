@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { metricsCollector } from '@/lib/monitoring/metrics';
 import { alertingSystem } from '@/lib/monitoring/alerts';
+import { logError } from '@/lib/support/logger';
+import { getIpHash } from '@/lib/support/withApiLogging';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +22,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Persist to support system (durable)
+    await logError({
+      level:
+        errorData.level === 'critical' || errorData.level === 'page'
+          ? 'fatal'
+          : 'error',
+      source: 'client',
+      message: String(errorData.message),
+      stack: errorData.stack || errorData.componentStack || null,
+      route: errorData.url || null,
+      method: 'CLIENT',
+      ipHash: getIpHash(request),
+      userAgent: errorData.userAgent || request.headers.get('user-agent'),
+      meta: { errorId: errorData.errorId, clientLevel: errorData.level },
+    });
 
     // Record error metrics
     metricsCollector.recordMetric({

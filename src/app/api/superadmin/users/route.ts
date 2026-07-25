@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { hashPassword } from '@/lib/auth';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -218,6 +219,11 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ Super admin ${auth.user.username} created user: ${username}`);
 
+    reportActivity(req, 'superadmin.user_create', `Created user ${username}`, {
+      user: auth.user,
+      meta: { createdUsername: username, role },
+    });
+
     return NextResponse.json({
       success: true,
       user: result.rows[0]
@@ -225,6 +231,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error creating user:', error);
+    reportApiError(req, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

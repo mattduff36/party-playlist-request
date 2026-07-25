@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { getRequest, updateRequest } from '@/lib/db';
+import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -41,6 +42,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       rejection_reason: reason || 'No reason provided'
     });
 
+    reportActivity(req, 'request.reject', `Rejected request ${id}`, {
+      user: auth.user,
+      meta: { requestId: id, track: request.track_name, reason: reason || null },
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Request rejected successfully'
@@ -52,6 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     
     console.error('Error rejecting request:', error);
+    reportApiError(req, error);
     return NextResponse.json({ 
       error: 'Failed to reject request' 
     }, { status: 500 });
