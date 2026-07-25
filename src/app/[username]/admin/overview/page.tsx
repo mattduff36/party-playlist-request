@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import StateControlPanel from '@/components/admin/StateControlPanel';
 import PageControlPanel from '@/components/admin/PageControlPanel';
+import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
 import SpotifyConnectingScreen from '@/components/admin/SpotifyConnectingScreen';
 import RequestManagementPanel from '@/components/admin/RequestManagementPanel';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
@@ -67,13 +68,14 @@ export default function AdminOverviewPage() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Main Control Panels - Side by Side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Main Control Panels — Event | Pages | Request Management */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StateControlPanel />
         <PageControlPanel />
+        <RequestManagementControlPanel />
       </div>
 
-      {/* Request Management */}
+      {/* Song Requests list */}
       <div className="border border-white/10 rounded-lg overflow-hidden">
         <button
           type="button"
