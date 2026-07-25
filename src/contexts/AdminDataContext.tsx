@@ -1,12 +1,24 @@
 'use client';
 
-import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react';
 import { usePusher } from '@/hooks/usePusher';
-import { RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent } from '@/lib/pusher';
+import {
+  RequestApprovedEvent,
+  RequestRejectedEvent,
+  RequestSubmittedEvent,
+  RequestDeletedEvent,
+} from '@/lib/pusher';
 import { formatArtists } from '@/lib/format-artists';
 import type { DisplayMood } from '@/styles/theme';
 
-// Types (simplified from the old useAdminData)
 export interface Request {
   id: string;
   track_name: string;
@@ -90,6 +102,9 @@ interface AdminDataContextType {
   eventSettings: EventSettings | null;
   stats: Stats | null;
   loading: boolean;
+  /** Debounced Spotify connection truth for all admin UI */
+  spotifyConnected: boolean;
+  setSpotifyConnected: (connected: boolean, immediate?: boolean) => void;
   isConnected: boolean;
   connectionState: string;
   handlePlaybackControl: (action: string) => Promise<void>;
@@ -105,103 +120,185 @@ interface AdminDataContextType {
   handleQueueReorder: (fromIndex: number, toIndex: number) => Promise<void>;
 }
 
-// Create the context
 const AdminDataContext = createContext<AdminDataContextType | null>(null);
 
-// Provider component
+const CONNECTED_FALSE_DEBOUNCE_MS = 1000;
+const CONNECTED_FALSE_STREAK = 2;
+const QUEUE_REORDER_LOCK_MS = 4000;
+const PLAYBACK_POLL_UNTIL_TRACK_MS = 12000;
+const HYDRATE_RETRY_DELAYS_MS = [500, 1500, 3000];
+
 export function AdminDataProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [spotifyConnected, setSpotifyConnectedState] = useState(false);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
-  // Helper function to handle token expiration
-  const handleTokenExpiration = useCallback(async (reason: string = 'expired') => {
-    console.log('Token expired, clearing token and notifying all devices');
-    localStorage.removeItem('admin_token');
-    
-    // Trigger Pusher event to notify all devices
-    try {
-      await fetch('/api/admin/token-expired', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reason,
-          message: 'Admin token has expired. Please log in again.'
-        })
-      });
-    } catch (pusherError) {
-      console.error('Failed to trigger token expiration event:', pusherError);
+  const requestsGenRef = useRef(0);
+  const statsGenRef = useRef(0);
+  const playbackGenRef = useRef(0);
+  const queueReorderLockUntilRef = useRef(0);
+  const disconnectedStreakRef = useRef(0);
+  const disconnectedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const confirmedDisconnectedRef = useRef(false);
+  const hasConfirmedTrackRef = useRef(false);
+  const hydrateRetryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const playbackPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearDisconnectedDebounce = useCallback(() => {
+    disconnectedStreakRef.current = 0;
+    if (disconnectedDebounceRef.current) {
+      clearTimeout(disconnectedDebounceRef.current);
+      disconnectedDebounceRef.current = null;
     }
   }, []);
 
-  // 🚀 PUSHER: Real-time updates
-  console.log('🔄 AdminDataContext: Setting up Pusher connection...');
+  const setSpotifyConnected = useCallback(
+    (connected: boolean, immediate = false) => {
+      if (connected) {
+        clearDisconnectedDebounce();
+        confirmedDisconnectedRef.current = false;
+        setSpotifyConnectedState(true);
+        setPlaybackState((prev) =>
+          prev ? { ...prev, spotify_connected: true } : prev
+        );
+        setStats((prev) =>
+          prev ? { ...prev, spotify_connected: true } : prev
+        );
+        return;
+      }
+
+      if (immediate) {
+        clearDisconnectedDebounce();
+        confirmedDisconnectedRef.current = true;
+        hasConfirmedTrackRef.current = false;
+        setSpotifyConnectedState(false);
+        setPlaybackState((prev) =>
+          prev
+            ? {
+                ...prev,
+                spotify_connected: false,
+                is_playing: false,
+                track_name: undefined,
+                artist_name: undefined,
+                album_name: undefined,
+                image_url: undefined,
+                queue: [],
+              }
+            : null
+        );
+        setStats((prev) =>
+          prev ? { ...prev, spotify_connected: false } : prev
+        );
+        return;
+      }
+
+      disconnectedStreakRef.current += 1;
+      if (disconnectedStreakRef.current >= CONNECTED_FALSE_STREAK) {
+        clearDisconnectedDebounce();
+        confirmedDisconnectedRef.current = true;
+        setSpotifyConnectedState(false);
+        setPlaybackState((prev) =>
+          prev ? { ...prev, spotify_connected: false } : prev
+        );
+        setStats((prev) =>
+          prev ? { ...prev, spotify_connected: false } : prev
+        );
+        return;
+      }
+
+      if (!disconnectedDebounceRef.current) {
+        disconnectedDebounceRef.current = setTimeout(() => {
+          disconnectedDebounceRef.current = null;
+          if (disconnectedStreakRef.current > 0) {
+            disconnectedStreakRef.current = 0;
+            confirmedDisconnectedRef.current = true;
+            setSpotifyConnectedState(false);
+            setPlaybackState((prev) =>
+              prev ? { ...prev, spotify_connected: false } : prev
+            );
+            setStats((prev) =>
+              prev ? { ...prev, spotify_connected: false } : prev
+            );
+          }
+        }, CONNECTED_FALSE_DEBOUNCE_MS);
+      }
+    },
+    [clearDisconnectedDebounce]
+  );
+
+  const refreshRequestsRef = useRef<() => Promise<void>>(async () => {});
+  const refreshStatsRef = useRef<() => Promise<void>>(async () => {});
+  const refreshPlaybackStateRef = useRef<() => Promise<void>>(async () => {});
+
   const { isConnected, connectionState } = usePusher({
-    onRequestApproved: (data: RequestApprovedEvent) => {
-      console.log('🎉 Admin: Request approved via Pusher!', data);
-      // Refresh requests and stats to show the update
-      refreshRequests();
-      refreshStats();
+    onRequestApproved: () => {
+      void refreshRequestsRef.current();
+      void refreshStatsRef.current();
     },
-    onRequestRejected: (data: RequestRejectedEvent) => {
-      console.log('❌ Admin: Request rejected via Pusher!', data);
-      // Refresh requests and stats to show the update
-      refreshRequests();
-      refreshStats();
+    onRequestRejected: () => {
+      void refreshRequestsRef.current();
+      void refreshStatsRef.current();
     },
-    onRequestDeleted: (data: RequestDeletedEvent) => {
-      console.log('🗑️ Admin: Request deleted via Pusher!', data);
-      // Refresh requests and stats to show the update
-      refreshRequests();
-      refreshStats();
+    onRequestDeleted: () => {
+      void refreshRequestsRef.current();
+      void refreshStatsRef.current();
     },
-    onRequestSubmitted: (data: RequestSubmittedEvent) => {
-      console.log('📝 Admin: New request submitted via Pusher!', data);
-      // Refresh requests and stats to show the new pending request
-      refreshRequests();
-      refreshStats();
+    onRequestSubmitted: () => {
+      void refreshRequestsRef.current();
+      void refreshStatsRef.current();
     },
     onForceLogout: (data: any) => {
-      console.log('⚠️ Admin: Force logout received!', data);
-      // Clear local storage and redirect to login
       localStorage.removeItem('admin_token');
-      alert(data.message || 'You have been logged out because this session was transferred to another device.');
+      alert(
+        data.message ||
+          'You have been logged out because this session was transferred to another device.'
+      );
       window.location.href = '/login';
     },
-    onRequestsCleanup: (data: any) => {
-      console.log('🧹 Admin: Requests cleanup received!', data);
-      // Refresh requests to show empty list
-      refreshRequests();
-      refreshStats();
+    onRequestsCleanup: () => {
+      void refreshRequestsRef.current();
+      void refreshStatsRef.current();
     },
     onStatsUpdate: (data: any) => {
-      console.log('📊 Admin: Stats update via Pusher!', data);
-      // Update stats directly from Pusher event
-      setStats({
-        total_requests: data.total_requests || 0,
-        pending_requests: data.pending_requests || 0,
-        approved_requests: data.approved_requests || 0,
-        rejected_requests: data.rejected_requests || 0,
-        played_requests: data.played_requests || 0,
-        unique_requesters: data.unique_requesters || 0,
-        spotify_connected: data.spotify_connected || false,
+      setStats((prev) => {
+        const next: Stats = {
+          total_requests: data.total_requests ?? prev?.total_requests ?? 0,
+          pending_requests: data.pending_requests ?? prev?.pending_requests ?? 0,
+          approved_requests:
+            data.approved_requests ?? prev?.approved_requests ?? 0,
+          rejected_requests:
+            data.rejected_requests ?? prev?.rejected_requests ?? 0,
+          played_requests: data.played_requests ?? prev?.played_requests ?? 0,
+          unique_requesters:
+            data.unique_requesters ?? prev?.unique_requesters ?? 0,
+          spotify_connected:
+            typeof data.spotify_connected === 'boolean'
+              ? data.spotify_connected
+              : (prev?.spotify_connected ?? false),
+        };
+        return JSON.stringify(prev) !== JSON.stringify(next) ? next : prev;
       });
+      if (typeof data.spotify_connected === 'boolean') {
+        setSpotifyConnected(data.spotify_connected);
+      }
     },
     onPlaybackUpdate: (data: any) => {
-      console.log('🎵 Admin: Playback update via Pusher!', data);
-      console.log('🎵 Admin: Current playback state before update:', playbackState);
-      // Update playback state with the new data from Spotify watcher
-      console.log('🎵 Admin: Checking if should update playback state:', {
-        has_current_track: !!data.current_track,
-        has_queue: !!data.queue,
-        has_is_playing: data.is_playing !== undefined,
-        is_playing_value: data.is_playing
-      });
-      
+      if (confirmedDisconnectedRef.current) {
+        return;
+      }
+      if (Date.now() < queueReorderLockUntilRef.current && Array.isArray(data.queue)) {
+        // Apply track/playing updates but skip queue overwrite during reorder lock
+        data = { ...data, queue: undefined };
+      }
+
       if (data.current_track || data.queue || data.is_playing !== undefined) {
-        setPlaybackState(prev => {
+        setPlaybackState((prev) => {
           const next: PlaybackState = {
             ...(prev || {
               spotify_connected: false,
@@ -226,11 +323,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             if (data.is_playing !== undefined) {
               next.is_playing = Boolean(data.is_playing);
             }
+            hasConfirmedTrackRef.current = true;
           } else if (data.is_playing === true) {
             next.is_playing = true;
           }
-          // Ignore is_playing:false with no track — often a transient transfer gap
-          // Compact Pusher payloads often omit device — keep previous values
           if (data.device?.name) {
             next.device_name = data.device.name;
           }
@@ -239,54 +335,52 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           }
           if (Array.isArray(data.queue)) {
             next.queue = data.queue;
+          } else if (prev?.queue) {
+            next.queue = prev.queue;
           }
 
-          if (JSON.stringify(prev) !== JSON.stringify(next)) {
-            console.log('🎵 Admin: Updating playback state from Pusher:', {
-              track_name: next.track_name,
-              is_playing: next.is_playing,
-              queue_length: next.queue?.length || 0
-            });
-            return next;
-          }
-          return prev;
+          return JSON.stringify(prev) !== JSON.stringify(next) ? next : prev;
         });
+        setSpotifyConnected(true);
       }
     },
-    onTokenExpired: (data: any) => {
-      console.log('🔒 Admin: Token expired via Pusher!', data);
-      // Clear the token and trigger logout on all devices
+    onTokenExpired: () => {
       localStorage.removeItem('admin_token');
-      // The AdminLayout will handle the UI logout
-    }
+    },
   });
 
-  // Log Pusher connection state changes
-  useEffect(() => {
-    console.log('🔄 AdminDataContext: Pusher connection state changed:', {
-      isConnected,
-      connectionState
-    });
-  }, [isConnected, connectionState]);
+  const handleTokenExpiration = useCallback(async (reason: string = 'expired') => {
+    localStorage.removeItem('admin_token');
+    try {
+      await fetch('/api/admin/token-expired', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason,
+          message: 'Admin token has expired. Please log in again.',
+        }),
+      });
+    } catch (pusherError) {
+      console.error('Failed to trigger token expiration event:', pusherError);
+    }
+  }, []);
 
-  // Fetch requests
   const refreshRequests = useCallback(async () => {
+    const gen = ++requestsGenRef.current;
     try {
       const response = await fetch('/api/admin/requests', {
-        credentials: 'include' // JWT auth via cookies
+        credentials: 'include',
       });
+      if (gen !== requestsGenRef.current) return;
       if (response.ok) {
         const data = await response.json();
-        const requestsArray = data.requests || data; // Handle both formats
-        setRequests(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(requestsArray)) {
-            return requestsArray;
-          }
-          return prev;
-        });
+        const requestsArray = data.requests || data;
+        setRequests((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(requestsArray)
+            ? requestsArray
+            : prev
+        );
       } else if (response.status === 401) {
-        // Token expired
-        console.log('Token expired during requests fetch');
         await handleTokenExpiration('expired');
       }
     } catch (error) {
@@ -295,7 +389,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   }, [handleTokenExpiration]);
 
   const patchPlaybackState = useCallback((patch: Partial<PlaybackState>) => {
-    setPlaybackState(prev => {
+    setPlaybackState((prev) => {
       if (!prev) {
         return {
           spotify_connected: false,
@@ -305,34 +399,76 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       }
       return { ...prev, ...patch };
     });
+    if (patch.spotify_connected === true) {
+      setSpotifyConnected(true);
+    } else if (patch.spotify_connected === false) {
+      setSpotifyConnected(false, true);
+    }
+    if (patch.track_name) {
+      hasConfirmedTrackRef.current = true;
+    }
+  }, [setSpotifyConnected]);
+
+  const scheduleHydrateRetries = useCallback(() => {
+    hydrateRetryTimersRef.current.forEach(clearTimeout);
+    hydrateRetryTimersRef.current = [];
+    for (const delay of HYDRATE_RETRY_DELAYS_MS) {
+      const timer = setTimeout(() => {
+        if (!hasConfirmedTrackRef.current && !confirmedDisconnectedRef.current) {
+          void refreshPlaybackStateRef.current();
+        }
+      }, delay);
+      hydrateRetryTimersRef.current.push(timer);
+    }
   }, []);
 
-  // Fetch playback state
   const refreshPlaybackState = useCallback(async () => {
+    const gen = ++playbackGenRef.current;
     try {
       const response = await fetch('/api/admin/queue/details', {
-        credentials: 'include' // JWT auth via cookies
+        credentials: 'include',
       });
+      if (gen !== playbackGenRef.current) return;
       if (response.ok) {
         const data = await response.json();
-        console.log('🔍 AdminDataContext: Raw queue details response:', {
-          spotify_connected: data.spotify_connected,
-          has_current_track: !!data.current_track,
-          queue_length: data.queue?.length || 0,
-          debug: data.debug
-        });
-        
-        setPlaybackState(prev => {
-          const connected = Boolean(data.spotify_connected);
-          const incomingTrack = data.current_track;
+        const connected = Boolean(data.spotify_connected);
+        const incomingTrack = data.current_track;
+        const playbackPending = Boolean(data.playback_pending);
+        const reorderLocked = Date.now() < queueReorderLockUntilRef.current;
 
-          // Spotify often returns null playback briefly during device transfer.
-          // Keep the previous now-playing UI instead of flashing "Nothing playing".
+        if (connected) {
+          setSpotifyConnected(true);
+        } else if (hasConfirmedTrackRef.current) {
+          // Debounce wipe when we previously had a track
+          setSpotifyConnected(false);
+        } else {
+          setSpotifyConnected(false);
+        }
+
+        setPlaybackState((prev) => {
+          // Unconfirmed empty first load: keep prior null/empty and let retries fill in
+          if (
+            connected &&
+            !incomingTrack &&
+            !prev?.track_name &&
+            (playbackPending || !hasConfirmedTrackRef.current)
+          ) {
+            if (!prev) {
+              return {
+                spotify_connected: true,
+                is_playing: false,
+              };
+            }
+            return {
+              ...prev,
+              spotify_connected: true,
+            };
+          }
+
           if (connected && !incomingTrack && prev?.track_name) {
             const preserved: PlaybackState = {
               ...prev,
               spotify_connected: true,
-              // Prefer previous device during empty gaps — avoids bouncing back mid-switch
               device_name: prev.device_name ?? data.device?.name,
               volume_percent:
                 typeof data.device?.volume_percent === 'number'
@@ -349,8 +485,30 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               : prev;
           }
 
+          // Single disconnected blip: keep track until debounce confirms
+          if (!connected && prev?.track_name && !confirmedDisconnectedRef.current) {
+            return {
+              ...prev,
+              spotify_connected: prev.spotify_connected,
+            };
+          }
+
+          let nextQueue: QueueTrack[] = data.queue || [];
+          if (reorderLocked && prev?.queue) {
+            nextQueue = prev.queue;
+          } else if (
+            connected &&
+            Array.isArray(data.queue) &&
+            data.queue.length === 0 &&
+            prev?.queue &&
+            prev.queue.length > 0 &&
+            !incomingTrack
+          ) {
+            nextQueue = prev.queue;
+          }
+
           const newPlaybackState: PlaybackState = {
-            spotify_connected: connected,
+            spotify_connected: connected || Boolean(prev?.spotify_connected),
             is_playing: Boolean(data.is_playing),
             track_name: incomingTrack?.name,
             artist_name: incomingTrack
@@ -362,46 +520,40 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             image_url: incomingTrack?.image_url,
             device_name: data.device?.name ?? prev?.device_name,
             volume_percent: data.device?.volume_percent ?? prev?.volume_percent,
-            queue: data.queue || [],
+            queue: nextQueue,
           };
 
-          if (JSON.stringify(prev) !== JSON.stringify(newPlaybackState)) {
-            console.log('🎵 AdminDataContext: Updating playback state:', {
-              spotify_connected: newPlaybackState.spotify_connected,
-              track_name: newPlaybackState.track_name,
-              is_playing: newPlaybackState.is_playing
-            });
-            return newPlaybackState;
+          if (incomingTrack?.name) {
+            hasConfirmedTrackRef.current = true;
           }
-          return prev;
+
+          return JSON.stringify(prev) !== JSON.stringify(newPlaybackState)
+            ? newPlaybackState
+            : prev;
         });
+
+        if (connected && !incomingTrack && !hasConfirmedTrackRef.current) {
+          scheduleHydrateRetries();
+        }
       } else if (response.status === 401) {
-        // Token expired
-        console.log('Token expired during playback state fetch');
         await handleTokenExpiration('expired');
       }
     } catch (error) {
       console.error('Failed to fetch playback state:', error);
     }
-  }, [handleTokenExpiration]);
+  }, [handleTokenExpiration, scheduleHydrateRetries, setSpotifyConnected]);
 
-  // Fetch event settings
   const refreshEventSettings = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/event-settings', {
-        credentials: 'include' // JWT auth via cookies
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
-        setEventSettings(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(data)) {
-            return data;
-          }
-          return prev;
-        });
+        setEventSettings((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(data) ? data : prev
+        );
       } else if (response.status === 401) {
-        // Token expired
-        console.log('Token expired during event settings fetch');
         await handleTokenExpiration('expired');
       }
     } catch (error) {
@@ -409,327 +561,344 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [handleTokenExpiration]);
 
-  // Fetch stats
   const refreshStats = useCallback(async () => {
+    const gen = ++statsGenRef.current;
     try {
       const response = await fetch('/api/admin/stats', {
-        credentials: 'include' // JWT auth via cookies
+        credentials: 'include',
       });
+      if (gen !== statsGenRef.current) return;
       if (response.ok) {
         const data = await response.json();
-        setStats(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(data)) {
-            return data;
-          }
-          return prev;
+        setStats((prev) => {
+          const next = {
+            ...data,
+            spotify_connected:
+              typeof data.spotify_connected === 'boolean'
+                ? data.spotify_connected
+                : (prev?.spotify_connected ?? false),
+          };
+          return JSON.stringify(prev) !== JSON.stringify(next) ? next : prev;
         });
+        if (typeof data.spotify_connected === 'boolean') {
+          setSpotifyConnected(data.spotify_connected);
+        }
       } else if (response.status === 401) {
-        // Token expired
-        console.log('Token expired during stats fetch');
         await handleTokenExpiration('expired');
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     }
-  }, [handleTokenExpiration]);
+  }, [handleTokenExpiration, setSpotifyConnected]);
 
-  // Refresh all data
+  refreshRequestsRef.current = refreshRequests;
+  refreshStatsRef.current = refreshStats;
+  refreshPlaybackStateRef.current = refreshPlaybackState;
+
+  // Soft refresh: never toggle loading after first paint (avoids remounting children)
   const refreshData = useCallback(async () => {
-    setLoading(true);
+    if (!hasInitialLoad) {
+      setLoading(true);
+    }
     await Promise.all([
       refreshRequests(),
       refreshPlaybackState(),
       refreshEventSettings(),
-      refreshStats()
+      refreshStats(),
     ]);
     setLoading(false);
-  }, [refreshRequests, refreshPlaybackState, refreshEventSettings, refreshStats]);
+    setHasInitialLoad(true);
+  }, [
+    hasInitialLoad,
+    refreshRequests,
+    refreshPlaybackState,
+    refreshEventSettings,
+    refreshStats,
+  ]);
 
-  // Handle playback controls
-  const handlePlaybackControl = useCallback(async (action: string) => {
-    try {
-      const response = await fetch(`/api/admin/playback/${action}`, {
-        method: 'POST',
-        credentials: 'include' // JWT auth via cookies
-      });
-      
-      if (response.ok) {
-        // Refresh playback state after control action
-        setTimeout(() => refreshPlaybackState(), 1000);
-      }
-    } catch (error) {
-      console.error(`Failed to ${action} playback:`, error);
-    }
-  }, [refreshPlaybackState]);
-
-  // Update event settings
-  const updateEventSettings = useCallback(async (settings: Partial<EventSettings>) => {
-    try {
-      console.log('🔄 [AdminDataContext] updateEventSettings called with:', settings);
-      console.log('🔄 [AdminDataContext] Settings keys:', Object.keys(settings));
-
-      const response = await fetch('/api/admin/event-settings', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // JWT auth via cookies
-        body: JSON.stringify(settings)
-      });
-      
-      console.log('🔄 [AdminDataContext] API response status:', response.status);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ [AdminDataContext] Settings updated successfully:', result);
-        // Refresh event settings after update
-        await refreshEventSettings();
-        return;
-      }
-
-      const errorText = await response.text();
-      console.error('❌ [AdminDataContext] API error:', errorText);
-      let message = 'Failed to update event settings';
+  const handlePlaybackControl = useCallback(
+    async (action: string) => {
       try {
-        const parsed = JSON.parse(errorText) as { error?: string; detail?: string };
-        message = parsed.detail || parsed.error || message;
-      } catch {
-        if (errorText) message = errorText;
+        const response = await fetch(`/api/admin/playback/${action}`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (response.ok) {
+          setTimeout(() => void refreshPlaybackState(), 1000);
+        }
+      } catch (error) {
+        console.error(`Failed to ${action} playback:`, error);
       }
-      throw new Error(message);
-    } catch (error) {
-      console.error('❌ [AdminDataContext] Failed to update event settings:', error);
-      throw error;
-    }
-  }, [refreshEventSettings]);
+    },
+    [refreshPlaybackState]
+  );
 
-  // Handle Spotify disconnect
-  // Do not call refreshData() here: it toggles `loading`, and AdminLayout unmounts
-  // children while loading — remounting the Spotify page and re-firing disconnect.
+  const updateEventSettings = useCallback(
+    async (settings: Partial<EventSettings>) => {
+      try {
+        const response = await fetch('/api/admin/event-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(settings),
+        });
+
+        if (response.ok) {
+          await refreshEventSettings();
+          return;
+        }
+
+        const errorText = await response.text();
+        let message = 'Failed to update event settings';
+        try {
+          const parsed = JSON.parse(errorText) as {
+            error?: string;
+            detail?: string;
+          };
+          message = parsed.detail || parsed.error || message;
+        } catch {
+          if (errorText) message = errorText;
+        }
+        throw new Error(message);
+      } catch (error) {
+        console.error('Failed to update event settings:', error);
+        throw error;
+      }
+    },
+    [refreshEventSettings]
+  );
+
   const handleSpotifyDisconnect = useCallback(async () => {
     try {
-      setPlaybackState(prev => prev ? { ...prev, spotify_connected: false } : null);
-      setStats(prev => prev ? { ...prev, spotify_connected: false } : prev);
-
-      await Promise.all([
-        refreshPlaybackState(),
-        refreshStats(),
-      ]);
+      setSpotifyConnected(false, true);
+      await Promise.all([refreshPlaybackState(), refreshStats()]);
     } catch (error) {
       console.error('Failed to refresh data after disconnect:', error);
     }
-  }, [refreshPlaybackState, refreshStats]);
+  }, [refreshPlaybackState, refreshStats, setSpotifyConnected]);
 
-  // Initial data load and start Spotify watcher
   useEffect(() => {
     const initializeAdmin = async () => {
-      console.log('🔄 AdminDataContext: Initializing admin data and Spotify watcher...');
       setLoading(true);
       await Promise.all([
         refreshRequests(),
         refreshPlaybackState(),
         refreshEventSettings(),
-        refreshStats()
+        refreshStats(),
       ]);
       setLoading(false);
-      
-      // Start Spotify watcher for real-time Pusher events
+      setHasInitialLoad(true);
+
       try {
-        console.log('🎵 Starting Spotify watcher...');
         await fetch('/api/admin/spotify-watcher', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include', // Use JWT cookie authentication
-          body: JSON.stringify({ 
-            action: 'start', 
-            interval: 5000,        // Check playback every 5 seconds
-            queueInterval: 20000   // Check queue every 20 seconds
-          })
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            action: 'start',
+            interval: 5000,
+            queueInterval: 20000,
+          }),
         });
-        console.log('🎵 Spotify watcher started: 5s playback, 20s queue');
       } catch (error) {
         console.error('Failed to start Spotify watcher:', error);
       }
     };
 
-    initializeAdmin();
+    void initializeAdmin();
 
-    // Cleanup: Stop Spotify watcher when component unmounts
     return () => {
-      console.log('🛑 AdminDataContext: Cleaning up, stopping Spotify watcher...');
+      hydrateRetryTimersRef.current.forEach(clearTimeout);
+      if (playbackPollRef.current) clearInterval(playbackPollRef.current);
+      if (disconnectedDebounceRef.current) {
+        clearTimeout(disconnectedDebounceRef.current);
+      }
       fetch('/api/admin/spotify-watcher', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'stop' })
-      }).catch(error => {
-        console.error('Failed to stop Spotify watcher:', error);
-      });
+        body: JSON.stringify({ action: 'stop' }),
+      }).catch(() => {});
     };
-  }, [refreshRequests, refreshPlaybackState, refreshEventSettings, refreshStats]); // Stable dependencies
+  }, [refreshRequests, refreshPlaybackState, refreshEventSettings, refreshStats]);
 
-  // No more periodic refresh - Pusher handles real-time updates!
-
-  // Request management methods
-  const handleApprove = useCallback(async (id: string, playNext?: boolean) => {
-    try {
-      console.log(`🎵 Approving request ${id} (play_next: ${playNext})`);
-      
-      const response = await fetch(`/api/admin/approve/${id}`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Use JWT cookie authentication
-        body: JSON.stringify({
-          add_to_queue: true,
-          add_to_playlist: false,
-          play_next: playNext || false
-        })
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Request ${id} approved successfully (play_next: ${playNext})`);
-        await refreshRequests();
-        await refreshStats();
-      } else {
-        const error = await response.text();
-        console.error(`❌ Failed to approve request ${id}:`, response.status, error);
-      }
-    } catch (error) {
-      console.error(`❌ Error approving request ${id}:`, error);
+  // Light poll until first confirmed track (then Pusher owns updates)
+  useEffect(() => {
+    if (playbackPollRef.current) {
+      clearInterval(playbackPollRef.current);
+      playbackPollRef.current = null;
     }
-  }, [refreshRequests, refreshStats]);
-
-  const handleReject = useCallback(async (id: string, reason?: string) => {
-    try {
-      console.log(`🚫 Rejecting request ${id}`);
-
-      const response = await fetch(`/api/admin/reject/${id}`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Use JWT cookie authentication
-        body: JSON.stringify({
-          reason: reason || 'Rejected by admin'
-        })
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Request ${id} rejected successfully`);
-        await refreshRequests();
-        await refreshStats();
-      } else {
-        const error = await response.text();
-        console.error(`❌ Failed to reject request ${id}:`, response.status, error);
-      }
-    } catch (error) {
-      console.error(`❌ Error rejecting request ${id}:`, error);
+    if (hasConfirmedTrackRef.current || confirmedDisconnectedRef.current) {
+      return;
     }
-  }, [refreshRequests, refreshStats]);
-
-  const handleDelete = useCallback(async (id: string) => {
-    try {
-      console.log(`🗑️ Deleting request ${id}`);
-
-      const response = await fetch(`/api/admin/delete/${id}`, {
-        method: 'DELETE',
-        credentials: 'include' // Use JWT cookie authentication
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Request ${id} deleted successfully`);
-        await refreshRequests();
-        await refreshStats();
-      } else {
-        const error = await response.text();
-        console.error(`❌ Failed to delete request ${id}:`, response.status, error);
+    playbackPollRef.current = setInterval(() => {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState !== 'visible'
+      ) {
+        return;
       }
-    } catch (error) {
-      console.error(`❌ Error deleting request ${id}:`, error);
-    }
-  }, [refreshRequests, refreshStats]);
-
-  const handlePlayAgain = useCallback(async (id: string, playNext?: boolean) => {
-    try {
-      console.log(`🔄 Playing request ${id} again (play_next: ${playNext})`);
-
-      const response = await fetch(`/api/admin/play-again/${id}`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Use JWT cookie authentication
-        body: JSON.stringify({
-          play_next: playNext || false
-        })
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Request ${id} played again successfully (play_next: ${playNext})`);
-        await refreshRequests();
-        await refreshStats();
-      } else {
-        const error = await response.text();
-        console.error(`❌ Failed to play again request ${id}:`, response.status, error);
-      }
-    } catch (error) {
-      console.error(`❌ Error playing again request ${id}:`, error);
-    }
-  }, [refreshRequests, refreshStats]);
-
-
-  const handleQueueReorder = useCallback(async (fromIndex: number, toIndex: number) => {
-    try {
-      // Optimistically update the local queue for immediate UI feedback
-      setPlaybackState(prev => {
-        if (!prev?.queue) return prev;
-        
-        const newQueue = [...prev.queue];
-        const [movedItem] = newQueue.splice(fromIndex, 1);
-        newQueue.splice(toIndex, 0, movedItem);
-        
-        return {
-          ...prev,
-          queue: newQueue
-        };
-      });
-
-      const response = await fetch('/api/admin/queue/reorder', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Use JWT cookie authentication
-        body: JSON.stringify({ fromIndex, toIndex })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Queue reorder requested:', result.message);
-        if (result.limitation) {
-          console.warn('⚠️ Limitation:', result.limitation);
+      if (hasConfirmedTrackRef.current || confirmedDisconnectedRef.current) {
+        if (playbackPollRef.current) {
+          clearInterval(playbackPollRef.current);
+          playbackPollRef.current = null;
         }
-        if (result.spotify_unavailable) {
-          console.warn('⚠️ Spotify API unavailable, UI-only reorder applied');
+        return;
+      }
+      void refreshPlaybackState();
+    }, PLAYBACK_POLL_UNTIL_TRACK_MS);
+
+    return () => {
+      if (playbackPollRef.current) {
+        clearInterval(playbackPollRef.current);
+        playbackPollRef.current = null;
+      }
+    };
+  }, [playbackState?.track_name, spotifyConnected, refreshPlaybackState]);
+
+  const handleApprove = useCallback(
+    async (id: string, playNext?: boolean) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status: 'approved' as const,
+                approved_at: new Date().toISOString(),
+              }
+            : r
+        )
+      );
+      try {
+        const response = await fetch(`/api/admin/approve/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            add_to_queue: true,
+            add_to_playlist: false,
+            play_next: playNext || false,
+          }),
+        });
+        if (response.ok) {
+          await refreshRequests();
+          await refreshStats();
+        } else {
+          await refreshRequests();
         }
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to reorder queue:', response.status, errorText);
-        // Revert the optimistic update on failure
+      } catch (error) {
+        console.error(`Error approving request ${id}:`, error);
+        await refreshRequests();
+      }
+    },
+    [refreshRequests, refreshStats]
+  );
+
+  const handleReject = useCallback(
+    async (id: string, reason?: string) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, status: 'rejected' as const } : r
+        )
+      );
+      try {
+        const response = await fetch(`/api/admin/reject/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            reason: reason || 'Rejected by admin',
+          }),
+        });
+        if (response.ok) {
+          await refreshRequests();
+          await refreshStats();
+        } else {
+          await refreshRequests();
+        }
+      } catch (error) {
+        console.error(`Error rejecting request ${id}:`, error);
+        await refreshRequests();
+      }
+    },
+    [refreshRequests, refreshStats]
+  );
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+      try {
+        const response = await fetch(`/api/admin/delete/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (response.ok) {
+          await refreshRequests();
+          await refreshStats();
+        } else {
+          await refreshRequests();
+        }
+      } catch (error) {
+        console.error(`Error deleting request ${id}:`, error);
+        await refreshRequests();
+      }
+    },
+    [refreshRequests, refreshStats]
+  );
+
+  const handlePlayAgain = useCallback(
+    async (id: string, playNext?: boolean) => {
+      try {
+        const response = await fetch(`/api/admin/play-again/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            play_next: playNext || false,
+          }),
+        });
+        if (response.ok) {
+          await refreshRequests();
+          await refreshStats();
+        }
+      } catch (error) {
+        console.error(`Error playing again request ${id}:`, error);
+      }
+    },
+    [refreshRequests, refreshStats]
+  );
+
+  const handleQueueReorder = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      queueReorderLockUntilRef.current = Date.now() + QUEUE_REORDER_LOCK_MS;
+      try {
+        setPlaybackState((prev) => {
+          if (!prev?.queue) return prev;
+          const newQueue = [...prev.queue];
+          const [movedItem] = newQueue.splice(fromIndex, 1);
+          newQueue.splice(toIndex, 0, movedItem);
+          return { ...prev, queue: newQueue };
+        });
+
+        const response = await fetch('/api/admin/queue/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ fromIndex, toIndex }),
+        });
+
+        if (!response.ok) {
+          queueReorderLockUntilRef.current = 0;
+          await refreshPlaybackState();
+        }
+      } catch (error) {
+        console.error('Error reordering queue:', error);
+        queueReorderLockUntilRef.current = 0;
         await refreshPlaybackState();
       }
-    } catch (error) {
-      console.error('Error reordering queue:', error);
-      // Revert the optimistic update on error
-      await refreshPlaybackState();
-    }
-  }, [refreshPlaybackState]);
+    },
+    [refreshPlaybackState]
+  );
 
   const value: AdminDataContextType = {
     requests,
@@ -737,6 +906,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     eventSettings,
     stats,
     loading,
+    spotifyConnected,
+    setSpotifyConnected,
     isConnected,
     connectionState,
     handlePlaybackControl,
@@ -749,9 +920,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     handleReject,
     handleDelete,
     handlePlayAgain,
-    handleQueueReorder
+    handleQueueReorder,
   };
-  
+
   return (
     <AdminDataContext.Provider value={value}>
       {children}
@@ -759,7 +930,6 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Hook to use the admin data context
 export function useAdminData() {
   const context = useContext(AdminDataContext);
   if (!context) {

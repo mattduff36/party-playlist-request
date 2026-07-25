@@ -55,8 +55,8 @@ export default function AdminOverviewPage() {
     return <SpotifyConnectingScreen phase="connecting" />;
   }
   
-  // Safety check - ensure pagesEnabled exists
-  if (!state || !state.pagesEnabled) {
+  // Wait for event state hydrate (default offline is not authoritative)
+  if (!state || state.isLoading || !state.pagesEnabled) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>

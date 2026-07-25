@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter, RotateCcw } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
@@ -34,6 +34,13 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [isAddingRandomSong, setIsAddingRandomSong] = useState(false);
   const [allRequests, setAllRequests] = useState<any[]>([]);
+  const lastRequestCountRef = useRef(1);
+
+  useEffect(() => {
+    if (requests?.length) {
+      lastRequestCountRef.current = requests.length;
+    }
+  }, [requests]);
 
   // Filter and sort the requests data
   useEffect(() => {
@@ -245,14 +252,15 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     }
   };
 
-  if (loading) {
+  if (loading && (!requests || requests.length === 0)) {
+    const skeletonCount = Math.max(1, lastRequestCountRef.current);
     return (
       <div className={`bg-elevated rounded-lg p-6 ${className}`}>
         <div className="animate-pulse">
           <div className="h-6 bg-surface rounded w-1/4 mb-4"></div>
           <div className="h-8 bg-surface rounded w-1/2 mb-6"></div>
           <div className="space-y-4">
-            {[1, 2, 3].map(i => (
+            {Array.from({ length: skeletonCount }, (_, i) => (
               <div key={i} className="h-20 bg-surface rounded"></div>
             ))}
           </div>

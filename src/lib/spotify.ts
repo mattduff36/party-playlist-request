@@ -550,11 +550,14 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('PUT', '/me/player/play', data, userId);
   }
 
-  async pause(userId?: string) {
+  async pause(deviceId?: string, userId?: string) {
     if (isSpotifyMockEnabled()) {
       return null;
     }
-    return await this.makeAuthenticatedRequest('PUT', '/me/player/pause', undefined, userId);
+    const url = deviceId
+      ? `/me/player/pause?device_id=${encodeURIComponent(deviceId)}`
+      : '/me/player/pause';
+    return await this.makeAuthenticatedRequest('PUT', url, undefined, userId);
   }
 
   async next(userId?: string) {
@@ -574,11 +577,14 @@ class SpotifyService {
     return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
-  async previous(userId?: string) {
+  async previous(deviceId?: string, userId?: string) {
     if (isSpotifyMockEnabled()) {
       return null;
     }
-    return await this.makeAuthenticatedRequest('POST', '/me/player/previous', undefined, userId);
+    const url = deviceId
+      ? `/me/player/previous?device_id=${encodeURIComponent(deviceId)}`
+      : '/me/player/previous';
+    return await this.makeAuthenticatedRequest('POST', url, undefined, userId);
   }
 
   async setVolume(volumePercent: number, userId?: string) {

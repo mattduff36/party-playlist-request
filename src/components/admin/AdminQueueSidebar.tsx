@@ -74,9 +74,9 @@ function TrackRow({
 }
 
 export default function AdminQueueSidebar() {
-  const { playbackState } = useAdminData();
+  const { playbackState, spotifyConnected } = useAdminData();
 
-  const connected = playbackState?.spotify_connected ?? false;
+  const connected = spotifyConnected;
   const hasNowPlaying = Boolean(playbackState?.track_name);
   const queue = (playbackState?.queue || []).map(normalizeQueueTrack);
 

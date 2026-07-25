@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import SpotifyConnectingScreen from '@/components/admin/SpotifyConnectingScreen';
 import SidebarSpotifyControls from '@/components/admin/SidebarSpotifyControls';
 import { PlaylistBrowser } from '@/components/admin/PlaylistBrowser';
+import { useAdminData } from '@/contexts/AdminDataContext';
 import {
   clearSpotifyOAuthPending,
   completeSpotifyOAuthCallback,
@@ -16,7 +17,8 @@ import {
 type OAuthGatePhase = 'idle' | 'connecting' | 'error';
 
 export default function SpotifyPage() {
-  const [isConnected, setIsConnected] = useState(false);
+  const { spotifyConnected, setSpotifyConnected } = useAdminData();
+  const [isConnected, setIsConnected] = useState(spotifyConnected);
   const [isLoading, setIsLoading] = useState(true);
   // 'booting' until client mount inspects the URL / pending flag (avoids hydration mismatch).
   const [oauthGatePhase, setOauthGatePhase] = useState<OAuthGatePhase | 'booting'>(
@@ -36,8 +38,10 @@ export default function SpotifyPage() {
       }
 
       const data = await response.json();
-      setIsConnected(Boolean(data.connected));
-      return Boolean(data.connected);
+      const connected = Boolean(data.connected);
+      setIsConnected(connected);
+      setSpotifyConnected(connected);
+      return connected;
     } catch (error) {
       console.error('Failed to fetch Spotify status:', error);
       setIsConnected(false);
@@ -45,16 +49,21 @@ export default function SpotifyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [setSpotifyConnected]);
+
+  useEffect(() => {
+    setIsConnected(spotifyConnected);
+  }, [spotifyConnected]);
 
   const finishOAuthSuccess = useCallback(async () => {
     clearSpotifyOAuthPending();
     window.history.replaceState({}, document.title, window.location.pathname);
     await fetchSpotifyStatus();
     setIsConnected(true);
+    setSpotifyConnected(true);
     setIsLoading(false);
     setOauthGatePhase('idle');
-  }, [fetchSpotifyStatus]);
+  }, [fetchSpotifyStatus, setSpotifyConnected]);
 
   const failOAuth = useCallback((message: string) => {
     clearSpotifyOAuthPending();

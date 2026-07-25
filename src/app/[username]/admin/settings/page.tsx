@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Save, RefreshCw, Copy, CheckCircle, Monitor, QrCode, Lock, Loader2, Music, Info } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const pathname = usePathname();
   const { state } = useGlobalEvent();
   const username = pathname?.split('/')[1] || '';
+  const formHydratedRef = useRef(false);
   
   const [formData, setFormData] = useState({
     event_title: '',
@@ -30,6 +31,9 @@ export default function SettingsPage() {
   // Fetch event when component mounts OR when event status changes to Live/Standby
   useEffect(() => {
     const fetchEvent = async () => {
+      if (state?.isLoading) {
+        return;
+      }
       // Only fetch if event is Live or Standby (event is ON)
       if (state?.status === 'live' || state?.status === 'standby') {
         try {
@@ -50,7 +54,7 @@ export default function SettingsPage() {
     };
 
     fetchEvent();
-  }, [state?.status]);
+  }, [state?.status, state?.isLoading]);
 
   // Copy to clipboard helper
   const copyToClipboard = async (text: string, label: string) => {
@@ -69,9 +73,10 @@ export default function SettingsPage() {
     window.location.href = '/api/spotify/auth';
   }
 
-  // Update form data when eventSettings loads
+  // One-shot hydrate — do not wipe mid-edit on background settings refresh
   useEffect(() => {
-    if (eventSettings) {
+    if (eventSettings && !formHydratedRef.current) {
+      formHydratedRef.current = true;
       setFormData({
         event_title: eventSettings.event_title || '',
         request_limit: eventSettings.request_limit || 10,

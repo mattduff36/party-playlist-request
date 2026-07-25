@@ -78,9 +78,11 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   };
 
   const activeTab = getActiveTab();
+  const eventHydrated = Boolean(state && !state.isLoading);
   const showQueueSidebar =
+    eventHydrated &&
     activeTab === 'overview' &&
-    (state?.status === 'standby' || state?.status === 'live');
+    (state.status === 'standby' || state.status === 'live');
 
   // Get username from pathname if not provided
   const displayUsername = username || pathname?.split('/')[1] || 'DJ Admin';
@@ -117,6 +119,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   // Fetch event data for PIN and display URL
   useEffect(() => {
     const fetchEventData = async () => {
+      // Wait for first event-state hydrate so default offline does not clear PIN
+      if (state?.isLoading) {
+        return;
+      }
       if (state?.status === 'live' || state?.status === 'standby') {
         try {
           const response = await fetch('/api/events/current', {
@@ -138,7 +144,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     };
 
     fetchEventData();
-  }, [state?.status, displayUsername]);
+  }, [state?.status, state?.isLoading, displayUsername]);
 
   // Show setup party modal on first login
   useEffect(() => {
@@ -397,34 +403,6 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     </div>
   );
 
-  // Logout Modal
-  const LogoutModal = () => {
-    if (!showLogoutModal) return null;
-
-    return (
-      <div className="fixed inset-0 bg-ink/70 flex items-center justify-center z-50 p-4">
-        <div className="bg-elevated border border-white/10 rounded-lg p-6 max-w-md w-full">
-          <h3 className="text-xl font-bold text-bone mb-4">Confirm Logout</h3>
-          <p className="text-muted mb-6">Are you sure you want to logout?</p>
-          <div className="flex space-x-4">
-            <button
-              onClick={performLogout}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-            >
-              Logout
-            </button>
-            <button
-              onClick={() => setShowLogoutModal(false)}
-              className="flex-1 bg-white/10 hover:bg-white/15 text-bone font-medium py-2 px-4 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
       <NotificationInitializer />
@@ -481,7 +459,31 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
         </div>
 
         <BottomNav />
-        <LogoutModal />
+        {/* Inline JSX (not an inner component) so parent re-renders do not remount the modal */}
+        {showLogoutModal && (
+          <div className="fixed inset-0 bg-ink/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-elevated border border-white/10 rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-bone mb-4">Confirm Logout</h3>
+              <p className="text-muted mb-6">Are you sure you want to logout?</p>
+              <div className="flex space-x-4">
+                <button
+                  type="button"
+                  onClick={performLogout}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  Logout
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutModal(false)}
+                  className="flex-1 bg-white/10 hover:bg-white/15 text-bone font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <SetupPartyModal 
           isOpen={showSetupPartyModal}
           onConfirm={() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -125,13 +125,20 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
     }
   }, []);
 
+  const wasConnectedRef = useRef(false);
+
   useEffect(() => {
     if (!isConnected) {
-      setPlaylists([]);
-      setSelectedPlaylist(null);
-      setTracks([]);
+      // Only clear lists on confirmed disconnect after we had been connected
+      if (wasConnectedRef.current) {
+        setPlaylists([]);
+        setSelectedPlaylist(null);
+        setTracks([]);
+        wasConnectedRef.current = false;
+      }
       return;
     }
+    wasConnectedRef.current = true;
     void fetchPlaylists();
   }, [isConnected, fetchPlaylists]);
 

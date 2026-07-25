@@ -15,8 +15,16 @@ export async function POST(req: NextRequest) {
 
     const userId = authResult.user.user_id;
 
+    let device_id: string | undefined;
+    try {
+      const body = await req.json();
+      device_id = body.device_id;
+    } catch {
+      device_id = undefined;
+    }
+
     // Go to previous track
-    await spotifyService.previous(userId);
+    await spotifyService.previous(device_id, userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

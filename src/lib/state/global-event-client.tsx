@@ -99,7 +99,8 @@ const initialState: GlobalEventState = {
   },
   isConnected: false,
   lastUpdated: null,
-  isLoading: false,
+  // Start loading so consumers do not treat default offline as authoritative
+  isLoading: true,
   isUpdating: false,
   error: null,
 };

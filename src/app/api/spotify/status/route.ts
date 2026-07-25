@@ -41,19 +41,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current playback status (MULTI-TENANT!)
-    const playback = await spotifyService.getCurrentPlayback(userId);
+    let playback = await spotifyService.getCurrentPlayback(userId);
     const queue = await spotifyService.getQueue(userId);
+
+    // Fallback when /me/player is briefly 204 but queue still knows the track
+    const item = playback?.item || queue?.currently_playing || null;
 
     const response = NextResponse.json({
       connected: true,
       is_playing: playback?.is_playing || false,
-      current_track: playback?.item ? {
-        name: playback.item.name,
-        artist: playback.item.artists?.[0]?.name || 'Unknown Artist',
-        album: playback.item.album?.name || 'Unknown Album',
-        image_url: playback.item.album?.images?.[0]?.url,
-        duration_ms: playback.item.duration_ms || 0,
-        progress_ms: playback.progress_ms || 0
+      current_track: item ? {
+        name: item.name,
+        artist: item.artists?.[0]?.name || 'Unknown Artist',
+        album: item.album?.name || 'Unknown Album',
+        image_url: item.album?.images?.[0]?.url,
+        duration_ms: item.duration_ms || 0,
+        progress_ms: playback?.progress_ms || 0
       } : null,
       device: playback?.device ? {
         name: playback.device.name,

@@ -12,8 +12,16 @@ export async function POST(req: NextRequest) {
 
     const userId = auth.user.user_id;
     console.log(`🎵 [playback/pause] User ${auth.user.username} (${userId}) pausing playback`);
-    
-    await spotifyService.pause(userId);
+
+    let device_id: string | undefined;
+    try {
+      const body = await req.json();
+      device_id = body.device_id;
+    } catch {
+      device_id = undefined;
+    }
+
+    await spotifyService.pause(device_id, userId);
     
     return NextResponse.json({
       success: true,
