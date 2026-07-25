@@ -6,9 +6,15 @@
 
 import '@testing-library/jest-dom';
 import * as dotenv from 'dotenv';
+import path from 'path';
 
-// Load test environment variables
-dotenv.config({ path: './test.env' });
+const repoRoot = path.resolve(process.cwd());
+dotenv.config({ path: path.join(repoRoot, '.env.local') });
+dotenv.config({ path: path.join(repoRoot, 'config/jest/test.env') });
+
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'test_jwt_secret';
+}
 
 // Increase timeout for integration tests
 jest.setTimeout(30000); // 30 seconds

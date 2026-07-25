@@ -1,6 +1,14 @@
 import crypto from 'crypto';
 import { getSpotifyAuth, setSpotifyAuth } from './db';
 import { logErrorAsync } from '@/lib/support/logger';
+import {
+  getMockSearchResults,
+  getMockTrack,
+  isSpotifyMockEnabled,
+  SPOTIFY_MOCK_DEVICES,
+  SPOTIFY_MOCK_PLAYBACK,
+  SPOTIFY_MOCK_QUEUE,
+} from './spotify-mock';
 
 /** Verbose Spotify client logs — on in non-production, or when SPOTIFY_DEBUG=true */
 function spotifyDebug(...args: unknown[]): void {
@@ -74,6 +82,9 @@ class SpotifyService {
   }
 
   async isConnected(userId?: string): Promise<boolean> {
+    if (isSpotifyMockEnabled()) {
+      return true;
+    }
     try {
       const auth = await getSpotifyAuth(userId);
       return !!(auth && auth.access_token && auth.refresh_token);
@@ -83,6 +94,9 @@ class SpotifyService {
   }
 
   async isConnectedAndValid(userId?: string): Promise<boolean> {
+    if (isSpotifyMockEnabled()) {
+      return true;
+    }
     try {
       const auth = await getSpotifyAuth(userId);
       if (!auth || !auth.access_token || !auth.refresh_token) {
@@ -446,6 +460,9 @@ class SpotifyService {
 
   // Spotify API Methods (multi-tenant aware)
   async getCurrentPlayback(userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return { ...SPOTIFY_MOCK_PLAYBACK };
+    }
     const requestId = Math.random().toString(36).substr(2, 6);
     spotifyDebug(`🎵 [${requestId}] getCurrentPlayback() called${userId ? ` for user ${userId}` : ''} at ${new Date().toISOString()}`);
     
@@ -461,6 +478,9 @@ class SpotifyService {
   }
 
   async getQueue(userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return { ...SPOTIFY_MOCK_QUEUE };
+    }
     const requestId = Math.random().toString(36).substr(2, 6);
     spotifyDebug(`🎵 [${requestId}] getQueue() called${userId ? ` for user ${userId}` : ''} at ${new Date().toISOString()}`);
     
@@ -476,6 +496,9 @@ class SpotifyService {
   }
 
   async addToQueue(trackUri: string, deviceId?: string, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     const url = deviceId 
       ? `/me/player/queue?uri=${encodeURIComponent(trackUri)}&device_id=${deviceId}`
       : `/me/player/queue?uri=${encodeURIComponent(trackUri)}`;
@@ -483,6 +506,9 @@ class SpotifyService {
   }
 
   async addToPlaylist(playlistId: string, trackUri: string, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return { snapshot_id: 'mock_snapshot' };
+    }
     // Feb 2026: POST /playlists/{id}/tracks removed → use /items
     // https://developer.spotify.com/documentation/web-api/references/changes/february-2026
     return await this.makeAuthenticatedRequest(
@@ -494,6 +520,9 @@ class SpotifyService {
   }
 
   async play(contextUri?: string, trackUris?: string[], userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     const data: any = {};
     if (contextUri) data.context_uri = contextUri;
     if (trackUris) data.uris = trackUris;
@@ -502,14 +531,23 @@ class SpotifyService {
   }
 
   async pause(userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     return await this.makeAuthenticatedRequest('PUT', '/me/player/pause', undefined, userId);
   }
 
   async next(userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     return await this.makeAuthenticatedRequest('POST', '/me/player/next', undefined, userId);
   }
 
   async skipToNext(deviceId?: string, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     const url = deviceId
       ? `/me/player/next?device_id=${encodeURIComponent(deviceId)}`
       : '/me/player/next';
@@ -517,18 +555,30 @@ class SpotifyService {
   }
 
   async previous(userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     return await this.makeAuthenticatedRequest('POST', '/me/player/previous', undefined, userId);
   }
 
   async setVolume(volumePercent: number, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     return await this.makeAuthenticatedRequest('PUT', `/me/player/volume?volume_percent=${volumePercent}`, undefined, userId);
   }
 
   async getAvailableDevices(userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return { ...SPOTIFY_MOCK_DEVICES };
+    }
     return await this.makeAuthenticatedRequest('GET', '/me/player/devices', undefined, userId);
   }
 
   async transferPlayback(deviceId: string, play: boolean = false, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     return await this.makeAuthenticatedRequest('PUT', '/me/player', {
       device_ids: [deviceId],
       play
@@ -536,6 +586,9 @@ class SpotifyService {
   }
 
   async resumePlayback(deviceId?: string, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return null;
+    }
     const url = deviceId ? `/me/player/play?device_id=${deviceId}` : '/me/player/play';
     return await this.makeAuthenticatedRequest('PUT', url, undefined, userId);
   }
@@ -582,6 +635,9 @@ class SpotifyService {
   async searchTracks(query: string, limit = 10, userId?: string) {
     // Feb 2026: search limit max reduced from 50 → 10
     const safeLimit = Math.min(Math.max(limit || 10, 1), 10);
+    if (isSpotifyMockEnabled()) {
+      return getMockSearchResults(query, safeLimit);
+    }
     const params = new URLSearchParams({
       q: query,
       type: 'track',
@@ -618,6 +674,9 @@ class SpotifyService {
   }
 
   async getTrack(trackId: string, userId?: string) {
+    if (isSpotifyMockEnabled()) {
+      return getMockTrack(trackId);
+    }
     return await this.makeAuthenticatedRequest('GET', `/tracks/${trackId}`, undefined, userId);
   }
 

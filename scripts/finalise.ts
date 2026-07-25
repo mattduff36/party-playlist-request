@@ -473,10 +473,15 @@ function getManagedProcessOutput(managedProcess: ManagedProcess): string {
   return managedProcess.output.join('').trim();
 }
 
-function startManagedProcess(command: string, args: string[], label: string): ManagedProcess {
+function startManagedProcess(
+  command: string,
+  args: string[],
+  label: string,
+  envOverrides: Record<string, string> = {}
+): ManagedProcess {
   const child = spawn(command, args, {
     cwd: REPO_ROOT,
-    env: process.env,
+    env: { ...process.env, ...envOverrides },
     shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -713,9 +718,10 @@ async function main(): Promise<void> {
       console.log('No unit test script found; skipping unit tests.');
     }
 
-    if (hasNpmScript('test:api')) {
-      console.log('Running test:api...');
-      runCommand('npm', ['run', 'test:api']);
+    // Seed test users when available (aligned credentials for API/e2e)
+    if (hasNpmScript('test:seed-db')) {
+      console.log('Seeding test data (test:seed-db)...');
+      runCommand('npm', ['run', 'test:seed-db'], { allowFailure: true });
     }
 
     const e2eScript = hasNpmScript('test:e2e')
@@ -723,23 +729,45 @@ async function main(): Promise<void> {
       : hasNpmScript('testsuite')
         ? 'testsuite'
         : null;
+    const hasApi = hasNpmScript('test:api');
 
-    if (e2eScript) {
-      console.log(`Starting local production server on port ${DEV_SERVER_PORT} for ${e2eScript}...`);
+    if (hasApi || e2eScript) {
+      console.log(
+        `Starting local production server on port ${DEV_SERVER_PORT} with SPOTIFY_MOCK=true...`
+      );
+
+      process.env.SPOTIFY_MOCK = 'true';
+      process.env.PLAYWRIGHT_REUSE_SERVER = '1';
+      process.env.TEST_SERVER_URL = `http://127.0.0.1:${DEV_SERVER_PORT}`;
+
       const testServer = startManagedProcess(
         'npm',
         ['run', 'start', '--', '--port', String(DEV_SERVER_PORT)],
-        'Local production server'
+        'Local production server',
+        {
+          SPOTIFY_MOCK: 'true',
+          PLAYWRIGHT_REUSE_SERVER: '1',
+          TEST_SERVER_URL: `http://127.0.0.1:${DEV_SERVER_PORT}`,
+        }
       );
 
       try {
         await waitForServerReady(testServer, `http://127.0.0.1:${DEV_SERVER_PORT}`);
-        runCommand('npm', ['run', e2eScript]);
+
+        if (hasApi) {
+          console.log('Running test:api...');
+          runCommand('npm', ['run', 'test:api']);
+        }
+
+        if (e2eScript) {
+          console.log(`Running ${e2eScript}...`);
+          runCommand('npm', ['run', e2eScript]);
+        }
       } finally {
         await stopManagedProcess(testServer);
       }
     } else {
-      console.log('No e2e/testsuite script found; skipping browser tests.');
+      console.log('No api/e2e scripts found; skipping server-backed tests.');
     }
   } else {
     console.log('\n==> Run full automated test suite');

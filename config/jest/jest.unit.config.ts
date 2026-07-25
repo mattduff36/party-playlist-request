@@ -1,44 +1,62 @@
 import type { Config } from 'jest';
 import * as dotenv from 'dotenv';
+import path from 'path';
 
-// Load test environment variables
-dotenv.config({ path: './test.env' });
+const repoRoot = path.resolve(process.cwd());
+dotenv.config({ path: path.join(repoRoot, '.env.local') });
+dotenv.config({ path: path.join(repoRoot, 'config/jest/test.env') });
 
-const config: Config = {
-  displayName: 'Unit Tests',
-  testEnvironment: 'node',
-  // Config lives in config/jest/; repo root is two levels up
-  rootDir: '../..',
-  testMatch: [
-    '<rootDir>/tests/unit/**/*.spec.ts',
-    '<rootDir>/tests/unit/**/*.test.ts',
-  ],
-  transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
+const sharedTransform = {
+  '^.+\\.tsx?$': [
+    'ts-jest',
+    {
       tsconfig: {
-        jsx: 'react',
+        jsx: 'react-jsx',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
       },
-    }],
-  },
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-  },
-  setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
-  collectCoverageFrom: [
-    'src/lib/**/*.{ts,tsx}',
-    '!src/lib/**/*.d.ts',
-    '!src/lib/**/index.ts', // Usually just exports
+    },
+  ],
+};
+
+const config: Config = {
+  displayName: 'Unit Tests',
+  rootDir: repoRoot,
+  projects: [
+    {
+      displayName: 'unit-node',
+      testEnvironment: 'node',
+      rootDir: repoRoot,
+      testMatch: [
+        '<rootDir>/tests/unit/**/*.spec.ts',
+        '<rootDir>/tests/unit/**/*.test.ts',
+      ],
+      transform: sharedTransform,
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+      },
+      setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
+    },
+    {
+      displayName: 'unit-components',
+      testEnvironment: 'jsdom',
+      rootDir: repoRoot,
+      testMatch: ['<rootDir>/src/**/__tests__/**/*.{ts,tsx}'],
+      transform: sharedTransform,
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+        '\\.(css|less|scss|sass)$': '<rootDir>/config/jest/style-mock.js',
+      },
+      setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
+    },
   ],
   coverageDirectory: 'test-results/coverage-unit',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
-  testTimeout: 15000, // 15 seconds per test
+  testTimeout: 15000,
   verbose: true,
   bail: false,
   maxWorkers: '50%',
-  passWithNoTests: true, // Don't fail when no tests are found
+  passWithNoTests: true,
 };
 
 export default config;
-

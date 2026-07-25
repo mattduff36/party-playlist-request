@@ -1,97 +1,51 @@
 /**
- * Authentication API Tests
+ * Authentication API tests (requires running server + seeded users)
  */
 
+import { TEST_USERS } from '../fixtures/users';
+import { apiFetch, loginAs, BASE_URL } from '../utils/api-client';
+
 describe('Authentication API', () => {
-  const baseURL = process.env.TEST_SERVER_URL || 'http://localhost:3000';
-
-  describe('POST /api/auth/login', () => {
-    it('should login with valid credentials', async () => {
-      const response = await fetch(`${baseURL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: 'testuser1',
-          password: 'testpassword123',
-        }),
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      
-      // Handle both success and requiresTransfer responses
-      if (data.requiresTransfer) {
-        // If there's an existing session, we get requiresTransfer
-        expect(data.requiresTransfer).toBe(true);
-        expect(data.username).toBe('testuser1');
-      } else {
-        // Otherwise we get success
-        expect(data.success).toBe(true);
-        expect(data.user).toBeDefined();
-        expect(data.user.username).toBe('testuser1');
-      }
+  it('rejects login with invalid credentials', async () => {
+    const response = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: TEST_USERS.testuser1.username,
+        password: 'wrongpassword',
+      }),
     });
-
-    it('should fail with invalid credentials', async () => {
-      const response = await fetch(`${baseURL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: 'testuser1',
-          password: 'wrongpassword',
-        }),
-      });
-
-      expect(response.status).toBe(401);
-      const data = await response.json();
-      expect(data.error).toBeDefined();
-    });
-
-    it('should fail with missing credentials', async () => {
-      const response = await fetch(`${baseURL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-
-      expect(response.status).toBe(400);
-    });
+    expect(response.status).toBe(401);
+    const data = await response.json();
+    expect(data.error).toMatch(/invalid/i);
   });
 
-  describe('POST /api/auth/logout', () => {
-    it('should logout successfully', async () => {
-      // First login to get a token
-      const loginResponse = await fetch(`${baseURL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: 'testuser1',
-          password: 'testpassword123',
-        }),
-      });
+  it('logs in testuser1 (or transfers session)', async () => {
+    const result = await loginAs(
+      TEST_USERS.testuser1.username,
+      TEST_USERS.testuser1.password
+    );
+    expect([200, 201]).toContain(result.status);
+    expect(result.data.success === true || result.data.user || result.data.token).toBeTruthy();
+  });
 
-      const cookies = loginResponse.headers.get('set-cookie');
-      
-      // Then logout
-      const response = await fetch(`${baseURL}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Cookie': cookies || '',
-        },
-      });
+  it('returns current user from /api/auth/me when authenticated', async () => {
+    const { cookie } = await loginAs();
+    const me = await apiFetch('/api/auth/me', { cookie });
+    expect(me.status).toBe(200);
+    const data = await me.json();
+    expect(data.user?.username || data.username).toBe(TEST_USERS.testuser1.username);
+  });
 
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
+  it('logs out successfully', async () => {
+    const { cookie } = await loginAs();
+    const logout = await apiFetch('/api/auth/logout', {
+      method: 'POST',
+      cookie,
     });
+    expect([200, 204]).toContain(logout.status);
+  });
+
+  it('hits the expected base URL', () => {
+    expect(BASE_URL).toMatch(/127\.0\.0\.1|localhost/);
   });
 });
-

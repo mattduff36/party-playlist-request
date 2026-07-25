@@ -75,6 +75,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(cached);
     }
 
+    // Test / finalise mock path — no live Spotify tokens required
+    if (process.env.SPOTIFY_MOCK === 'true') {
+      const { spotifyService } = await import('@/lib/spotify');
+      const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit, userId);
+      const tracks = searchResult?.tracks?.items || [];
+      const payload = {
+        tracks,
+        query: query.trim(),
+        total: tracks.length,
+      };
+      setCachedSearch(cacheKey, payload);
+      return NextResponse.json(payload);
+    }
+
     // Get user's Spotify auth tokens
     const authResult = await pool.query(
       'SELECT access_token, refresh_token, expires_at FROM spotify_auth WHERE user_id = $1',
