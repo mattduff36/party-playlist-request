@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle,
   ExternalLink,
@@ -57,6 +57,48 @@ export default function SidebarSpotifyControls({
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [volume, setVolume] = useState(50);
   const [error, setError] = useState<string | null>(null);
+  /** While set, keep optimistic active device / name and ignore stale Spotify replies. */
+  const deviceTransferLockRef = useRef<{
+    deviceId: string;
+    deviceName: string;
+    wasPlaying: boolean;
+    until: number;
+  } | null>(null);
+
+  const applyDevices = useCallback((incoming: SpotifyDevice[]) => {
+    setDevices((prev) => {
+      // Never flash an empty list while we already know devices exist
+      if (incoming.length === 0 && prev.length > 0) {
+        return prev;
+      }
+
+      const lock = deviceTransferLockRef.current;
+      const lockActive = Boolean(lock && Date.now() < lock.until);
+
+      let next = incoming.map((device) => ({ ...device }));
+
+      if (lock && lockActive) {
+        const hasTarget = next.some((device) => device.id === lock.deviceId);
+        if (!hasTarget) {
+          const fromPrev = prev.find((device) => device.id === lock.deviceId);
+          if (fromPrev) {
+            next = [...next, { ...fromPrev }];
+          }
+        }
+        next = next.map((device) => ({
+          ...device,
+          is_active: device.id === lock.deviceId,
+        }));
+
+        // Release lock once Spotify agrees the target is active
+        if (incoming.some((device) => device.id === lock.deviceId && device.is_active)) {
+          deviceTransferLockRef.current = null;
+        }
+      }
+
+      return next;
+    });
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -76,7 +118,16 @@ export default function SidebarSpotifyControls({
       setHasResolved(true);
       onConnectionChange?.(isConnected);
 
-      if (isConnected && data.device?.volume_percent !== undefined) {
+      const lock = deviceTransferLockRef.current;
+      const lockActive = Boolean(lock && Date.now() < lock.until);
+
+      // During transfer, ignore stale device/volume from status to prevent flicker
+      if (lockActive && lock) {
+        patchPlaybackState({
+          device_name: lock.deviceName,
+          is_playing: lock.wasPlaying,
+        });
+      } else if (isConnected && data.device?.volume_percent !== undefined) {
         setVolume(data.device.volume_percent);
       }
 
@@ -87,7 +138,7 @@ export default function SidebarSpotifyControls({
       onConnectionChange?.(false);
       return false;
     }
-  }, [onConnectionChange]);
+  }, [onConnectionChange, patchPlaybackState]);
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -96,11 +147,11 @@ export default function SidebarSpotifyControls({
       });
       if (!response.ok) return;
       const data = await response.json();
-      setDevices(data.devices || []);
+      applyDevices(Array.isArray(data.devices) ? data.devices : []);
     } catch {
       // ignore — devices are best-effort
     }
-  }, []);
+  }, [applyDevices]);
 
   useEffect(() => {
     void fetchStatus();
@@ -113,7 +164,25 @@ export default function SidebarSpotifyControls({
   }, [fetchDevices, fetchStatus]);
 
   useEffect(() => {
+    const lock = deviceTransferLockRef.current;
+    const lockActive = Boolean(lock && Date.now() < lock.until);
+
+    // Hold optimistic device name while transfer settles
     if (
+      lockActive &&
+      lock &&
+      playbackState?.device_name &&
+      playbackState.device_name !== lock.deviceName
+    ) {
+      patchPlaybackState({
+        device_name: lock.deviceName,
+        is_playing: lock.wasPlaying,
+      });
+      return;
+    }
+
+    if (
+      !lockActive &&
       typeof playbackState?.volume_percent === 'number' &&
       playbackState.spotify_connected
     ) {
@@ -123,7 +192,12 @@ export default function SidebarSpotifyControls({
       setConnected(playbackState.spotify_connected);
       setHasResolved(true);
     }
-  }, [playbackState?.spotify_connected, playbackState?.volume_percent]);
+  }, [
+    playbackState?.spotify_connected,
+    playbackState?.volume_percent,
+    playbackState?.device_name,
+    patchPlaybackState,
+  ]);
 
   const connectToSpotify = () => {
     markSpotifyOAuthPending();
@@ -219,15 +293,48 @@ export default function SidebarSpotifyControls({
   };
 
   const handleDeviceChange = async (deviceId: string) => {
+    if (deviceTransferLockRef.current && Date.now() < deviceTransferLockRef.current.until) {
+      return;
+    }
+
     const wasPlaying = Boolean(playbackState?.is_playing);
     const targetDevice = devices.find((device) => device.id === deviceId);
+    if (!targetDevice || targetDevice.is_active) {
+      return;
+    }
+
+    const lock = {
+      deviceId,
+      deviceName: targetDevice.name,
+      wasPlaying,
+      until: Date.now() + 8000,
+    };
+    deviceTransferLockRef.current = lock;
+
+    // Optimistic UI immediately — keep list visible and active state stable
+    applyDevices(
+      devices.map((device) => ({
+        ...device,
+        is_active: device.id === deviceId,
+      }))
+    );
+    patchPlaybackState({
+      device_name: lock.deviceName,
+      volume_percent:
+        typeof targetDevice.volume_percent === 'number'
+          ? targetDevice.volume_percent
+          : playbackState?.volume_percent,
+      is_playing: wasPlaying,
+    });
+    if (typeof targetDevice.volume_percent === 'number') {
+      setVolume(targetDevice.volume_percent);
+    }
 
     try {
       const response = await fetch('/api/spotify/transfer-playback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        // Keep music going when switching devices while playing
         body: JSON.stringify({
           device_id: deviceId,
           play: wasPlaying,
@@ -235,37 +342,33 @@ export default function SidebarSpotifyControls({
       });
       if (!response.ok) throw new Error('transfer failed');
 
-      // Optimistic UI: Spotify often returns empty playback briefly after transfer
-      setDevices((prev) =>
-        prev.map((device) => ({
-          ...device,
-          is_active: device.id === deviceId,
-        }))
-      );
-      patchPlaybackState({
-        device_name: targetDevice?.name ?? playbackState?.device_name,
-        volume_percent:
-          typeof targetDevice?.volume_percent === 'number'
-            ? targetDevice.volume_percent
-            : playbackState?.volume_percent,
-        is_playing: wasPlaying || Boolean(playbackState?.is_playing),
-      });
-      if (typeof targetDevice?.volume_percent === 'number') {
-        setVolume(targetDevice.volume_percent);
-      }
-
-      // Retry refresh until Spotify reports the track again on the new device
-      const retryDelaysMs = [600, 1500, 3000];
+      // Quiet background sync; applyDevices keeps the locked active device stable
+      const retryDelaysMs = [800, 1800, 3200];
       for (const delayMs of retryDelaysMs) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (deviceTransferLockRef.current?.deviceId !== deviceId) {
+          break;
+        }
         await fetchDevices();
         await fetchStatus();
         await refreshPlaybackState();
+        // Re-assert after refresh — Spotify often reports the old device briefly
+        if (deviceTransferLockRef.current?.deviceId === deviceId) {
+          patchPlaybackState({
+            device_name: lock.deviceName,
+            is_playing: wasPlaying,
+          });
+        }
       }
     } catch {
+      deviceTransferLockRef.current = null;
       setError('Failed to transfer playback');
       void fetchDevices();
       void refreshPlaybackState();
+    } finally {
+      if (deviceTransferLockRef.current?.deviceId === deviceId) {
+        deviceTransferLockRef.current = null;
+      }
     }
   };
 

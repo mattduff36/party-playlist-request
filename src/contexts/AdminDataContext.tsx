@@ -332,7 +332,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             const preserved: PlaybackState = {
               ...prev,
               spotify_connected: true,
-              device_name: data.device?.name ?? prev.device_name,
+              // Prefer previous device during empty gaps — avoids bouncing back mid-switch
+              device_name: prev.device_name ?? data.device?.name,
               volume_percent:
                 typeof data.device?.volume_percent === 'number'
                   ? data.device.volume_percent
@@ -341,11 +342,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
                 Array.isArray(data.queue) && data.queue.length > 0
                   ? data.queue
                   : prev.queue || [],
-              // Prefer previous playing flag when API omits a track mid-transfer
-              is_playing:
-                typeof data.is_playing === 'boolean' && data.device
-                  ? data.is_playing
-                  : prev.is_playing,
+              is_playing: prev.is_playing,
             };
             return JSON.stringify(prev) !== JSON.stringify(preserved)
               ? preserved
@@ -363,8 +360,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             duration_ms: incomingTrack?.duration_ms,
             progress_ms: incomingTrack?.progress_ms,
             image_url: incomingTrack?.image_url,
-            device_name: data.device?.name,
-            volume_percent: data.device?.volume_percent,
+            device_name: data.device?.name ?? prev?.device_name,
+            volume_percent: data.device?.volume_percent ?? prev?.volume_percent,
             queue: data.queue || [],
           };
 
