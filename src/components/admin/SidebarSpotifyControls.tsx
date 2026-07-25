@@ -29,6 +29,14 @@ interface SidebarSpotifyControlsProps {
   onConnectionChange?: (connected: boolean) => void;
 }
 
+function formatTrackTime(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '0:00';
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export default function SidebarSpotifyControls({
   variant = 'sidebar',
   onConnectionChange,
@@ -62,10 +70,26 @@ export default function SidebarSpotifyControls({
   const [isBusy, setIsBusy] = useState(false);
   const [isStartingOAuth, setIsStartingOAuth] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
+  const [displayProgressMs, setDisplayProgressMs] = useState(0);
 
   useEffect(() => {
     return registerConnectionListener(onConnectionChange);
   }, [onConnectionChange, registerConnectionListener]);
+
+  const durationMs = playbackState?.duration_ms ?? 0;
+  const trackKey = `${playbackState?.track_name ?? ''}|${durationMs}`;
+
+  useEffect(() => {
+    setDisplayProgressMs(playbackState?.progress_ms ?? 0);
+  }, [playbackState?.progress_ms, trackKey]);
+
+  useEffect(() => {
+    if (!playbackState?.is_playing || durationMs <= 0) return;
+    const id = setInterval(() => {
+      setDisplayProgressMs((prev) => Math.min(prev + 1000, durationMs));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [playbackState?.is_playing, durationMs, trackKey]);
 
   const connectToSpotify = () => {
     markSpotifyOAuthPending();
@@ -176,6 +200,10 @@ export default function SidebarSpotifyControls({
   const trackName = playbackState?.track_name;
   const artistName = formatArtists(playbackState?.artist_name ?? null);
   const isPlaying = Boolean(playbackState?.is_playing);
+  const progressPercent =
+    durationMs > 0
+      ? Math.min(100, Math.max(0, (displayProgressMs / durationMs) * 100))
+      : 0;
 
   const shellClass = isPage
     ? 'bg-elevated rounded-lg border border-white/10 p-5 space-y-5'
@@ -198,35 +226,34 @@ export default function SidebarSpotifyControls({
     );
   }
 
-  const connectedRow = (
-    <div
-      className={
-        isPage
-          ? 'flex flex-wrap items-center gap-3'
-          : 'flex items-center gap-2'
-      }
-    >
-      <div
-        className={`flex items-center gap-2 rounded-lg bg-surface border border-white/10 min-w-0 ${
-          isPage ? 'flex-1 min-w-[12rem] px-3 py-2' : 'flex-1 px-2 py-1.5'
-        }`}
+  const connectedChip = (
+    <div className="flex items-center gap-2 shrink-0">
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-accent/10 border border-accent/30 px-2.5 py-1 text-xs font-medium text-accent">
+        <CheckCircle className="w-3.5 h-3.5" />
+        Connected
+      </span>
+      <button
+        type="button"
+        onClick={() => void disconnectFromSpotify()}
+        disabled={isBusy}
+        className="shrink-0 rounded-md border border-red-500/40 px-2.5 py-1 text-xs text-red-400/90 hover:bg-red-900/20 transition-colors disabled:opacity-50"
       >
-        <CheckCircle
-          className={`${isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} text-accent flex-shrink-0`}
-        />
-        <p
-          className={`${isPage ? 'text-sm' : 'text-xs'} font-medium text-bone truncate`}
-        >
-          Connected
-        </p>
+        {isBusy ? 'Disconnecting...' : 'Disconnect'}
+      </button>
+    </div>
+  );
+
+  const sidebarConnectedRow = (
+    <div className="flex items-center gap-2">
+      <div className="flex flex-1 items-center gap-2 rounded-lg bg-surface border border-white/10 px-2 py-1.5 min-w-0">
+        <CheckCircle className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+        <p className="text-xs font-medium text-bone truncate">Connected</p>
       </div>
       <button
         type="button"
         onClick={() => void disconnectFromSpotify()}
         disabled={isBusy}
-        className={`${
-          isPage ? 'px-3 py-2 text-xs' : 'shrink-0 text-[11px] px-2 py-1.5'
-        } rounded-lg border border-red-500/40 text-red-400/90 hover:bg-red-900/20 transition-colors disabled:opacity-50`}
+        className="shrink-0 text-[11px] px-2 py-1.5 rounded-lg border border-red-500/40 text-red-400/90 hover:bg-red-900/20 transition-colors disabled:opacity-50"
       >
         {isBusy ? 'Disconnecting...' : 'Disconnect'}
       </button>
@@ -261,223 +288,253 @@ export default function SidebarSpotifyControls({
     </div>
   );
 
+  const nowPlayingBlock = trackName ? (
+    <div className="flex items-center gap-3 min-w-0">
+      <div
+        className={`${
+          isPage ? 'w-16 h-16' : 'w-10 h-10'
+        } rounded bg-surface flex-shrink-0 overflow-hidden flex items-center justify-center`}
+      >
+        {playbackState?.image_url ? (
+          <img
+            src={playbackState.image_url}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Music
+            className={`${isPage ? 'w-6 h-6' : 'w-4 h-4'} text-muted`}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`${isPage ? 'text-base' : 'text-xs'} font-medium truncate ${
+            isPlaying ? 'text-accent' : 'text-bone'
+          }`}
+        >
+          {trackName}
+        </p>
+        <p
+          className={`${isPage ? 'text-sm' : 'text-[10px]'} text-muted truncate`}
+        >
+          {artistName}
+        </p>
+      </div>
+    </div>
+  ) : (
+    <p className={`${isPage ? 'text-sm' : 'text-xs'} text-muted`}>
+      Nothing playing
+    </p>
+  );
+
+  const volumeBlock = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => void handleVolumeChange(0)}
+        className="p-1 text-muted hover:text-bone"
+        title="Mute"
+      >
+        <VolumeX className={isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={volume}
+        onChange={(event) =>
+          void handleVolumeChange(Number(event.target.value))
+        }
+        className="flex-1 h-1 accent-accent cursor-pointer"
+        aria-label="Volume"
+      />
+      <button
+        type="button"
+        onClick={() => void handleVolumeChange(100)}
+        className="p-1 text-muted hover:text-bone"
+        title="Max volume"
+      >
+        <Volume2 className={isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
+      </button>
+      <span
+        className={`${
+          isPage ? 'text-xs w-9' : 'text-[10px] w-7'
+        } text-muted text-right tabular-nums`}
+      >
+        {volume}%
+      </span>
+    </div>
+  );
+
+  const devicesBlock = (
+    <div>
+      {isPage && (
+        <h3 className="text-xs font-semibold text-muted mb-2">
+          Available devices
+        </h3>
+      )}
+      {!devicesHydrated && devices.length === 0 ? (
+        <div className="space-y-1" aria-hidden="true">
+          <div
+            className={`w-full rounded-lg bg-surface/80 border border-transparent animate-pulse ${
+              isPage ? 'h-10' : 'h-8'
+            }`}
+          />
+        </div>
+      ) : devices.length > 0 ? (
+        <div className="space-y-1">
+          {devices.map((device) => {
+            const DeviceIcon = getSpotifyDeviceIcon(device.type);
+            const devicesDisabled = !devicesHydrated || devicesRefreshing;
+            return (
+              <button
+                key={device.id}
+                type="button"
+                disabled={devicesDisabled}
+                onClick={() => void handleDeviceChange(device.id)}
+                className={`w-full flex items-center gap-2 rounded-lg text-left transition-colors ${
+                  isPage ? 'px-3 py-2' : 'px-2 py-1.5'
+                } ${devicesDisabled ? 'opacity-60 cursor-wait' : ''} ${
+                  device.is_active
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'bg-surface text-muted hover:text-bone border border-transparent'
+                }`}
+              >
+                <DeviceIcon
+                  className={`${isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} flex-shrink-0`}
+                />
+                <span
+                  className={`${
+                    isPage ? 'text-sm' : 'text-[11px]'
+                  } truncate flex-1`}
+                >
+                  {device.name}
+                </span>
+                {device.is_active && (
+                  <span className="text-[9px] uppercase tracking-wide">
+                    Active
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className={`${isPage ? 'text-sm' : 'text-xs'} text-muted`}>
+          No devices found. Open Spotify on a device.
+        </p>
+      )}
+    </div>
+  );
+
+  const transportBlock = (
+    <div className="flex items-center justify-center gap-3">
+      <button
+        type="button"
+        onClick={() => void handleSkip('previous')}
+        disabled={isPerformingAction}
+        className={`${
+          isPage ? 'p-3' : 'p-2'
+        } rounded-lg text-muted hover:text-bone hover:bg-surface disabled:opacity-50`}
+        title="Previous"
+      >
+        <SkipBack className={isPage ? 'w-7 h-7' : 'w-6 h-6'} />
+      </button>
+      <button
+        type="button"
+        onClick={() => void handlePlayPause()}
+        disabled={isPerformingAction}
+        className={`${
+          isPage ? 'p-4' : 'p-3'
+        } rounded-full bg-accent hover:bg-accent-hover text-ink disabled:opacity-50 shadow-md`}
+        title={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? (
+          <Pause className={isPage ? 'w-8 h-8' : 'w-6 h-6'} />
+        ) : (
+          <Play className={isPage ? 'w-8 h-8' : 'w-6 h-6'} />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => void handleSkip('next')}
+        disabled={isPerformingAction}
+        className={`${
+          isPage ? 'p-3' : 'p-2'
+        } rounded-lg text-muted hover:text-bone hover:bg-surface disabled:opacity-50`}
+        title="Next"
+      >
+        <SkipForward className={isPage ? 'w-7 h-7' : 'w-6 h-6'} />
+      </button>
+    </div>
+  );
+
+  const progressBlock = (
+    <div className="w-full space-y-1.5">
+      <div
+        className="h-1.5 rounded-full bg-white/10 overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={durationMs || 100}
+        aria-valuenow={displayProgressMs}
+        aria-label="Track progress"
+      >
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-1000 linear"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-[11px] tabular-nums text-muted">
+        <span>{formatTrackTime(displayProgressMs)}</span>
+        <span>{formatTrackTime(durationMs)}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className={shellClass}>
       {isPage && (
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-bone">Playback Controls</h2>
-          {connected && playbackState?.device_name && (
-            <p className="text-xs text-muted truncate">
-              {playbackState.device_name}
-            </p>
-          )}
+          {connected ? connectedChip : null}
         </div>
       )}
 
-      {isPage && (connected ? connectedRow : disconnectedBlock)}
+      {isPage && !connected && disconnectedBlock}
       {!isPage && !connected && disconnectedBlock}
 
-      {connected && (
-        <div
-          className={
-            isPage
-              ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-5'
-              : 'contents'
-          }
-        >
-          <div className={isPage ? 'space-y-4' : 'contents'}>
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleSkip('previous')}
-                  disabled={isPerformingAction}
-                  className={`${
-                    isPage ? 'p-2.5' : 'p-2'
-                  } rounded-lg text-muted hover:text-bone hover:bg-surface disabled:opacity-50`}
-                  title="Previous"
-                >
-                  <SkipBack className="w-6 h-6" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handlePlayPause()}
-                  disabled={isPerformingAction}
-                  className={`${
-                    isPage ? 'p-3.5' : 'p-3'
-                  } rounded-full bg-accent hover:bg-accent-hover text-ink disabled:opacity-50 shadow-md`}
-                  title={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? (
-                    <Pause className={isPage ? 'w-7 h-7' : 'w-6 h-6'} />
-                  ) : (
-                    <Play className={isPage ? 'w-7 h-7' : 'w-6 h-6'} />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleSkip('next')}
-                  disabled={isPerformingAction}
-                  className={`${
-                    isPage ? 'p-2.5' : 'p-2'
-                  } rounded-lg text-muted hover:text-bone hover:bg-surface disabled:opacity-50`}
-                  title="Next"
-                >
-                  <SkipForward className="w-6 h-6" />
-                </button>
-              </div>
-
-              {trackName ? (
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`${
-                      isPage ? 'w-16 h-16' : 'w-10 h-10'
-                    } rounded bg-surface flex-shrink-0 overflow-hidden flex items-center justify-center`}
-                  >
-                    {playbackState?.image_url ? (
-                      <img
-                        src={playbackState.image_url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Music
-                        className={`${isPage ? 'w-6 h-6' : 'w-4 h-4'} text-muted`}
-                        aria-hidden="true"
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`${
-                        isPage ? 'text-base' : 'text-xs'
-                      } font-medium truncate ${
-                        isPlaying ? 'text-accent' : 'text-bone'
-                      }`}
-                    >
-                      {trackName}
-                    </p>
-                    <p
-                      className={`${
-                        isPage ? 'text-sm' : 'text-[10px]'
-                      } text-muted truncate`}
-                    >
-                      {artistName}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p
-                  className={`${isPage ? 'text-sm' : 'text-xs'} text-muted text-center`}
-                >
-                  Nothing playing
-                </p>
-              )}
+      {connected && isPage && (
+        <div className="space-y-4">
+          {/* Spotify-style 3-column player row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+            <div className="min-w-0 order-1 lg:order-1">
+              {nowPlayingBlock}
             </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleVolumeChange(0)}
-                  className="p-1 text-muted hover:text-bone"
-                  title="Mute"
-                >
-                  <VolumeX className={isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={volume}
-                  onChange={(event) =>
-                    void handleVolumeChange(Number(event.target.value))
-                  }
-                  className="flex-1 h-1 accent-accent cursor-pointer"
-                  aria-label="Volume"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleVolumeChange(100)}
-                  className="p-1 text-muted hover:text-bone"
-                  title="Max volume"
-                >
-                  <Volume2 className={isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
-                </button>
-                <span
-                  className={`${
-                    isPage ? 'text-xs w-9' : 'text-[10px] w-7'
-                  } text-muted text-right tabular-nums`}
-                >
-                  {volume}%
-                </span>
-              </div>
+            <div className="order-3 lg:order-2 flex justify-center">
+              {transportBlock}
+            </div>
+            <div className="min-w-0 order-2 lg:order-3 space-y-3 lg:justify-self-end w-full lg:max-w-sm">
+              {devicesBlock}
+              {volumeBlock}
             </div>
           </div>
 
-          <div>
-            {isPage && (
-              <h3 className="text-xs font-semibold text-muted mb-2">
-                Available devices
-              </h3>
-            )}
-            {!devicesHydrated && devices.length === 0 ? (
-              <div className="space-y-1" aria-hidden="true">
-                <div
-                  className={`w-full rounded-lg bg-surface/80 border border-transparent animate-pulse ${
-                    isPage ? 'h-10' : 'h-8'
-                  }`}
-                />
-              </div>
-            ) : devices.length > 0 ? (
-              <div className="space-y-1">
-                {devices.map((device) => {
-                  const DeviceIcon = getSpotifyDeviceIcon(device.type);
-                  const devicesDisabled =
-                    !devicesHydrated || devicesRefreshing;
-                  return (
-                    <button
-                      key={device.id}
-                      type="button"
-                      disabled={devicesDisabled}
-                      onClick={() => void handleDeviceChange(device.id)}
-                      className={`w-full flex items-center gap-2 rounded-lg text-left transition-colors ${
-                        isPage ? 'px-3 py-2' : 'px-2 py-1.5'
-                      } ${devicesDisabled ? 'opacity-60 cursor-wait' : ''} ${
-                        device.is_active
-                          ? 'bg-accent/15 text-accent border border-accent/30'
-                          : 'bg-surface text-muted hover:text-bone border border-transparent'
-                      }`}
-                    >
-                      <DeviceIcon
-                        className={`${isPage ? 'w-4 h-4' : 'w-3.5 h-3.5'} flex-shrink-0`}
-                      />
-                      <span
-                        className={`${
-                          isPage ? 'text-sm' : 'text-[11px]'
-                        } truncate flex-1`}
-                      >
-                        {device.name}
-                      </span>
-                      {device.is_active && (
-                        <span className="text-[9px] uppercase tracking-wide">
-                          Active
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className={`${isPage ? 'text-sm' : 'text-xs'} text-muted`}>
-                No devices found. Open Spotify on a device.
-              </p>
-            )}
-          </div>
+          {progressBlock}
         </div>
       )}
 
-      {!isPage && connected && connectedRow}
+      {connected && !isPage && (
+        <div className="contents">
+          {transportBlock}
+          {nowPlayingBlock}
+          {volumeBlock}
+          {devicesBlock}
+        </div>
+      )}
+
+      {!isPage && connected && sidebarConnectedRow}
 
       {error && (
         <p
