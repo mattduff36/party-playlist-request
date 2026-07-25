@@ -99,8 +99,10 @@ export class DatabaseService {
       async (client) => {
         const drizzle = getConnectionPoolManager().getDrizzle(PoolType.WRITE_ONLY);
         
-        // Generate PIN if not provided (required in production database)
-        const pin = eventData.pin || this.generateSecurePIN();
+        // events.pin is a unique row key (not the guest URL code — that lives on user_events).
+        // Still mint 6 digits so new rows never introduce legacy 4-digit pins.
+        const { generateAccessCode } = await import('@/lib/access-code');
+        const pin = eventData.pin || generateAccessCode(false);
         
         const result = await drizzle
           .insert(events)
@@ -118,20 +120,6 @@ export class DatabaseService {
         return result[0];
       }
     );
-  }
-
-  // Helper function to generate secure PIN
-  private generateSecurePIN(): string {
-    const AVOIDED_PATTERNS = [
-      '1234', '4321', '0000', '1111', '2222', '3333', '4444', '5555', 
-      '6666', '7777', '8888', '9999', '1212', '6969', '0420'
-    ];
-    
-    let pin: string;
-    do {
-      pin = Math.floor(1000 + Math.random() * 9000).toString();
-    } while (AVOIDED_PATTERNS.includes(pin));
-    return pin;
   }
 
   async updateEvent(eventId: string, updates: Partial<Event>, userId: string): Promise<Event> {

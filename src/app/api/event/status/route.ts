@@ -171,6 +171,29 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    const startingNewEvent =
+      currentEvent.status === 'offline' &&
+      (status === 'standby' || status === 'live');
+
+    // Mint guest access code BEFORE flipping status so a failed mint does not leave Live without a code.
+    // Previously, End only set events.status=offline and left user_events.active=true — Start then
+    // resurrected the same 4-digit code via GET /api/events/current.
+    if (startingNewEvent) {
+      try {
+        const { createEvent } = await import('@/lib/event-service');
+        const guestEvent = await createEvent(userId);
+        console.log(
+          `🔑 Minted new guest access code for user ${userId}: ${guestEvent.access_code}`
+        );
+      } catch (createEventError) {
+        console.error('❌ Failed to create guest access event on start:', createEventError);
+        return NextResponse.json(
+          { error: 'Failed to create event access code. Please try again.' },
+          { status: 500 }
+        );
+      }
+    }
+
     // Update event status with version increment
     const newVersion = currentEvent.version + 1;
     const updatedEvent = await dbService.updateEventStatus(currentEvent.id, status as EventStatus, newVersion, userId);
@@ -182,10 +205,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Starting a new DJ event (offline → standby/live): reset shared mood to DJ Tool
-    if (
-      currentEvent.status === 'offline' &&
-      (status === 'standby' || status === 'live')
-    ) {
+    if (startingNewEvent) {
       try {
         const { updateEventSettings, getEventSettings } = await import('@/lib/db');
         const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
@@ -204,8 +224,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If status changed to offline, clean up all requests for THIS user
+    // If status changed to offline, end guest-access events + clean up requests for THIS user
     if (status === 'offline') {
+      try {
+        const { endAllActiveEventsForUser } = await import('@/lib/event-service');
+        await endAllActiveEventsForUser(userId);
+      } catch (endEventsError) {
+        console.error('❌ Failed to end user_events on offline:', endEventsError);
+        // Continue cleanup — status already updated; next start still mints a new code
+      }
+
       try {
         const { sql } = await import('@/lib/db/neon-client');
         // SECURITY: Delete only THIS user's requests (multi-tenant isolation)

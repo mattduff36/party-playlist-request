@@ -252,6 +252,31 @@ export async function endEvent(eventId: string, userId: string): Promise<void> {
   }
 }
 
+/**
+ * End every active guest-access event for a user (DJ Event Control → Offline).
+ * Prevents GET /api/events/current from resurrecting the previous access code.
+ */
+export async function endAllActiveEventsForUser(userId: string): Promise<number> {
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `UPDATE user_events
+       SET active = false, ended_at = NOW()
+       WHERE user_id = $1 AND active = true
+       RETURNING id`,
+      [userId]
+    );
+    const count = result.rowCount ?? result.rows.length;
+    if (count > 0) {
+      console.log(`✅ Ended ${count} active user_event(s) for user ${userId}`);
+    }
+    return count;
+  } catch (error) {
+    console.error('❌ Failed to end active events for user:', error);
+    throw error;
+  }
+}
+
 // ============================================================================
 // Access code verification
 // ============================================================================

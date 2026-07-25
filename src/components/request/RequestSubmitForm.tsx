@@ -29,7 +29,7 @@ export function PinEntryForm({
           {username}&apos;s Party Playlist
         </h1>
         <p className="text-[color:var(--mood-muted)] text-center mt-2">
-          Enter the 4-digit PIN to request songs
+          Enter the event access code to request songs
         </p>
       </div>
 
@@ -44,19 +44,24 @@ export function PinEntryForm({
         <div>
           <label htmlFor="pin" className="block text-[color:var(--mood-muted)] text-sm font-medium mb-2">
             <Lock className="inline h-4 w-4 mr-2" />
-            Event PIN
+            Access code
           </label>
           <input
             type="text"
             id="pin"
-            maxLength={4}
-            pattern="[0-9]{4}"
-            className="w-full px-4 py-3 bg-black/10 border border-[color:var(--mood-border)] rounded-[var(--mood-radius)] focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent outline-none text-center text-2xl tracking-widest font-mono"
+            maxLength={8}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full px-4 py-3 bg-black/10 border border-[color:var(--mood-border)] rounded-[var(--mood-radius)] focus:ring-2 focus:ring-[color:var(--mood-accent)] focus:border-transparent outline-none text-center text-2xl tracking-widest font-mono uppercase"
             style={{ color: 'var(--mood-text)' }}
-            placeholder="••••"
+            placeholder="••••••"
             value={pin}
             onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+              const value = e.target.value
+                .replace(/[^0-9a-zA-Z]/g, '')
+                .slice(0, 8)
+                .toUpperCase();
               onPinChange(value);
               onClearPinError();
             }}
@@ -68,7 +73,7 @@ export function PinEntryForm({
         <button
           type="submit"
           className="mood-btn w-full py-3 px-4 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={verifying || pin.length !== 4}
+          disabled={verifying || (pin.length !== 6 && pin.length !== 8 && pin.length !== 4)}
         >
           {verifying ? (
             <>
@@ -85,7 +90,7 @@ export function PinEntryForm({
       </form>
 
       <p className="text-center text-[color:var(--mood-muted)] text-sm mt-6">
-        PIN displayed on the DJ&apos;s screen
+        Code is shown on the DJ&apos;s screen and in the guest link
       </p>
     </div>
   );

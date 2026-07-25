@@ -559,6 +559,59 @@ export async function initializeDatabase() {
       console.error('❌ access code migration failed:', migrationError);
     }
 
+    // One-shot: remove legacy 4-digit guest codes so End→Start cannot resurrect them.
+    // New events mint 6-digit (or 8-char secure) codes via generateAccessCode.
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          id TEXT PRIMARY KEY,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      const already = await client.query(
+        `SELECT 1 FROM schema_migrations WHERE id = $1`,
+        ['purge_legacy_4digit_user_events_v1']
+      );
+      if (already.rows.length === 0) {
+        await client.query(`
+          DELETE FROM display_tokens
+          WHERE event_id IN (
+            SELECT id FROM user_events
+            WHERE pin ~ '^[0-9]{4}$'
+               OR COALESCE(access_code, '') ~ '^[0-9]{4}$'
+          );
+        `);
+        const purged = await client.query(`
+          DELETE FROM user_events
+          WHERE pin ~ '^[0-9]{4}$'
+             OR COALESCE(access_code, '') ~ '^[0-9]{4}$'
+          RETURNING id, user_id, pin, active;
+        `);
+        // If a DJ was still "live" only via a purged 4-digit guest row, force offline
+        // so the next Start mints a fresh 6-digit code (status route creates user_events).
+        await client.query(`
+          UPDATE events e
+          SET status = 'offline', updated_at = NOW()
+          WHERE e.status IN ('live', 'standby')
+            AND NOT EXISTS (
+              SELECT 1 FROM user_events ue
+              WHERE ue.user_id = e.user_id
+                AND ue.active = true
+                AND ue.expires_at > NOW()
+            );
+        `);
+        await client.query(
+          `INSERT INTO schema_migrations (id) VALUES ($1)`,
+          ['purge_legacy_4digit_user_events_v1']
+        );
+        console.log(
+          `✅ Purged ${purged.rowCount ?? purged.rows.length} legacy 4-digit user_events`
+        );
+      }
+    } catch (migrationError) {
+      console.error('❌ 4-digit user_events purge failed:', migrationError);
+    }
+
     // Empty scrolling message defaults (was prefilled DJ copy)
     try {
       await client.query(`
