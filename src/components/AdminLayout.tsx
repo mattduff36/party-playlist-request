@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
-  Home,
+  ListMusic,
   LogOut,
   Play,
   Settings,
@@ -68,18 +68,17 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   // Determine active tab based on pathname
   const getActiveTab = () => {
-    if (!pathname) return 'overview';
-    if (pathname.includes('/overview')) return 'overview';
-    if (pathname.includes('/requests')) return 'requests';
+    if (!pathname) return 'spotify';
+    if (pathname.includes('/requests') || pathname.includes('/overview')) return 'requests';
     if (pathname.includes('/settings')) return 'settings';
     if (pathname.includes('/spotify')) return 'spotify';
     if (pathname.includes('/display')) return 'display';
-    return 'overview';
+    return 'spotify';
   };
 
   const activeTab = getActiveTab();
   const eventHydrated = Boolean(state && !state.isLoading);
-  const queueSidebarTabs = new Set(['overview', 'display', 'spotify', 'settings']);
+  const queueSidebarTabs = new Set(['requests', 'display', 'spotify', 'settings']);
   const showQueueSidebar =
     eventHydrated &&
     queueSidebarTabs.has(activeTab) &&
@@ -91,10 +90,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   const navItems = [
     { 
-      id: 'overview', 
-      label: 'Overview', 
-      icon: Home, 
-      href: `${baseRoute}/admin/overview`,
+      id: 'requests', 
+      label: 'Requests', 
+      icon: ListMusic, 
+      href: `${baseRoute}/admin/requests`,
       badge: stats?.pending_requests && stats.pending_requests > 0 ? stats.pending_requests : undefined
     },
     { 

@@ -5,8 +5,8 @@ import { loginAs } from './helpers/login';
 test.describe('Authentication', () => {
   test('logs in with valid credentials', async ({ page }) => {
     await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
-    await expect(page).toHaveURL(/\/testuser1\/admin/);
-    await expect(page.getByText(/Overview/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page).toHaveURL(/\/testuser1\/admin\/spotify/);
+    await expect(page.getByText(/Spotify/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('fails login with invalid credentials', async ({ page }) => {
@@ -19,7 +19,7 @@ test.describe('Authentication', () => {
   });
 
   test('redirects unauthenticated admin access to login', async ({ page }) => {
-    await page.goto('/testuser1/admin/overview');
+    await page.goto('/testuser1/admin/requests');
     await page.waitForURL(/\/login/, { timeout: 15000, waitUntil: 'domcontentloaded' });
     expect(page.url()).toContain('/login');
   });
@@ -27,7 +27,7 @@ test.describe('Authentication', () => {
   test('persists session after refresh', async ({ page }) => {
     await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
     await page.reload();
-    await expect(page.getByText(/Overview/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Spotify/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('logs out', async ({ page }) => {

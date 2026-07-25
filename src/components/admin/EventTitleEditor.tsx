@@ -71,7 +71,7 @@ export default function EventTitleEditor() {
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="bg-transparent text-bone font-semibold text-base outline-none min-w-[200px] max-w-[400px]"
+          className="bg-transparent font-display text-lg font-semibold text-bone outline-none min-w-[200px] max-w-[400px]"
           disabled={isSaving}
           maxLength={100}
         />
@@ -101,7 +101,7 @@ export default function EventTitleEditor() {
       className="flex items-center gap-2 px-3 py-1.5 hover:bg-surface rounded-lg transition-colors group"
       title="Click to edit event title"
     >
-      <span className="text-bone font-semibold text-base">{currentTitle}</span>
+      <span className="font-display text-lg font-semibold text-bone">{currentTitle}</span>
       <Pencil className="w-4 h-4 text-muted group-hover:text-accent transition-colors" />
     </button>
   );

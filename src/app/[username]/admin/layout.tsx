@@ -50,7 +50,7 @@ export default function UserAdminLayout({
 
         // Check ownership or super admin
         if (user.username !== username && user.role !== 'superadmin') {
-          router.push(`/${user.username}/admin/overview`);
+          router.push(`/${user.username}/admin/spotify`);
           return;
         }
 

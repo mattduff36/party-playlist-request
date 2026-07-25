@@ -288,7 +288,7 @@ export async function sendAccountApprovedEmail(
       return { success: false, error: 'Email service not configured' };
     }
 
-    const dashboardUrl = `${APP_URL}/${data.username}/admin/overview`;
+    const dashboardUrl = `${APP_URL}/${data.username}/admin/spotify`;
     const requestUrl = `${APP_URL}/${data.username}/request`;
 
     const { error } = await resend.emails.send({

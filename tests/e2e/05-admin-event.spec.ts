@@ -18,9 +18,9 @@ async function dismissSetupModal(page: import('@playwright/test').Page) {
  * Settings Access code panel requires global event status live/standby.
  *
  * Prefer the top-bar Event Status button (authoritative client state).
- * Do NOT click Standby/Live in Event Control under suite load — page fan-out
- * can leave local isTransitioning stuck on "Updating..." even after status
- * already changed. If offline, POST via in-page fetch (browser cookies).
+ * Do NOT click Standby/Live under suite load — page fan-out can leave
+ * local isTransitioning stuck even after status already changed.
+ * If offline, POST via in-page fetch (browser cookies).
  */
 async function ensureEventActive(page: import('@playwright/test').Page) {
   const activeStatus = page.getByRole('button', {
@@ -61,31 +61,36 @@ function desktopSettingsNav(page: import('@playwright/test').Page) {
 test.describe('Admin event controls', () => {
   test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
-  test('overview event controls, page controls, and settings access code', async ({
+  test('requests page toggles, top-nav controls, and settings access code', async ({
     page,
   }) => {
     await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
     await dismissSetupModal(page);
 
-    await page.goto(`/${TEST_USERS.testuser1.username}/admin/overview`, {
+    await page.goto(`/${TEST_USERS.testuser1.username}/admin/requests`, {
       waitUntil: 'domcontentloaded',
       timeout: 60_000,
     });
     await dismissSetupModal(page);
 
-    await expect(page.getByText('Event Control')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Loading admin data...')).toHaveCount(0);
 
-    await expect(page.getByRole('button', { name: /^Standby$/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Live$/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Offline$/i })).toBeVisible();
-
     const main = page.getByRole('main');
-    await expect(main.getByRole('heading', { name: 'Page Controls' })).toBeVisible();
-    await expect(main.getByRole('button', { name: /^Requests$/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /^Display$/i })).toBeVisible();
+    await expect(main.getByText('Song Requests')).toBeVisible({ timeout: 30_000 });
+    await expect(main.getByText('Auto-approve')).toBeVisible();
+    await expect(main.getByText('No Explicit')).toBeVisible();
 
-    // Do not wait on Event Control "Updating..." — activate via status bar / API.
+    // Top-nav Event Status + page toggles (replaces former Event/Page Control cards)
+    await expect(
+      page.getByRole('button', { name: /Event Status:/i }).first()
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Requests Page:/i }).first()
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Display Page:/i }).first()
+    ).toBeVisible();
+
     await ensureEventActive(page);
 
     const settingsBtn = desktopSettingsNav(page);

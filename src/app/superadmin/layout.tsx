@@ -131,7 +131,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             </Link>
 
             <Link
-              href={`/${username}/admin/overview`}
+              href={`/${username}/admin/spotify`}
               className={tabClass(false)}
             >
               <Music className="w-5 h-5 text-accent" />

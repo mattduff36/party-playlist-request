@@ -63,7 +63,7 @@ export async function runInteractiveVisualTest(baseURL: string) {
     await sleep(1000);
 
     console.log('\n📝 Test 4: Access admin panel...');
-    const adminResponse = await fetch(`${baseURL}/${loginData.user.username}/admin/overview`);
+    const adminResponse = await fetch(`${baseURL}/${loginData.user.username}/admin/spotify`);
     
     if (adminResponse.ok) {
       console.log('✅ Admin panel is accessible');

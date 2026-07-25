@@ -56,7 +56,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(`/${username}/admin/overview`);
+      router.push(`/${username}/admin/spotify`);
     } catch {
       setError('Network error. Please try again.');
       setLoading(false);
@@ -85,7 +85,7 @@ export default function LoginPage() {
       }
 
       setShowTransferModal(false);
-      router.push(`/${transferData.username}/admin/overview`);
+      router.push(`/${transferData.username}/admin/spotify`);
     } catch {
       setError('Network error during transfer');
       setLoading(false);

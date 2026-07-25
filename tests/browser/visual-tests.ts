@@ -112,7 +112,7 @@ async function runAuthenticationTests(baseURL: string, results: TestSuiteResult)
   await runTest(
     'Admin pages load (auth will be checked client-side)',
     async () => {
-      const response = await fetch(`${baseURL}/testuser1/admin/overview`, {
+      const response = await fetch(`${baseURL}/testuser1/admin/spotify`, {
         redirect: 'manual',
       });
       

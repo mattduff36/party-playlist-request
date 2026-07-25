@@ -88,7 +88,7 @@ export async function runDJFlowTests(baseURL: string): Promise<TestSuiteResult> 
     
     // Note: This would need actual cookie-based auth in a real test
     // For now, just verify the route exists
-    const response = await fetch(`${baseURL}/${TEST_USER.username}/admin/overview`);
+    const response = await fetch(`${baseURL}/${TEST_USER.username}/admin/spotify`);
     
     // 200 = success, 302/307 = redirect to login (expected without cookie)
     if (response.ok || response.status === 302 || response.status === 307) {

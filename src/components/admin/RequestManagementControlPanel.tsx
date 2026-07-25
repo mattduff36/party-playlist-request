@@ -1,8 +1,7 @@
 /**
  * Request Management Control Panel
  *
- * Compact toggles for request settings (auto-approve / decline explicit),
- * matching Event Control and Page Controls on the admin overview.
+ * Compact Auto-approve / No Explicit toggles for the Song Requests toolbar.
  */
 
 'use client';
@@ -13,6 +12,8 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 
 interface RequestManagementControlPanelProps {
   className?: string;
+  /** card = standalone panel; inline = compact toolbar controls */
+  variant?: 'card' | 'inline';
 }
 
 interface RequestToggleOption {
@@ -25,12 +26,23 @@ interface RequestToggleOption {
 
 export default function RequestManagementControlPanel({
   className = '',
+  variant = 'inline',
 }: RequestManagementControlPanelProps) {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
   const [isToggling, setIsToggling] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isInline = variant === 'inline';
 
   if (loading && !eventSettings) {
+    if (isInline) {
+      return (
+        <div className={`flex items-center gap-2 ${className}`}>
+          <div className="h-9 w-28 animate-pulse rounded-lg bg-surface" />
+          <div className="h-9 w-28 animate-pulse rounded-lg bg-surface" />
+        </div>
+      );
+    }
+
     return (
       <div className={`bg-elevated rounded-lg p-3 ${className}`}>
         <div className="mb-2">
@@ -83,61 +95,76 @@ export default function RequestManagementControlPanel({
     },
   ];
 
+  const toggleButtons = (
+    <div className={isInline ? 'flex flex-wrap items-center gap-2' : 'grid grid-cols-2 gap-2'}>
+      {options.map((option) => {
+        const Icon = option.icon;
+        const isEnabled = option.enabled;
+        const isTogglingThis = isToggling === option.key;
+
+        return (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => handleToggle(option.key, !isEnabled)}
+            disabled={isTogglingThis}
+            className={`
+              flex items-center gap-1.5 rounded-lg border-2 transition-all duration-200
+              ${isInline ? 'px-3 py-2' : 'flex-col space-y-1 p-2'}
+              ${
+                isEnabled
+                  ? 'bg-accent border-accent text-ink font-semibold'
+                  : 'bg-elevated border-white/10 text-muted hover:border-accent/40'
+              }
+              ${isTogglingThis ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80'}
+            `}
+            title={`Click to ${isEnabled ? 'disable' : 'enable'}: ${option.title}`}
+          >
+            <Icon className={`w-4 h-4 ${isEnabled ? 'text-ink' : 'text-muted'}`} />
+            <span className={`font-medium text-xs ${isEnabled ? 'text-ink' : 'text-muted'}`}>
+              {option.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const errorBanner = error ? (
+    <div
+      className={`${isInline ? 'mt-2 w-full' : 'mt-2'} p-1.5 bg-red-900/20 border border-red-600 rounded text-xs`}
+    >
+      <div className="flex items-center space-x-2">
+        <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+        <span className="text-red-300 flex-1">{error}</span>
+        <button
+          type="button"
+          onClick={() => setError(null)}
+          className="text-red-400 hover:text-red-300"
+          aria-label="Dismiss error"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  if (isInline) {
+    return (
+      <div className={`flex flex-col ${className}`}>
+        {toggleButtons}
+        {errorBanner}
+      </div>
+    );
+  }
+
   return (
     <div className={`bg-elevated rounded-lg p-3 ${className}`}>
       <div className="mb-2">
         <h2 className="font-display text-lg font-semibold text-bone">Request Management</h2>
       </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        {options.map((option) => {
-          const Icon = option.icon;
-          const isEnabled = option.enabled;
-          const isTogglingThis = isToggling === option.key;
-
-          return (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => handleToggle(option.key, !isEnabled)}
-              disabled={isTogglingThis}
-              className={`
-                flex flex-col items-center space-y-1 p-2 rounded-lg border-2 transition-all duration-200
-                ${
-                  isEnabled
-                    ? 'bg-accent border-accent text-ink font-semibold'
-                    : 'bg-elevated border-white/10 text-muted hover:border-accent/40'
-                }
-                ${isTogglingThis ? 'opacity-50' : ''}
-                ${isTogglingThis ? 'cursor-not-allowed' : 'cursor-pointer hover:opacity-80'}
-              `}
-              title={`Click to ${isEnabled ? 'disable' : 'enable'}: ${option.title}`}
-            >
-              <Icon className={`w-5 h-5 ${isEnabled ? 'text-ink' : 'text-muted'}`} />
-              <div className={`font-medium text-xs ${isEnabled ? 'text-ink' : 'text-muted'}`}>
-                {option.label}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {error && (
-        <div className="mt-2 p-1.5 bg-red-900/20 border border-red-600 rounded text-xs">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
-            <span className="text-red-300 flex-1">{error}</span>
-            <button
-              type="button"
-              onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-300"
-              aria-label="Dismiss error"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {toggleButtons}
+      {errorBanner}
     </div>
   );
 }

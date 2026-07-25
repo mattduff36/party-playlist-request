@@ -230,8 +230,8 @@ export default function EventStateDropdown() {
 
   if (!state) {
     return (
-      <div className="relative p-2">
-        <Power className="w-5 h-5 text-muted" />
+      <div className="relative p-2.5">
+        <Power className="w-6 h-6 text-muted" />
       </div>
     );
   }
@@ -241,13 +241,13 @@ export default function EventStateDropdown() {
       {/* State Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-surface rounded-lg transition-colors"
+        className="relative p-2.5 hover:bg-surface rounded-lg transition-colors"
         title={`Event Status: ${state.status}`}
       >
-        <StateIcon className={`w-5 h-5 ${getStateColor()}`} />
+        <StateIcon className={`w-6 h-6 ${getStateColor()}`} />
         
         {/* Status Indicator Dot */}
-        <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${getStateDotColor()}`} />
+        <span className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ${getStateDotColor()}`} />
       </button>
 
       {/* Dropdown Panel */}

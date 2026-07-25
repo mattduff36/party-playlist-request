@@ -44,7 +44,7 @@ export default function PageToggleIcons() {
         onClick={() => handlePageToggle('requests')}
         disabled={isToggling === 'requests' || !canControlPages}
         className={`
-          relative p-2 rounded-lg border-2 transition-all
+          relative p-2.5 rounded-lg border-2 transition-all
           ${requestsEnabled 
             ? 'bg-accent/10 border-accent text-accent' 
             : 'bg-elevated border-white/10 text-muted'
@@ -58,7 +58,7 @@ export default function PageToggleIcons() {
             : `Requests Page: ${requestsEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
       >
-        <Smartphone className="w-5 h-5" />
+        <Smartphone className="w-6 h-6" />
       </button>
 
       {/* Display Page Toggle */}
@@ -66,7 +66,7 @@ export default function PageToggleIcons() {
         onClick={() => handlePageToggle('display')}
         disabled={isToggling === 'display' || !canControlPages}
         className={`
-          relative p-2 rounded-lg border-2 transition-all
+          relative p-2.5 rounded-lg border-2 transition-all
           ${displayEnabled 
             ? 'bg-accent/10 border-accent text-accent' 
             : 'bg-elevated border-white/10 text-muted'
@@ -80,7 +80,7 @@ export default function PageToggleIcons() {
             : `Display Page: ${displayEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
       >
-        <Monitor className="w-5 h-5" />
+        <Monitor className="w-6 h-6" />
       </button>
     </>
   );

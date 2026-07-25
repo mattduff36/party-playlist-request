@@ -18,11 +18,16 @@ jest.mock('@/contexts/AdminDataContext', () => ({
 describe('RequestManagementControlPanel', () => {
   beforeEach(() => updateEventSettings.mockClear());
 
-  it('renders request management toggles', () => {
+  it('renders inline request management toggles by default', () => {
     render(<RequestManagementControlPanel />);
-    expect(screen.getByText('Request Management')).toBeInTheDocument();
+    expect(screen.queryByText('Request Management')).not.toBeInTheDocument();
     expect(screen.getByText('Auto-approve')).toBeInTheDocument();
     expect(screen.getByText('No Explicit')).toBeInTheDocument();
+  });
+
+  it('renders card heading when variant is card', () => {
+    render(<RequestManagementControlPanel variant="card" />);
+    expect(screen.getByText('Request Management')).toBeInTheDocument();
   });
 
   it('toggles auto-approve when clicked', async () => {

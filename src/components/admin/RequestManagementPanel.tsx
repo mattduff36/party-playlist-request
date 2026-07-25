@@ -8,9 +8,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, Filter, RotateCcw } from 'lucide-react';
+import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
+import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
 
 interface RequestManagementPanelProps {
   className?: string;
@@ -282,50 +283,56 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
       )}
 
       {/* Controls */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        {/* Search */}
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search requests..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
-            />
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search requests..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Filter */}
-        <div className="flex gap-2">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="all">All ({requests?.length || 0})</option>
-            <option value="pending">Pending ({requests?.filter(r => r.status === 'pending').length || 0})</option>
-            <option value="approved">Approved ({requests?.filter(r => r.status === 'approved').length || 0})</option>
-            <option value="rejected">Rejected ({requests?.filter(r => r.status === 'rejected').length || 0})</option>
-            <option value="played">Played ({requests?.filter(r => r.status === 'played').length || 0})</option>
-          </select>
-          
-          <button
-            onClick={handleAddRandomSong}
-            disabled={isAddingRandomSong || !playbackState?.spotify_connected}
-            className={`flex items-center gap-2 px-4 py-2 text-ink font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
-              isAddingRandomSong || !playbackState?.spotify_connected
-                ? 'bg-accent/50 cursor-not-allowed opacity-50' 
-                : 'bg-accent hover:bg-accent-hover'
-            }`}
-            title={!playbackState?.spotify_connected ? 'Connect Spotify to add random songs' : 'Add a random popular song to requests'}
-          >
-            <Shuffle className={`w-4 h-4 ${isAddingRandomSong ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">
-              {isAddingRandomSong ? 'Adding...' : 'Random Song'}
-            </span>
-          </button>
+          {/* Filter + Random Song + Request toggles */}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">All ({requests?.length || 0})</option>
+              <option value="pending">Pending ({requests?.filter(r => r.status === 'pending').length || 0})</option>
+              <option value="approved">Approved ({requests?.filter(r => r.status === 'approved').length || 0})</option>
+              <option value="rejected">Rejected ({requests?.filter(r => r.status === 'rejected').length || 0})</option>
+              <option value="played">Played ({requests?.filter(r => r.status === 'played').length || 0})</option>
+            </select>
+            
+            <button
+              onClick={handleAddRandomSong}
+              disabled={isAddingRandomSong || !playbackState?.spotify_connected}
+              className={`flex items-center gap-2 px-4 py-2 text-ink font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
+                isAddingRandomSong || !playbackState?.spotify_connected
+                  ? 'bg-accent/50 cursor-not-allowed opacity-50' 
+                  : 'bg-accent hover:bg-accent-hover'
+              }`}
+              title={!playbackState?.spotify_connected ? 'Connect Spotify to add random songs' : 'Add a random popular song to requests'}
+            >
+              <Shuffle className={`w-4 h-4 ${isAddingRandomSong ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">
+                {isAddingRandomSong ? 'Adding...' : 'Random Song'}
+              </span>
+            </button>
+
+            <div className="hidden sm:block w-px h-8 bg-white/10" aria-hidden="true" />
+
+            <RequestManagementControlPanel variant="inline" />
+          </div>
         </div>
       </div>
 
