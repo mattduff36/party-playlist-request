@@ -69,12 +69,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Handle Spotify connection — navigate directly so the browser follows the 307 to Spotify.
-  // Do not fetch() this endpoint: it returns a redirect, not JSON, so fetch fails silently.
-  function handleSpotifyConnect() {
-    window.location.href = '/api/spotify/auth';
-  }
-
   useEffect(() => {
     if (eventSettings && typeof eventSettings.secure_url_access === 'boolean') {
       setSecureUrlAccess(Boolean(eventSettings.secure_url_access));
@@ -380,28 +374,6 @@ export default function SettingsPage() {
             })()}
           </div>
         )}
-      </div>
-
-      {/* Spotify Setup */}
-      <div className="bg-elevated rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-bone mb-4 flex items-center gap-2">
-          <Music className="h-5 w-5 text-accent" />
-          Spotify Integration
-        </h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-surface rounded-lg">
-            <div>
-              <h4 className="text-bone font-medium">Spotify Connection</h4>
-              <p className="text-muted text-sm">Connect your Spotify account to control music playback</p>
-            </div>
-            <button
-              onClick={handleSpotifyConnect}
-              className="inline-flex items-center px-4 py-2 bg-accent hover:bg-accent-hover text-bone rounded-lg transition-colors"
-            >
-              Connect Spotify
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Advanced Settings */}
