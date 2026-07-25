@@ -277,7 +277,7 @@ function createActions(
           headers['Authorization'] = `Bearer ${token}`;
         }
         
-        // Make API call to update the server
+        // Bound so Event Control "Updating..." cannot stick if the API stalls
         const response = await fetch('/api/event/status', {
           method: 'POST',
           headers,
@@ -285,6 +285,7 @@ function createActions(
             status,
             eventId,
           }),
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (!response.ok) {

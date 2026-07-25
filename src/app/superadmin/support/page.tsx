@@ -27,7 +27,13 @@ interface HealthPayload {
       message: string;
       responseTime?: number;
     }>;
-    summary: { total: number; healthy: number; degraded: number; unhealthy: number };
+    summary: {
+      total: number;
+      healthy: number;
+      degraded: number;
+      unhealthy: number;
+      skipped?: number;
+    };
   };
   unresolvedErrors: number;
   uptimeSeconds: number;
@@ -420,7 +426,8 @@ export default function SuperAdminSupportPage() {
                 <div className="rounded-xl border border-white/10 bg-elevated p-4">
                   <p className="text-xs text-muted">Checks healthy</p>
                   <p className="mt-1 font-display text-xl font-bold">
-                    {health.health.summary.healthy}/{health.health.summary.total}
+                    {health.health.summary.healthy}/
+                    {health.health.summary.total - (health.health.summary.skipped ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-elevated p-4">
@@ -443,10 +450,12 @@ export default function SuperAdminSupportPage() {
                           ? 'bg-success/15 text-success'
                           : check.status === 'degraded'
                             ? 'bg-warning/15 text-warning'
-                            : 'bg-error/15 text-error'
+                            : check.status === 'skipped'
+                              ? 'bg-white/10 text-muted'
+                              : 'bg-error/15 text-error'
                       }`}
                     >
-                      {check.status}
+                      {check.status === 'skipped' ? 'Not configured' : check.status}
                     </span>
                   </div>
                 ))}

@@ -9,7 +9,8 @@ import { randomUUID } from 'crypto';
 interface SimulationConfig {
   environment: 'local' | 'production'; // Local or production environment
   username: string; // Username to test (e.g., 'testuser1')
-  requestPin?: string; // Optional PIN for protected request pages
+  /** Guest access code (6-digit or secure 8-char) required for request APIs */
+  requestPin?: string;
   requestInterval: number; // Time between requests in ms (e.g., 30000 = 30s)
   uniqueRequesters: number; // Number of different people (1-20)
   burstMode: boolean; // If true, sends multiple requests at once occasionally
@@ -165,7 +166,11 @@ class PartySimulator {
     const baseUrl = this.config.environment === 'local' 
       ? 'http://localhost:3000' 
       : 'https://partyplaylist.co.uk';
-    
+
+    const code = this.config.requestPin?.trim();
+    if (code) {
+      return `${baseUrl}/${this.config.username}/${code}/request`;
+    }
     return `${baseUrl}/${this.config.username}/request`;
   }
 
@@ -330,8 +335,16 @@ class PartySimulator {
 
       console.log(`🔍 [${this.instanceId}] Target: ${this.config.environment} - ${username}`);
 
-      // First, search for the song with username parameter
-      const searchUrl = `${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`;
+      const accessCode = this.config.requestPin?.trim();
+      if (!accessCode) {
+        throw new Error('Access code is required for guest request simulation');
+      }
+
+      // Search via gated Spotify search API
+      const searchUrl =
+        `${baseUrl}/api/spotify/search?q=${encodeURIComponent(song.query)}` +
+        `&username=${encodeURIComponent(username)}` +
+        `&accessCode=${encodeURIComponent(accessCode)}`;
       console.log(`🔍 Searching: ${searchUrl}`);
       
       const searchResponse = await fetch(searchUrl, {
@@ -375,10 +388,8 @@ class PartySimulator {
         username: username // Required for multi-tenant support
       };
 
-      // Add PIN if provided
-      if (this.config.requestPin) {
-        requestBody.pin = this.config.requestPin;
-      }
+      requestBody.accessCode = accessCode;
+      requestBody.pin = accessCode;
 
       // Submit the request
       const requestResponse = await fetch(`${baseUrl}/api/request`, {

@@ -21,6 +21,8 @@ export default function SettingsPage() {
     auto_approve: false,
     decline_explicit: false,
   });
+  const [secureUrlAccess, setSecureUrlAccess] = useState(false);
+  const [savingSecure, setSavingSecure] = useState(false);
   
   const [event, setEvent] = useState<any>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
@@ -72,6 +74,12 @@ export default function SettingsPage() {
   function handleSpotifyConnect() {
     window.location.href = '/api/spotify/auth';
   }
+
+  useEffect(() => {
+    if (eventSettings && typeof eventSettings.secure_url_access === 'boolean') {
+      setSecureUrlAccess(Boolean(eventSettings.secure_url_access));
+    }
+  }, [eventSettings?.secure_url_access]);
 
   // One-shot hydrate — do not wipe mid-edit on background settings refresh
   useEffect(() => {
@@ -288,109 +296,88 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Event PIN */}
-            <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent/40 rounded-lg">
-              <div>
-                <h4 className="text-bone font-medium mb-1">Event PIN</h4>
-                <p className="text-muted text-sm">Guests need this PIN to access the request page</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Lock className="h-5 w-5 text-accent" />
-                <span className="text-3xl font-bold text-bone tracking-wider font-mono">{event.pin}</span>
-              </div>
-            </div>
+            {(() => {
+              const accessCode = event.access_code || event.pin;
+              const requestUrl = `${window.location.origin}/${username}/${accessCode}/request`;
+              const displayUrl = `${window.location.origin}/${username}/${accessCode}/display`;
+              return (
+                <>
+                  <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent/40 rounded-lg">
+                    <div>
+                      <h4 className="text-bone font-medium mb-1">Access code</h4>
+                      <p className="text-muted text-sm">
+                        Included in guest links; guests scanning the QR do not need to type it
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Lock className="h-5 w-5 text-accent" />
+                      <span className="text-3xl font-bold text-bone tracking-wider font-mono">
+                        {accessCode}
+                      </span>
+                    </div>
+                  </div>
 
-            {/* Request URL */}
-            <div className="space-y-3">
-              <label className="block text-muted font-medium">Request Page URL</label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={`${window.location.origin}/${username}/request`}
-                  readOnly
-                  className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm"
-                />
-                <button
-                  onClick={() => copyToClipboard(`${window.location.origin}/${username}/request`, 'requestUrl')}
-                  className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
-                  title="Copy URL"
-                >
-                  {copied === 'requestUrl' ? (
-                    <CheckCircle className="h-5 w-5 text-accent" />
-                  ) : (
-                    <Copy className="h-5 w-5 text-muted" />
-                  )}
-                </button>
-              </div>
-              <p className="text-faint text-xs">
-                Guests will need to enter the PIN when they visit this URL
-              </p>
-            </div>
+                  <div className="space-y-3">
+                    <label className="block text-muted font-medium flex items-center">
+                      <QrCode className="h-5 w-5 mr-2 text-accent" />
+                      Request / QR URL
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={requestUrl}
+                        readOnly
+                        className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(requestUrl, 'requestUrl')}
+                        className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
+                        title="Copy URL"
+                      >
+                        {copied === 'requestUrl' ? (
+                          <CheckCircle className="h-5 w-5 text-accent" />
+                        ) : (
+                          <Copy className="h-5 w-5 text-muted" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-            {/* QR Code URL (with bypass token) */}
-            <div className="space-y-3">
-              <label className="block text-muted font-medium flex items-center">
-                <QrCode className="h-5 w-5 mr-2 text-accent" />
-                QR Code URL (No PIN Required)
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={`${window.location.origin}/${username}/request?bt=${event.bypass_token}`}
-                  readOnly
-                  className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
-                />
-                <button
-                  onClick={() => copyToClipboard(`${window.location.origin}/${username}/request?bt=${event.bypass_token}`, 'qrUrl')}
-                  className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
-                  title="Copy URL"
-                >
-                  {copied === 'qrUrl' ? (
-                    <CheckCircle className="h-5 w-5 text-accent" />
-                  ) : (
-                    <Copy className="h-5 w-5 text-muted" />
-                  )}
-                </button>
-              </div>
-              <p className="text-faint text-xs">
-                Use this URL to generate QR codes - guests won't need the PIN
-              </p>
-            </div>
+                  <div className="space-y-3 border-t border-white/10 pt-6">
+                    <label className="block text-muted font-medium flex items-center">
+                      <Monitor className="h-5 w-5 mr-2 text-accent" />
+                      Display Screen URL
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={displayUrl}
+                        readOnly
+                        className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(displayUrl, 'displayUrl')}
+                        className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
+                        title="Copy URL"
+                      >
+                        {copied === 'displayUrl' ? (
+                          <CheckCircle className="h-5 w-5 text-accent" />
+                        ) : (
+                          <Copy className="h-5 w-5 text-muted" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-faint text-xs">
+                      Open this URL on your display screen (TV, projector, etc.)
+                    </p>
+                  </div>
 
-            {/* Display Screen URL */}
-            <div className="space-y-3 border-t border-white/10 pt-6">
-              <label className="block text-muted font-medium flex items-center">
-                <Monitor className="h-5 w-5 mr-2 text-accent" />
-                Display Screen URL
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={`${window.location.origin}/${username}/display/${event.pin}`}
-                  readOnly
-                  className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
-                />
-                <button
-                  onClick={() => copyToClipboard(`${window.location.origin}/${username}/display/${event.pin}`, 'displayUrl')}
-                  className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
-                  title="Copy URL"
-                >
-                  {copied === 'displayUrl' ? (
-                    <CheckCircle className="h-5 w-5 text-accent" />
-                  ) : (
-                    <Copy className="h-5 w-5 text-muted" />
-                  )}
-                </button>
-              </div>
-              <p className="text-faint text-xs">
-                Open this URL on your display screen (TV, projector, etc.) - Uses event PIN for access
-              </p>
-            </div>
-
-            {/* Event Expiry */}
-            <div className="text-center text-faint text-xs border-t border-white/10 pt-4">
-              Event expires: {new Date(event.expires_at).toLocaleString()}
-            </div>
+                  <div className="text-center text-faint text-xs border-t border-white/10 pt-4">
+                    Event expires: {new Date(event.expires_at).toLocaleString()}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -413,6 +400,65 @@ export default function SettingsPage() {
             >
               Connect Spotify
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Settings */}
+      <div className="bg-elevated rounded-lg p-6 border border-white/10">
+        <h3 className="text-lg font-semibold text-bone mb-2">Advanced Settings</h3>
+        <p className="text-muted text-sm mb-6">
+          Optional security controls. Changing Secure URL access regenerates the active
+          event&apos;s access code — old QR codes and links will stop working.
+        </p>
+        <div className="flex items-start justify-between gap-4 p-4 bg-surface rounded-lg">
+          <div className="min-w-0">
+            <h4 className="text-bone font-medium">Secure URL access</h4>
+            <p className="text-muted text-sm mt-1">
+              {secureUrlAccess
+                ? 'Guest links use a longer random code (harder to guess).'
+                : 'Guest links use a 6-digit code (easy to type).'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {savingSecure && <Loader2 className="h-4 w-4 animate-spin text-accent" />}
+            <Checkbox
+              checked={secureUrlAccess}
+              disabled={savingSecure}
+              onChange={async (e) => {
+                const next = e.target.checked;
+                const previous = secureUrlAccess;
+                setSecureUrlAccess(next);
+                setSavingSecure(true);
+                try {
+                  await updateEventSettings({ secure_url_access: next });
+                  // Refresh event so nav / URLs pick up regenerated code
+                  if (state?.status === 'live' || state?.status === 'standby') {
+                    const response = await fetch('/api/events/current', {
+                      credentials: 'include',
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      setEvent(data.event);
+                      window.dispatchEvent(new CustomEvent('pp:access-code-changed'));
+                    }
+                  }
+                  setSaveMessage(
+                    next
+                      ? 'Secure URL access enabled — access code regenerated.'
+                      : 'Secure URL access disabled — access code regenerated.'
+                  );
+                  setTimeout(() => setSaveMessage(''), 4000);
+                } catch (error) {
+                  console.error('Failed to update secure URL access:', error);
+                  setSecureUrlAccess(previous);
+                  setSaveMessage('Failed to update Secure URL access.');
+                  setTimeout(() => setSaveMessage(''), 3000);
+                } finally {
+                  setSavingSecure(false);
+                }
+              }}
+            />
           </div>
         </div>
       </div>

@@ -134,6 +134,7 @@ export interface PlaybackUpdateEvent extends BaseEvent {
       name: string;
       artists: Array<{ name: string }>;
       uri: string;
+      image_url?: string | null;
       requesterNickname?: string;
     }>;
     isPlaying: boolean;

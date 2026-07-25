@@ -30,9 +30,18 @@ import type {
 
 interface UseDisplayDataOptions {
   username: string;
+  /** Guest access code from URL — required for gated public APIs */
+  accessCode?: string;
 }
 
-export function useDisplayData({ username }: UseDisplayDataOptions) {
+function withAccessCode(url: string, accessCode?: string): string {
+  if (!accessCode) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}accessCode=${encodeURIComponent(accessCode)}`;
+}
+
+export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) {
+  const [guestAccessCode, setGuestAccessCode] = useState<string | undefined>(accessCode);
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
@@ -203,12 +212,19 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
   // Fetch all display data - moved outside useEffect to be accessible from Pusher handlers
   const fetchDisplayData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/public/display-data?username=${username}`, {
-        signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
-      });
+      const response = await fetch(
+        withAccessCode(`/api/public/display-data?username=${username}`, accessCode || guestAccessCode),
+        {
+          signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
+          credentials: 'include',
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         applyEventSettings(data.event_settings);
+        if (data.event_settings?.access_code) {
+          setGuestAccessCode(data.event_settings.access_code);
+        }
         setCurrentTrack(data.current_track);
         setUpcomingSongs(data.upcoming_songs || []);
         return;
@@ -228,7 +244,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
       console.error('Error fetching display data:', error);
       // Mood gate fallback is handled by the initial-load path / timeout
     }
-  }, [username, applyEventSettings]);
+  }, [username, accessCode, guestAccessCode, applyEventSettings]);
 
   // 🚀 PUSHER: Real-time updates with animation triggers
   // Note: original page had a duplicate onSettingsUpdate key; the settings-refresh
@@ -330,6 +346,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
             : [],
           album: track.album?.name || track.album || '',
           uri: track.uri || '',
+          image_url: track.image_url || undefined,
           requester_nickname: track.requester_nickname,
         }));
 
@@ -481,9 +498,16 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
 
     const fetchInitialData = async () => {
       try {
-        const displayResponse = await fetch(`/api/public/display-data?username=${username}`, {
-          signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
-        });
+        const displayResponse = await fetch(
+          withAccessCode(
+            `/api/public/display-data?username=${username}`,
+            accessCode || guestAccessCode
+          ),
+          {
+            signal: AbortSignal.timeout(MOOD_CONFIRM_TIMEOUT_MS),
+            credentials: 'include',
+          }
+        );
 
         if (displayResponse.ok) {
           const data = await displayResponse.json();
@@ -504,6 +528,9 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
           // Initialize event settings (must include display_mood for cold-load theme)
           if (data.event_settings) {
             applyEventSettings(data.event_settings);
+            if (data.event_settings.access_code) {
+              setGuestAccessCode(data.event_settings.access_code);
+            }
             if (hasConfirmedDisplayMood(data.event_settings)) {
               markMoodConfirmed();
             }
@@ -517,7 +544,15 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
         }
 
         // Fetch requests for "Requests on the way" section
-        const requestsResponse = await fetch(`/api/public/requests?username=${username}`);
+        const requestsResponse = await fetch(
+          withAccessCode(
+            `/api/public/requests?username=${username}`,
+            accessCode || guestAccessCode
+          ),
+          {
+            credentials: 'include',
+          }
+        );
         if (requestsResponse.ok) {
           const requestsData = await requestsResponse.json();
           // Use the requests directly - they're already approved/pending
@@ -639,20 +674,24 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     return () => clearTimeout(timeoutId);
   }, [currentMessage]);
 
-  // Generate QR code with username-specific URL (with bypass token)
+  // Generate QR code with access-code URL (no manual code entry for scanners)
   useEffect(() => {
     const generateQR = async () => {
       try {
-        // Base request URL
-        let requestUrl = `${window.location.origin}/${username}/request`;
+        const code =
+          (eventSettings as { access_code?: string } | null)?.access_code ||
+          guestAccessCode ||
+          accessCode ||
+          '';
+        const requestUrl = code
+          ? `${window.location.origin}/${username}/${code}/request`
+          : `${window.location.origin}/${username}/request`;
 
-        // Add bypass token if available (for no-PIN QR code access)
-        if (globalState.bypassToken) {
-          requestUrl += `?bt=${globalState.bypassToken}`;
-          console.log('📱 QR Code generated with bypass token for no-PIN access');
-        } else {
-          console.log('⚠️ QR Code generated without bypass token - PIN will be required');
-        }
+        console.log(
+          code
+            ? '📱 QR Code generated with access-code URL'
+            : '⚠️ QR Code generated without access code'
+        );
 
         const mood = resolveDisplayMood(
           eventSettings?.display_mood,
@@ -677,24 +716,23 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     generateQR();
   }, [
     username,
-    globalState.bypassToken,
+    (eventSettings as { access_code?: string } | null)?.access_code,
+    guestAccessCode,
+    accessCode,
     eventSettings?.display_mood,
     eventSettings?.theme_primary_color,
   ]);
 
   // Fetch all display data
   useEffect(() => {
-    fetchDisplayData();
+    if (accessCode) {
+      setGuestAccessCode(accessCode);
+    }
+  }, [accessCode]);
 
+  useEffect(() => {
     const fetchNotifications = async () => {
-      // Note: Notifications endpoint currently disabled (pending multi-tenant refactor)
-      // Notifications are currently disabled pending proper multi-tenant implementation
       console.log('📝 Notifications fetching skipped (multi-tenant refactor needed)');
-      try {
-        // Keeping error handling for future implementation
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      }
     };
 
     console.log('🚀 DisplayPage: useEffect running - client-side JS is working!');
@@ -702,12 +740,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     setIsClient(true);
     fetchDisplayData();
     fetchNotifications();
-
-    // State is now managed by GlobalEventProvider
-    // No manual status checks needed - Pusher handles real-time updates automatically
-
-    // No more polling - Pusher handles real-time updates!
-  }, [username]); // Re-fetch when username changes
+  }, [username, accessCode, fetchDisplayData]);
 
   // DJ-selected display mood (replaces free-form colour theme)
   const displayMood = resolveDisplayMood(
@@ -751,6 +784,7 @@ export function useDisplayData({ username }: UseDisplayDataOptions) {
     currentTrack,
     upcomingSongs,
     eventSettings,
+    guestAccessCode,
     moodConfirmed,
     qrCodeUrl,
     deviceType,

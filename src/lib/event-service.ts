@@ -1,10 +1,11 @@
 /**
  * Event Management Service
- * Handles user events, PINs, bypass tokens, and display tokens
+ * Handles user events, access codes, bypass tokens (legacy), and display tokens
  */
 
 import { getPool } from '@/lib/db';
 import crypto from 'crypto';
+import { generateAccessCode } from '@/lib/access-code';
 
 // ============================================================================
 // Types
@@ -14,7 +15,10 @@ export interface UserEvent {
   id: string;
   user_id: string;
   name: string | null;
+  /** @deprecated use access_code — DB column still named pin */
   pin: string;
+  /** Per-event guest URL secret (6-digit or secure alphanumeric) */
+  access_code: string;
   bypass_token: string;
   active: boolean;
   started_at: Date;
@@ -34,21 +38,21 @@ export interface DisplayToken {
   last_used_at: Date | null;
 }
 
-// ============================================================================
-// PIN Generation (with pattern avoidance)
-// ============================================================================
-
-const AVOIDED_PATTERNS = [
-  '1234', '4321', '0000', '1111', '2222', '3333', '4444', '5555', 
-  '6666', '7777', '8888', '9999', '1212', '6969', '0420'
-];
-
-function generateSecurePIN(): string {
-  let pin: string;
-  do {
-    pin = Math.floor(1000 + Math.random() * 9000).toString();
-  } while (AVOIDED_PATTERNS.includes(pin));
-  return pin;
+function mapUserEvent(row: Record<string, unknown>): UserEvent {
+  const code = String(row.access_code || row.pin || '');
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    name: (row.name as string | null) ?? null,
+    pin: code,
+    access_code: code,
+    bypass_token: String(row.bypass_token || ''),
+    active: Boolean(row.active),
+    started_at: row.started_at as Date,
+    ended_at: (row.ended_at as Date | null) ?? null,
+    expires_at: row.expires_at as Date,
+    created_at: row.created_at as Date,
+  };
 }
 
 // ============================================================================
@@ -56,13 +60,24 @@ function generateSecurePIN(): string {
 // ============================================================================
 
 function generateBypassToken(): string {
-  // Generate 29 bytes (58 hex chars) + "bp_" prefix = 61 chars total (under 64 limit)
   return `bp_${crypto.randomBytes(29).toString('hex')}`;
 }
 
 function generateDisplayToken(): string {
-  // Generate 29 bytes (58 hex chars) + "dt_" prefix = 61 chars total (under 64 limit)
   return `dt_${crypto.randomBytes(29).toString('hex')}`;
+}
+
+async function getSecureUrlAccessPreference(userId: string): Promise<boolean> {
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT secure_url_access FROM user_settings WHERE user_id = $1`,
+      [userId]
+    );
+    return Boolean(result.rows[0]?.secure_url_access);
+  } catch {
+    return false;
+  }
 }
 
 // ============================================================================
@@ -87,7 +102,7 @@ export async function getActiveEvent(userId: string): Promise<UserEvent | null> 
       return null;
     }
 
-    return result.rows[0] as UserEvent;
+    return mapUserEvent(result.rows[0]);
   } catch (error) {
     console.error('❌ Failed to get active event:', error);
     throw error;
@@ -100,16 +115,15 @@ export async function getActiveEvent(userId: string): Promise<UserEvent | null> 
  * Resets display mood to DJ Tool so each new event starts from the default theme
  */
 export async function createEvent(
-  userId: string, 
+  userId: string,
   eventName?: string
 ): Promise<UserEvent> {
   const pool = getPool();
   const client = await pool.connect();
-  
+
   try {
     await client.query('BEGIN');
 
-    // Deactivate any existing active events
     await client.query(
       `UPDATE user_events 
        SET active = false, ended_at = NOW() 
@@ -117,19 +131,28 @@ export async function createEvent(
       [userId]
     );
 
-    // Generate PIN and bypass token
-    const pin = generateSecurePIN();
+    const secure = await getSecureUrlAccessPreference(userId);
+    const accessCode = generateAccessCode(secure);
     const bypassToken = generateBypassToken();
 
-    // Create new event
-    const result = await client.query(
-      `INSERT INTO user_events (user_id, name, pin, bypass_token, active, expires_at)
-       VALUES ($1, $2, $3, $4, true, NOW() + INTERVAL '24 hours')
-       RETURNING *`,
-      [userId, eventName || null, pin, bypassToken]
-    );
+    // pin column stores the access code (TEXT); access_code mirrored when column exists
+    let result;
+    try {
+      result = await client.query(
+        `INSERT INTO user_events (user_id, name, pin, access_code, bypass_token, active, expires_at)
+         VALUES ($1, $2, $3, $3, $4, true, NOW() + INTERVAL '24 hours')
+         RETURNING *`,
+        [userId, eventName || null, accessCode, bypassToken]
+      );
+    } catch {
+      result = await client.query(
+        `INSERT INTO user_events (user_id, name, pin, bypass_token, active, expires_at)
+         VALUES ($1, $2, $3, $4, true, NOW() + INTERVAL '24 hours')
+         RETURNING *`,
+        [userId, eventName || null, accessCode, bypassToken]
+      );
+    }
 
-    // Reset shared request/display mood to DJ Tool for the new event
     const { DEFAULT_DISPLAY_MOOD } = await import('@/styles/theme');
     await client.query(
       `INSERT INTO user_settings (user_id, display_mood)
@@ -141,9 +164,8 @@ export async function createEvent(
 
     await client.query('COMMIT');
 
-    console.log(`✅ Created new event for user ${userId}, PIN: ${pin}`);
+    console.log(`✅ Created new event for user ${userId}, access code: ${accessCode}`);
 
-    // Notify request + display clients of the mood reset (best-effort)
     try {
       const { getEventSettings } = await import('@/lib/db');
       const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
@@ -157,14 +179,56 @@ export async function createEvent(
       console.error('Failed to broadcast mood reset after createEvent:', pusherError);
     }
 
-    return result.rows[0] as UserEvent;
-
+    return mapUserEvent(result.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ Failed to create event:', error);
     throw error;
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Regenerate the access code for the active event (e.g. secure-mode toggle).
+ */
+export async function regenerateActiveEventAccessCode(
+  userId: string
+): Promise<UserEvent | null> {
+  const pool = getPool();
+  const secure = await getSecureUrlAccessPreference(userId);
+  const accessCode = generateAccessCode(secure);
+  const bypassToken = generateBypassToken();
+
+  try {
+    let result;
+    try {
+      result = await pool.query(
+        `UPDATE user_events
+         SET pin = $2, access_code = $2, bypass_token = $3
+         WHERE user_id = $1 AND active = true AND expires_at > NOW()
+         RETURNING *`,
+        [userId, accessCode, bypassToken]
+      );
+    } catch {
+      result = await pool.query(
+        `UPDATE user_events
+         SET pin = $2, bypass_token = $3
+         WHERE user_id = $1 AND active = true AND expires_at > NOW()
+         RETURNING *`,
+        [userId, accessCode, bypassToken]
+      );
+    }
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    console.log(`✅ Regenerated access code for user ${userId}: ${accessCode}`);
+    return mapUserEvent(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Failed to regenerate access code:', error);
+    throw error;
   }
 }
 
@@ -189,48 +253,70 @@ export async function endEvent(eventId: string, userId: string): Promise<void> {
 }
 
 // ============================================================================
-// PIN Verification
+// Access code verification
 // ============================================================================
 
 /**
- * Verify PIN for a user's event
- * Returns the event if PIN is correct
+ * Verify access code for a user's event (also accepts legacy 4-digit PIN).
  */
-export async function verifyPIN(username: string, pin: string): Promise<UserEvent | null> {
+export async function verifyAccessCode(
+  username: string,
+  accessCode: string
+): Promise<UserEvent | null> {
   try {
     const pool = getPool();
     const result = await pool.query(
       `SELECT e.* FROM user_events e
        INNER JOIN users u ON u.id = e.user_id
        WHERE u.username = $1 
-       AND e.pin = $2 
+       AND (
+         e.pin = $2
+         OR COALESCE(e.access_code, '') = $2
+       )
        AND e.active = true 
        AND e.expires_at > NOW()
        LIMIT 1`,
-      [username, pin]
+      [username, accessCode]
     );
 
     if (result.rows.length === 0) {
       return null;
     }
 
-    return result.rows[0] as UserEvent;
+    return mapUserEvent(result.rows[0]);
   } catch (error) {
-    console.error('❌ Failed to verify PIN:', error);
-    throw error;
+    // access_code column may not exist yet
+    try {
+      const pool = getPool();
+      const result = await pool.query(
+        `SELECT e.* FROM user_events e
+         INNER JOIN users u ON u.id = e.user_id
+         WHERE u.username = $1 
+         AND e.pin = $2
+         AND e.active = true 
+         AND e.expires_at > NOW()
+         LIMIT 1`,
+        [username, accessCode]
+      );
+      if (result.rows.length === 0) return null;
+      return mapUserEvent(result.rows[0]);
+    } catch (fallbackError) {
+      console.error('❌ Failed to verify access code:', fallbackError);
+      throw fallbackError;
+    }
   }
 }
 
-// ============================================================================
-// Bypass Token Verification
-// ============================================================================
+/** @deprecated use verifyAccessCode */
+export async function verifyPIN(username: string, pin: string): Promise<UserEvent | null> {
+  return verifyAccessCode(username, pin);
+}
 
 /**
- * Verify bypass token for a user's event
- * Returns the event if token is valid
+ * Verify bypass token for a user's event (legacy QR links)
  */
 export async function verifyBypassToken(
-  username: string, 
+  username: string,
   bypassToken: string
 ): Promise<UserEvent | null> {
   try {
@@ -250,7 +336,7 @@ export async function verifyBypassToken(
       return null;
     }
 
-    return result.rows[0] as UserEvent;
+    return mapUserEvent(result.rows[0]);
   } catch (error) {
     console.error('❌ Failed to verify bypass token:', error);
     throw error;
@@ -261,10 +347,6 @@ export async function verifyBypassToken(
 // Display Token Management
 // ============================================================================
 
-/**
- * Create a new display token for an event
- * Limited to 3 uses by default
- */
 export async function createDisplayToken(
   eventId: string,
   userId: string,
@@ -285,17 +367,12 @@ export async function createDisplayToken(
 
     console.log(`✅ Created display token for event ${eventId}`);
     return result.rows[0] as DisplayToken;
-
   } catch (error) {
     console.error('❌ Failed to create display token:', error);
     throw error;
   }
 }
 
-/**
- * Verify and consume a display token
- * Returns the event if token is valid
- */
 export async function verifyDisplayToken(
   username: string,
   displayToken: string
@@ -306,7 +383,6 @@ export async function verifyDisplayToken(
   try {
     await client.query('BEGIN');
 
-    // Get token and event
     const result = await client.query(
       `SELECT dt.*, e.*, 
               dt.id as token_id, dt.uses_remaining as token_uses,
@@ -331,7 +407,6 @@ export async function verifyDisplayToken(
 
     const row = result.rows[0];
 
-    // Decrement uses_remaining
     await client.query(
       `UPDATE display_tokens 
        SET uses_remaining = uses_remaining - 1, last_used_at = NOW() 
@@ -341,34 +416,25 @@ export async function verifyDisplayToken(
 
     await client.query('COMMIT');
 
-    // Construct return objects
-    const event: UserEvent = {
+    const event = mapUserEvent({
+      ...row,
       id: row.event_id,
       user_id: row.event_user_id,
-      name: row.name,
-      pin: row.pin,
-      bypass_token: row.bypass_token,
-      active: row.active,
-      started_at: row.started_at,
-      ended_at: row.ended_at,
-      expires_at: row.expires_at,
-      created_at: row.created_at
-    };
+    });
 
     const token: DisplayToken = {
       id: row.token_id,
       event_id: row.event_id,
       user_id: row.event_user_id,
       token: row.token,
-      uses_remaining: row.token_uses - 1, // After decrement
+      uses_remaining: row.token_uses - 1,
       expires_at: row.expires_at,
       created_at: row.created_at,
-      last_used_at: new Date()
+      last_used_at: new Date(),
     };
 
     console.log(`✅ Verified display token for event ${event.id}`);
     return { event, token };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ Failed to verify display token:', error);
@@ -378,9 +444,6 @@ export async function verifyDisplayToken(
   }
 }
 
-/**
- * Revoke a display token (set uses_remaining to 0)
- */
 export async function revokeDisplayToken(tokenId: string, userId: string): Promise<void> {
   try {
     const pool = getPool();
@@ -398,11 +461,8 @@ export async function revokeDisplayToken(tokenId: string, userId: string): Promi
   }
 }
 
-/**
- * Get all display tokens for an event
- */
 export async function getDisplayTokensForEvent(
-  eventId: string, 
+  eventId: string,
   userId: string
 ): Promise<DisplayToken[]> {
   try {
@@ -420,4 +480,3 @@ export async function getDisplayTokensForEvent(
     throw error;
   }
 }
-

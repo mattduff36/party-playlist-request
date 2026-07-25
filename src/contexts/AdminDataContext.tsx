@@ -77,6 +77,7 @@ export interface EventSettings {
   theme_tertiary_color?: string;
   show_scrolling_bar?: boolean;
   karaoke_mode?: boolean;
+  secure_url_access?: boolean;
   pages_enabled?: {
     requests: boolean;
     display: boolean;
@@ -235,6 +236,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const refreshRequestsRef = useRef<() => Promise<void>>(async () => {});
   const refreshStatsRef = useRef<() => Promise<void>>(async () => {});
   const refreshPlaybackStateRef = useRef<() => Promise<void>>(async () => {});
+  const refreshEventSettingsRef = useRef<() => Promise<void>>(async () => {});
 
   const { isConnected, connectionState } = usePusher({
     onRequestApproved: () => {
@@ -603,20 +605,24 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   refreshRequestsRef.current = refreshRequests;
   refreshStatsRef.current = refreshStats;
   refreshPlaybackStateRef.current = refreshPlaybackState;
+  refreshEventSettingsRef.current = refreshEventSettings;
 
   // Soft refresh: never toggle loading after first paint (avoids remounting children)
   const refreshData = useCallback(async () => {
     if (!hasInitialLoad) {
       setLoading(true);
     }
-    await Promise.all([
-      refreshRequests(),
-      refreshPlaybackState(),
-      refreshEventSettings(),
-      refreshStats(),
-    ]);
-    setLoading(false);
-    setHasInitialLoad(true);
+    try {
+      await Promise.all([
+        refreshRequests(),
+        refreshPlaybackState(),
+        refreshEventSettings(),
+        refreshStats(),
+      ]);
+    } finally {
+      setLoading(false);
+      setHasInitialLoad(true);
+    }
   }, [
     hasInitialLoad,
     refreshRequests,
@@ -686,17 +692,47 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshPlaybackState, refreshStats, setSpotifyConnected]);
 
+  // Mount-once init. Do NOT depend on refresh* identities — when those callbacks
+  // change, a re-run was setting loading=true again while an in-flight init could
+  // hang, leaving the admin shell stuck on "Loading admin data..." forever
+  // (playback sidebar could already show data from a partial prior fetch).
   useEffect(() => {
+    let cancelled = false;
+    const INIT_TIMEOUT_MS = 12_000;
+
+    const withTimeout = async (work: Promise<void>, label: string) => {
+      try {
+        await Promise.race([
+          work,
+          new Promise<void>((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`Admin init ${label} timed out`)),
+              INIT_TIMEOUT_MS
+            );
+          }),
+        ]);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
     const initializeAdmin = async () => {
       setLoading(true);
-      await Promise.all([
-        refreshRequests(),
-        refreshPlaybackState(),
-        refreshEventSettings(),
-        refreshStats(),
-      ]);
-      setLoading(false);
-      setHasInitialLoad(true);
+      try {
+        await Promise.all([
+          withTimeout(refreshRequestsRef.current(), 'requests'),
+          withTimeout(refreshPlaybackStateRef.current(), 'playback'),
+          withTimeout(refreshEventSettingsRef.current(), 'settings'),
+          withTimeout(refreshStatsRef.current(), 'stats'),
+        ]);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setHasInitialLoad(true);
+        }
+      }
+
+      if (cancelled) return;
 
       try {
         await fetch('/api/admin/spotify-watcher', {
@@ -717,6 +753,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     void initializeAdmin();
 
     return () => {
+      cancelled = true;
       hydrateRetryTimersRef.current.forEach(clearTimeout);
       if (playbackPollRef.current) clearInterval(playbackPollRef.current);
       if (disconnectedDebounceRef.current) {
@@ -729,7 +766,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ action: 'stop' }),
       }).catch(() => {});
     };
-  }, [refreshRequests, refreshPlaybackState, refreshEventSettings, refreshStats]);
+  }, []);
 
   // Light poll until first confirmed track (then Pusher owns updates)
   useEffect(() => {

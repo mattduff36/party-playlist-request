@@ -15,6 +15,21 @@ interface StateControlPanelProps {
   className?: string;
 }
 
+/** Bound fan-out calls so Event Control cannot stick on "Updating..." forever. */
+async function adminFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 12_000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default function StateControlPanel({ className = '' }: StateControlPanelProps) {
   const { state, actions } = useGlobalEvent();
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -52,7 +67,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
         if (!state.pagesEnabled.requests) {
           try {
             console.log('✅ Enabling Requests page...');
-            await fetch('/api/event/pages', {
+            await adminFetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -71,7 +86,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
         if (!state.pagesEnabled.display) {
           try {
             console.log('✅ Enabling Display page...');
-            await fetch('/api/event/pages', {
+            await adminFetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -97,7 +112,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
             // First, pause the currently playing song (if any)
             try {
               console.log('⏸️ Pausing Spotify playback...');
-              await fetch('/api/admin/playback/pause', {
+              await adminFetch('/api/admin/playback/pause', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
@@ -111,7 +126,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
             }
 
             // Then disconnect
-            await fetch('/api/spotify/disconnect', {
+            await adminFetch('/api/spotify/disconnect', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -129,7 +144,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
         if (state.pagesEnabled.requests) {
           try {
             console.log('🔌 Disabling Requests page...');
-            await fetch('/api/event/pages', {
+            await adminFetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -147,7 +162,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
         if (state.pagesEnabled.display) {
           try {
             console.log('🔌 Disabling Display page...');
-            await fetch('/api/event/pages', {
+            await adminFetch('/api/event/pages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -162,7 +177,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
         }
       }
 
-      // Update the event status
+      // Update the event status (must not hang — finally clears Updating...)
       await actions?.setEventStatus?.(newStatus);
     } catch (error) {
       console.error('Failed to change event status:', error);

@@ -1,5 +1,6 @@
 import Pusher from 'pusher';
 import PusherClient from 'pusher-js';
+import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
 
 // Server-side Pusher instance
 export const pusherServer = new Pusher({
@@ -198,11 +199,13 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
       uri: data.current_track.uri,
       duration_ms: data.current_track.duration_ms
     } : null,
-    queue: data.queue?.slice(0, 10).map((track: any) => ({ // Limit to 10 tracks to stay under 10KB
+    // Single image_url per track (~90B) — no full album.images arrays / extra Spotify calls
+    queue: data.queue?.slice(0, 10).map((track: any) => ({
       id: track.id,
       name: track.name?.substring(0, 100) || '', // Truncate long names
       artists: track.artists?.slice(0, 2).map(compactArtist) || [],
       uri: track.uri,
+      image_url: getTrackAlbumImageUrl(track) || null,
       requester_nickname: track.requester_nickname?.substring(0, 30) || null
     })) || [],
     is_playing: data.is_playing,

@@ -1,29 +1,57 @@
 /**
  * Health Check System
- * 
- * This module provides comprehensive health checks for all system components
- * including database, cache, external services, and application state.
+ *
+ * Probes required runtime dependencies and reports optional / unconfigured
+ * services as skipped so they do not fail the overall rollup.
  */
 
 export interface HealthCheck {
   name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'skipped';
   message: string;
   timestamp: number;
   responseTime?: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
+}
+
+export interface HealthSummary {
+  total: number;
+  healthy: number;
+  degraded: number;
+  unhealthy: number;
+  skipped: number;
 }
 
 export interface SystemHealth {
   overall: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: number;
   checks: HealthCheck[];
-  summary: {
-    total: number;
-    healthy: number;
-    degraded: number;
-    unhealthy: number;
-  };
+  summary: HealthSummary;
+}
+
+function isRedisConfigured(): boolean {
+  return Boolean(
+    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+      process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
+  );
+}
+
+function isPusherConfigured(): boolean {
+  const appId = process.env.PUSHER_APP_ID?.trim();
+  const key = process.env.PUSHER_KEY?.trim();
+  const secret = process.env.PUSHER_SECRET?.trim();
+  if (!appId || !key || !secret) return false;
+  // Module falls back to placeholder values when env is missing
+  if (appId === 'fallback-app-id' || key === 'fallback-key' || secret === 'fallback-secret') {
+    return false;
+  }
+  return true;
+}
+
+function isVercelKvConfigured(): boolean {
+  return Boolean(
+    process.env.KV_REST_API_URL?.trim() && process.env.KV_REST_API_TOKEN?.trim()
+  );
 }
 
 class HealthCheckSystem {
@@ -57,21 +85,19 @@ class HealthCheckSystem {
    * Run all health checks
    */
   async runAllChecks(): Promise<SystemHealth> {
-    const startTime = Date.now();
     const checkPromises: Promise<HealthCheck>[] = [];
 
     for (const [name, checkFunction] of this.checks) {
-      checkPromises.push(
-        this.runSingleCheck(name, checkFunction)
-      );
+      checkPromises.push(this.runSingleCheck(name, checkFunction));
     }
 
     const results = await Promise.allSettled(checkPromises);
     const checks: HealthCheck[] = [];
+    const checkNames = Array.from(this.checks.keys());
 
     results.forEach((result, index) => {
-      const checkName = Array.from(this.checks.keys())[index];
-      
+      const checkName = checkNames[index];
+
       if (result.status === 'fulfilled') {
         checks.push(result.value);
         this.lastResults.set(checkName, result.value);
@@ -161,21 +187,25 @@ class HealthCheckSystem {
   getHealthMetrics() {
     const health = this.getLastResults();
     const now = Date.now();
-    
+
     return {
       overall_status: health.overall,
       healthy_checks: health.summary.healthy,
       degraded_checks: health.summary.degraded,
       unhealthy_checks: health.summary.unhealthy,
+      skipped_checks: health.summary.skipped,
       total_checks: health.summary.total,
       last_check_time: health.timestamp,
       time_since_last_check: now - health.timestamp,
     };
   }
 
-  private async runSingleCheck(name: string, checkFunction: () => Promise<HealthCheck>): Promise<HealthCheck> {
+  private async runSingleCheck(
+    name: string,
+    checkFunction: () => Promise<HealthCheck>
+  ): Promise<HealthCheck> {
     const startTime = Date.now();
-    
+
     try {
       const result = await checkFunction();
       result.responseTime = Date.now() - startTime;
@@ -191,33 +221,47 @@ class HealthCheckSystem {
     }
   }
 
-  private calculateSummary(checks: HealthCheck[]) {
-    const total = checks.length;
-    const healthy = checks.filter(c => c.status === 'healthy').length;
-    const degraded = checks.filter(c => c.status === 'degraded').length;
-    const unhealthy = checks.filter(c => c.status === 'unhealthy').length;
-
-    return { total, healthy, degraded, unhealthy };
+  private calculateSummary(checks: HealthCheck[]): HealthSummary {
+    return {
+      total: checks.length,
+      healthy: checks.filter((c) => c.status === 'healthy').length,
+      degraded: checks.filter((c) => c.status === 'degraded').length,
+      unhealthy: checks.filter((c) => c.status === 'unhealthy').length,
+      skipped: checks.filter((c) => c.status === 'skipped').length,
+    };
   }
 
-  private determineOverallStatus(summary: { total: number; healthy: number; degraded: number; unhealthy: number }): 'healthy' | 'degraded' | 'unhealthy' {
+  /**
+   * Overall status ignores skipped checks (optional / not configured).
+   */
+  private determineOverallStatus(
+    summary: HealthSummary
+  ): 'healthy' | 'degraded' | 'unhealthy' {
     if (summary.unhealthy > 0) return 'unhealthy';
     if (summary.degraded > 0) return 'degraded';
     return 'healthy';
   }
 
   private initializeDefaultChecks() {
-    // Database health check
+    // Database — required when DATABASE_URL is set (core dependency)
     this.addCheck('database', async () => {
+      if (!process.env.DATABASE_URL?.trim()) {
+        return {
+          name: 'database',
+          status: 'skipped',
+          message: 'Not configured (DATABASE_URL missing)',
+          timestamp: Date.now(),
+          details: { configured: false },
+        };
+      }
+
       try {
-        const { db } = await import('@/lib/db');
+        const { getPool } = await import('@/lib/db');
         const startTime = Date.now();
-        
-        // Simple query to test database connectivity
-        await db.execute('SELECT 1 as test');
-        
+        const pool = getPool();
+        await pool.query('SELECT 1 AS test');
         const responseTime = Date.now() - startTime;
-        
+
         return {
           name: 'database',
           status: responseTime < 1000 ? 'healthy' : 'degraded',
@@ -242,30 +286,51 @@ class HealthCheckSystem {
       }
     });
 
-    // Redis health check
+    // Redis / Upstash — optional
     this.addCheck('redis', async () => {
+      if (!isRedisConfigured()) {
+        return {
+          name: 'redis',
+          status: 'skipped',
+          message: 'Not configured (UPSTASH_REDIS_REST_URL / TOKEN missing)',
+          timestamp: Date.now(),
+          details: { configured: false },
+        };
+      }
+
       try {
-        const { getRedisClient } = await import('@/lib/redis');
-        const redis = getRedisClient();
+        const { getRedisClient, initializeRedis } = await import('@/lib/redis');
         const startTime = Date.now();
-        
-        // Test Redis connectivity
-        await redis.set('health_check', 'test', { ex: 10 });
-        const value = await redis.get('health_check');
+        await initializeRedis();
+        const redis = getRedisClient();
+
+        if (!redis.isReady()) {
+          return {
+            name: 'redis',
+            status: 'unhealthy',
+            message: 'Redis is configured but not ready',
+            timestamp: Date.now(),
+            responseTime: Date.now() - startTime,
+            details: { configured: true, ready: false },
+          };
+        }
+
+        const writeOk = await redis.set('health_check', 'test', 10);
+        const value = await redis.get<string>('health_check');
         await redis.del('health_check');
-        
         const responseTime = Date.now() - startTime;
-        
-        if (value !== 'test') {
+
+        if (!writeOk || value !== 'test') {
           return {
             name: 'redis',
             status: 'unhealthy',
             message: 'Redis read/write test failed',
             timestamp: Date.now(),
             responseTime,
+            details: { configured: true, writeOk, value },
           };
         }
-        
+
         return {
           name: 'redis',
           status: responseTime < 500 ? 'healthy' : 'degraded',
@@ -290,46 +355,55 @@ class HealthCheckSystem {
       }
     });
 
-    // Database cache health check
-    this.addCheck('database_cache', async () => {
+    // Vercel KV — retired / optional; only probe if KV env is present
+    this.addCheck('vercel_kv', async () => {
+      if (!isVercelKvConfigured()) {
+        return {
+          name: 'vercel_kv',
+          status: 'skipped',
+          message: 'Not configured (Vercel KV retired; use Redis or DB when needed)',
+          timestamp: Date.now(),
+          details: { configured: false },
+        };
+      }
+
       try {
         const { getCacheClient } = await import('@/lib/cache');
         const cache = getCacheClient();
         const startTime = Date.now();
-        
-        // Test database cache connectivity
+
         await cache.set('health_check', 'test', 10);
         const value = await cache.get('health_check');
         await cache.delete('health_check');
-        
         const responseTime = Date.now() - startTime;
-        
+
         if (value !== 'test') {
           return {
-            name: 'database_cache',
+            name: 'vercel_kv',
             status: 'unhealthy',
-            message: 'Database cache read/write test failed',
+            message: 'Cache read/write test failed',
             timestamp: Date.now(),
             responseTime,
           };
         }
-        
+
         return {
-          name: 'database_cache',
+          name: 'vercel_kv',
           status: responseTime < 1000 ? 'healthy' : 'degraded',
-          message: `Database cache connection successful (${responseTime}ms)`,
+          message: `Cache connection successful (${responseTime}ms)`,
           timestamp: Date.now(),
           responseTime,
           details: {
             responseTime,
             readWriteTest: 'passed',
+            backend: 'database_cache',
           },
         };
       } catch (error) {
         return {
           name: 'vercel_kv',
           status: 'unhealthy',
-          message: `Vercel KV connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `Cache connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
           timestamp: Date.now(),
           details: {
             error: error instanceof Error ? error.message : 'Unknown error',
@@ -338,39 +412,42 @@ class HealthCheckSystem {
       }
     });
 
-    // Pusher health check
+    // Pusher — optional realtime
     this.addCheck('pusher', async () => {
+      if (!isPusherConfigured()) {
+        return {
+          name: 'pusher',
+          status: 'skipped',
+          message: 'Not configured (PUSHER_APP_ID / KEY / SECRET missing)',
+          timestamp: Date.now(),
+          details: { configured: false },
+        };
+      }
+
       try {
-        const { pusher } = await import('@/lib/pusher');
+        const { pusherServer } = await import('@/lib/pusher');
         const startTime = Date.now();
-        
-        // Test Pusher configuration
-        const isConfigured = pusher && pusher.appId && pusher.key && pusher.secret;
-        
-        const responseTime = Date.now() - startTime;
-        
-        if (!isConfigured) {
+
+        if (!pusherServer) {
           return {
             name: 'pusher',
             status: 'unhealthy',
-            message: 'Pusher not properly configured',
+            message: 'Pusher client failed to initialize',
             timestamp: Date.now(),
-            responseTime,
-            details: {
-              configured: false,
-            },
+            responseTime: Date.now() - startTime,
+            details: { configured: true },
           };
         }
-        
+
         return {
           name: 'pusher',
           status: 'healthy',
           message: 'Pusher configuration valid',
           timestamp: Date.now(),
-          responseTime,
+          responseTime: Date.now() - startTime,
           details: {
             configured: true,
-            appId: pusher.appId,
+            cluster: process.env.PUSHER_CLUSTER || 'us2',
           },
         };
       } catch (error) {
@@ -386,24 +463,30 @@ class HealthCheckSystem {
       }
     });
 
-    // Memory health check
+    // Memory — absolute heap thresholds (heapUsed/heapTotal is meaningless on V8/serverless)
     this.addCheck('memory', async () => {
       const memoryUsage = process.memoryUsage();
       const heapUsedMB = memoryUsage.heapUsed / 1024 / 1024;
       const heapTotalMB = memoryUsage.heapTotal / 1024 / 1024;
-      const usagePercent = (heapUsedMB / heapTotalMB) * 100;
-      
-      let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-      let message = `Memory usage: ${heapUsedMB.toFixed(2)}MB (${usagePercent.toFixed(1)}%)`;
-      
-      if (usagePercent > 90) {
+      const rssMB = memoryUsage.rss / 1024 / 1024;
+
+      // Absolute MB thresholds suitable for Node serverless / small heaps
+      const HEAP_DEGRADED_MB = 256;
+      const HEAP_UNHEALTHY_MB = 512;
+      const RSS_DEGRADED_MB = 768;
+      const RSS_UNHEALTHY_MB = 1024;
+
+      let status: HealthCheck['status'] = 'healthy';
+      let message = `Memory usage: ${heapUsedMB.toFixed(2)}MB heap, ${rssMB.toFixed(2)}MB RSS`;
+
+      if (heapUsedMB > HEAP_UNHEALTHY_MB || rssMB > RSS_UNHEALTHY_MB) {
         status = 'unhealthy';
-        message += ' - CRITICAL: Memory usage over 90%';
-      } else if (usagePercent > 80) {
+        message += ' - CRITICAL: absolute memory threshold exceeded';
+      } else if (heapUsedMB > HEAP_DEGRADED_MB || rssMB > RSS_DEGRADED_MB) {
         status = 'degraded';
-        message += ' - WARNING: Memory usage over 80%';
+        message += ' - WARNING: elevated memory usage';
       }
-      
+
       return {
         name: 'memory',
         status,
@@ -412,24 +495,27 @@ class HealthCheckSystem {
         details: {
           heapUsed: memoryUsage.heapUsed,
           heapTotal: memoryUsage.heapTotal,
+          heapUsedMB,
+          heapTotalMB,
           external: memoryUsage.external,
           rss: memoryUsage.rss,
-          usagePercent,
+          rssMB,
+          note: 'Uses absolute MB thresholds; heapUsed/heapTotal ratio is not used',
         },
       };
     });
 
-    // Event loop lag check
+    // Event loop lag
     this.addCheck('event_loop', async () => {
       return new Promise((resolve) => {
         const start = process.hrtime.bigint();
-        
+
         setImmediate(() => {
-          const lag = Number(process.hrtime.bigint() - start) / 1000000; // Convert to ms
-          
-          let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+          const lag = Number(process.hrtime.bigint() - start) / 1000000; // ms
+
+          let status: HealthCheck['status'] = 'healthy';
           let message = `Event loop lag: ${lag.toFixed(2)}ms`;
-          
+
           if (lag > 100) {
             status = 'unhealthy';
             message += ' - CRITICAL: Event loop lag over 100ms';
@@ -437,7 +523,7 @@ class HealthCheckSystem {
             status = 'degraded';
             message += ' - WARNING: Event loop lag over 50ms';
           }
-          
+
           resolve({
             name: 'event_loop',
             status,
@@ -451,59 +537,46 @@ class HealthCheckSystem {
       });
     });
 
-    // Application state check
+    // Application modules — static import() paths (bundler-resolvable; server-safe only)
     this.addCheck('application_state', async () => {
-      try {
-        // Check if critical application components are available
-        const components = [
-          '@/lib/state/global-event-client',
-          '@/lib/pusher/events',
-          '@/lib/db',
-        ];
-        
-        const missingComponents = [];
-        
-        for (const component of components) {
-          try {
-            await import(component);
-          } catch (error) {
-            missingComponents.push(component);
-          }
+      const components: Array<{ id: string; load: () => Promise<unknown> }> = [
+        { id: '@/lib/db', load: () => import('@/lib/db') },
+        { id: '@/lib/pusher/events', load: () => import('@/lib/pusher/events') },
+        { id: '@/lib/event-service', load: () => import('@/lib/event-service') },
+      ];
+
+      const missingComponents: string[] = [];
+
+      for (const component of components) {
+        try {
+          await component.load();
+        } catch {
+          missingComponents.push(component.id);
         }
-        
-        if (missingComponents.length > 0) {
-          return {
-            name: 'application_state',
-            status: 'unhealthy',
-            message: `Missing critical components: ${missingComponents.join(', ')}`,
-            timestamp: Date.now(),
-            details: {
-              missingComponents,
-            },
-          };
-        }
-        
-        return {
-          name: 'application_state',
-          status: 'healthy',
-          message: 'All critical components available',
-          timestamp: Date.now(),
-          details: {
-            componentsChecked: components.length,
-            allComponentsAvailable: true,
-          },
-        };
-      } catch (error) {
+      }
+
+      if (missingComponents.length > 0) {
         return {
           name: 'application_state',
           status: 'unhealthy',
-          message: `Application state check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `Missing critical components: ${missingComponents.join(', ')}`,
           timestamp: Date.now(),
           details: {
-            error: error instanceof Error ? error.message : 'Unknown error',
+            missingComponents,
           },
         };
       }
+
+      return {
+        name: 'application_state',
+        status: 'healthy',
+        message: 'All critical components available',
+        timestamp: Date.now(),
+        details: {
+          componentsChecked: components.length,
+          allComponentsAvailable: true,
+        },
+      };
     });
   }
 }

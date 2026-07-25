@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         overall: 'unhealthy',
         timestamp: Date.now(),
         checks: [],
-        summary: { total: 0, healthy: 0, degraded: 0, unhealthy: 1 },
+        summary: { total: 0, healthy: 0, degraded: 0, unhealthy: 1, skipped: 0 },
         error: 'Health check failed'
       },
       { status: 503 }

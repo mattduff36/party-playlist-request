@@ -89,6 +89,8 @@ export interface EventSettings {
   qr_boost_duration: number | null;
   karaoke_mode: boolean;
   show_approval_messages: boolean;
+  /** When true, guest URLs use an 8-char secure code instead of 6 digits */
+  secure_url_access: boolean;
   updated_at: string;
 }
 
@@ -216,6 +218,7 @@ export async function initializeDatabase() {
         qr_boost_duration INTEGER DEFAULT 5,
         karaoke_mode BOOLEAN DEFAULT FALSE,
         show_approval_messages BOOLEAN DEFAULT FALSE,
+        secure_url_access BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -511,6 +514,49 @@ export async function initializeDatabase() {
       console.log('✅ display_mood columns ensured on user_settings and event_settings (default dj)');
     } catch (migrationError) {
       console.error('❌ display_mood migration failed:', migrationError);
+    }
+
+    // Migration: secure URL access + widen pin + user_events.access_code
+    // pin was VARCHAR(4) for legacy PINs; access codes are 6-digit or 8-char.
+    try {
+      await client.query(`
+        ALTER TABLE user_settings
+        ADD COLUMN IF NOT EXISTS secure_url_access BOOLEAN DEFAULT FALSE;
+      `);
+      await client.query(`
+        ALTER TABLE user_events
+        ALTER COLUMN pin TYPE TEXT;
+      `);
+      // Legacy constraint: pin ~ '^[0-9]{4}$' — blocks 6/8-char access codes
+      await client.query(`
+        ALTER TABLE user_events
+        DROP CONSTRAINT IF EXISTS user_events_pin_check;
+      `);
+      await client.query(`
+        ALTER TABLE user_events
+        ADD COLUMN IF NOT EXISTS access_code TEXT;
+      `);
+      await client.query(`
+        ALTER TABLE user_events
+        DROP CONSTRAINT IF EXISTS user_events_access_code_format_check;
+      `);
+      await client.query(`
+        ALTER TABLE user_events
+        ADD CONSTRAINT user_events_access_code_format_check
+        CHECK (
+          pin ~ '^[0-9]{4}$'
+          OR pin ~ '^[0-9]{6}$'
+          OR pin ~ '^[0-9A-HJ-NP-Z]{8}$'
+        );
+      `);
+      await client.query(`
+        UPDATE user_events
+        SET access_code = pin
+        WHERE access_code IS NULL AND pin IS NOT NULL;
+      `);
+      console.log('✅ secure_url_access + user_events.pin TEXT + access_code ensured');
+    } catch (migrationError) {
+      console.error('❌ access code migration failed:', migrationError);
     }
 
     // Empty scrolling message defaults (was prefilled DJ copy)
@@ -1124,6 +1170,7 @@ const EVENT_SETTINGS_UPDATABLE_FIELDS = new Set([
   'qr_boost_duration',
   'karaoke_mode',
   'show_approval_messages',
+  'secure_url_access',
 ]);
 
 export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {

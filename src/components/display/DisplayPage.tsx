@@ -13,6 +13,7 @@ import { useDisplayData } from './useDisplayData';
 
 interface DisplayPageProps {
   username: string;
+  accessCode?: string;
 }
 
 interface StatusDotsProps {
@@ -44,10 +45,11 @@ function StatusDots({ isConnected, connectionState, spotifyConnected }: StatusDo
 }
 
 // Main display page component with ALL original animations preserved
-export default function DisplayPage({ username }: DisplayPageProps) {
+export default function DisplayPage({ username, accessCode }: DisplayPageProps) {
   const {
     currentTrack,
     upcomingSongs,
+    guestAccessCode,
     eventSettings,
     moodConfirmed,
     qrCodeUrl,
@@ -69,7 +71,7 @@ export default function DisplayPage({ username }: DisplayPageProps) {
     dynamicDuration,
     messageTextColor,
     spotifyConnected,
-  } = useDisplayData({ username });
+  } = useDisplayData({ username, accessCode });
 
   // Show loading state while mounting, waiting for global state, or server mood
   const isLoadingEssentialData = !mounted || globalState.isLoading || !moodConfirmed;
@@ -179,7 +181,18 @@ export default function DisplayPage({ username }: DisplayPageProps) {
                   variant="tv"
                   qrCodeUrl={qrCodeUrl}
                   username={username}
-                  pin={globalState.pin}
+                  pin={
+                    guestAccessCode ||
+                    accessCode ||
+                    (eventSettings as { access_code?: string } | null)?.access_code ||
+                    null
+                  }
+                  accessCode={
+                    guestAccessCode ||
+                    accessCode ||
+                    (eventSettings as { access_code?: string } | null)?.access_code ||
+                    null
+                  }
                   useHorizontalLayout={finalUseHorizontalLayout}
                   style={{
                     gridColumn: '1 / span 2',

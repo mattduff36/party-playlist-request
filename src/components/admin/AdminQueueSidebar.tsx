@@ -1,8 +1,10 @@
 'use client';
 
-import { ListMusic, Music } from 'lucide-react';
+import { ListMusic } from 'lucide-react';
 import { useAdminData, type QueueTrack } from '@/contexts/AdminDataContext';
+import QueueTrackCover from '@/components/shared/QueueTrackCover';
 import { formatArtists } from '@/lib/format-artists';
+import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
 
 interface NormalizedTrack {
   key: string;
@@ -10,14 +12,6 @@ interface NormalizedTrack {
   artists: string;
   imageUrl?: string;
   requesterNickname?: string;
-}
-
-function getImageUrl(track: QueueTrack): string | undefined {
-  if (track.image_url) return track.image_url;
-  if (track.album && typeof track.album === 'object') {
-    return track.album.images?.[0]?.url || track.album.images?.[1]?.url;
-  }
-  return undefined;
 }
 
 function getRequesterNickname(track: QueueTrack): string | undefined {
@@ -29,7 +23,7 @@ function normalizeQueueTrack(track: QueueTrack, index: number): NormalizedTrack 
     key: track.uri || track.id || `queue-${index}`,
     name: track.name || 'Unknown Track',
     artists: formatArtists(track.artists),
-    imageUrl: getImageUrl(track),
+    imageUrl: getTrackAlbumImageUrl(track),
     requesterNickname: getRequesterNickname(track),
   };
 }
@@ -43,17 +37,12 @@ function TrackRow({
 }) {
   return (
     <div className="flex items-center gap-3 min-w-0 px-3 py-2 rounded-lg hover:bg-surface/60 transition-colors">
-      <div className="w-10 h-10 rounded bg-surface flex-shrink-0 overflow-hidden flex items-center justify-center">
-        {track.imageUrl ? (
-          <img
-            src={track.imageUrl}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <Music className="w-4 h-4 text-muted" aria-hidden="true" />
-        )}
-      </div>
+      <QueueTrackCover
+        imageUrl={track.imageUrl}
+        size="md"
+        className="bg-surface"
+        iconClassName="w-4 h-4 text-muted"
+      />
       <div className="min-w-0 flex-1">
         <p
           className={`text-sm font-medium truncate ${

@@ -2,8 +2,7 @@
 
 import { DisplayAuthGate, DisplayPage } from '@/components/display';
 
-/** Owner preview or session-restored display (no access code in path). */
-export default function UserDisplayPage() {
+export default function AccessCodeDisplayPage() {
   return (
     <DisplayAuthGate>
       {(username, accessCode) => (

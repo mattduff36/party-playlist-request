@@ -99,6 +99,13 @@ export default function PartyTestPage() {
     setLoading(true);
     setError('');
 
+    const code = config.requestPin?.trim() || '';
+    if (!code || (code.length !== 6 && code.length !== 8 && code.length !== 4)) {
+      setError('Enter a valid access code (6-digit or 8-char secure) from the DJ admin panel');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (useClientSide) {
         // Client-side implementation
@@ -387,22 +394,27 @@ export default function PartyTestPage() {
               </p>
             </div>
 
-            {/* Request PIN */}
+            {/* Access code */}
             <div>
               <label className="block text-sm font-medium text-muted mb-2">
-                Request PIN (Optional)
+                Access code (required)
               </label>
               <input
                 type="text"
                 value={config.requestPin}
-                onChange={(e) => setConfig({ ...config, requestPin: e.target.value })}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    requestPin: e.target.value.replace(/[^0-9a-zA-Z]/g, '').slice(0, 8).toUpperCase(),
+                  })
+                }
                 disabled={stats.isRunning}
-                placeholder="1234"
-                maxLength={4}
-                className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
+                placeholder="101234"
+                maxLength={8}
+                className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone placeholder-faint focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 font-mono tracking-wider"
               />
               <p className="text-xs text-faint mt-1">
-                Leave blank if the event doesn't require a PIN
+                6-digit (or 8-char secure) access code from the DJ admin panel
               </p>
             </div>
 

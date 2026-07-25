@@ -210,12 +210,28 @@ class EventBroadcaster {
     }
 
     if (event.action === 'playback_update' && event.data.queue) {
-      compressedEvent.data.queue = event.data.queue.slice(0, 10).map(track => ({
-        ...track,
-        name: track.name?.substring(0, 100) || '',
-        artists: track.artists?.slice(0, 2).map(a => ({ name: a.name?.substring(0, 50) || '' })) || [],
-        requesterNickname: track.requesterNickname?.substring(0, 30) || undefined
-      }));
+      compressedEvent.data.queue = event.data.queue.slice(0, 10).map((track) => {
+        const trackWithArt = track as typeof track & {
+          image_url?: string | null;
+          album?: { images?: Array<{ url?: string }> };
+        };
+
+        return {
+          id: track.id,
+          name: track.name?.substring(0, 100) || '',
+          artists:
+            track.artists?.slice(0, 2).map((a) => ({
+              name: a.name?.substring(0, 50) || '',
+            })) || [],
+          uri: track.uri,
+          image_url:
+            trackWithArt.image_url ||
+            trackWithArt.album?.images?.[1]?.url ||
+            trackWithArt.album?.images?.[0]?.url ||
+            undefined,
+          requesterNickname: track.requesterNickname?.substring(0, 30) || undefined,
+        };
+      });
     }
 
     return compressedEvent;

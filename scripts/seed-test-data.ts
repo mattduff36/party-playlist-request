@@ -16,7 +16,7 @@ import {
   SEED_USERS,
   type SeedUserConfig,
 } from './seed-users-config';
-import { readSeedManifest, writeSeedManifest } from './cleanup-test-data';
+import { writeSeedManifest } from './cleanup-test-data';
 
 // Prefer real app DB from .env.local; test.env only fills missing keys
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -36,6 +36,64 @@ async function tableExists(pool: Pool, name: string): Promise<boolean> {
     [name]
   );
   return result.rows.length > 0;
+}
+
+/** Ensure schema can store 6/8-char access codes before seeding. */
+async function ensureAccessCodeSchema(pool: Pool): Promise<void> {
+  if (!(await tableExists(pool, 'user_events'))) return;
+
+  await pool.query(`
+    ALTER TABLE user_events
+    ALTER COLUMN pin TYPE TEXT
+  `).catch(() => undefined);
+
+  // Drop legacy 4-digit-only check before writing 6-digit seed codes
+  await pool.query(`
+    ALTER TABLE user_events
+    DROP CONSTRAINT IF EXISTS user_events_pin_check
+  `).catch(() => undefined);
+
+  await pool.query(`
+    ALTER TABLE user_events
+    ADD COLUMN IF NOT EXISTS access_code TEXT
+  `).catch(() => undefined);
+
+  await pool.query(`
+    ALTER TABLE user_events
+    DROP CONSTRAINT IF EXISTS user_events_access_code_format_check
+  `).catch(() => undefined);
+
+  await pool.query(`
+    ALTER TABLE user_events
+    ADD CONSTRAINT user_events_access_code_format_check
+    CHECK (
+      pin ~ '^[0-9]{4}$'
+      OR pin ~ '^[0-9]{6}$'
+      OR pin ~ '^[0-9A-HJ-NP-Z]{8}$'
+    )
+  `).catch(() => undefined);
+
+  if (await tableExists(pool, 'user_settings')) {
+    await pool.query(`
+      ALTER TABLE user_settings
+      ADD COLUMN IF NOT EXISTS secure_url_access BOOLEAN DEFAULT FALSE
+    `).catch(() => undefined);
+  }
+}
+
+/** Clear stale single-session locks so e2e login is not stuck on transfer modal. */
+async function clearActiveSessions(pool: Pool, userId: string): Promise<void> {
+  const cols = await pool.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'users' AND column_name = 'active_session_id'`
+  );
+  if (cols.rows.length === 0) return;
+  await pool.query(
+    `UPDATE users
+     SET active_session_id = NULL, active_session_created_at = NULL
+     WHERE id = $1`,
+    [userId]
+  );
 }
 
 async function upsertUser(
@@ -133,21 +191,40 @@ async function seedUserEvent(
   user: SeedUserConfig
 ): Promise<void> {
   if (!(await tableExists(pool, 'user_events'))) return;
-  const existing = await pool.query(
-    `SELECT id FROM user_events WHERE user_id = $1 AND active = true LIMIT 1`,
+
+  // Keep a single active event with the canonical seed access code
+  await pool.query(
+    `UPDATE user_events
+     SET active = false, ended_at = COALESCE(ended_at, NOW())
+     WHERE user_id = $1 AND active = true`,
     [userId]
   );
+
+  const existing = await pool.query(
+    `SELECT id FROM user_events WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [userId]
+  );
+
+  const accessCode = user.pin;
   if (existing.rows.length > 0) {
     await pool.query(
-      `UPDATE user_events SET pin = $2, name = $3 WHERE id = $1`,
-      [existing.rows[0].id, user.pin, user.eventTitle]
+      `UPDATE user_events
+       SET pin = $2,
+           access_code = $2,
+           name = $3,
+           active = true,
+           ended_at = NULL,
+           expires_at = NOW() + INTERVAL '7 days'
+       WHERE id = $1`,
+      [existing.rows[0].id, accessCode, user.eventTitle]
     );
     return;
   }
+
   await pool.query(
-    `INSERT INTO user_events (user_id, name, pin, bypass_token, active, expires_at)
-     VALUES ($1, $2, $3, $4, true, NOW() + INTERVAL '7 days')`,
-    [userId, user.eventTitle, user.pin, randomUUID()]
+    `INSERT INTO user_events (user_id, name, pin, access_code, bypass_token, active, expires_at)
+     VALUES ($1, $2, $3, $3, $4, true, NOW() + INTERVAL '7 days')`,
+    [userId, user.eventTitle, accessCode, `bp_${randomUUID().replace(/-/g, '')}`]
   );
 }
 
@@ -231,6 +308,8 @@ async function seedTestData() {
   const ensuredUsernames: string[] = [];
 
   try {
+    await ensureAccessCodeSchema(pool);
+
     for (const user of SEED_USERS) {
       const { id: userId, created } = await upsertUser(pool, user, passwordHash);
       ensuredUsernames.push(user.username);
@@ -240,6 +319,7 @@ async function seedTestData() {
       } else {
         console.log(`User ready (existing): ${user.username} (${userId})`);
       }
+      await clearActiveSessions(pool, userId);
       await seedSpotifyAuth(pool, userId);
       await seedUserEvent(pool, userId, user);
       await seedUserSettings(pool, userId, user);
@@ -247,36 +327,23 @@ async function seedTestData() {
       await seedPendingRequest(pool, userId);
     }
 
-    // Carry forward usernames from a previous seed that never got cleaned
-    // (e.g. crashed mid-suite) so orphans are still removed on the next teardown.
-    const previousManifest = readSeedManifest();
-    const cleanupUsernames = new Set(createdUsernames);
-    if (previousManifest) {
-      for (const username of previousManifest.createdUsernames) {
-        if (ensuredUsernames.includes(username)) {
-          cleanupUsernames.add(username);
-        }
-      }
-    }
-
+    // Canonical SEED_USERS are durable fixtures — do not mark them for cleanup.
+    // Only dynamic/orphan usernames from a prior manifest (if still allowlisted
+    // and not part of SEED_USERS) would be cleaned; currently that set is empty.
     writeSeedManifest({
       createdAt: new Date().toISOString(),
-      createdUsernames: [...cleanupUsernames],
+      createdUsernames: [],
       ensuredUsernames,
     });
 
     console.log('Seed complete.');
     console.log('Credentials: testuser1|testuser2 / testpassword123');
-    console.log('PINs: testuser1=1111, testuser2=2222');
-    if (cleanupUsernames.size > 0) {
-      console.log(
-        `Marked for post-suite cleanup: ${[...cleanupUsernames].join(', ')}`
-      );
-    } else {
-      console.log(
-        'No new seed users created (pre-existing seed accounts are left in place after cleanup).'
-      );
-    }
+    console.log('Access codes: testuser1=101234, testuser2=202345');
+    console.log(
+      createdUsernames.length > 0
+        ? `Ensured seed fixtures (kept after suite): ${createdUsernames.join(', ')}`
+        : 'Seed fixtures already present (kept after suite).'
+    );
   } finally {
     await pool.end();
   }

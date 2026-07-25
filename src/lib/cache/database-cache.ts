@@ -3,7 +3,7 @@
  * Replaces Vercel KV with a simple, reliable database cache
  */
 
-import { db } from '@/lib/db';
+import { getPool } from '@/lib/db';
 
 export interface CacheEntry {
   key: string;
@@ -20,18 +20,21 @@ export class DatabaseCache {
    */
   async get<T = any>(key: string): Promise<T | null> {
     try {
-      const result = await db.execute(`
+      const result = await getPool().query(
+        `
         SELECT value, expires_at 
         FROM ${this.tableName} 
         WHERE key = $1 AND expires_at > NOW()
-      `, [key]);
+      `,
+        [key]
+      );
 
       if (result.rows.length === 0) {
         return null;
       }
 
       const { value, expires_at } = result.rows[0];
-      
+
       // Check if expired
       if (new Date(expires_at) <= new Date()) {
         await this.delete(key);
@@ -53,7 +56,8 @@ export class DatabaseCache {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
       const serializedValue = JSON.stringify(value);
 
-      await db.execute(`
+      await getPool().query(
+        `
         INSERT INTO ${this.tableName} (key, value, expires_at, created_at)
         VALUES ($1, $2, $3, NOW())
         ON CONFLICT (key) 
@@ -61,7 +65,9 @@ export class DatabaseCache {
           value = EXCLUDED.value,
           expires_at = EXCLUDED.expires_at,
           created_at = NOW()
-      `, [key, serializedValue, expiresAt]);
+      `,
+        [key, serializedValue, expiresAt]
+      );
     } catch (error) {
       console.error('Cache set error:', error);
     }
@@ -72,10 +78,13 @@ export class DatabaseCache {
    */
   async delete(key: string): Promise<void> {
     try {
-      await db.execute(`
+      await getPool().query(
+        `
         DELETE FROM ${this.tableName} 
         WHERE key = $1
-      `, [key]);
+      `,
+        [key]
+      );
     } catch (error) {
       console.error('Cache delete error:', error);
     }
@@ -86,7 +95,7 @@ export class DatabaseCache {
    */
   async clearExpired(): Promise<void> {
     try {
-      await db.execute(`
+      await getPool().query(`
         DELETE FROM ${this.tableName} 
         WHERE expires_at <= NOW()
       `);
@@ -100,7 +109,7 @@ export class DatabaseCache {
    */
   async clear(): Promise<void> {
     try {
-      await db.execute(`DELETE FROM ${this.tableName}`);
+      await getPool().query(`DELETE FROM ${this.tableName}`);
     } catch (error) {
       console.error('Cache clear error:', error);
     }
@@ -115,23 +124,23 @@ export class DatabaseCache {
     memoryUsage: number;
   }> {
     try {
-      const totalResult = await db.execute(`
+      const totalResult = await getPool().query(`
         SELECT COUNT(*) as total FROM ${this.tableName}
       `);
-      
-      const expiredResult = await db.execute(`
+
+      const expiredResult = await getPool().query(`
         SELECT COUNT(*) as expired FROM ${this.tableName} 
         WHERE expires_at <= NOW()
       `);
 
-      const sizeResult = await db.execute(`
+      const sizeResult = await getPool().query(`
         SELECT SUM(LENGTH(value)) as size FROM ${this.tableName}
       `);
 
       return {
         totalEntries: parseInt(totalResult.rows[0]?.total || '0'),
         expiredEntries: parseInt(expiredResult.rows[0]?.expired || '0'),
-        memoryUsage: parseInt(sizeResult.rows[0]?.size || '0')
+        memoryUsage: parseInt(sizeResult.rows[0]?.size || '0'),
       };
     } catch (error) {
       console.error('Cache stats error:', error);
@@ -143,7 +152,7 @@ export class DatabaseCache {
 // Create cache table if it doesn't exist
 export async function initializeCacheTable(): Promise<void> {
   try {
-    await db.execute(`
+    await getPool().query(`
       CREATE TABLE IF NOT EXISTS cache_entries (
         key VARCHAR(255) PRIMARY KEY,
         value TEXT NOT NULL,
@@ -153,7 +162,7 @@ export async function initializeCacheTable(): Promise<void> {
     `);
 
     // Create index for performance
-    await db.execute(`
+    await getPool().query(`
       CREATE INDEX IF NOT EXISTS idx_cache_expires 
       ON cache_entries (expires_at)
     `);

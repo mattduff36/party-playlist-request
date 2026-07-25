@@ -196,11 +196,13 @@ export default function SpotifyPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <SidebarSpotifyControls
-        variant="page"
-        onConnectionChange={setIsConnected}
-      />
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="shrink-0">
+        <SidebarSpotifyControls
+          variant="page"
+          onConnectionChange={setIsConnected}
+        />
+      </div>
       <PlaylistBrowser isConnected={isConnected} />
     </div>
   );

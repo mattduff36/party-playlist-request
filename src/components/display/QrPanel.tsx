@@ -7,7 +7,9 @@ interface QrPanelProps {
   variant: QrVariant;
   qrCodeUrl: string;
   username: string;
+  /** Access code shown for manual URL entry (QR already embeds the code) */
   pin?: string | null;
+  accessCode?: string | null;
   useHorizontalLayout?: boolean;
   style?: CSSProperties;
 }
@@ -36,9 +38,11 @@ export default function QrPanel({
   qrCodeUrl,
   username,
   pin,
+  accessCode,
   useHorizontalLayout = false,
   style,
 }: QrPanelProps) {
+  const code = accessCode || pin;
   if (variant === 'tv') {
     return (
       <div
@@ -57,10 +61,13 @@ export default function QrPanel({
                 Scan the QR code to make a request, or visit:
               </p>
               <p className="text-[color:var(--mood-text)] text-lg font-bold mb-1">partyplaylist.co.uk/</p>
-              <p className="text-[color:var(--mood-text)] text-lg font-bold mb-4">{username}/request</p>
-              {pin && (
+              <p className="text-[color:var(--mood-text)] text-lg font-bold mb-4">
+                {code ? `${username}/${code}/request` : `${username}/request`}
+              </p>
+              {code && (
                 <p className="text-[color:var(--mood-text)] text-xl font-semibold">
-                  and enter PIN <span className="font-mono font-bold text-2xl">{pin}</span>
+                  Access code{' '}
+                  <span className="font-mono font-bold text-2xl">{code}</span>
                 </p>
               )}
             </div>

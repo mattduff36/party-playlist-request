@@ -8,3 +8,4 @@ export type {
 
 export { default as TrackSearch } from './TrackSearch';
 export { default as RequestSubmitForm, PinEntryForm } from './RequestSubmitForm';
+export { AccessCodeEntryForm } from './AccessCodeEntryForm';

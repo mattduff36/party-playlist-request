@@ -66,8 +66,15 @@ export function usePartySimulator() {
 
       console.log(`🔍 [Client] Target: ${config.environment} - ${username}`);
 
-      // First, search for the song with username parameter
-      const searchUrl = `${baseUrl}/api/search?q=${encodeURIComponent(song.query)}&username=${encodeURIComponent(username)}`;
+      const accessCode = config.requestPin?.trim();
+      if (!accessCode) {
+        throw new Error('Access code is required for guest request simulation');
+      }
+
+      const searchUrl =
+        `${baseUrl}/api/spotify/search?q=${encodeURIComponent(song.query)}` +
+        `&username=${encodeURIComponent(username)}` +
+        `&accessCode=${encodeURIComponent(accessCode)}`;
       console.log(`🔍 [Client] Searching: ${searchUrl}`);
       
       const searchResponse = await fetch(searchUrl, {
@@ -108,13 +115,10 @@ export function usePartySimulator() {
         albumName: track.album?.name || '',
         requester_nickname: requesterName,
         user_session_id: sessionId,
-        username: username // Required for multi-tenant support
+        username,
+        accessCode,
+        pin: accessCode,
       };
-
-      // Add PIN if provided
-      if (config.requestPin) {
-        requestBody.pin = config.requestPin;
-      }
 
       // Submit the request
       const requestResponse = await fetch(`${baseUrl}/api/request`, {

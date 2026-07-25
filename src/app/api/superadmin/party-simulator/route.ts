@@ -89,26 +89,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const accessCode = typeof requestPin === 'string' ? requestPin.trim() : '';
+    if (!accessCode || (accessCode.length !== 6 && accessCode.length !== 8 && accessCode.length !== 4)) {
+      return NextResponse.json(
+        { error: 'A valid access code (6-digit or 8-char secure) is required' },
+        { status: 400 }
+      );
+    }
+
     // Start simulation
     partySimulator.start({
       environment: environment as 'local' | 'production',
       username: username.trim(),
-      requestPin: requestPin || undefined,
+      requestPin: accessCode,
       requestInterval,
       uniqueRequesters,
       burstMode: !!burstMode,
       explicitSongs: !!explicitSongs
     });
 
-    const targetUrl = environment === 'local' 
-      ? `http://localhost:3000/${username}/request`
-      : `https://partyplaylist.co.uk/${username}/request`;
+    const base =
+      environment === 'local' ? 'http://localhost:3000' : 'https://partyplaylist.co.uk';
+    const targetUrl = `${base}/${username.trim()}/${accessCode}/request`;
 
     console.log('🎉 Party simulation started by superadmin:', {
       environment,
       username,
       targetUrl,
-      hasPin: !!requestPin,
+      hasAccessCode: true,
       requestInterval,
       uniqueRequesters,
       burstMode,

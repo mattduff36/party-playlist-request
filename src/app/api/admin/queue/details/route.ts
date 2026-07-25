@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
+import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -11,11 +12,6 @@ function mapSpotifyTrackToCurrent(
   extras?: { progress_ms?: number; is_playing?: boolean }
 ) {
   if (!item) return null;
-  const albumImages = item.album?.images || [];
-  const imageUrl =
-    albumImages.length > 0
-      ? albumImages[1]?.url || albumImages[0]?.url
-      : null;
 
   return {
     id: item.id,
@@ -28,7 +24,7 @@ function mapSpotifyTrackToCurrent(
     duration_ms: item.duration_ms,
     explicit: item.explicit,
     external_urls: item.external_urls,
-    image_url: imageUrl,
+    image_url: getTrackAlbumImageUrl(item) || null,
     progress_ms: extras?.progress_ms,
     is_playing: extras?.is_playing,
   };
@@ -183,12 +179,6 @@ export async function GET(req: NextRequest) {
     let queueItems: any[] = [];
     if (queueData?.queue) {
       queueItems = queueData.queue.slice(0, 10).map((item: any) => {
-        const albumImages = item.album?.images || [];
-        const imageUrl =
-          albumImages.length > 0
-            ? albumImages[1]?.url || albumImages[0]?.url
-            : null;
-
         return {
           id: item.id,
           uri: item.uri,
@@ -198,7 +188,7 @@ export async function GET(req: NextRequest) {
           duration_ms: item.duration_ms,
           explicit: item.explicit,
           external_urls: item.external_urls,
-          image_url: imageUrl,
+          image_url: getTrackAlbumImageUrl(item) || null,
         };
       });
     }

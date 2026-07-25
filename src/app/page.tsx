@@ -157,7 +157,7 @@ export default function LandingPage() {
           <ol className="mt-12 grid grid-cols-1 gap-10 md:grid-cols-3">
             {[
               { step: '01', title: 'Connect Spotify', desc: 'Link your account and pick the playback device.' },
-              { step: '02', title: 'Share your link', desc: 'Guests open your request page - PIN optional.' },
+              { step: '02', title: 'Share your link', desc: 'Guests open your request page via QR or access code.' },
               { step: '03', title: 'Run the night', desc: 'Approve tracks, drive the display, keep the queue moving.' },
             ].map((item) => (
               <li key={item.step}>

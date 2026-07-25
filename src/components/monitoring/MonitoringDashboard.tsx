@@ -45,7 +45,7 @@ interface SystemMetrics {
 
 interface HealthCheck {
   name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'skipped';
   message: string;
   timestamp: number;
   responseTime?: number;
@@ -61,6 +61,7 @@ interface SystemHealth {
     healthy: number;
     degraded: number;
     unhealthy: number;
+    skipped: number;
   };
 }
 
@@ -145,6 +146,8 @@ export default function MonitoringDashboard() {
         return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
       case 'unhealthy':
         return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'skipped':
+        return <Minus className="h-5 w-5 text-gray-500" />;
       default:
         return <Minus className="h-5 w-5 text-gray-500" />;
     }
@@ -158,6 +161,8 @@ export default function MonitoringDashboard() {
         return 'bg-yellow-100 text-yellow-800';
       case 'unhealthy':
         return 'bg-red-100 text-red-800';
+      case 'skipped':
+        return 'bg-gray-100 text-gray-600';
       default:
         return 'bg-gray-100 text-gray-800';
     }

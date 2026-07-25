@@ -31,9 +31,14 @@ export default function UserAdminLayout({
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function checkAuth() {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+          signal: AbortSignal.timeout(12_000),
+        });
 
         if (!response.ok) {
           router.push('/login');
@@ -49,15 +54,25 @@ export default function UserAdminLayout({
           return;
         }
 
-        setAuthUser(user);
-        setAuthenticated(true);
-        setLoading(false);
+        if (!cancelled) {
+          setAuthUser(user);
+          setAuthenticated(true);
+        }
       } catch {
-        router.push('/login');
+        if (!cancelled) {
+          router.push('/login');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    checkAuth();
+    void checkAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [router, username]);
 
   if (loading) {

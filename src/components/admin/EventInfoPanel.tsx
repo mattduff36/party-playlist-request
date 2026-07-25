@@ -81,9 +81,9 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
     );
   }
 
-  const requestUrl = `${window.location.origin}/${username}/request`;
-  const requestUrlWithBypass = `${requestUrl}?bt=${event.bypass_token}`;
-  const displayUrl = `${window.location.origin}/${username}/display/${event.pin}`;
+  const accessCode = event.access_code || event.pin;
+  const requestUrl = `${window.location.origin}/${username}/${accessCode}/request`;
+  const displayUrl = `${window.location.origin}/${username}/${accessCode}/display`;
 
   return (
     <div className="bg-elevated rounded-lg p-6 space-y-6">
@@ -91,11 +91,10 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-bone">Event Information</h2>
           <div className="flex items-center space-x-4">
-            {/* PIN Display - Compact */}
             <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
               <Lock className="h-4 w-4 text-accent" />
-              <span className="text-muted text-sm">PIN:</span>
-              <span className="text-2xl font-bold text-bone tracking-wider font-mono">{event.pin}</span>
+              <span className="text-muted text-sm">Code:</span>
+              <span className="text-2xl font-bold text-bone tracking-wider font-mono">{accessCode}</span>
             </div>
             <button
               onClick={fetchEvent}
@@ -108,15 +107,17 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
         </div>
       )}
 
-      {/* Request URL */}
       <div className="space-y-3">
-        <label className="block text-muted font-medium">Request Page URL</label>
+        <label className="block text-muted font-medium flex items-center">
+          <QrCode className="h-5 w-5 mr-2 text-accent" />
+          Request / QR URL
+        </label>
         <div className="flex items-center space-x-2">
           <input
             type="text"
             value={requestUrl}
             readOnly
-            className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm"
+            className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
           />
           <button
             onClick={() => copyToClipboard(requestUrl, 'requestUrl')}
@@ -131,41 +132,10 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
           </button>
         </div>
         <p className="text-faint text-xs">
-          Guests will need to enter the PIN when they visit this URL
+          Share this link or QR — guests do not need to type the access code
         </p>
       </div>
 
-      {/* QR Code URL (with bypass token) */}
-      <div className="space-y-3">
-        <label className="block text-muted font-medium flex items-center">
-          <QrCode className="h-5 w-5 mr-2 text-accent" />
-          QR Code URL (No PIN Required)
-        </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            value={requestUrlWithBypass}
-            readOnly
-            className="flex-1 px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone text-sm overflow-x-auto"
-          />
-          <button
-            onClick={() => copyToClipboard(requestUrlWithBypass, 'qrUrl')}
-            className="p-2 bg-surface hover:bg-surface rounded-lg transition-colors"
-            title="Copy URL"
-          >
-            {copied === 'qrUrl' ? (
-              <CheckCircle className="h-5 w-5 text-accent" />
-            ) : (
-              <Copy className="h-5 w-5 text-muted" />
-            )}
-          </button>
-        </div>
-        <p className="text-faint text-xs">
-          Use this URL to generate QR codes - guests won't need the PIN
-        </p>
-      </div>
-
-      {/* Display Screen URL */}
       <div className="space-y-3 border-t border-white/10 pt-6">
         <label className="block text-muted font-medium flex items-center">
           <Monitor className="h-5 w-5 mr-2 text-accent" />
@@ -199,7 +169,7 @@ export default function EventInfoPanel({ showHeader = true }: EventInfoPanelProp
           Open Display Screen →
         </a>
         <p className="text-faint text-xs">
-          Open this URL on your display screen (TV, projector, etc.) - Uses event PIN for access
+          Open this URL on your display screen (TV, projector, etc.)
         </p>
       </div>
 

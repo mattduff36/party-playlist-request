@@ -18,14 +18,14 @@ export const SEED_USERS: SeedUserConfig[] = [
     username: 'testuser1',
     email: 'testuser1@example.com',
     displayName: 'Test User 1',
-    pin: '1111',
+    pin: '101234',
     eventTitle: 'DJ1 Test Event',
   },
   {
     username: 'testuser2',
     email: 'testuser2@example.com',
     displayName: 'Test User 2',
-    pin: '2222',
+    pin: '202345',
     eventTitle: 'DJ2 Test Event',
   },
 ];

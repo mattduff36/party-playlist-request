@@ -250,15 +250,15 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
   }
 
   return (
-    <div className="bg-elevated rounded-lg p-6">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="w-10 h-10 rounded bg-surface flex items-center justify-center flex-shrink-0">
-            <ListMusic className="w-5 h-5 text-muted" />
+    <div className="bg-elevated rounded-lg p-6 flex min-h-0 grow flex-col">
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-surface">
+            <ListMusic className="h-5 w-5 text-muted" />
           </div>
           <div className="min-w-0">
             <h2 className="text-xl font-bold text-bone">Playlists</h2>
-            <p className="text-muted text-sm mt-1">
+            <p className="mt-1 text-sm text-muted">
               Browse your Spotify playlists and queue tracks. Playlists are read-only here.
             </p>
           </div>
@@ -268,17 +268,17 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
             type="button"
             onClick={() => void fetchPlaylists()}
             disabled={isLoadingPlaylists}
-            className="p-2 rounded-lg text-muted hover:text-bone hover:bg-surface transition-colors disabled:opacity-50"
+            className="rounded-lg p-2 text-muted transition-colors hover:bg-surface hover:text-bone disabled:opacity-50"
             aria-label="Refresh playlists"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoadingPlaylists ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isLoadingPlaylists ? 'animate-spin' : ''}`} />
           </button>
         )}
       </div>
 
       {needsReconnect && (
-        <div className="flex items-start gap-2 text-amber-200 bg-amber-900/20 border border-amber-600/40 rounded-lg p-3 mb-4">
-          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <div className="mb-4 flex shrink-0 items-start gap-2 rounded-lg border border-amber-600/40 bg-amber-900/20 p-3 text-amber-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <p className="text-sm">
             Reconnect Spotify to grant playlist read access, then refresh this section.
           </p>
@@ -286,46 +286,46 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
       )}
 
       {error && (
-        <div className="flex items-start gap-2 text-red-200 bg-red-900/20 border border-red-600 rounded-lg p-3 mb-4">
-          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <div className="mb-4 flex shrink-0 items-start gap-2 rounded-lg border border-red-600 bg-red-900/20 p-3 text-red-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
       )}
 
       {statusMessage && (
-        <div className="text-sm text-bone bg-surface/60 border border-white/10 rounded-lg p-3 mb-4">
+        <div className="mb-4 shrink-0 rounded-lg border border-white/10 bg-surface/60 p-3 text-sm text-bone">
           {statusMessage}
         </div>
       )}
 
       {!selectedPlaylist ? (
-        <>
-          <div className="relative mb-3">
-            <Search className="w-4 h-4 text-faint absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="flex min-h-0 grow flex-col">
+          <div className="relative mb-3 shrink-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
             <input
               type="search"
               value={playlistQuery}
               onChange={(e) => setPlaylistQuery(e.target.value)}
               placeholder="Search playlists…"
-              className="w-full bg-surface border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-bone placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full rounded-lg border border-white/10 bg-surface py-2 pl-9 pr-3 text-sm text-bone placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
 
           {isLoadingPlaylists ? (
-            <div className="flex items-center justify-center py-10 text-muted gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
+            <div className="flex grow items-center justify-center gap-2 py-10 text-muted">
+              <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">Loading playlists…</span>
             </div>
           ) : filteredPlaylists.length === 0 ? (
-            <div className="text-center py-8">
-              <ListMusic className="w-12 h-12 text-faint mx-auto mb-3" />
+            <div className="flex grow flex-col items-center justify-center py-8 text-center">
+              <ListMusic className="mx-auto mb-3 h-12 w-12 text-faint" />
               <p className="text-muted">No playlists found</p>
-              <p className="text-faint text-sm mt-1">
+              <p className="mt-1 text-sm text-faint">
                 Create or follow playlists in Spotify, then refresh
               </p>
             </div>
           ) : (
-            <ul className="space-y-1 max-h-80 overflow-y-auto">
+            <ul className="min-h-0 grow space-y-1 overflow-y-auto">
               {filteredPlaylists.map((playlist) => {
                 const liked = isLikedSongs(playlist);
                 return (
@@ -333,31 +333,31 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
                     <button
                       type="button"
                       onClick={() => openPlaylist(playlist)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface hover:bg-surface/80 border border-transparent hover:border-white/10 transition-colors text-left"
+                      className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-surface p-3 text-left transition-colors hover:border-white/10 hover:bg-surface/80"
                     >
                       {playlist.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={playlist.image}
                           alt=""
-                          className="w-10 h-10 rounded object-cover flex-shrink-0"
+                          className="h-10 w-10 flex-shrink-0 rounded object-cover"
                         />
                       ) : (
                         <div
-                          className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${
+                          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded ${
                             liked ? 'bg-accent/15' : 'bg-elevated'
                           }`}
                         >
                           {liked ? (
-                            <Heart className="w-4 h-4 text-accent fill-accent" />
+                            <Heart className="h-4 w-4 fill-accent text-accent" />
                           ) : (
-                            <ListMusic className="w-4 h-4 text-faint" />
+                            <ListMusic className="h-4 w-4 text-faint" />
                           )}
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="text-bone font-medium truncate">{playlist.name}</div>
-                        <div className="text-faint text-xs truncate">
+                        <div className="truncate font-medium text-bone">{playlist.name}</div>
+                        <div className="truncate text-xs text-faint">
                           {playlist.track_count} track
                           {playlist.track_count === 1 ? '' : 's'}
                           {playlist.owner_name ? ` · ${playlist.owner_name}` : ''}
@@ -369,21 +369,21 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
               })}
             </ul>
           )}
-        </>
+        </div>
       ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex min-h-0 grow flex-col">
+          <div className="mb-4 flex shrink-0 flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={backToList}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-muted hover:text-bone hover:bg-surface transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-surface hover:text-bone"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="h-4 w-4" />
               Back
             </button>
             <div className="min-w-0 flex-1">
-              <div className="text-bone font-semibold truncate">{selectedPlaylist.name}</div>
-              <div className="text-faint text-xs">
+              <div className="truncate font-semibold text-bone">{selectedPlaylist.name}</div>
+              <div className="text-xs text-faint">
                 {tracks.length} loaded
                 {selectedPlaylist.track_count
                   ? ` of ${selectedPlaylist.track_count}`
@@ -394,34 +394,34 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
               type="button"
               onClick={() => void queueEntirePlaylist()}
               disabled={isQueuing || isLoadingTracks || tracks.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-accent text-ink hover:bg-accent-hover transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {isQueuing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <ListPlus className="w-4 h-4" />
+                <ListPlus className="h-4 w-4" />
               )}
               {isLikedSongs(selectedPlaylist) ? 'Queue all' : 'Queue playlist'}
             </button>
           </div>
 
           {isLoadingTracks ? (
-            <div className="flex items-center justify-center py-10 text-muted gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
+            <div className="flex grow items-center justify-center gap-2 py-10 text-muted">
+              <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">Loading tracks…</span>
             </div>
           ) : tracks.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="flex grow flex-col items-center justify-center py-8 text-center">
               {isLikedSongs(selectedPlaylist) ? (
                 <>
-                  <Heart className="w-10 h-10 text-faint mx-auto mb-3" />
-                  <p className="text-muted text-sm">No liked songs yet</p>
-                  <p className="text-faint text-sm mt-1">
+                  <Heart className="mx-auto mb-3 h-10 w-10 text-faint" />
+                  <p className="text-sm text-muted">No liked songs yet</p>
+                  <p className="mt-1 text-sm text-faint">
                     Like tracks in Spotify, then refresh this section
                   </p>
                 </>
               ) : (
-                <p className="text-muted text-sm">
+                <p className="text-sm text-muted">
                   No tracks available. Spotify only exposes tracks for playlists you own or
                   collaborate on.
                 </p>
@@ -429,8 +429,8 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <label className="inline-flex items-center gap-2 text-sm text-muted cursor-pointer">
+              <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted">
                   <Checkbox
                     checked={selectedUris.size === tracks.length && tracks.length > 0}
                     onChange={toggleSelectAll}
@@ -442,22 +442,22 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
                   type="button"
                   onClick={() => void queueUris([...selectedUris])}
                   disabled={isQueuing || selectedUris.size === 0}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-surface text-bone border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-surface px-3 py-1.5 text-sm font-medium text-bone transition-colors hover:border-white/20 disabled:opacity-50"
                 >
                   {isQueuing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <ListPlus className="w-4 h-4" />
+                    <ListPlus className="h-4 w-4" />
                   )}
                   Queue selected ({selectedUris.size})
                 </button>
               </div>
 
-              <ul className="space-y-1 max-h-96 overflow-y-auto">
+              <ul className="min-h-0 grow space-y-1 overflow-y-auto">
                 {tracks.map((track) => (
                   <li
                     key={`${track.uri}-${track.id}`}
-                    className="flex items-center gap-3 p-2.5 rounded-lg bg-surface/80"
+                    className="flex items-center gap-3 rounded-lg bg-surface/80 p-2.5"
                   >
                     <Checkbox
                       checked={selectedUris.has(track.uri)}
@@ -470,25 +470,25 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
                       <img
                         src={track.image}
                         alt=""
-                        className="w-9 h-9 rounded object-cover flex-shrink-0"
+                        className="h-9 w-9 flex-shrink-0 rounded object-cover"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded bg-elevated flex-shrink-0" />
+                      <div className="h-9 w-9 flex-shrink-0 rounded bg-elevated" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="text-bone text-sm font-medium truncate">{track.name}</div>
-                      <div className="text-faint text-xs truncate">
+                      <div className="truncate text-sm font-medium text-bone">{track.name}</div>
+                      <div className="truncate text-xs text-faint">
                         {track.artists.join(', ') || 'Unknown artist'}
                       </div>
                     </div>
-                    <span className="text-faint text-xs tabular-nums flex-shrink-0">
+                    <span className="flex-shrink-0 tabular-nums text-xs text-faint">
                       {formatDuration(track.duration_ms)}
                     </span>
                     <button
                       type="button"
                       onClick={() => void queueUris([track.uri])}
                       disabled={isQueuing}
-                      className="px-2 py-1 rounded text-xs font-medium text-accent hover:bg-accent/10 transition-colors disabled:opacity-50 flex-shrink-0"
+                      className="flex-shrink-0 rounded px-2 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent/10 disabled:opacity-50"
                     >
                       Queue
                     </button>
@@ -497,7 +497,7 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
               </ul>
             </>
           )}
-        </>
+        </div>
       )}
     </div>
   );

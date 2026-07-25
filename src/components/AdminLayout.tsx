@@ -116,10 +116,10 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     },
   ];
 
-  // Fetch event data for PIN and display URL
+  // Fetch event data for access code and display URL
   useEffect(() => {
     const fetchEventData = async () => {
-      // Wait for first event-state hydrate so default offline does not clear PIN
+      // Wait for first event-state hydrate so default offline does not clear code
       if (state?.isLoading) {
         return;
       }
@@ -131,8 +131,11 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
           if (response.ok) {
             const data = await response.json();
             const event = data.event;
-            setEventPin(event.pin);
-            setDisplayUrl(`${window.location.origin}/${displayUsername}/display/${event.pin}`);
+            const code = event.access_code || event.pin;
+            setEventPin(code);
+            setDisplayUrl(
+              `${window.location.origin}/${displayUsername}/${code}/display`
+            );
           }
         } catch (error) {
           console.error('Failed to fetch event:', error);
@@ -144,6 +147,14 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     };
 
     fetchEventData();
+
+    const onAccessCodeChanged = () => {
+      fetchEventData();
+    };
+    window.addEventListener('pp:access-code-changed', onAccessCodeChanged);
+    return () => {
+      window.removeEventListener('pp:access-code-changed', onAccessCodeChanged);
+    };
   }, [state?.status, state?.isLoading, displayUsername]);
 
   // Show setup party modal on first login
@@ -421,7 +432,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
               {eventPin && (
                 <div className="flex items-center space-x-2 bg-accent/10 border border-accent/40 rounded-lg px-4 py-2">
                   <Lock className="h-4 w-4 text-accent" />
-                  <span className="text-gray-400 text-sm">PIN:</span>
+                  <span className="text-gray-400 text-sm">Code:</span>
                   <span className="text-xl font-bold text-white tracking-wider font-mono">{eventPin}</span>
                 </div>
               )}
@@ -438,7 +449,7 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
           <div className="flex flex-1 min-h-0 flex-col lg:flex-row pb-20 md:pb-0">
             {/* Main content — gate until admin data ready */}
-            <main className="flex-1 min-w-0 overflow-y-auto p-6">
+            <main className="flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto p-6">
               {adminDataLoading ? (
                 <PageLoader label="Loading admin data..." fullScreen={false} />
               ) : (

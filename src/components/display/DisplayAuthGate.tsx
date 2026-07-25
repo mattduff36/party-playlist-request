@@ -4,72 +4,125 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertCircle, Lock } from 'lucide-react';
 import PageLoader from '@/components/ui/PageLoader';
+import { isValidAccessCodeFormat } from '@/lib/access-code';
 
 interface DisplayAuthGateProps {
-  children: (username: string) => ReactNode;
+  children: (username: string, accessCode?: string) => ReactNode;
+  /** When set, verify this access code and set guest cookie */
+  accessCode?: string;
 }
 
-export default function DisplayAuthGate({ children }: DisplayAuthGateProps) {
+async function verifyAndStore(
+  username: string,
+  code: string
+): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
+  const response = await fetch('/api/events/verify-pin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      username,
+      accessCode: code,
+      pin: code,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return { ok: false, error: data.error || 'Invalid access code' };
+  }
+  const resolved = data.event?.accessCode || code;
+  sessionStorage.setItem(
+    `display_auth_${username}`,
+    JSON.stringify({
+      accessCode: resolved,
+      timestamp: Date.now(),
+    })
+  );
+  return { ok: true, accessCode: resolved };
+}
+
+export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGateProps) {
   const params = useParams();
   const router = useRouter();
   const username = params.username as string;
+  const codeFromParams =
+    accessCode ||
+    (typeof params.accessCode === 'string' ? decodeURIComponent(params.accessCode) : undefined);
 
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedCode, setResolvedCode] = useState<string | undefined>(codeFromParams);
 
-  // Check authentication on mount
   useEffect(() => {
     checkAuth();
-  }, [username]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, codeFromParams]);
 
   async function checkAuth() {
     setLoading(true);
     setError(null);
 
     try {
-      // First, check session storage for PIN-based auth
+      // Owner login bypass
+      const meResponse = await fetch('/api/auth/me', { credentials: 'include' });
+      if (meResponse.ok) {
+        const { user } = await meResponse.json();
+        if (user.username === username) {
+          setAuthenticated(true);
+          setLoading(false);
+          return;
+        }
+        if (!codeFromParams) {
+          setError(
+            `You're logged in as ${user.username} but trying to access ${username}'s display.`
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Prefer URL access code — always re-verify to set guest cookie
+      if (codeFromParams && isValidAccessCodeFormat(codeFromParams)) {
+        const result = await verifyAndStore(username, codeFromParams);
+        if (result.ok) {
+          setResolvedCode(result.accessCode);
+          setAuthenticated(true);
+          setLoading(false);
+          return;
+        }
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
+
+      // SessionStorage fallback — re-verify stored code so cookie is refreshed
       const stored = sessionStorage.getItem(`display_auth_${username}`);
       if (stored) {
         try {
           const auth = JSON.parse(stored);
-          // Check if auth is still valid (24 hours)
-          if (Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
-            console.log('✅ Display authenticated via sessionStorage (PIN-based)');
-            setAuthenticated(true);
-            setLoading(false);
-            return;
-          } else {
-            console.log('⏰ Session expired, clearing...');
-            sessionStorage.removeItem(`display_auth_${username}`);
+          if (
+            Date.now() - auth.timestamp < 24 * 60 * 60 * 1000 &&
+            auth.accessCode &&
+            isValidAccessCodeFormat(auth.accessCode)
+          ) {
+            const result = await verifyAndStore(username, auth.accessCode);
+            if (result.ok) {
+              setResolvedCode(result.accessCode);
+              setAuthenticated(true);
+              setLoading(false);
+              return;
+            }
           }
-        } catch (e) {
-          console.error('Invalid session data:', e);
+          sessionStorage.removeItem(`display_auth_${username}`);
+        } catch {
           sessionStorage.removeItem(`display_auth_${username}`);
         }
       }
 
-      // Check if user is logged in as the owner
-      const meResponse = await fetch('/api/auth/me');
-
-      if (meResponse.ok) {
-        const { user } = await meResponse.json();
-
-        if (user.username === username) {
-          console.log(`✅ User ${user.username} accessing display page (owner)`);
-          setAuthenticated(true);
-          setLoading(false);
-          return;
-        } else {
-          setError(`You're logged in as ${user.username} but trying to access ${username}'s display.`);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Not authenticated - need PIN
-      console.log('🔐 No valid authentication found, need PIN');
-      setError(`To access the display screen, use the URL: /${username}/display/[PIN] (where [PIN] is your 4-digit event PIN from the admin panel)`);
+      setError(
+        `To open the display, use /${username}/[access-code]/display (code from the admin panel).`
+      );
       setLoading(false);
     } catch (err) {
       console.error('Display auth error:', err);
@@ -120,5 +173,5 @@ export default function DisplayAuthGate({ children }: DisplayAuthGateProps) {
     return null;
   }
 
-  return <>{children(username)}</>;
+  return <>{children(username, resolvedCode)}</>;
 }

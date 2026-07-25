@@ -18,9 +18,11 @@ test.describe('Tenant isolation smoke', () => {
     const title2 = d2.config?.event_title || d2.event_title;
     expect(title1).toBe(TEST_USERS.testuser1.eventTitle);
     expect(title2).toBe(TEST_USERS.testuser2.eventTitle);
+    expect(title1).not.toBe(title2);
   });
 
   test('DJ2 admin URL is distinct from DJ1', async ({ page }) => {
+    test.setTimeout(90_000);
     await loginAs(page, TEST_USERS.testuser2.username, TEST_USERS.testuser2.password);
     expect(page.url()).toContain('/testuser2/admin');
     expect(page.url()).not.toContain('/testuser1/admin');

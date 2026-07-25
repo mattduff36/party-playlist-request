@@ -6,7 +6,8 @@
 export interface SimulationConfig {
   environment: 'local' | 'production'; // Local or production environment
   username: string; // Username to test (e.g., 'testuser1')
-  requestPin?: string; // Optional PIN for protected request pages
+  /** Guest access code (6-digit or secure 8-char) required for request APIs */
+  requestPin?: string;
   requestInterval: number; // Time between requests in ms (e.g., 30000 = 30s)
   uniqueRequesters: number; // Number of different people (1-20)
   burstMode: boolean; // If true, sends multiple requests at once occasionally

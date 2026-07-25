@@ -13,6 +13,7 @@ export interface QueueItem {
   artists: string[];
   album: string;
   uri: string;
+  image_url?: string;
   requester_nickname?: string;
 }
 

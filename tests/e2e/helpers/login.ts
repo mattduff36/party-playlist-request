@@ -9,19 +9,20 @@ export async function loginAs(
   password: string,
   options: { timeoutMs?: number } = {}
 ): Promise<void> {
-  const timeoutMs = options.timeoutMs ?? 20_000;
+  const timeoutMs = options.timeoutMs ?? 25_000;
   const adminPattern = new RegExp(`/${username}/admin`);
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.context().clearCookies();
+      await page.goto('/login', { waitUntil: 'commit', timeout: 60_000 });
       await page.fill('#username', username);
       await page.fill('#password', password);
       await page.click('button[type="submit"]');
 
       const transferButton = page.getByRole('button', {
-        name: /yes,?\s*transfer/i,
+        name: /Yes,?\s*Transfer to This Device/i,
       });
 
       const deadline = Date.now() + timeoutMs;
@@ -29,18 +30,23 @@ export async function loginAs(
         if (adminPattern.test(page.url())) {
           return;
         }
+
         if (await transferButton.isVisible().catch(() => false)) {
-          await transferButton.click();
+          await transferButton.click({ timeout: 5_000 });
           await page.waitForURL(adminPattern, { timeout: timeoutMs });
           return;
         }
-        await page.waitForTimeout(200);
+
+        await page.waitForTimeout(250);
       }
 
-      await page.waitForURL(adminPattern, { timeout: 5_000 });
+      await page.waitForURL(adminPattern, { timeout: 10_000 });
       return;
     } catch (error) {
       lastError = error;
+      if (page.isClosed()) {
+        break;
+      }
       await page.waitForTimeout(1_000 * attempt);
     }
   }

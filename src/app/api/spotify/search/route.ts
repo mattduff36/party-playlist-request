@@ -11,6 +11,7 @@ import {
   getCachedSearch,
   setCachedSearch,
 } from '@/lib/search-cache';
+import { requireGuestAccess } from '@/lib/guest-access';
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,6 +34,11 @@ export async function GET(req: NextRequest) {
         { error: 'Username parameter is required' },
         { status: 400 }
       );
+    }
+
+    const access = await requireGuestAccess(req, username);
+    if (!access.ok) {
+      return access.response;
     }
 
     const clientIP = getClientIp(req);

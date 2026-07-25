@@ -6,6 +6,7 @@ import { messageQueue } from '@/lib/message-queue';
 import { validateRequesterName } from '@/lib/profanity-filter';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { requireGuestAccess } from '@/lib/guest-access';
 
 export async function POST(req: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -19,6 +20,15 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { track_uri, track_url, requester_nickname, user_session_id, username } = body;
+
+    if (!username) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    const access = await requireGuestAccess(req, username, body);
+    if (!access.ok) {
+      return access.response;
+    }
     
     if (!track_uri && !track_url) {
       return NextResponse.json({ 
@@ -40,24 +50,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Multi-tenant: Get user_id from username
-    let userId: string | null = null;
-    if (username) {
-      const { getPool } = await import('@/lib/db');
-      const pool = getPool();
-      const userResult = await pool.query(
-        'SELECT id FROM users WHERE username = $1',
-        [username]
-      );
+    const { getPool } = await import('@/lib/db');
+    const pool = getPool();
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
 
-      if (userResult.rows.length === 0) {
-        return NextResponse.json({ 
-          error: 'User not found' 
-        }, { status: 404 });
-      }
-
-      userId = userResult.rows[0].id;
-      console.log(`👤 [${requestId}] Request for user: ${username} (${userId})`);
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ 
+        error: 'User not found' 
+      }, { status: 404 });
     }
+
+    const userId: string = userResult.rows[0].id;
+    console.log(`👤 [${requestId}] Request for user: ${username} (${userId})`);
 
     let trackUri = track_uri;
     

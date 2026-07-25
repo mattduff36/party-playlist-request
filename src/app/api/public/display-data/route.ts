@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventSettings, getRequestsByStatus } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
-import { getActiveEvent } from '@/lib/event-service';
+import { requireGuestAccess } from '@/lib/guest-access';
+import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +16,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get user_id from username
+    const access = await requireGuestAccess(req, username);
+    if (!access.ok) {
+      return access.response;
+    }
+
     const { getPool } = await import('@/lib/db');
     const pool = getPool();
     const userResult = await pool.query(
@@ -24,68 +29,66 @@ export async function GET(req: NextRequest) {
     );
 
     if (userResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const userId = userResult.rows[0].id;
-
-    // Get active event to retrieve PIN
-    const activeEvent = await getActiveEvent(userId);
-    const eventPin = activeEvent?.pin || null;
-
-    // Get user-specific event settings
     const settings = await getEventSettings(userId);
 
-    // Get current playback (with userId for multi-tenant)
     let currentTrack = null;
-    let upcomingSongs = [];
-    
+    let upcomingSongs: Array<Record<string, unknown>> = [];
+
     try {
       const playbackState = await spotifyService.getCurrentPlayback(userId);
-      
+
       if (playbackState && playbackState.item) {
-        // Album art is already in the playback response
         const albumArt = playbackState.item.album?.images?.[0]?.url || null;
-        
+
         currentTrack = {
           name: playbackState.item.name,
-          artists: playbackState.item.artists.map((a: any) => a.name),
+          artists: playbackState.item.artists.map((a: { name: string }) => a.name),
           album: playbackState.item.album.name,
           duration_ms: playbackState.item.duration_ms,
           progress_ms: playbackState.progress_ms,
           uri: playbackState.item.uri,
-          image_url: albumArt
+          image_url: albumArt,
         };
       }
 
-      // Get queue from Spotify API (with userId) and match with approved requests
       const queueData = await spotifyService.getQueue(userId);
       const approvedRequests = await getRequestsByStatus('approved', 20, 0, userId);
-      
+
       if (queueData && queueData.queue) {
-        upcomingSongs = queueData.queue.map((track: any) => {
-          // Match with approved request to get requester nickname
-          const matchingRequest = approvedRequests.find(req => req.track_uri === track.uri);
-          
+        upcomingSongs = queueData.queue.map((track: {
+          name: string;
+          artists: Array<string | { name: string }>;
+          album?: { name?: string; images?: Array<{ url?: string }> };
+          uri: string;
+          image_url?: string | null;
+        }) => {
+          const matchingRequest = approvedRequests.find(
+            (req) => req.track_uri === track.uri
+          );
+
           return {
             name: track.name,
-            artists: Array.isArray(track.artists) 
-              ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name)
+            artists: Array.isArray(track.artists)
+              ? track.artists.map((a) => (typeof a === 'string' ? a : a.name))
               : [],
             album: track.album?.name || '',
             uri: track.uri,
-            requester_nickname: matchingRequest?.requester_nickname || null
+            // Album art is already on Spotify TrackObject from /me/player/queue
+            image_url: getTrackAlbumImageUrl(track) || null,
+            requester_nickname: matchingRequest?.requester_nickname || null,
           };
         });
-        
-        console.log(`✅ Loaded ${upcomingSongs.length} upcoming songs from Spotify queue for user ${userId}`);
+
+        console.log(
+          `✅ Loaded ${upcomingSongs.length} upcoming songs from Spotify queue for user ${userId}`
+        );
       }
     } catch (error) {
       console.error('Error fetching Spotify data:', error);
-      // Continue without playback data
     }
 
     return NextResponse.json(
@@ -99,12 +102,12 @@ export async function GET(req: NextRequest) {
           tertiary_message: settings.tertiary_message ?? '',
           show_qr_code: settings.show_qr_code ?? true,
           display_refresh_interval: settings.display_refresh_interval || 20,
-          // Same source of truth as admin settings + /public/event-config (cold load)
           display_mood: settings.display_mood ?? null,
           theme_primary_color: settings.theme_primary_color ?? null,
           show_scrolling_bar: settings.show_scrolling_bar !== false,
           decline_explicit: settings.decline_explicit ?? false,
-          pin: eventPin,
+          // Access code only for authenticated guest/owner (needed for QR on display)
+          access_code: access.accessCode,
         },
         current_track: currentTrack,
         upcoming_songs: upcomingSongs,
@@ -115,7 +118,6 @@ export async function GET(req: NextRequest) {
         },
       }
     );
-
   } catch (error) {
     console.error('Error fetching display data:', error);
     return NextResponse.json(

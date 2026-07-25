@@ -1,28 +1,48 @@
 /**
  * POST /api/events/verify-pin
- * Verify a PIN for a user's event
- * Public endpoint (no authentication required)
+ * Verify an access code (or legacy bypass token) for a user's event.
+ * Sets an httpOnly guest session cookie on success.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyPIN, verifyBypassToken } from '@/lib/event-service';
+import { verifyAccessCode, verifyBypassToken } from '@/lib/event-service';
+import {
+  isValidAccessCodeFormat,
+  setGuestAccessCookie,
+} from '@/lib/guest-access';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { hashIP } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, pin, bypassToken } = await req.json();
+    const body = await req.json();
+    const { username, pin, accessCode, bypassToken } = body;
+    const code = (accessCode || pin || '').toString().trim();
 
     if (!username) {
-      return NextResponse.json(
-        { error: 'Username is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    // Check if using bypass token
+    const rate = checkRateLimit(
+      'accessCodeVerify',
+      `${hashIP(getClientIp(req))}:${username}`
+    );
+    if (!rate.allowed) {
+      const response = NextResponse.json(
+        { error: rate.message || 'Too many attempts' },
+        { status: 429 }
+      );
+      if (rate.retryAfter) {
+        response.headers.set('Retry-After', String(rate.retryAfter));
+      }
+      return response;
+    }
+
+    // Legacy bypass token (QR ?bt=)
     if (bypassToken) {
       const event = await verifyBypassToken(username, bypassToken);
-      
+
       if (!event) {
         reportActivity(req, 'auth.pin_failed', `Invalid bypass for ${username}`, {
           actorRole: 'guest',
@@ -42,78 +62,73 @@ export async function POST(req: NextRequest) {
         meta: { method: 'bypass_token' },
       });
 
-      // Return success with event details
-      return NextResponse.json(
-        { 
-          success: true, 
+      const response = NextResponse.json(
+        {
+          success: true,
           event: {
             id: event.id,
             name: event.name,
-            expires_at: event.expires_at
+            expires_at: event.expires_at,
+            accessCode: event.access_code,
           },
-          authMethod: 'bypass_token'
+          authMethod: 'bypass_token',
         },
         { status: 200 }
       );
+      setGuestAccessCookie(response, username, event.access_code, event.id);
+      return response;
     }
 
-    // Check PIN
-    if (!pin) {
+    if (!code) {
+      return NextResponse.json({ error: 'Access code is required' }, { status: 400 });
+    }
+
+    if (!isValidAccessCodeFormat(code)) {
       return NextResponse.json(
-        { error: 'PIN is required' },
+        { error: 'Invalid access code format' },
         { status: 400 }
       );
     }
 
-    if (!/^\d{4}$/.test(pin)) {
-      return NextResponse.json(
-        { error: 'PIN must be 4 digits' },
-        { status: 400 }
-      );
-    }
-
-    const event = await verifyPIN(username, pin);
+    const event = await verifyAccessCode(username, code);
 
     if (!event) {
-      reportActivity(req, 'auth.pin_failed', `Invalid PIN for ${username}`, {
+      reportActivity(req, 'auth.pin_failed', `Invalid access code for ${username}`, {
         actorRole: 'guest',
         username,
-        meta: { method: 'pin' },
+        meta: { method: 'access_code' },
       });
       return NextResponse.json(
-        { error: 'Invalid PIN or no active event' },
+        { error: 'Invalid access code or no active event' },
         { status: 401 }
       );
     }
 
-    reportActivity(req, 'auth.pin_ok', `PIN verified for ${username}`, {
+    reportActivity(req, 'auth.pin_ok', `Access code verified for ${username}`, {
       actorRole: 'guest',
       username,
       eventId: event.id,
-      meta: { method: 'pin' },
+      meta: { method: 'access_code' },
     });
 
-    // Return success with event details
-    return NextResponse.json(
-      { 
-        success: true, 
+    const response = NextResponse.json(
+      {
+        success: true,
         event: {
           id: event.id,
           name: event.name,
-          expires_at: event.expires_at
+          expires_at: event.expires_at,
+          accessCode: event.access_code,
         },
-        authMethod: 'pin'
+        authMethod: 'access_code',
       },
       { status: 200 }
     );
-
+    setGuestAccessCookie(response, username, event.access_code, event.id);
+    return response;
   } catch (error) {
-    console.error('❌ PIN verification failed:', error);
+    console.error('❌ Access code verification failed:', error);
     reportApiError(req, error);
-    return NextResponse.json(
-      { error: 'Verification failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }
-

@@ -8,7 +8,7 @@
  * Note: limits are per Node process — multi-instance deploys do not share state.
  */
 
-export type RateLimitBucket = 'songRequest' | 'guestSearch';
+export type RateLimitBucket = 'songRequest' | 'guestSearch' | 'accessCodeVerify';
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -46,6 +46,13 @@ const BUCKET_CONFIGS: Record<RateLimitBucket, BucketConfig> = {
     maxRequests: 30,
     cooldownMs: 0,
     windowExceededMessage: 'Too many searches. Please wait a moment and try again.',
+  },
+  accessCodeVerify: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    maxRequests: 30,
+    cooldownMs: 500,
+    windowExceededMessage: 'Too many access code attempts. Please try again later.',
+    cooldownMessage: 'Please wait a moment before trying again.',
   },
 };
 
