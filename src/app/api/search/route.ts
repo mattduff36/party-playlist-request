@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
-import { initializeDefaults } from '@/lib/db';
+import { hashIP, initializeDefaults } from '@/lib/db';
 import {
   isSpotifySearchBusyError,
   SPOTIFY_SEARCH_BUSY_CODE,
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import {
+  buildSearchCacheKey,
+  getCachedSearch,
+  setCachedSearch,
+} from '@/lib/search-cache';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +21,22 @@ export async function GET(req: NextRequest) {
     const query = searchParams.get('q');
     const limit = parseInt(searchParams.get('limit') || '10');
     const username = searchParams.get('username');
+
+    const clientIP = getClientIp(req);
+    const rateLimitCheck = checkRateLimit(
+      'guestSearch',
+      `${hashIP(clientIP)}:${username || 'anon'}`
+    );
+    if (!rateLimitCheck.allowed) {
+      const response = NextResponse.json(
+        { error: rateLimitCheck.message },
+        { status: 429 }
+      );
+      if (rateLimitCheck.retryAfter) {
+        response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
+      }
+      return response;
+    }
     
     console.log(`🔍 [API /api/search] Query: "${query}", Username: ${username}, Limit: ${limit}`);
     
@@ -42,19 +64,31 @@ export async function GET(req: NextRequest) {
 
     // Feb 2026 Spotify search max limit is 10
     const searchLimit = Math.min(limit || 10, 10);
-    
+    const cacheKey = buildSearchCacheKey(userId, query, searchLimit);
+    const cached = getCachedSearch<{ tracks: unknown[]; query: string; total: number }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     console.log(`🔍 [API /api/search] Calling spotifyService.searchTracks with userId: ${userId}`);
-    const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit, userId);
+    const searchResult = await spotifyService.searchTracks(
+      query.trim(),
+      searchLimit,
+      userId ?? undefined
+    );
     
     // Extract tracks from Spotify API response
     const tracks = searchResult?.tracks?.items || [];
     console.log(`🔍 [API /api/search] Found ${tracks.length} tracks`);
-    
-    return NextResponse.json({
+
+    const payload = {
       tracks: tracks,
       query: query.trim(),
       total: tracks.length
-    });
+    };
+    setCachedSearch(cacheKey, payload);
+    
+    return NextResponse.json(payload);
 
   } catch (error) {
     console.error('Error searching tracks:', error);

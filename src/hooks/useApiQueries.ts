@@ -88,6 +88,11 @@ export function useStats() {
 // SPOTIFY STATUS QUERY
 // ============================================================================
 
+interface SpotifyStatusData {
+  connected?: boolean;
+  is_playing?: boolean;
+}
+
 export function useSpotifyStatus() {
   return useQuery({
     queryKey: QUERY_KEYS.spotifyStatus(),
@@ -100,11 +105,18 @@ export function useSpotifyStatus() {
         throw new Error('Failed to fetch Spotify status');
       }
       
-      return response.json();
+      return response.json() as Promise<SpotifyStatusData>;
     },
     staleTime: 20 * 1000,
     gcTime: 1 * 60 * 1000, // 1 minute
-    refetchInterval: 30 * 1000, // Softer polling to stay within Spotify rate limits
+    // Idle / disconnected: poll less often to reduce /me/player load
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.connected && data?.is_playing) {
+        return 30 * 1000;
+      }
+      return 60 * 1000;
+    },
     refetchIntervalInBackground: false,
   });
 }

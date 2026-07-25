@@ -7,7 +7,8 @@ dotenv.config({ path: './test.env' });
 const config: Config = {
   displayName: 'Unit Tests',
   testEnvironment: 'node',
-  rootDir: './',
+  // Config lives in config/jest/; repo root is two levels up
+  rootDir: '../..',
   testMatch: [
     '<rootDir>/tests/unit/**/*.spec.ts',
     '<rootDir>/tests/unit/**/*.test.ts',
@@ -24,7 +25,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
   collectCoverageFrom: [
     'src/lib/**/*.{ts,tsx}',
     '!src/lib/**/*.d.ts',

@@ -73,9 +73,9 @@ export default function SettingsPage() {
     if (eventSettings) {
       setFormData({
         event_title: eventSettings.event_title || '',
-        request_limit: (eventSettings as any).request_limit || 10,
-        auto_approve: (eventSettings as any).auto_approve || false,
-        decline_explicit: (eventSettings as any).decline_explicit || false,
+        request_limit: eventSettings.request_limit || 10,
+        auto_approve: eventSettings.auto_approve || false,
+        decline_explicit: eventSettings.decline_explicit || false,
       });
     }
   }, [eventSettings]);

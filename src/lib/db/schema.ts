@@ -132,7 +132,7 @@ export interface TrackData {
 
 // Event config interface for JSONB field
 export interface EventConfig {
-  pages_enabled: {
+  pages_enabled?: {
     requests: boolean;
     display: boolean;
   };
@@ -160,4 +160,6 @@ export interface EventConfig {
   show_scrolling_bar?: boolean;
   karaoke_mode?: boolean;
   show_approval_messages?: boolean;
+  /** @deprecated Prefer Pusher-driven updates; kept for older clients */
+  display_refresh_interval?: number;
 }

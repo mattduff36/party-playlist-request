@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDefaults, getPool } from '@/lib/db';
+import { initializeDefaults, getPool, hashIP } from '@/lib/db';
 import {
   isSpotifySearchBusyError,
   SPOTIFY_SEARCH_BUSY_CODE,
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import {
+  buildSearchCacheKey,
+  getCachedSearch,
+  setCachedSearch,
+} from '@/lib/search-cache';
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,6 +35,22 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const clientIP = getClientIp(req);
+    const rateLimitCheck = checkRateLimit(
+      'guestSearch',
+      `${hashIP(clientIP)}:${username}`
+    );
+    if (!rateLimitCheck.allowed) {
+      const response = NextResponse.json(
+        { error: rateLimitCheck.message },
+        { status: 429 }
+      );
+      if (rateLimitCheck.retryAfter) {
+        response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
+      }
+      return response;
+    }
+
     console.log(`🔍 [search] User ${username} searching for: "${query}" (limit: ${limit})`);
 
     // Get user's Spotify tokens from database
@@ -46,6 +68,12 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = userResult.rows[0].id;
+    const searchLimit = Math.min(Math.max(limit || 10, 1), 10);
+    const cacheKey = buildSearchCacheKey(userId, query, searchLimit);
+    const cached = getCachedSearch<{ tracks: unknown[]; query: string; total: number }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     // Get user's Spotify auth tokens
     const authResult = await pool.query(
@@ -99,7 +127,6 @@ export async function GET(req: NextRequest) {
     }
 
     // Search using user's Spotify tokens (Feb 2026: max limit is 10)
-    const searchLimit = Math.min(Math.max(limit || 10, 1), 10);
     const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query.trim())}&type=track&limit=${searchLimit}`;
     
     const searchResponse = await fetch(searchUrl, {
@@ -154,11 +181,14 @@ export async function GET(req: NextRequest) {
 
     console.log(`✅ [search] Found ${tracks.length} tracks for ${username}`);
 
-    return NextResponse.json({
+    const payload = {
       tracks: tracks,
       query: query.trim(),
       total: tracks.length
-    });
+    };
+    setCachedSearch(cacheKey, payload);
+
+    return NextResponse.json(payload);
 
   } catch (error) {
     console.error('❌ [search] Error:', error);

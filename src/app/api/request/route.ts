@@ -5,36 +5,7 @@ import { triggerRequestSubmitted, triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
 import { validateRequesterName } from '@/lib/profanity-filter';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
-
-// Rate limiting storage
-const rateLimitMap = new Map<string, { count: number; resetTime: number; lastRequest: number }>();
-
-function isRateLimited(ip: string): { limited: boolean; message?: string } {
-  const now = Date.now();
-  const ipHash = hashIP(ip);
-  const current = rateLimitMap.get(ipHash) || { count: 0, resetTime: now + 60 * 60 * 1000, lastRequest: 0 };
-
-  // Check hourly limit (10 requests per hour)
-  if (now > current.resetTime) {
-    current.count = 0;
-    current.resetTime = now + 60 * 60 * 1000;
-  }
-
-  if (current.count >= 10) {
-    return { limited: true, message: 'Maximum 10 requests per hour exceeded. Please try again later.' };
-  }
-
-  // Check 5-second cooldown (reduced for testing)
-  if (now - current.lastRequest < 5 * 1000) {
-    return { limited: true, message: 'Please wait 5 seconds before making another request.' };
-  }
-
-  current.count++;
-  current.lastRequest = now;
-  rateLimitMap.set(ipHash, current);
-
-  return { limited: false };
-}
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -46,12 +17,17 @@ export async function POST(req: NextRequest) {
     await initializeDefaults();
     console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
 
-    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
-    
-    // Rate limiting
-    const rateLimitCheck = isRateLimited(clientIP);
-    if (rateLimitCheck.limited) {
-      return NextResponse.json({ error: rateLimitCheck.message }, { status: 429 });
+    const clientIP = getClientIp(req);
+    const rateLimitCheck = checkRateLimit('songRequest', hashIP(clientIP));
+    if (!rateLimitCheck.allowed) {
+      const response = NextResponse.json(
+        { error: rateLimitCheck.message },
+        { status: 429 }
+      );
+      if (rateLimitCheck.retryAfter) {
+        response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
+      }
+      return response;
     }
 
     const body = await req.json();

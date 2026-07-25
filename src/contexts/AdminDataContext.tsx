@@ -42,6 +42,23 @@ export interface EventSettings {
   show_qr_code: boolean;
   display_refresh_interval: number;
   show_approval_messages?: boolean;
+  request_limit?: number | null;
+  auto_approve?: boolean;
+  decline_explicit?: boolean;
+  qr_boost_duration?: number;
+  display_mood?: 'club' | 'venue' | 'dj';
+  theme_primary_color?: string;
+  theme_secondary_color?: string;
+  theme_tertiary_color?: string;
+  show_scrolling_bar?: boolean;
+  karaoke_mode?: boolean;
+  pages_enabled?: {
+    requests: boolean;
+    display: boolean;
+  };
+  message_text?: string;
+  message_duration?: number;
+  message_created_at?: string;
 }
 
 export interface Stats {

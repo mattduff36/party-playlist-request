@@ -48,7 +48,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:api": "jest --config jest.api.config.ts",
-    "test:unit:new": "jest --config jest.unit.config.ts",
+    "test:unit:new": "jest --config config/jest/jest.unit.config.ts",
     "test:full": "tsx scripts/run-tests.ts",
     "test:setup-db": "tsx scripts/setup-test-db.ts",
     "test:seed-db": "tsx scripts/seed-test-data.ts",

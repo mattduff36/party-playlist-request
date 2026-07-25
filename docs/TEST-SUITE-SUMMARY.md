@@ -1,41 +1,53 @@
-# 🎉 Autonomous Testing Suite - Implementation Complete!
+# Testing Suite Summary
 
-## ✅ **MISSION ACCOMPLISHED**
+## Status (reconciled July 2026)
 
-Your Party Playlist Request application now has a **comprehensive, fully autonomous testing suite** that can test every function, setting, scenario, and edge case **without any manual intervention**.
+On-disk Jest/Playwright `it()`/`test()` cases are far smaller than the original “220+” claim. Counts below are from repository scan (not a full `test:full` run).
+
+| Category | Location | Count |
+|----------|----------|------:|
+| Unit (incl. component `__tests__`) | `tests/unit/`, `src/**/__tests__/` | ~62 |
+| API | `tests/api/` | ~4 |
+| E2E (Playwright) | `tests/e2e/` | ~17 |
+| **Total classic tests** | | **~83** |
+| Browser flow helpers (not Jest cases) | `tests/browser/flows/` | 3 scripts |
+
+Also available: load/performance scripts via `npm run test:load*` / `test:performance`.
 
 ---
 
-## 🚀 One-Command Testing
+## One-command testing
 
 ```bash
 npm run test:full
 ```
 
-**This single command will:**
-1. ✅ Setup test database automatically
-2. ✅ Seed realistic test data
-3. ✅ Start dev server (port 3000)
-4. ✅ Run 220+ comprehensive tests
-5. ✅ Generate detailed reports
-6. ✅ Clean up automatically
-7. ✅ Give you a complete pass/fail summary
+Runs `tsx scripts/run-tests.ts`, which can:
+1. Setup test database
+2. Seed test data
+3. Start the app
+4. Run configured suites
+5. Report results
 
-**Duration**: ~25-35 minutes  
-**Human interaction required**: **ZERO** ✨
+Requires a working test DB/env (see `config/jest/test.env.example`). Duration and coverage depend on which suites are wired in `scripts/run-tests.ts` — do not assume 220+ cases.
+
+Useful focused commands:
+- `npm run test:unit` / `npm run test:unit:new`
+- `npm run test:api`
+- `npm run test:e2e`
+- `npm run test:components`
 
 ---
 
-## 📊 What Gets Tested
+## What gets tested (aspirational vs on-disk)
 
-### Complete Coverage (220+ Tests)
+### On-disk coverage (~83 classic tests)
 
-| Category | What It Tests | Count |
-|----------|---------------|-------|
-| **E2E Tests** | Complete user flows, UI interactions, real browser testing | ~120 |
-| **API Tests** | All backend endpoints, business logic, data validation | ~60 |
-| **Unit Tests** | Core functions, services, utilities, edge cases | ~40 |
-| **TOTAL** | **Everything** | **~220+** |
+| Category | What it covers today | Count |
+|----------|----------------------|------:|
+| **E2E** | Auth + admin event flows | ~17 |
+| **API** | Auth API smoke | ~4 |
+| **Unit / components** | Auth utils, rate-limit, search-cache, admin panels, ErrorBoundary | ~62 |
 
 ### Specific Features Tested
 

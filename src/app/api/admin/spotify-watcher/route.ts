@@ -5,12 +5,22 @@ import { triggerPlaybackUpdate, triggerStatsUpdate } from '@/lib/pusher';
 import { getAllRequests } from '@/lib/db';
 
 // Store last known state PER USER to detect changes (excluding progress_ms which changes constantly)
+// Process-local only — multi-instance deploys do not share watcher state or coalesce across Vercel instances.
 const lastPlaybackStates = new Map<string, any>(); // userId -> lastPlaybackState
 const lastQueueStates = new Map<string, any>();    // userId -> lastQueueState
 const lastQueueChecks = new Map<string, number>(); // userId -> timestamp
 const lastStatsStates = new Map<string, any>();    // userId -> lastStatsState (for change detection)
+const lastUserCheckAt = new Map<string, number>(); // userId -> last check timestamp (idle backoff)
 let watcherInterval: NodeJS.Timeout | null = null;
+let watcherEnabled = false;
+let watching = false; // coalesce: skip overlapping ticks
+let anyUserPlaying = false;
 let lastStatsUpdate = 0;
+
+const PLAYING_POLL_MS = 15_000;
+const IDLE_POLL_MS = 45_000;
+const PLAYING_QUEUE_MS = 20_000;
+const IDLE_QUEUE_MS = 60_000;
 
 // Helper function to normalize playback state for comparison (exclude progress_ms)
 const normalizePlaybackForComparison = (playback: any) => {
@@ -46,7 +56,12 @@ const normalizePlaybackForComparison = (playback: any) => {
 };
 
 // Spotify watcher function - now properly multi-tenant
-const watchSpotifyChanges = async (queueInterval: number = 20000) => {
+const watchSpotifyChanges = async (queueInterval: number = PLAYING_QUEUE_MS) => {
+  if (watching) {
+    console.log('🎵 Spotify watcher: previous tick still running — coalescing (skip)');
+    return;
+  }
+  watching = true;
   try {
     console.log('🎵 Spotify watcher: Starting multi-tenant check...', new Date().toISOString());
     
@@ -68,18 +83,40 @@ const watchSpotifyChanges = async (queueInterval: number = 20000) => {
     
     if (usersWithSpotify.length === 0) {
       console.log('⏸️ No users with active events and Spotify connections found');
+      anyUserPlaying = false;
       return;
     }
     
     console.log(`🎵 Checking Spotify for ${usersWithSpotify.length} user(s) with active events`);
-    
-    // Check each user's Spotify separately
+
+    let foundPlaying = false;
+    const now = Date.now();
+
+    // Check each user's Spotify separately (idle users checked less often)
     for (const { user_id, username } of usersWithSpotify) {
-      await watchSingleUserSpotify(user_id, username, queueInterval);
+      const lastPlayback = lastPlaybackStates.get(user_id);
+      const isIdle = !lastPlayback?.is_playing;
+      const minGap = isIdle ? IDLE_POLL_MS : PLAYING_POLL_MS;
+      const lastCheck = lastUserCheckAt.get(user_id) || 0;
+      if (now - lastCheck < minGap && queueInterval !== 0) {
+        if (lastPlayback?.is_playing) foundPlaying = true;
+        continue;
+      }
+
+      const effectiveQueueInterval = isIdle ? IDLE_QUEUE_MS : queueInterval;
+      lastUserCheckAt.set(user_id, now);
+      await watchSingleUserSpotify(user_id, username, effectiveQueueInterval);
+
+      const updated = lastPlaybackStates.get(user_id);
+      if (updated?.is_playing) foundPlaying = true;
     }
+
+    anyUserPlaying = foundPlaying;
 
   } catch (error) {
     console.error('🎵 Spotify watcher error:', error);
+  } finally {
+    watching = false;
   }
 };
 
@@ -309,32 +346,43 @@ export async function POST(req: NextRequest) {
     }
     
     const body = await req.json();
-    const { action, interval = 5000, queueInterval = 20000 } = body; // Default: 5s playback, 20s queue
+    // Defaults softened: base tick 15s; idle users skipped via per-user backoff inside watchSpotifyChanges
+    const { action, interval = PLAYING_POLL_MS, queueInterval = PLAYING_QUEUE_MS } = body;
 
     if (action === 'start') {
       if (watcherInterval) {
-        clearInterval(watcherInterval);
+        clearTimeout(watcherInterval);
+        watcherInterval = null;
       }
+      watcherEnabled = true;
 
-      console.log(`🎵 Starting Spotify watcher with ${interval}ms playback interval and ${queueInterval}ms queue interval`);
-      
-      // Start immediate check
+      console.log(`🎵 Starting Spotify watcher with ${interval}ms playing / ${IDLE_POLL_MS}ms idle ticks (queue ${queueInterval}ms)`);
+
+      const scheduleNextTick = () => {
+        if (!watcherEnabled) return;
+        const delay = anyUserPlaying ? interval : IDLE_POLL_MS;
+        watcherInterval = setTimeout(async () => {
+          await watchSpotifyChanges(queueInterval);
+          scheduleNextTick();
+        }, delay);
+      };
+
       await watchSpotifyChanges(queueInterval);
-      
-      // Set up interval for playback checks (queue will be checked based on queueInterval)
-      watcherInterval = setInterval(() => watchSpotifyChanges(queueInterval), interval);
+      scheduleNextTick();
 
       return NextResponse.json({
         success: true,
         message: 'Spotify watcher started',
         interval,
-        queueInterval
+        queueInterval,
+        idlePollMs: IDLE_POLL_MS,
       });
     }
 
     if (action === 'stop') {
+      watcherEnabled = false;
       if (watcherInterval) {
-        clearInterval(watcherInterval);
+        clearTimeout(watcherInterval);
         watcherInterval = null;
         console.log('🎵 Spotify watcher stopped');
       }

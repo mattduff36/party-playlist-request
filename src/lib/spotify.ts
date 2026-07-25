@@ -2,6 +2,13 @@ import crypto from 'crypto';
 import { getSpotifyAuth, setSpotifyAuth } from './db';
 import { logErrorAsync } from '@/lib/support/logger';
 
+/** Verbose Spotify client logs — on in non-production, or when SPOTIFY_DEBUG=true */
+function spotifyDebug(...args: unknown[]): void {
+  if (process.env.SPOTIFY_DEBUG === 'true' || process.env.NODE_ENV !== 'production') {
+    console.log(...args);
+  }
+}
+
 export interface SpotifyTrack {
   id: string;
   uri: string;
@@ -58,7 +65,7 @@ class SpotifyService {
     this.redirectUri = process.env.SPOTIFY_REDIRECT_URI || '';
     
     // Check if environment variables are set
-    console.log('Spotify service initialized:', {
+    spotifyDebug('Spotify service initialized:', {
       hasClientId: !!this.clientId,
       hasClientSecret: !!this.clientSecret,
       hasRedirectUri: !!this.redirectUri,
@@ -84,7 +91,7 @@ class SpotifyService {
       
       // Check if token is expired
       if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
-        console.log('Access token expired, attempting refresh...');
+        spotifyDebug('Access token expired, attempting refresh...');
         try {
           await this.refreshAccessToken(userId || auth.user_id);
           return true;
@@ -105,7 +112,7 @@ class SpotifyService {
     try {
       const { clearSpotifyAuth } = await import('./db');
       await clearSpotifyAuth();
-      console.log('✅ Spotify tokens cleared from database');
+      spotifyDebug('✅ Spotify tokens cleared from database');
     } catch (error) {
       console.error('Error clearing Spotify tokens:', error);
     }
@@ -117,11 +124,11 @@ class SpotifyService {
       const auth = await getSpotifyAuth();
       
       if (!auth?.access_token) {
-        console.log('No Spotify tokens to revoke');
+        spotifyDebug('No Spotify tokens to revoke');
         return;
       }
 
-      console.log('🔄 Clearing Spotify authentication (Spotify API does not support programmatic token revocation)');
+      spotifyDebug('🔄 Clearing Spotify authentication (Spotify API does not support programmatic token revocation)');
       
       // Note: Spotify's Web API does not provide a direct token revocation endpoint for third-party apps
       // The tokens will remain valid until they expire, but we clear them from our system
@@ -129,7 +136,7 @@ class SpotifyService {
       
       // Clear tokens from our database immediately
       await clearSpotifyAuth();
-      console.log('✅ Spotify tokens cleared from database - user will need to re-authenticate');
+      spotifyDebug('✅ Spotify tokens cleared from database - user will need to re-authenticate');
       
     } catch (error) {
       console.error('Error clearing Spotify tokens:', error);
@@ -137,7 +144,7 @@ class SpotifyService {
       try {
         const { clearSpotifyAuth } = await import('./db');
         await clearSpotifyAuth();
-        console.log('⚠️ Error occurred, but cleared tokens from database');
+        spotifyDebug('⚠️ Error occurred, but cleared tokens from database');
       } catch (clearError) {
         console.error('Failed to clear tokens from database:', clearError);
         throw clearError;
@@ -176,7 +183,7 @@ class SpotifyService {
   }
 
   async exchangeCodeForToken(code: string, codeVerifier: string, userId: string) {
-    console.log('Spotify token exchange:', { 
+    spotifyDebug('Spotify token exchange:', { 
       hasCode: !!code, 
       hasCodeVerifier: !!codeVerifier,
       userId,
@@ -189,7 +196,7 @@ class SpotifyService {
     // Always use real Spotify endpoint
     const tokenUrl = `${this.authURL}/api/token`;
 
-    console.log('🎯 Using token URL:', tokenUrl);
+    spotifyDebug('🎯 Using token URL:', tokenUrl);
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -205,7 +212,7 @@ class SpotifyService {
       })
     });
 
-    console.log('Spotify token response status:', response.status);
+    spotifyDebug('Spotify token response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -240,15 +247,15 @@ class SpotifyService {
     };
 
     await setSpotifyAuth(authData, userId);
-    console.log(`✅ Spotify tokens saved to database for user ${userId}`);
+    spotifyDebug(`✅ Spotify tokens saved to database for user ${userId}`);
   }
 
   async getAccessToken(userId?: string): Promise<string> {
-    console.log(`🔑 Getting Spotify access token${userId ? ` for user ${userId}` : ''}...`);
+    spotifyDebug(`🔑 Getting Spotify access token${userId ? ` for user ${userId}` : ''}...`);
     const startTime = Date.now();
     
     const auth = await getSpotifyAuth(userId);
-    console.log(`🔑 Auth data retrieved (${Date.now() - startTime}ms)`);
+    spotifyDebug(`🔑 Auth data retrieved (${Date.now() - startTime}ms)`);
     
     if (!auth || !auth.access_token) {
       throw new Error(`No Spotify authentication found${userId ? ` for user ${userId}` : ''}`);
@@ -256,7 +263,7 @@ class SpotifyService {
 
     // Check if token is expired
     if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
-      console.log('🔄 Access token expired, refreshing...');
+      spotifyDebug('🔄 Access token expired, refreshing...');
       return await this.refreshAccessToken(userId);
     }
 
@@ -319,7 +326,7 @@ class SpotifyService {
       }
       await setSpotifyAuth(updatedAuth, userId);
       
-      console.log(`✅ Access token refreshed for user ${userId}`);
+      spotifyDebug(`✅ Access token refreshed for user ${userId}`);
       
       return tokenData.access_token;
     } catch (error) {
@@ -336,7 +343,7 @@ class SpotifyService {
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, userId?: string, retries = 1): Promise<any> {
     const requestId = Math.random().toString(36).substr(2, 6);
     const startTime = Date.now();
-    console.log(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint}${userId ? ` (user: ${userId})` : ''} (retries left: ${retries})`);
+    spotifyDebug(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint}${userId ? ` (user: ${userId})` : ''} (retries left: ${retries})`);
     
     // Always use real Spotify API
     
@@ -344,7 +351,7 @@ class SpotifyService {
     try {
       const tokenStart = Date.now();
       accessToken = await this.getAccessToken(userId);
-      console.log(`🔑 [${requestId}] Access token obtained (${Date.now() - tokenStart}ms)`);
+      spotifyDebug(`🔑 [${requestId}] Access token obtained (${Date.now() - tokenStart}ms)`);
     } catch (tokenError) {
       console.error(`❌ [${requestId}] Failed to get access token:`, (tokenError as Error).message);
       throw tokenError;
@@ -368,10 +375,10 @@ class SpotifyService {
       const response = await fetch(url, options);
       const requestTime = Date.now() - requestStart;
       
-      console.log(`🌐 [${requestId}] Response: ${response.status} ${response.statusText} (${requestTime}ms)`);
+      spotifyDebug(`🌐 [${requestId}] Response: ${response.status} ${response.statusText} (${requestTime}ms)`);
 
       if (response.status === 401 && retries > 0) {
-        console.log(`🔄 [${requestId}] Unauthorized, attempting token refresh and retry...`);
+        spotifyDebug(`🔄 [${requestId}] Unauthorized, attempting token refresh and retry...`);
         try {
           await this.refreshAccessToken(userId);
           return await this.makeAuthenticatedRequest(method, endpoint, data, userId, retries - 1);
@@ -425,10 +432,10 @@ class SpotifyService {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
-        console.log(`✅ [${requestId}] Request completed successfully (${Date.now() - startTime}ms total)`);
+        spotifyDebug(`✅ [${requestId}] Request completed successfully (${Date.now() - startTime}ms total)`);
         return result;
       } else {
-        console.log(`✅ [${requestId}] Request completed successfully - no JSON response (${Date.now() - startTime}ms total)`);
+        spotifyDebug(`✅ [${requestId}] Request completed successfully - no JSON response (${Date.now() - startTime}ms total)`);
         return null;
       }
     } catch (error) {
@@ -440,12 +447,12 @@ class SpotifyService {
   // Spotify API Methods (multi-tenant aware)
   async getCurrentPlayback(userId?: string) {
     const requestId = Math.random().toString(36).substr(2, 6);
-    console.log(`🎵 [${requestId}] getCurrentPlayback() called${userId ? ` for user ${userId}` : ''} at ${new Date().toISOString()}`);
+    spotifyDebug(`🎵 [${requestId}] getCurrentPlayback() called${userId ? ` for user ${userId}` : ''} at ${new Date().toISOString()}`);
     
     try {
-      console.log(`🌐 [${requestId}] Making authenticated request to /me/player...`);
+      spotifyDebug(`🌐 [${requestId}] Making authenticated request to /me/player...`);
       const result = await this.makeAuthenticatedRequest('GET', '/me/player', undefined, userId);
-      console.log(`✅ [${requestId}] getCurrentPlayback() completed successfully`);
+      spotifyDebug(`✅ [${requestId}] getCurrentPlayback() completed successfully`);
       return result;
     } catch (error) {
       console.error(`❌ [${requestId}] getCurrentPlayback() failed:`, (error as Error).message);
@@ -455,12 +462,12 @@ class SpotifyService {
 
   async getQueue(userId?: string) {
     const requestId = Math.random().toString(36).substr(2, 6);
-    console.log(`🎵 [${requestId}] getQueue() called${userId ? ` for user ${userId}` : ''} at ${new Date().toISOString()}`);
+    spotifyDebug(`🎵 [${requestId}] getQueue() called${userId ? ` for user ${userId}` : ''} at ${new Date().toISOString()}`);
     
     try {
-      console.log(`🌐 [${requestId}] Making authenticated request to /me/player/queue...`);
+      spotifyDebug(`🌐 [${requestId}] Making authenticated request to /me/player/queue...`);
       const result = await this.makeAuthenticatedRequest('GET', '/me/player/queue', undefined, userId);
-      console.log(`✅ [${requestId}] getQueue() completed successfully`);
+      spotifyDebug(`✅ [${requestId}] getQueue() completed successfully`);
       return result;
     } catch (error) {
       console.error(`❌ [${requestId}] getQueue() failed:`, (error as Error).message);
@@ -546,7 +553,7 @@ class SpotifyService {
       return this.appAccessToken;
     }
 
-    console.log('🔑 Getting app-only access token via Client Credentials...');
+    spotifyDebug('🔑 Getting app-only access token via Client Credentials...');
 
     const response = await fetch(`${this.authURL}/api/token`, {
       method: 'POST',
@@ -568,7 +575,7 @@ class SpotifyService {
     this.appAccessToken = data.access_token;
     this.appTokenExpiry = new Date(Date.now() + (data.expires_in * 1000));
     
-    console.log('✅ App access token obtained');
+    spotifyDebug('✅ App access token obtained');
     return this.appAccessToken;
   }
 
@@ -586,12 +593,12 @@ class SpotifyService {
       try {
         return await this.makeAuthenticatedRequest('GET', `/search?${params.toString()}`, undefined, userId);
       } catch (error) {
-        console.log('⚠️ User-authenticated search failed, falling back to app-only search');
+        spotifyDebug('⚠️ User-authenticated search failed, falling back to app-only search');
       }
     }
 
     // Fall back to app-only search (Client Credentials)
-    console.log('🔍 Using app-only search (no user auth required)');
+    spotifyDebug('🔍 Using app-only search (no user auth required)');
     const appToken = await this.getAppAccessToken();
     const url = `${this.baseURL}/search?${params.toString()}`;
     

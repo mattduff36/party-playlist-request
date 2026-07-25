@@ -63,17 +63,17 @@ export default function DisplaySettingsPage() {
     if (eventSettings) {
       setFormData({
         welcome_message: eventSettings.welcome_message || '',
-        secondary_message: (eventSettings as any).secondary_message || '',
-        tertiary_message: (eventSettings as any).tertiary_message || '',
-        show_qr_code: (eventSettings as any).show_qr_code ?? true,
-        qr_boost_duration: (eventSettings as any).qr_boost_duration || 5,
+        secondary_message: eventSettings.secondary_message || '',
+        tertiary_message: eventSettings.tertiary_message || '',
+        show_qr_code: eventSettings.show_qr_code ?? true,
+        qr_boost_duration: eventSettings.qr_boost_duration || 5,
         display_mood: resolveDisplayMood(
-          (eventSettings as any).display_mood,
-          (eventSettings as any).theme_primary_color
+          eventSettings.display_mood,
+          eventSettings.theme_primary_color
         ),
-        show_scrolling_bar: (eventSettings as any).show_scrolling_bar ?? true,
-        karaoke_mode: (eventSettings as any).karaoke_mode || false,
-        show_approval_messages: (eventSettings as any).show_approval_messages || false,
+        show_scrolling_bar: eventSettings.show_scrolling_bar ?? true,
+        karaoke_mode: eventSettings.karaoke_mode || false,
+        show_approval_messages: eventSettings.show_approval_messages || false,
       });
     }
   }, [eventSettings]);
