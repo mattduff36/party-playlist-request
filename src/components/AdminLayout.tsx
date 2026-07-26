@@ -14,7 +14,8 @@ import {
   Shield,
   ClipboardCheck,
   LifeBuoy,
-  History
+  History,
+  CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminData } from '@/contexts/AdminDataContext';
@@ -145,6 +146,12 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       label: 'History',
       icon: History,
       href: `${baseRoute}/admin/history`,
+    },
+    {
+      id: 'party-pass',
+      label: 'Party Pass',
+      icon: CreditCard,
+      href: '/account/party-pass',
     },
   ];
 

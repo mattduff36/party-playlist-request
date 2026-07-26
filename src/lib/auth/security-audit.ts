@@ -20,7 +20,13 @@ export type SecurityAuditEventType =
   | 'event.guardrail_override'
   | 'beta.entitlement_grant'
   | 'beta.entitlement_revoke'
-  | 'playback.mode_changed';
+  | 'playback.mode_changed'
+  | 'party_pass.checkout_created'
+  | 'party_pass.purchase_paid'
+  | 'party_pass.activated'
+  | 'party_pass.refund'
+  | 'party_pass.dispute'
+  | 'party_pass.audit';
 
 export interface SecurityAuditEvent {
   type: SecurityAuditEventType;
