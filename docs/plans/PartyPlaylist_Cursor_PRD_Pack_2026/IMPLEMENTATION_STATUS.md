@@ -658,15 +658,40 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run build` | Pass |
 | Pushed to remote | No (prefer local; production = `main` only) |
 
+## Programme roll-up (PRD-01..09)
+
+| PRD | Status | Merge commit | Source tip |
+| --- | --- | --- | --- |
+| PRD-01 Production lockdown | Integrated into preview | `83d62e6` | `277ef69` |
+| PRD-02 Session authority | Integrated into preview | `4004dbc` | `5ff2a1e` |
+| PRD-03 Spotify token security | Integrated into preview | `fe4d4a9` | `da4197c` |
+| PRD-04 Tenant/realtime isolation | Integrated into preview | `04081bf` | `5885dbb` |
+| PRD-05 Canonical DB + CI | Integrated into preview | `cae2960` | `43cf95f` |
+| PRD-06 Distributed reliability | Integrated into preview | `ca5e420` | `af3f9ad` |
+| PRD-07 Playback / manual mode | Integrated into preview | `36d343f` | `73e9b48` |
+| PRD-08 Paid beta readiness | Integrated into preview | `5f65b49` | `eaf02c3` |
+| PRD-09 Party Pass payments | Integrated into preview | `fb59612` | `2ca3b3d` |
+
+Preview branch: `preview/partyplaylist-prd-program-2026`. Production branch (Vercel): `main` — unchanged by this programme. Do not merge preview → `main` without explicit human approval.
+
+Handover artifacts:
+
+- Manual acceptance: `MANUAL_ACCEPTANCE_TEST_PLAN.md`
+- Preview env names: `PREVIEW_ENV_CHECKLIST.md`
+- Contract-phase cleanup: `CONTRACT_PHASE_CLEANUP_PLAN.md`
+- Failure reporting: `FAILURE_REPORTING.md`
+
 ## PRD-09: £19.99 Party Pass Payments, Entitlements and Commercial Launch Controls
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-09-party-pass-payments` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `fb59612` (source tip `2ca3b3d`) |
 | Database impact | **Class B applied** — `011_prd09_party_pass_payments` after write-free dry-run. Adds `stripe_customers`, `party_pass_purchases`, `party_pass_entitlements`, `stripe_webhook_events`, `party_pass_audit`, `party_pass_funnel_events`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
 | Depends on | PRD-08 integrated into preview (`5f65b49`) |
+| Independent re-review | APPROVE_MERGE @ `2ca3b3d` |
 
 ### Outcomes (this pass)
 
@@ -708,10 +733,9 @@ Checklist: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-09-ENV-CHECKLIST.m
 
 - **Credentials:** Stripe test keys + webhook secret required before end-to-end Checkout rehearsal (code complete; checkout stays disabled without flag + `sk_test_*`).
 - Do not apply Class C/D from prior PRDs.
-- Do not merge PRD-09 into preview until programme asks.
-- Do not push until explicitly instructed.
 - Do not enable `PARTY_PASS_CHECKOUT_ENABLED=1` on production until Spotify/manual hard gates + reviewed legal copy.
 - Live Stripe keys are refused in this build (test mode only).
+- Do not merge preview → `main` without explicit human approval.
 
 ### Incomplete / follow-ups
 
@@ -731,5 +755,16 @@ Checklist: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-09-ENV-CHECKLIST.m
 | `npm run lint` | Pass (0 errors; warnings remain) |
 | `npm run test:unit` | Pass — 296 tests (incl. PRD-09 amount/currency gate + idempotency) |
 | `npm run build` | Pass |
-| Merged into preview | No |
-| Pushed | No |
+| Merged into preview | Yes — `fb59612` |
+| Independent re-review | APPROVE_MERGE @ `2ca3b3d` |
+
+### Preview integration smoke (post-merge `fb59612` + handover docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (0 errors; 149 warnings remain) |
+| `npm run test:unit` | Pass — 296 tests / 38 suites |
+| `npm run build` | Pass |
+| Vercel production branch | `main` (API `link.productionBranch`) |
+| Pushed to remote | Yes — preview branch only (`-u`); production = `main` unchanged |
