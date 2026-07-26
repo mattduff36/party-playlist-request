@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { spotifyService } from '@/lib/spotify';
+import {
+  refuseIfCapabilityUnsupported,
+  runProviderControl,
+} from '@/lib/playback/gate-capability';
 
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate user
     const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
 
     const userId = auth.user.user_id;
-    console.log(`🎵 [playback/pause] User ${auth.user.username} (${userId}) pausing playback`);
+    const refused = await refuseIfCapabilityUnsupported(
+      userId,
+      'playbackControls',
+      'playback.pause'
+    );
+    if (refused) return refused;
 
     let device_id: string | undefined;
     try {
@@ -21,38 +28,34 @@ export async function POST(req: NextRequest) {
       device_id = undefined;
     }
 
-    await spotifyService.pause(device_id, userId);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Playback paused'
+    const result = await runProviderControl(userId, 'pause', {
+      userId,
+      deviceId: device_id,
     });
 
+    if (!result.ok) {
+      const status = result.code === 'CAPABILITY_NOT_SUPPORTED' ? 501 : 500;
+      return NextResponse.json(
+        { error: result.message || 'Failed to pause playback', code: result.code },
+        { status }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Playback paused',
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes('token')) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
-    
+
     console.error('Error pausing playback:', error);
-    
-    // Provide more detailed error information
-    let errorMessage = 'Failed to pause playback';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      
-      // Handle common Spotify playback errors
-      if (error.message.includes('NO_ACTIVE_DEVICE')) {
-        errorMessage = 'No active Spotify device found. Please start playing music on a Spotify device first.';
-      } else if (error.message.includes('PREMIUM_REQUIRED')) {
-        errorMessage = 'Spotify Premium is required for playback control.';
-      } else if (error.message.includes('403')) {
-        errorMessage = 'Insufficient permissions for playback control. Please re-authenticate with Spotify.';
-      }
-    }
-    
-    return NextResponse.json({ 
-      error: errorMessage,
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to pause playback',
+      },
+      { status: 500 }
+    );
   }
 }

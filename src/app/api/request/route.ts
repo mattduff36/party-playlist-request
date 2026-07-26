@@ -15,6 +15,11 @@ import {
   isValidIdempotencyKey,
   resolveGuestDeviceId,
 } from '@/lib/reliability';
+import {
+  assignNextQueuePosition,
+  getPlaybackMode,
+  validateManualTrackInput,
+} from '@/lib/playback';
 
 export async function POST(req: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -26,6 +31,9 @@ export async function POST(req: NextRequest) {
     const {
       track_uri,
       track_url,
+      track_name: bodyTrackName,
+      artist_name: bodyArtistName,
+      dedication,
       requester_nickname,
       user_session_id,
       username,
@@ -51,6 +59,194 @@ export async function POST(req: NextRequest) {
       );
     }
     const idempotencyKey = rawIdempotencyKey as string;
+
+    // Resolve organiser user id early for playback mode
+    const { getPool } = await import('@/lib/db');
+    const poolEarly = getPool();
+    const userEarly = await poolEarly.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+    if (userEarly.rows.length === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const organiserUserId: string = userEarly.rows[0].id;
+    const playbackMode = await getPlaybackMode(organiserUserId);
+
+    // Manual mode: artist + title text (no Spotify URI)
+    if (playbackMode === 'manual') {
+      const manual = validateManualTrackInput({
+        title: typeof bodyTrackName === 'string' ? bodyTrackName : '',
+        artists: typeof bodyArtistName === 'string' ? bodyArtistName : '',
+        dedication: typeof dedication === 'string' ? dedication : null,
+      });
+      if (!manual.ok) {
+        return NextResponse.json({ error: manual.error }, { status: 400 });
+      }
+
+      const { deviceId, minted: mintedDevice } = resolveGuestDeviceId(req);
+      const clientIP = getClientIp(req);
+      const ipHash = hashIP(clientIP);
+      const eventScope = access.event?.id || 'unknown-event';
+      const rateLimitCheck = await enforceGuestRateLimit({
+        bucket: 'songRequest',
+        primaryKey: `${eventScope}:${deviceId}`,
+        secondaryKey: ipHash,
+        secondaryMaxMultiplier: 15,
+      });
+      if (!rateLimitCheck.allowed) {
+        const response = NextResponse.json(
+          { error: rateLimitCheck.message, code: 'RATE_LIMITED' },
+          { status: 429 }
+        );
+        if (rateLimitCheck.retryAfter) {
+          response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
+        }
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+
+      let validatedNickname = requester_nickname || undefined;
+      if (requester_nickname) {
+        const validation = validateRequesterName(requester_nickname, true);
+        if (!validation.isValid) {
+          return NextResponse.json(
+            {
+              error:
+                validation.reason ||
+                'Nickname contains inappropriate language. Please choose a different name.',
+            },
+            { status: 400 }
+          );
+        }
+        validatedNickname = validation.censoredName;
+      }
+
+      const eventSettings = await getEventSettings(organiserUserId);
+      const shouldAutoApprove = eventSettings.auto_approve;
+      const eventId = access.event?.id ?? null;
+
+      const createResult = await createIdempotentRequest({
+        userId: organiserUserId,
+        eventId,
+        idempotencyKey,
+        track_uri: null,
+        track_name: manual.value.title,
+        artist_name: manual.value.artists,
+        album_name: 'Manual request',
+        album_image_url: null,
+        duration_ms: 0,
+        requester_ip_hash: ipHash,
+        requester_nickname: validatedNickname,
+        user_session_id: user_session_id || deviceId,
+        status: 'pending',
+        provider_id: 'manual',
+        dedication: manual.value.dedication,
+        normalized_track_key: manual.value.normalizedKey,
+      });
+
+      if (createResult.kind === 'duplicate_track') {
+        const response = NextResponse.json(
+          {
+            error:
+              'This track has already been requested recently. Please choose a different song.',
+            code: 'DUPLICATE_TRACK',
+          },
+          { status: 409 }
+        );
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+
+      const newRequest = createResult.request;
+      if (createResult.kind === 'replay') {
+        const response = NextResponse.json(
+          {
+            success: true,
+            message: 'Your request has been submitted successfully!',
+            replayed: true,
+            request: {
+              id: newRequest.id,
+              track: {
+                name: manual.value.title,
+                artists: manual.value.artists,
+              },
+              status: newRequest.status,
+              playback_mode: 'manual',
+            },
+          },
+          { status: 200 }
+        );
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+
+      if (shouldAutoApprove) {
+        const {
+          claimRequestForApproval,
+          releaseApprovalClaim,
+        } = await import('@/lib/reliability');
+        try {
+          const claimed = await claimRequestForApproval(newRequest.id, organiserUserId);
+          if (claimed) {
+            const approvedAt = new Date().toISOString();
+            await updateRequest(
+              newRequest.id,
+              {
+                status: 'approved',
+                approved_at: approvedAt,
+                approved_by: 'Auto-Approval System',
+                spotify_added_to_queue: false,
+                claim_started_at: null,
+              },
+              organiserUserId
+            );
+            await assignNextQueuePosition(organiserUserId, newRequest.id);
+          }
+        } catch (autoErr) {
+          console.error('Manual auto-approve failed:', autoErr);
+          await releaseApprovalClaim(newRequest.id, organiserUserId, 'pending').catch(
+            () => null
+          );
+        }
+      }
+
+      try {
+        await triggerRequestSubmitted({
+          id: newRequest.id,
+          track_name: manual.value.title,
+          artist_name: manual.value.artists,
+          album_name: 'Manual request',
+          album_image_url: null,
+          track_uri: undefined,
+          requester_nickname: validatedNickname || 'Anonymous',
+          submitted_at: new Date().toISOString(),
+          userId: organiserUserId,
+        });
+      } catch (pusherError) {
+        console.error('Pusher submit failed:', pusherError);
+      }
+
+      reportActivity(req, 'request.submit', `Manual request ${newRequest.id}`, {
+        meta: { playbackMode: 'manual', track: manual.value.title },
+      });
+
+      const response = NextResponse.json({
+        success: true,
+        message: 'Your request has been submitted successfully!',
+        request: {
+          id: newRequest.id,
+          track: {
+            name: manual.value.title,
+            artists: manual.value.artists,
+          },
+          status: shouldAutoApprove ? 'approved' : 'pending',
+          playback_mode: 'manual',
+        },
+      });
+      if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+      return response;
+    }
     
     if (!track_uri && !track_url) {
       return NextResponse.json({ 
@@ -80,21 +276,7 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // Multi-tenant: Get user_id from username
-    const { getPool } = await import('@/lib/db');
-    const pool = getPool();
-    const userResult = await pool.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
-    );
-
-    if (userResult.rows.length === 0) {
-      return NextResponse.json({ 
-        error: 'User not found' 
-      }, { status: 404 });
-    }
-
-    const userId: string = userResult.rows[0].id;
+    const userId: string = organiserUserId;
     console.log(`👤 [${requestId}] Request for user: ${username} (${userId})`);
 
     let trackUri = track_uri;
@@ -196,6 +378,8 @@ export async function POST(req: NextRequest) {
       status: initialStatus,
       approved_at: approvedAt,
       duplicateCooldownMinutes: 30,
+      provider_id: 'spotify',
+      provider_track_id: trackInfo.id ?? null,
     });
 
     if (createResult.kind === 'duplicate_track') {
@@ -280,6 +464,7 @@ export async function POST(req: NextRequest) {
               },
               userId
             );
+            await assignNextQueuePosition(userId, newRequest.id).catch(() => null);
             autoClaimHeld = false;
           } else if (!shouldAttemptSpotifyQueueAdd(op.status)) {
             // PRD-06: uncertain (or other non-retryable) — no second Spotify copy.
@@ -317,6 +502,9 @@ export async function POST(req: NextRequest) {
                 },
                 userId
               );
+              await assignNextQueuePosition(userId, newRequest.id).catch((err) => {
+                console.error('Failed to assign app queue position:', err);
+              });
               autoClaimHeld = false;
               console.log(
                 `✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`

@@ -33,8 +33,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let queueSuccess = false;
     const errors: string[] = [];
 
-    // Add to Spotify queue (MULTI-TENANT!)
+    // Add to Spotify queue (MULTI-TENANT!) — requires a Spotify URI
     try {
+      if (!request.track_uri) {
+        throw new Error('Request has no Spotify track URI (manual mode tracks cannot be re-queued)');
+      }
       const deviceSetting = await getSetting('target_device_id');
       await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined, userId);
       queueSuccess = true;

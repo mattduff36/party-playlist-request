@@ -4,7 +4,8 @@ import type { DisplayMood } from '@/styles/theme';
 
 export interface Request {
   id: string;
-  track_uri: string;
+  /** Nullable for manual/request-only mode (PRD-07); Spotify rows keep URIs. */
+  track_uri: string | null;
   track_name: string;
   artist_name: string;
   album_name: string;
@@ -34,6 +35,13 @@ export interface Request {
   queue_error_category?: string | null;
   provider_operation_id?: string | null;
   claim_started_at?: string | null;
+  /** PRD-07 provider-neutral fields */
+  provider_id?: string | null;
+  provider_track_id?: string | null;
+  queue_position?: number | null;
+  queue_version?: number | null;
+  dedication?: string | null;
+  normalized_track_key?: string | null;
 }
 
 export interface Settings {
@@ -952,7 +960,7 @@ export async function getRequest(id: string, userId: string): Promise<Request | 
   return result.rows[0] || null;
 }
 
-/** Allowlisted columns for organiser request updates (PRD-04). */
+/** Allowlisted columns for organiser request updates (PRD-04 / PRD-07). */
 const REQUEST_UPDATE_ALLOWLIST = new Set([
   'status',
   'approved_at',
@@ -965,6 +973,16 @@ const REQUEST_UPDATE_ALLOWLIST = new Set([
   'archived_at',
   'event_id',
   'claim_started_at',
+  'track_name',
+  'artist_name',
+  'album_name',
+  'album_image_url',
+  'dedication',
+  'queue_position',
+  'queue_version',
+  'provider_id',
+  'provider_track_id',
+  'normalized_track_key',
 ]);
 
 // Helper: Verify request ownership

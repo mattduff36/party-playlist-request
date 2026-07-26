@@ -64,10 +64,40 @@ export default function SidebarSpotifyControls({
   const [isBusy, setIsBusy] = useState(false);
   const [isStartingOAuth, setIsStartingOAuth] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
+  const [playbackMode, setPlaybackMode] = useState<'spotify' | 'manual'>('spotify');
+  const [showPlaybackControls, setShowPlaybackControls] = useState(true);
+  const [showVolume, setShowVolume] = useState(true);
+  const [showDevices, setShowDevices] = useState(true);
 
   useEffect(() => {
     return registerConnectionListener(onConnectionChange);
   }, [onConnectionChange, registerConnectionListener]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authenticatedFetch('/api/admin/playback-mode');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.mode === 'manual' || data.mode === 'spotify') {
+          setPlaybackMode(data.mode);
+        }
+        const caps = data.capabilities;
+        if (caps) {
+          setShowPlaybackControls(Boolean(caps.playbackControls));
+          setShowVolume(Boolean(caps.volume));
+          setShowDevices(Boolean(caps.deviceSelection));
+        }
+      } catch {
+        /* keep Spotify defaults */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const durationMs = playbackState?.duration_ms ?? 0;
   const {
@@ -494,6 +524,20 @@ export default function SidebarSpotifyControls({
     </div>
   );
 
+  if (playbackMode === 'manual') {
+    return (
+      <div className={shellClass}>
+        <div className="space-y-2 p-3">
+          <p className="text-sm font-semibold text-bone">Manual request mode</p>
+          <p className="text-xs text-muted leading-relaxed">
+            PartyPlaylist is collecting and moderating requests only. It does not
+            play music or control Spotify. Use any separate playback device.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={shellClass}>
       {isPage && (
@@ -514,11 +558,11 @@ export default function SidebarSpotifyControls({
               {nowPlayingBlock}
             </div>
             <div className="order-3 lg:order-2 flex justify-center">
-              {transportBlock}
+              {showPlaybackControls ? transportBlock : null}
             </div>
             <div className="min-w-0 order-2 lg:order-3 space-y-3 lg:justify-self-end w-full lg:max-w-sm">
-              {devicesBlock}
-              {volumeBlock}
+              {showDevices ? devicesBlock : null}
+              {showVolume ? volumeBlock : null}
             </div>
           </div>
 
@@ -529,14 +573,18 @@ export default function SidebarSpotifyControls({
       {connected && !isPage && (
         // Slot min-heights keep transport/track/devices stable without a tall empty band above Connected.
         <div className="flex flex-col gap-4">
-          <div className="h-14 shrink-0 flex items-center justify-center">
-            {transportBlock}
-          </div>
+          {showPlaybackControls ? (
+            <div className="h-14 shrink-0 flex items-center justify-center">
+              {transportBlock}
+            </div>
+          ) : null}
           <div className="min-h-10 shrink-0 flex items-center">
             {nowPlayingBlock}
           </div>
-          <div className="shrink-0">{volumeBlock}</div>
-          <div className="min-h-[4.5rem] shrink-0">{devicesBlock}</div>
+          {showVolume ? <div className="shrink-0">{volumeBlock}</div> : null}
+          {showDevices ? (
+            <div className="min-h-[4.5rem] shrink-0">{devicesBlock}</div>
+          ) : null}
           <div className="shrink-0">{sidebarConnectedRow}</div>
         </div>
       )}

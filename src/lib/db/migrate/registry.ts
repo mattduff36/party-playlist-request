@@ -72,4 +72,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     description:
       'PRD-06 widen requests.status CHECK for approving/queue_failed + claim_started_at',
   },
+  {
+    id: '009_prd07_playback_provider',
+    file: '009_prd07_playback_provider.sql',
+    classification: 'B',
+    description:
+      'PRD-07 playback_mode, manual_now_playing, provider-neutral request fields, app-owned queue; track_uri nullable',
+  },
 ];

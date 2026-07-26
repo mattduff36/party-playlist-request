@@ -14,7 +14,8 @@ export type SecurityAuditEventType =
   | 'auth.logout'
   | 'auth.superadmin_access'
   | 'event.end'
-  | 'event.archived_data_deleted';
+  | 'event.archived_data_deleted'
+  | 'playback.mode_changed';
 
 export interface SecurityAuditEvent {
   type: SecurityAuditEventType;

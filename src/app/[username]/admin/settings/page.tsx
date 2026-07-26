@@ -37,6 +37,9 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [playbackMode, setPlaybackMode] = useState<'spotify' | 'manual'>('spotify');
+  const [savingMode, setSavingMode] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
 
   // Fetch event when hydrate finishes or status becomes live/standby
   useEffect(() => {
@@ -92,6 +95,53 @@ export default function SettingsPage() {
       setSecureUrlAccess(Boolean(eventSettings.secure_url_access));
     }
   }, [eventSettings?.secure_url_access]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/playback-mode', { credentials: 'include' });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled && (data.mode === 'manual' || data.mode === 'spotify')) {
+          setPlaybackMode(data.mode);
+        }
+      } catch {
+        /* default spotify */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePlaybackModeChange = async (mode: 'spotify' | 'manual') => {
+    setSavingMode(true);
+    setModeMessage('');
+    try {
+      const { authenticatedFetch } = await import('@/lib/api/authenticated-fetch');
+      const res = await authenticatedFetch('/api/admin/playback-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setModeMessage(data.error || 'Failed to update playback mode');
+        return;
+      }
+      setPlaybackMode(mode);
+      setModeMessage(
+        mode === 'manual'
+          ? 'Switched to Manual request mode. Spotify controls are hidden.'
+          : 'Switched to Spotify mode. Approved requests are not re-queued automatically.'
+      );
+    } catch {
+      setModeMessage('Network error updating playback mode');
+    } finally {
+      setSavingMode(false);
+    }
+  };
 
   // One-shot hydrate — do not wipe mid-edit on background settings refresh
   useEffect(() => {
@@ -206,6 +256,48 @@ export default function SettingsPage() {
             </p>
           </div>
 
+
+          {/* Playback provider mode (PRD-07) */}
+          <div className="border-t border-white/10 pt-6">
+            <h3 className="text-lg font-semibold text-bone mb-2 flex items-center gap-2">
+              <Info className="h-5 w-5 text-accent" />
+              Playback mode
+            </h3>
+            <p className="text-faint text-sm mb-4">
+              What this mode does: Manual request mode collects and moderates song
+              requests for your event. PartyPlaylist does not play music itself —
+              use any separate device or service for playback.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={savingMode || playbackMode === 'spotify'}
+                onClick={() => void handlePlaybackModeChange('spotify')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+                  playbackMode === 'spotify'
+                    ? 'bg-accent/20 border-accent text-bone'
+                    : 'border-white/15 text-muted hover:bg-white/5'
+                } disabled:opacity-60`}
+              >
+                Spotify
+              </button>
+              <button
+                type="button"
+                disabled={savingMode || playbackMode === 'manual'}
+                onClick={() => void handlePlaybackModeChange('manual')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+                  playbackMode === 'manual'
+                    ? 'bg-accent/20 border-accent text-bone'
+                    : 'border-white/15 text-muted hover:bg-white/5'
+                } disabled:opacity-60`}
+              >
+                Manual request mode
+              </button>
+            </div>
+            {modeMessage ? (
+              <p className="text-sm text-muted mt-3">{modeMessage}</p>
+            ) : null}
+          </div>
 
           {/* Request Management Section */}
           <div className="border-t border-white/10 pt-6">

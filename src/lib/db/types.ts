@@ -44,6 +44,8 @@ export interface EventConfig {
   show_approval_messages?: boolean;
   /** @deprecated Prefer Pusher-driven updates; kept for older clients */
   display_refresh_interval?: number;
+  /** PRD-07: spotify | manual */
+  playback_mode?: 'spotify' | 'manual';
 }
 
 export interface TrackData {

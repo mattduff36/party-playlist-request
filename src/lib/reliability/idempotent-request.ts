@@ -1,5 +1,5 @@
 /**
- * Idempotent guest request insert + duplicate-track policy (PRD-06).
+ * Idempotent guest request insert + duplicate-track policy (PRD-06 / PRD-07).
  */
 
 import { randomUUID } from 'crypto';
@@ -18,7 +18,7 @@ export interface CreateIdempotentRequestInput {
   userId: string;
   eventId: string | null;
   idempotencyKey: string;
-  track_uri: string;
+  track_uri?: string | null;
   track_name: string;
   artist_name: string;
   album_name: string;
@@ -32,6 +32,10 @@ export interface CreateIdempotentRequestInput {
   approved_by?: string;
   /** Minutes before the same track may be requested again while pending/approved */
   duplicateCooldownMinutes?: number;
+  provider_id?: string | null;
+  provider_track_id?: string | null;
+  dedication?: string | null;
+  normalized_track_key?: string | null;
 }
 
 export type IdempotentCreateResult =
@@ -42,6 +46,7 @@ export type IdempotentCreateResult =
 /**
  * Insert request with unique (event_id, idempotency_key).
  * Duplicate track check runs in the same transaction when event_id is present.
+ * Spotify: match track_uri. Manual: match normalized_track_key.
  */
 export async function createIdempotentRequest(
   input: CreateIdempotentRequestInput
@@ -70,20 +75,36 @@ export async function createIdempotentRequest(
       }
     }
 
-    const dup = await client.query(
-      `SELECT * FROM requests
-       WHERE user_id = $1
-         AND track_uri = $2
-         AND status IN ('pending', 'approved', 'approving')
-         AND created_at > NOW() - ($3::text || ' minutes')::interval
-         AND (archived_at IS NULL)
-       ORDER BY created_at DESC
-       LIMIT 1
-       FOR UPDATE`,
-      [input.userId, input.track_uri, String(cooldown)]
-    );
+    let dup;
+    if (input.normalized_track_key) {
+      dup = await client.query(
+        `SELECT * FROM requests
+         WHERE user_id = $1
+           AND normalized_track_key = $2
+           AND status IN ('pending', 'approved', 'approving')
+           AND created_at > NOW() - ($3::text || ' minutes')::interval
+           AND (archived_at IS NULL)
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [input.userId, input.normalized_track_key, String(cooldown)]
+      );
+    } else if (input.track_uri) {
+      dup = await client.query(
+        `SELECT * FROM requests
+         WHERE user_id = $1
+           AND track_uri = $2
+           AND status IN ('pending', 'approved', 'approving')
+           AND created_at > NOW() - ($3::text || ' minutes')::interval
+           AND (archived_at IS NULL)
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [input.userId, input.track_uri, String(cooldown)]
+      );
+    }
 
-    if (dup.rows[0]) {
+    if (dup?.rows[0]) {
       await client.query('COMMIT');
       return { kind: 'duplicate_track', request: dup.rows[0] as Request };
     }
@@ -93,17 +114,19 @@ export async function createIdempotentRequest(
          id, track_uri, track_name, artist_name, album_name, album_image_url, duration_ms,
          requester_ip_hash, requester_nickname, user_session_id, status,
          spotify_added_to_queue, spotify_added_to_playlist, user_id,
-         event_id, idempotency_key, nickname_retain_until, approved_at, approved_by
+         event_id, idempotency_key, nickname_retain_until, approved_at, approved_by,
+         provider_id, provider_track_id, dedication, normalized_track_key
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7,
          $8, $9, $10, $11,
          false, false, $12,
-         $13, $14, $15, $16, $17
+         $13, $14, $15, $16, $17,
+         $18, $19, $20, $21
        )
        RETURNING *`,
       [
         id,
-        input.track_uri,
+        input.track_uri ?? null,
         input.track_name,
         input.artist_name,
         input.album_name,
@@ -119,6 +142,10 @@ export async function createIdempotentRequest(
         nicknameRetainUntil,
         input.approved_at ?? null,
         input.approved_by ?? null,
+        input.provider_id ?? null,
+        input.provider_track_id ?? null,
+        input.dedication ?? null,
+        input.normalized_track_key ?? null,
       ]
     );
 

@@ -329,15 +329,16 @@ export function useDisplayData({
       };
       setApprovedRequests((prev) => [newRequest, ...prev].slice(0, 10)); // Keep only latest 10
 
-      // Trigger animation immediately
-      setAnimatingCards((prev) => new Set([...prev, data.track_uri]));
+      // Trigger animation immediately (manual mode may omit track_uri)
+      const animationKey = data.track_uri || data.id;
+      setAnimatingCards((prev) => new Set([...prev, animationKey]));
       console.log(`🎉 ANIMATION TRIGGERED! New song: ${data.track_name} by ${data.requester_nickname}`);
 
       // Remove animation after 1 second
       setTimeout(() => {
         setAnimatingCards((prev) => {
           const updated = new Set(prev);
-          updated.delete(data.track_uri);
+          updated.delete(animationKey);
           console.log('✅ Animation completed for:', data.track_name);
           return updated;
         });
