@@ -43,12 +43,14 @@ export class RedisRateLimiter {
     action: string = 'default'
   ): Promise<RateLimitResult> {
     if (!this.redis.isReady()) {
-      // If Redis is not available, allow the request
-      console.warn('⚠️ Redis not available, allowing request');
+      // PRD-06: never silently unbounded — callers should prefer
+      // enforceGuestRateLimit / enforceAuthRateLimit (memory fallback).
+      console.warn('⚠️ Redis not available for RedisRateLimiter — denying (fail-safe)');
       return {
-        allowed: true,
-        remaining: this.config.maxRequests,
+        allowed: false,
+        remaining: 0,
         resetTime: Date.now() + this.config.windowMs,
+        retryAfter: Math.ceil(this.config.windowMs / 1000),
       };
     }
 

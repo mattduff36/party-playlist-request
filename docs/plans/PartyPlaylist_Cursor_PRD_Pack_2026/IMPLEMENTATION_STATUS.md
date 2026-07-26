@@ -409,3 +409,63 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run build` | Pass |
 | Hygiene | Removed unused stale `.eslintrc.json` (ESLint 9 flat `eslint.config.mjs` only) |
 | Pushed to remote | No (prefer local; production = `main` only) |
+
+## PRD-06: Distributed Reliability, Concurrency Safety and Event Data Integrity
+
+| Field | Value |
+| --- | --- |
+| Status | In progress on feature branch (not merged into preview) |
+| Branch | `dev/prd-06-distributed-reliability-20260726` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Database impact | **Class B migration `007_prd06_reliability` ready** — additive columns/indexes/`provider_operations`. Not auto-applied here; run `db:migrate:canonical` after dry-run. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
+| Depends on | PRD-05 integrated into preview |
+
+### Outcomes (this pass)
+
+| Requirement | Result |
+| --- | --- |
+| Distributed guest rate limits (event+device primary, IP secondary) | Done — `enforceGuestRateLimit`; wired request/search/verify-pin; Redis→memory fail policy |
+| Guest device cookie | Done — `pp_guest_device` |
+| Idempotent guest submission | Done — required UUID `idempotency_key`; unique `(event_id, idempotency_key)`; transactional duplicate check |
+| Concurrent approval claim | Done — `pending→approving` claim + `provider_operations` ledger; `queue_failed` on failure |
+| Playback refresh + staleness | Done — `refreshPlaybackState` (Redis debounce + Neon lease + fetched_at/degraded) |
+| Event end archives history | Done — `archiveEventOnEnd` on offline; logout unchanged (non-destructive) |
+| Cleanup requires confirmation | Done — `DELETE_ARCHIVED_EVENT_DATA` + archived-only delete |
+| Queue reorder honest capability | Done — `501 CAPABILITY_NOT_SUPPORTED` |
+| Load/fault suite (150 guests / multi-instance) | Partial — unit/concurrency guardrail tests; full load scripts deferred |
+| Unify dual event writes / optimistic version everywhere | Partial — archive stamps + existing `events.version`; dual `events`/`user_events` retained per PRD-05 |
+| Retention anonymisation job | Deferred |
+
+### DB classification
+
+| Change | Class | Action |
+| --- | --- | --- |
+| `007` ADD COLUMN / CREATE TABLE provider_operations / indexes | B | Ready — apply via `db:migrate:canonical` after backup/dry-run |
+| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class D column drops | D | **STOP** — human |
+
+### Human stops
+
+- Do not apply Class C/D from prior PRDs.
+- Apply Class B `007` only after dry-run inspect against Neon (prefer branch first).
+- `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
+
+### Incomplete / follow-ups
+
+- Full 150-guest / multi-instance fault scripts not shipped (unit guardrails only).
+- Search cache + Spotify 429 cooldown Maps remain process-local (non-correctness for security; document).
+- Nickname anonymisation cron / retention job not implemented.
+- Auto-approve path still best-effort Spotify ledger (same as manual approve).
+- UI may still expose reorder controls — API now refuses; disable control in admin UI follow-up.
+- `cleanup-played` still deletes played rows after 1h — confirm product retention policy separately.
+
+### Validation notes (feature branch)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass — includes PRD-06 reliability suite |
+| `npm run build` | Pass |
+| Merged into preview | No |
+| Pushed | No |

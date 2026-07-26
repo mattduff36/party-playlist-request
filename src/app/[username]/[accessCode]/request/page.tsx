@@ -438,6 +438,7 @@ export default function UserRequestPage() {
         user_session_id: string;
         username: string;
         accessCode: string;
+        idempotency_key: string;
         track_uri?: string;
         track_name?: string;
         artist_name?: string;
@@ -449,6 +450,7 @@ export default function UserRequestPage() {
         user_session_id: userSessionId,
         username,
         accessCode,
+        idempotency_key: crypto.randomUUID(),
       };
 
       if (track) {

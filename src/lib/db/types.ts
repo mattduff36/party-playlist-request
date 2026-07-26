@@ -6,7 +6,13 @@
 import type { DisplayMood } from '@/styles/theme';
 
 export type EventStatus = 'offline' | 'standby' | 'live';
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'played';
+export type RequestStatus =
+  | 'pending'
+  | 'approving'
+  | 'approved'
+  | 'rejected'
+  | 'played'
+  | 'queue_failed';
 
 export interface EventConfig {
   pages_enabled?: {

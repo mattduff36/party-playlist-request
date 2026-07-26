@@ -58,4 +58,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     classification: 'B',
     description: 'PRD-04 Class B access-code / token hash columns (already applied on Neon)',
   },
+  {
+    id: '007_prd06_reliability',
+    file: '007_prd06_reliability.sql',
+    classification: 'B',
+    description:
+      'PRD-06 event archive stamps, request event_id/idempotency, provider_operations ledger, playback freshness',
+  },
 ];

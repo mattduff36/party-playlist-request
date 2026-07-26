@@ -13,13 +13,26 @@ export interface Request {
   requester_ip_hash: string;
   requester_nickname?: string;
   user_session_id?: string; // For tracking user notifications
-  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
+  status:
+    | 'pending'
+    | 'approving'
+    | 'approved'
+    | 'rejected'
+    | 'queued'
+    | 'failed'
+    | 'queue_failed'
+    | 'played';
   created_at: string;
   approved_at?: string;
   approved_by?: string;
   rejection_reason?: string;
   spotify_added_to_queue: boolean;
   spotify_added_to_playlist: boolean;
+  event_id?: string | null;
+  idempotency_key?: string | null;
+  archived_at?: string | null;
+  queue_error_category?: string | null;
+  provider_operation_id?: string | null;
 }
 
 export interface Settings {
@@ -946,6 +959,10 @@ const REQUEST_UPDATE_ALLOWLIST = new Set([
   'spotify_added_to_playlist',
   'approved_by',
   'rejection_reason',
+  'queue_error_category',
+  'provider_operation_id',
+  'archived_at',
+  'event_id',
 ]);
 
 // Helper: Verify request ownership
