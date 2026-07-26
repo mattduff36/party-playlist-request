@@ -79,4 +79,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     description:
       'PRD-07 playback_mode, manual_now_playing, provider-neutral request fields, app-owned queue; track_uri nullable',
   },
+  {
+    id: '010_prd08_paid_beta_readiness',
+    file: '010_prd08_paid_beta_readiness.sql',
+    classification: 'B',
+    description:
+      'PRD-08 lifecycle/readiness fields, guardrail settings, beta entitlements, legal_pages, observation checklists',
+  },
 ];

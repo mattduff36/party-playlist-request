@@ -192,6 +192,26 @@ export async function POST(req: NextRequest) {
       currentEvent.status === 'offline' &&
       (status === 'standby' || status === 'live');
 
+    // PRD-08: beta entitlement gates activation (not history reads / offline).
+    if (startingNewEvent) {
+      const { assertCanActivateEvent } = await import('@/lib/beta/entitlement');
+      const entitlement = await assertCanActivateEvent({
+        userId,
+        isSuperAdmin: auth.user.role === 'superadmin',
+      });
+      if (!entitlement.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              'Beta entitlement required to activate an event. Ask a super-admin for a time-limited beta grant.',
+            code: 'BETA_ENTITLEMENT_REQUIRED',
+            reason: entitlement.reason,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Mint guest access code BEFORE flipping status so a failed mint does not leave Live without a code.
     // Previously, End only set events.status=offline and left user_events.active=true — Start then
     // resurrected the same 4-digit code via GET /api/events/current.
@@ -224,7 +244,7 @@ export async function POST(req: NextRequest) {
     // Starting a new DJ event (offline → standby/live): reset shared mood to DJ Tool
     if (startingNewEvent) {
       try {
-        const { updateEventSettings, getEventSettings } = await import('@/lib/db');
+        const { updateEventSettings, getEventSettings, getPool } = await import('@/lib/db');
         const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
         const { DEFAULT_DISPLAY_MOOD } = await import('@/styles/theme');
         await updateEventSettings({ display_mood: DEFAULT_DISPLAY_MOOD }, userId);
@@ -234,6 +254,18 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now(),
           userId,
         });
+        const pool = getPool();
+        await pool.query(
+          `UPDATE events
+           SET started_at = COALESCE(started_at, NOW()),
+               lifecycle_phase = CASE
+                 WHEN lifecycle_phase IN ('ready', 'pre_event', 'draft') THEN 'live'
+                 ELSE lifecycle_phase
+               END,
+               updated_at = NOW()
+           WHERE id = $1 AND user_id = $2`,
+          [updatedEvent.id, userId]
+        );
         console.log(`🎨 Reset display_mood to ${DEFAULT_DISPLAY_MOOD} for new event start (${userId})`);
       } catch (moodResetError) {
         console.error('❌ Failed to reset display mood on event start:', moodResetError);
@@ -257,6 +289,14 @@ export async function POST(req: NextRequest) {
         const archived = await archiveEventOnEnd(userId, updatedEvent.id);
         console.log(
           `📦 Archived event ${archived.eventId}: ${archived.archivedRequests} requests stamped`
+        );
+        const { getPool } = await import('@/lib/db');
+        await getPool().query(
+          `UPDATE events
+           SET lifecycle_phase = 'ended',
+               updated_at = NOW()
+           WHERE id = $1 AND user_id = $2`,
+          [updatedEvent.id, userId]
         );
       } catch (archiveError) {
         console.error('❌ Failed to archive event requests on offline:', archiveError);

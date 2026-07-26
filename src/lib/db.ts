@@ -132,6 +132,17 @@ export interface EventSettings {
   show_approval_messages: boolean;
   /** When true, guest URLs use an 8-char secure code instead of 6 digits */
   secure_url_access: boolean;
+  /** PRD-08: include access code on printable signage when true */
+  print_access_code_on_signage?: boolean;
+  /** PRD-08: interactive demo mode (mock tracks; no Spotify credentials) */
+  demo_mode?: boolean;
+  pre_event_requests_enabled?: boolean;
+  must_play_list?: unknown;
+  do_not_play_list?: unknown;
+  artist_cooldown_minutes?: number;
+  max_active_requests_per_guest?: number | null;
+  /** PRD-07/08 playback mode mirror on settings */
+  playback_mode?: string;
   updated_at: string;
 }
 
@@ -1638,6 +1649,12 @@ const EVENT_SETTINGS_UPDATABLE_FIELDS = new Set([
   'karaoke_mode',
   'show_approval_messages',
   'secure_url_access',
+  'print_access_code_on_signage',
+  'demo_mode',
+  'pre_event_requests_enabled',
+  'artist_cooldown_minutes',
+  'max_active_requests_per_guest',
+  'playback_mode',
 ]);
 
 export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {

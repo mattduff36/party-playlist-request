@@ -126,6 +126,28 @@ export async function POST(req: NextRequest) {
       const shouldAutoApprove = eventSettings.auto_approve;
       const eventId = access.event?.id ?? null;
 
+      {
+        const { evaluateSubmissionGuardrails } = await import('@/lib/beta/guardrails');
+        const violation = await evaluateSubmissionGuardrails({
+          userId: organiserUserId,
+          eventId,
+          track: {
+            track_name: manual.value.title,
+            artist_name: manual.value.artists,
+            normalized_key: manual.value.normalizedKey,
+          },
+          guestSessionId: user_session_id || deviceId,
+        });
+        if (violation) {
+          const response = NextResponse.json(
+            { error: violation.message, code: violation.code },
+            { status: 403 }
+          );
+          if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+          return response;
+        }
+      }
+
       const createResult = await createIdempotentRequest({
         userId: organiserUserId,
         eventId,
@@ -360,6 +382,32 @@ export async function POST(req: NextRequest) {
 
     const albumImageUrl = getTrackAlbumImageUrl(trackInfo) || null;
     const eventId = access.event?.id ?? null;
+    const artistName =
+      trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') ||
+      'Unknown Artist';
+
+    // PRD-08 guardrails (do-not-play, artist cooldown, per-guest active cap)
+    {
+      const { evaluateSubmissionGuardrails } = await import('@/lib/beta/guardrails');
+      const violation = await evaluateSubmissionGuardrails({
+        userId,
+        eventId,
+        track: {
+          track_name: trackInfo.name,
+          artist_name: artistName,
+          track_uri: trackInfo.uri,
+        },
+        guestSessionId: user_session_id || deviceId,
+      });
+      if (violation) {
+        const response = NextResponse.json(
+          { error: violation.message, code: violation.code },
+          { status: 403 }
+        );
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+    }
 
     console.log(`💾 [${requestId}] Creating idempotent database request...`);
     const createResult = await createIdempotentRequest({
@@ -368,7 +416,7 @@ export async function POST(req: NextRequest) {
       idempotencyKey,
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
-      artist_name: trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
+      artist_name: artistName,
       album_name: trackInfo.album?.name || 'Unknown Album',
       album_image_url: albumImageUrl,
       duration_ms: trackInfo.duration_ms,

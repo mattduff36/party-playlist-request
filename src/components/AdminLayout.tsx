@@ -11,7 +11,10 @@ import {
   Eye,
   Lock,
   Wand2,
-  Shield
+  Shield,
+  ClipboardCheck,
+  LifeBuoy,
+  History
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminData } from '@/contexts/AdminDataContext';
@@ -70,6 +73,9 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const getActiveTab = () => {
     if (!pathname) return 'spotify';
     if (pathname.includes('/requests') || pathname.includes('/overview')) return 'requests';
+    if (pathname.includes('/wizard')) return 'wizard';
+    if (pathname.includes('/recovery')) return 'recovery';
+    if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/settings')) return 'settings';
     if (pathname.includes('/spotify')) return 'spotify';
     if (pathname.includes('/display')) return 'display';
@@ -78,7 +84,15 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   const activeTab = getActiveTab();
   const eventHydrated = Boolean(state && !state.isLoading);
-  const queueSidebarTabs = new Set(['requests', 'display', 'spotify', 'settings']);
+  const queueSidebarTabs = new Set([
+    'requests',
+    'display',
+    'spotify',
+    'settings',
+    'wizard',
+    'recovery',
+    'history',
+  ]);
   const showQueueSidebar =
     eventHydrated &&
     queueSidebarTabs.has(activeTab) &&
@@ -113,6 +127,24 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       label: 'Settings', 
       icon: Settings, 
       href: `${baseRoute}/admin/settings`
+    },
+    {
+      id: 'wizard',
+      label: 'Ready',
+      icon: ClipboardCheck,
+      href: `${baseRoute}/admin/wizard`,
+    },
+    {
+      id: 'recovery',
+      label: 'Recovery',
+      icon: LifeBuoy,
+      href: `${baseRoute}/admin/recovery`,
+    },
+    {
+      id: 'history',
+      label: 'History',
+      icon: History,
+      href: `${baseRoute}/admin/history`,
     },
   ];
 

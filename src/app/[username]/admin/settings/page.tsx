@@ -489,6 +489,151 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* PRD-08: templates, signage, guardrails */}
+      <div className="bg-elevated rounded-lg p-6 border border-white/10 space-y-4">
+        <h3 className="text-lg font-semibold text-bone">Event templates &amp; beta assets</h3>
+        <p className="text-muted text-sm">
+          Templates initialise settings (they do not lock them). Signage PDFs are
+          print-ready; access codes print only when you opt in.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ['blank', 'Blank'],
+              ['birthday', 'Birthday'],
+              ['anniversary', 'Anniversary'],
+              ['house_party', 'House party'],
+              ['wedding_reception', 'Wedding reception'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={async () => {
+                try {
+                  const { authenticatedFetch } = await import(
+                    '@/lib/api/authenticated-fetch'
+                  );
+                  const res = await authenticatedFetch('/api/admin/templates', {
+                    method: 'POST',
+                    body: JSON.stringify({ templateId: id }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Template failed');
+                  setSaveMessage(`Applied template: ${label}`);
+                  setTimeout(() => setSaveMessage(''), 3000);
+                  window.location.reload();
+                } catch (err) {
+                  setSaveMessage(
+                    err instanceof Error ? err.message : 'Template failed'
+                  );
+                  setTimeout(() => setSaveMessage(''), 3000);
+                }
+              }}
+              className="rounded border border-white/15 px-3 py-1.5 text-xs text-bone hover:border-accent"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 pt-2">
+          {(['a4', 'a5', 'table_card', 'screen_16x9'] as const).map((format) => (
+            <a
+              key={format}
+              href={`/api/admin/signage?format=${format}`}
+              className="rounded border border-white/15 px-3 py-1.5 text-xs text-bone hover:border-accent"
+            >
+              Download {format} PDF
+            </a>
+          ))}
+        </div>
+        <div className="flex items-start justify-between gap-4 p-4 bg-surface rounded-lg">
+          <div>
+            <h4 className="text-bone font-medium">Print access code on signage</h4>
+            <p className="text-muted text-sm mt-1">
+              Off by default. Only enable if you want the code visible on posters.
+            </p>
+          </div>
+          <Checkbox
+            checked={Boolean(
+              (eventSettings as { print_access_code_on_signage?: boolean } | null)
+                ?.print_access_code_on_signage
+            )}
+            onChange={async (e) => {
+              try {
+                await updateEventSettings({
+                  print_access_code_on_signage: e.target.checked,
+                } as never);
+                setSaveMessage('Signage access-code preference saved.');
+                setTimeout(() => setSaveMessage(''), 3000);
+              } catch {
+                setSaveMessage('Failed to save signage preference.');
+                setTimeout(() => setSaveMessage(''), 3000);
+              }
+            }}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm text-muted">
+            Artist cooldown (minutes)
+            <input
+              type="number"
+              min={0}
+              defaultValue={
+                (eventSettings as { artist_cooldown_minutes?: number } | null)
+                  ?.artist_cooldown_minutes ?? 0
+              }
+              onBlur={async (e) => {
+                const { authenticatedFetch } = await import(
+                  '@/lib/api/authenticated-fetch'
+                );
+                await authenticatedFetch('/api/admin/guardrails', {
+                  method: 'PUT',
+                  body: JSON.stringify({
+                    artist_cooldown_minutes: Number(e.target.value) || 0,
+                  }),
+                });
+              }}
+              className="mt-1 w-full rounded border border-white/10 bg-surface px-3 py-2 text-bone"
+            />
+          </label>
+          <label className="block text-sm text-muted">
+            Max active requests per guest
+            <input
+              type="number"
+              min={0}
+              placeholder="Unlimited"
+              defaultValue={
+                (
+                  eventSettings as {
+                    max_active_requests_per_guest?: number | null;
+                  } | null
+                )?.max_active_requests_per_guest ?? ''
+              }
+              onBlur={async (e) => {
+                const { authenticatedFetch } = await import(
+                  '@/lib/api/authenticated-fetch'
+                );
+                const raw = e.target.value.trim();
+                await authenticatedFetch('/api/admin/guardrails', {
+                  method: 'PUT',
+                  body: JSON.stringify({
+                    max_active_requests_per_guest:
+                      raw === '' ? null : Number(raw),
+                  }),
+                });
+              }}
+              className="mt-1 w-full rounded border border-white/10 bg-surface px-3 py-2 text-bone"
+            />
+          </label>
+        </div>
+        <p className="text-faint text-xs">
+          Manage must-play / do-not-play lists via{' '}
+          <code className="text-muted">PUT /api/admin/guardrails</code> (JSON
+          arrays). Guest-facing duplicate/cooldown copy is returned from that API.
+        </p>
+      </div>
+
       {/* Advanced Settings */}
       <div className="bg-elevated rounded-lg p-6 border border-white/10">
         <h3 className="text-lg font-semibold text-bone mb-2">Advanced Settings</h3>

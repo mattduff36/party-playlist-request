@@ -15,6 +15,11 @@ export type SecurityAuditEventType =
   | 'auth.superadmin_access'
   | 'event.end'
   | 'event.archived_data_deleted'
+  | 'event.readiness_ready'
+  | 'event.template_applied'
+  | 'event.guardrail_override'
+  | 'beta.entitlement_grant'
+  | 'beta.entitlement_revoke'
   | 'playback.mode_changed';
 
 export interface SecurityAuditEvent {

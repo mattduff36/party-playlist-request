@@ -54,6 +54,7 @@ Song requests belong to an organiser via **`requests.user_id`** (required in app
 | `007_prd06_reliability` | B | Event/request archive, idempotency, provider_operations, playback freshness |
 | `008_prd06_request_status_check` | B | Widen requests.status CHECK + claim_started_at |
 | `009_prd07_playback_provider` | B | playback_mode, manual_now_playing, provider-neutral request fields, app-owned queue; track_uri nullable |
+| `010_prd08_paid_beta_readiness` | B | lifecycle/readiness fields, guardrail settings, beta_entitlements, legal_pages, observation checklists |
 
 ## Human stops (Class C/D)
 
