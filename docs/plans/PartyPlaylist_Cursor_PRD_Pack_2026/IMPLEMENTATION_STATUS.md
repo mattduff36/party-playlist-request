@@ -496,11 +496,13 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | FIX_THEN_MERGE blockers addressed on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-07-playback-manual-mode-20260726` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `36d343f` (source tip `73e9b48`) |
 | Database impact | **Class B applied** — `009_prd07_playback_provider` after write-free dry-run. Adds `playback_mode`, `manual_now_playing`, provider-neutral request fields, app-owned `queue_position`/`queue_version`; expands `track_uri` to nullable. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
 | Depends on | PRD-06 integrated into preview (`ca5e420`) |
+| Independent re-review | APPROVE_MERGE @ `73e9b48` |
 
 ### Outcomes (this pass)
 
@@ -540,8 +542,6 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 - Do not apply Class C/D from prior PRDs.
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
-- Do not merge PRD-07 into preview until programme asks.
-- Do not push this branch until explicitly instructed.
 
 ### Incomplete / follow-ups
 
@@ -559,5 +559,15 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run lint` | Pass (0 errors; warnings remain) |
 | `npm run test:unit` | Pass (incl. PRD-07 contract + behavior suites) |
 | `npm run build` | Pass |
-| Merged into preview | No |
+| Merged into preview | Yes — `36d343f` |
 | Pushed | No |
+
+### Preview integration smoke (post-merge `36d343f` + status docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass — 255 tests |
+| `npm run build` | Pass |
+| Pushed to remote | No (prefer local; production = `main` only) |
