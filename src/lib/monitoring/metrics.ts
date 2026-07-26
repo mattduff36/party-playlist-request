@@ -5,6 +5,11 @@
  * system performance, health, and usage patterns.
  */
 
+import {
+  shouldAutoStartRuntimeServices,
+  startupLog,
+} from '@/lib/logging/startup';
+
 export interface MetricData {
   name: string;
   value: number;
@@ -92,7 +97,7 @@ class MetricsCollector {
       this.collectSystemMetrics();
     }, intervalMs);
 
-    console.log('📊 Metrics collection started');
+    startupLog('📊 Metrics collection started');
   }
 
   /**
@@ -104,7 +109,7 @@ class MetricsCollector {
       this.collectionInterval = null;
     }
     this.isCollecting = false;
-    console.log('📊 Metrics collection stopped');
+    startupLog('📊 Metrics collection stopped');
   }
 
   /**
@@ -176,7 +181,7 @@ class MetricsCollector {
    */
   addAlertRule(rule: AlertRule) {
     this.alertRules.set(rule.id, rule);
-    console.log(`🚨 Alert rule added: ${rule.name}`);
+    startupLog(`🚨 Alert rule added: ${rule.name}`);
   }
 
   /**
@@ -184,7 +189,7 @@ class MetricsCollector {
    */
   removeAlertRule(ruleId: string) {
     this.alertRules.delete(ruleId);
-    console.log(`🚨 Alert rule removed: ${ruleId}`);
+    startupLog(`🚨 Alert rule removed: ${ruleId}`);
   }
 
   /**
@@ -475,7 +480,7 @@ class MetricsCollector {
 // Singleton instance
 export const metricsCollector = new MetricsCollector();
 
-// Auto-start collection in production
-if (process.env.NODE_ENV === 'production') {
+// Auto-start collection in production runtime (not during `next build`)
+if (shouldAutoStartRuntimeServices()) {
   metricsCollector.startCollection(30000); // Collect every 30 seconds
 }

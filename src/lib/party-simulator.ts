@@ -5,6 +5,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { startupLog } from '@/lib/logging/startup';
 
 interface SimulationConfig {
   environment: 'local' | 'production'; // Local or production environment
@@ -525,10 +526,10 @@ const globalForSimulator = global as unknown as {
 };
 
 if (!globalForSimulator.partySimulator) {
-  console.log('🔥 Creating NEW PartySimulator singleton instance');
+  startupLog('🔥 Creating NEW PartySimulator singleton instance');
   globalForSimulator.partySimulator = new PartySimulator();
 } else {
-  console.log('♻️ Reusing existing PartySimulator singleton instance');
+  startupLog('♻️ Reusing existing PartySimulator singleton instance');
 }
 
 export const partySimulator = globalForSimulator.partySimulator;

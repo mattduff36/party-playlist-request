@@ -5,6 +5,11 @@
  * services as skipped so they do not fail the overall rollup.
  */
 
+import {
+  shouldAutoStartRuntimeServices,
+  startupLog,
+} from '@/lib/logging/startup';
+
 export interface HealthCheck {
   name: string;
   status: 'healthy' | 'degraded' | 'unhealthy' | 'skipped';
@@ -69,7 +74,7 @@ class HealthCheckSystem {
    */
   addCheck(name: string, checkFunction: () => Promise<HealthCheck>) {
     this.checks.set(name, checkFunction);
-    console.log(`🏥 Health check added: ${name}`);
+    startupLog(`🏥 Health check added: ${name}`);
   }
 
   /**
@@ -78,7 +83,7 @@ class HealthCheckSystem {
   removeCheck(name: string) {
     this.checks.delete(name);
     this.lastResults.delete(name);
-    console.log(`🏥 Health check removed: ${name}`);
+    startupLog(`🏥 Health check removed: ${name}`);
   }
 
   /**
@@ -151,7 +156,7 @@ class HealthCheckSystem {
       await this.runAllChecks();
     }, intervalMs);
 
-    console.log('🏥 Automatic health checks started');
+    startupLog('🏥 Automatic health checks started');
   }
 
   /**
@@ -163,7 +168,7 @@ class HealthCheckSystem {
       this.checkInterval = null;
     }
     this.isRunning = false;
-    console.log('🏥 Automatic health checks stopped');
+    startupLog('🏥 Automatic health checks stopped');
   }
 
   /**
@@ -584,7 +589,7 @@ class HealthCheckSystem {
 // Singleton instance
 export const healthCheckSystem = new HealthCheckSystem();
 
-// Auto-start health checks in production
-if (process.env.NODE_ENV === 'production') {
+// Auto-start health checks in production runtime (not during `next build`)
+if (shouldAutoStartRuntimeServices()) {
   healthCheckSystem.startAutomaticChecks(60000); // Check every minute
 }

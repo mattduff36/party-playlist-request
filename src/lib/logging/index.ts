@@ -7,6 +7,7 @@
 
 export * from './logger';
 export * from './debug-tools';
+export * from './startup';
 
 // Re-export types for convenience
 export type {

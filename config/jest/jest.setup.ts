@@ -11,8 +11,8 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 
 const repoRoot = path.resolve(process.cwd());
-dotenv.config({ path: path.join(repoRoot, '.env.local') });
-dotenv.config({ path: path.join(repoRoot, 'config/jest/test.env') });
+dotenv.config({ path: path.join(repoRoot, '.env.local'), quiet: true });
+dotenv.config({ path: path.join(repoRoot, 'config/jest/test.env'), quiet: true });
 
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'test_jwt_secret';
@@ -36,15 +36,6 @@ global.waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Mock fetch globally if needed
 global.fetch = global.fetch || jest.fn();
-
-// Setup global test helpers
-beforeAll(() => {
-  console.error('🧪 Starting test suite...');
-});
-
-afterAll(() => {
-  console.error('✅ Test suite completed');
-});
 
 // Cleanup after each test
 afterEach(() => {

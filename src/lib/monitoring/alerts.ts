@@ -5,6 +5,8 @@
  * including email, Slack, webhooks, and in-app notifications.
  */
 
+import { startupLog } from '@/lib/logging/startup';
+
 export interface AlertChannel {
   id: string;
   name: string;
@@ -51,7 +53,7 @@ class AlertingSystem {
    */
   addChannel(channel: AlertChannel) {
     this.channels.set(channel.id, channel);
-    console.log(`📢 Alert channel added: ${channel.name} (${channel.type})`);
+    startupLog(`📢 Alert channel added: ${channel.name} (${channel.type})`);
   }
 
   /**
@@ -59,7 +61,7 @@ class AlertingSystem {
    */
   removeChannel(channelId: string) {
     this.channels.delete(channelId);
-    console.log(`📢 Alert channel removed: ${channelId}`);
+    startupLog(`📢 Alert channel removed: ${channelId}`);
   }
 
   /**
