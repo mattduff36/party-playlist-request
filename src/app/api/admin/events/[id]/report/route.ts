@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { buildRequestsCsv, getFullEventReport } from '@/lib/beta/event-report';
+import { buildEventReportCsv, getFullEventReport } from '@/lib/beta/event-report';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -19,12 +19,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const format = searchParams.get('format');
 
   if (format === 'csv') {
-    const csv = await buildRequestsCsv(auth.user.user_id, id);
+    const csv = await buildEventReportCsv(auth.user.user_id, id);
     return new NextResponse(csv, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="event-${id}-requests.csv"`,
+        'Content-Disposition': `attachment; filename="event-${id}-report.csv"`,
         'Cache-Control': 'private, no-store',
       },
     });

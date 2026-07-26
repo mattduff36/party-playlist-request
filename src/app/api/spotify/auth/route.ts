@@ -3,6 +3,10 @@ import { requireAuth } from '@/middleware/auth';
 import { spotifyService } from '@/lib/spotify';
 import { storeOAuthSession, cleanupExpiredOAuthSessions } from '@/lib/db';
 import { setOAuthBindCookie } from '@/lib/spotify/oauth-binding';
+import {
+  assertUserDemoDoesNotTouchSpotify,
+  isDemoModeBlockedError,
+} from '@/lib/beta/demo-mode';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +16,24 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = auth.user.user_id;
+
+    try {
+      await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
+    } catch (demoErr) {
+      if (isDemoModeBlockedError(demoErr)) {
+        return NextResponse.json(
+          {
+            error: 'Demo mode active',
+            code: 'DEMO_MODE_BLOCKED',
+            message:
+              'Spotify authorisation is disabled while interactive demo mode is on. Disable demo mode to connect Spotify.',
+          },
+          { status: 403 }
+        );
+      }
+      throw demoErr;
+    }
+
     const authData = spotifyService.getAuthorizationURL();
 
     try {
@@ -24,6 +46,17 @@ export async function GET(req: NextRequest) {
       );
       await cleanupExpiredOAuthSessions();
     } catch (dbError) {
+      if (isDemoModeBlockedError(dbError)) {
+        return NextResponse.json(
+          {
+            error: 'Demo mode active',
+            code: 'DEMO_MODE_BLOCKED',
+            message:
+              'Spotify authorisation is disabled while interactive demo mode is on.',
+          },
+          { status: 403 }
+        );
+      }
       console.error('Failed to store Spotify OAuth transaction (redacted)');
       return NextResponse.json(
         { error: 'Failed to start Spotify authentication' },
@@ -35,6 +68,17 @@ export async function GET(req: NextRequest) {
     setOAuthBindCookie(response, authData.state, userId);
     return response;
   } catch (error) {
+    if (isDemoModeBlockedError(error)) {
+      return NextResponse.json(
+        {
+          error: 'Demo mode active',
+          code: 'DEMO_MODE_BLOCKED',
+          message:
+            'Spotify authorisation is disabled while interactive demo mode is on.',
+        },
+        { status: 403 }
+      );
+    }
     console.error('Error in Spotify auth endpoint (redacted)');
 
     if (error instanceof Error && error.message.includes('token')) {

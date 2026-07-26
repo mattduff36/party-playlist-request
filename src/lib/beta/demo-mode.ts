@@ -3,6 +3,34 @@
  * Distinct from SPOTIFY_MOCK test harness and from Manual event mode.
  */
 
+export type DemoBlockedSpotifyOperation =
+  | 'spotify_oauth'
+  | 'spotify_token_read'
+  | 'spotify_token_write'
+  | 'spotify_refresh'
+  | 'spotify_disconnect';
+
+const BLOCKED_SPOTIFY_OPS: ReadonlySet<string> = new Set([
+  'spotify_oauth',
+  'spotify_token_read',
+  'spotify_token_write',
+  'spotify_refresh',
+  'spotify_disconnect',
+]);
+
+export class DemoModeBlockedError extends Error {
+  readonly operation: string;
+  readonly code = 'DEMO_MODE_BLOCKED' as const;
+
+  constructor(operation: string) {
+    super(
+      `DEMO_MODE_BLOCKED: ${operation} is not allowed while demo mode is active`
+    );
+    this.name = 'DemoModeBlockedError';
+    this.operation = operation;
+  }
+}
+
 export interface DemoTrack {
   id: string;
   title: string;
@@ -78,18 +106,46 @@ export function getDemoTrack(id: string): DemoTrack | null {
 
 /**
  * Demo mode must never read or write production Spotify credentials.
- * Call sites should short-circuit Spotify OAuth / token vault when demo is on.
+ * Only throws when demo mode is active — safe to call from credential paths.
+ * Do not call from the demo-mode toggle itself (that path does not touch Spotify).
  */
-export function assertDemoDoesNotTouchSpotify(operation: string): void {
-  const blocked = [
-    'spotify_oauth',
-    'spotify_token_read',
-    'spotify_token_write',
-    'spotify_refresh',
-  ];
-  if (blocked.includes(operation)) {
-    throw new Error(
-      `DEMO_MODE_BLOCKED: ${operation} is not allowed while demo mode is active`
-    );
-  }
+export function assertDemoDoesNotTouchSpotify(
+  demoModeActive: boolean,
+  operation: DemoBlockedSpotifyOperation | string
+): void {
+  if (!demoModeActive) return;
+  if (!BLOCKED_SPOTIFY_OPS.has(operation)) return;
+  throw new DemoModeBlockedError(operation);
+}
+
+export function isDemoModeBlockedError(error: unknown): error is DemoModeBlockedError {
+  return (
+    error instanceof DemoModeBlockedError ||
+    (error instanceof Error && error.message.startsWith('DEMO_MODE_BLOCKED:'))
+  );
+}
+
+/** Lightweight demo_mode flag lookup (no settings row creation). */
+export async function isUserDemoModeActive(userId: string): Promise<boolean> {
+  if (!userId?.trim()) return false;
+  const { getPool } = await import('@/lib/db');
+  const result = await getPool().query(
+    `SELECT demo_mode FROM user_settings WHERE user_id = $1`,
+    [userId.trim()]
+  );
+  return isDemoModeEnabled(
+    (result.rows[0] as { demo_mode?: boolean | null } | undefined) ?? {}
+  );
+}
+
+/**
+ * Fail-closed guard for Spotify OAuth / token vault / refresh / disconnect.
+ * Call before any production credential read or write.
+ */
+export async function assertUserDemoDoesNotTouchSpotify(
+  userId: string,
+  operation: DemoBlockedSpotifyOperation | string
+): Promise<void> {
+  const active = await isUserDemoModeActive(userId);
+  assertDemoDoesNotTouchSpotify(active, operation);
 }

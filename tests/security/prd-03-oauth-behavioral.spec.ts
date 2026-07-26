@@ -54,13 +54,15 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
 
   it('denies cross-user consumeOAuthTransaction (mocked DB returns no row)', async () => {
     const state = generateOAuthState();
+    // demo_mode guard lookup, then consume UPDATE
+    queryMock.mockResolvedValueOnce({ rows: [{ demo_mode: false }], rowCount: 1 });
     queryMock.mockResolvedValueOnce({ rows: [], rowCount: 0 });
 
     const result = await consumeOAuthTransaction(state, 'attacker-user');
     expect(result).toBeNull();
 
-    expect(queryMock).toHaveBeenCalledTimes(1);
-    const [sql, params] = queryMock.mock.calls[0] as [string, string[]];
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [sql, params] = queryMock.mock.calls[1] as [string, string[]];
     expect(String(sql)).toMatch(/AND user_id = \$2/);
     expect(String(sql)).toMatch(/consumed_at IS NULL/);
     expect(params[0]).toBe(hashOAuthState(state));
@@ -80,6 +82,8 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
       })
     );
 
+    // first consume: demo_mode + UPDATE returning row
+    queryMock.mockResolvedValueOnce({ rows: [{ demo_mode: false }], rowCount: 1 });
     queryMock.mockResolvedValueOnce({
       rowCount: 1,
       rows: [
@@ -96,6 +100,8 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
         },
       ],
     });
+    // second consume: demo_mode + UPDATE returning empty (already consumed)
+    queryMock.mockResolvedValueOnce({ rows: [{ demo_mode: false }], rowCount: 1 });
     queryMock.mockResolvedValueOnce({ rows: [], rowCount: 0 });
 
     const first = await consumeOAuthTransaction(state, ownerId);
@@ -105,7 +111,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
 
     const second = await consumeOAuthTransaction(state, ownerId);
     expect(second).toBeNull();
-    expect(queryMock).toHaveBeenCalledTimes(2);
+    expect(queryMock).toHaveBeenCalledTimes(4);
   });
 
   it('getSpotifyAuth decrypt failure does not return or leak plaintext tokens', async () => {
@@ -126,6 +132,8 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
     };
     tampered.ct = Buffer.from('corrupted-ciphertext-prd03').toString('base64');
 
+    // demo_mode guard, then spotify_auth SELECT
+    queryMock.mockResolvedValueOnce({ rows: [{ demo_mode: false }], rowCount: 1 });
     queryMock.mockResolvedValueOnce({
       rowCount: 1,
       rows: [

@@ -590,14 +590,23 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Guided readiness wizard + score/gate | Done — `/admin/wizard` + `/api/admin/readiness`; required checks block Ready; warning override audited |
 | Event-day recovery centre | Done — `/admin/recovery` + `/api/admin/recovery` |
 | Printable QR signage PDFs | Done — pdfkit server PDFs (A4/A5/table/16:9); access code opt-in; guest URLs only |
-| Event archive report + CSV | Done — `/admin/history` + `/api/admin/events/.../report` (+ `format=csv`); no raw IPs |
+| Event archive report + CSV | Done — `/admin/history` + `/api/admin/events/.../report` (+ `format=csv` requests **and** audit actions); no raw IPs |
 | Event templates | Done — blank/birthday/anniversary/house/wedding_reception via `/api/admin/templates` |
 | Guardrails | Done — do-not-play / artist cooldown / max active per guest enforced on `/api/request`; must-play stored; API for lists |
 | Beta entitlement grants | Done — SA grant/revoke API + UI shield action; gates offline→standby/live in production |
-| Demo mode (no Spotify credentials) | Done — `/api/admin/demo-mode` + mock catalogue; blocks credential ops |
+| Demo mode (no Spotify credentials) | Done — `/api/admin/demo-mode` toggle works; credential ops fail-closed when demo active (OAuth / vault / refresh / disconnect) |
 | Legal pages with review status | Done — privacy/terms/cookies/retention/refund/spotify disconnect/organiser duties (draft_unreviewed) |
 | Observed beta checklist | Done — `/api/admin/observation-checklist` + 11-item catalogue |
-| Unit tests | Done — `tests/unit/prd-08-paid-beta-readiness.spec.ts` |
+| Unit tests | Done — `tests/unit/prd-08-paid-beta-readiness.spec.ts` (incl. FIX_THEN_MERGE R1–R3) |
+
+### FIX_THEN_MERGE follow-up (this commit)
+
+| Blocker | Result |
+| --- | --- |
+| R1 `/api/admin/demo-mode` POST broken by unconditional `assertDemoDoesNotTouchSpotify` | Done — toggle no longer asserts; assert is conditional on demo active |
+| R2 Demo credential isolation on OAuth / token vault / refresh / disconnect | Done — `assertUserDemoDoesNotTouchSpotify` in `db` vault helpers + Spotify auth/callback/disconnect/reset routes (403 / `demo_mode_blocked`) |
+| R3 Event report CSV missing audit actions | Done — `buildEventReportCsv` emits request + `audit_action` sections from `support_activity` |
+| Unit tests for R1–R3 | Done |
 
 ### DB classification
 
@@ -623,14 +632,15 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - Concurrent multi-worker guardrail stress beyond unit matching deferred.
 - Automated axe accessibility suite for wizard/guest entry deferred.
 - Stripe live checkout / public payment → PRD-09 (non-goal).
+- Durable security-audit table still deferred (CSV audit actions use `support_activity`; stdout `security-audit` remains for PRD-02 events).
 
 ### Validation notes (feature branch)
 
 | Command | Result |
 | --- | --- |
-| `npm run type-check` | Pass |
+| `npm run type-check` | Pass (FIX_THEN_MERGE pass) |
 | `npm run lint` | Pass (0 errors; warnings remain) |
-| `npm run test:unit` | Pass — 268 tests (incl. PRD-08 suite) |
+| `npm run test:unit` | Pass (incl. PRD-08 R1–R3) |
 | `npm run build` | Pass |
 | `npm run db:migrate:canonical:dry` | Pending `010` reported |
 | `npm run db:migrate:canonical` | Applied `010` |

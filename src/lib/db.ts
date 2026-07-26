@@ -1288,6 +1288,11 @@ export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null
     throw new Error('userId is required for multi-tenant Spotify auth isolation');
   }
 
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId.trim(), 'spotify_token_read');
+
   const client = getPool();
   const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [
     userId.trim(),
@@ -1308,6 +1313,11 @@ export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null
  * Does not backfill existing rows (Class C — requires human approval).
  */
 export async function setSpotifyAuth(auth: SpotifyAuth, userId: string): Promise<void> {
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_token_write');
+
   const {
     encryptToken,
     serializeEnvelope,
@@ -1370,6 +1380,12 @@ export async function setSpotifyAuthCas(
   userId: string,
   expectedLockVersion: number
 ): Promise<boolean> {
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  // Refresh path writes new vault envelopes — blocked in demo mode.
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_refresh');
+
   const {
     encryptToken,
     serializeEnvelope,
@@ -1427,6 +1443,11 @@ export async function clearSpotifyAuth(userId: string): Promise<void> {
   if (!userId) {
     throw new Error('userId is required for multi-tenant data isolation');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_disconnect');
   
   const client = getPool();
   await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
@@ -1451,6 +1472,11 @@ export async function storeOAuthSession(
   if (!userId) {
     throw new Error('userId is required to store Spotify OAuth transaction');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
 
   const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
   const {
@@ -1517,6 +1543,11 @@ export async function consumeOAuthTransaction(
   if (!userId) {
     throw new Error('userId is required to consume OAuth transaction');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
 
   const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
   const { decryptToken } = await import('@/lib/crypto/token-vault');

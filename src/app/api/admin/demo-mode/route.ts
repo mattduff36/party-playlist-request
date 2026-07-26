@@ -6,11 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { getPool, getEventSettings } from '@/lib/db';
-import {
-  assertDemoDoesNotTouchSpotify,
-  isDemoModeEnabled,
-  searchDemoTracks,
-} from '@/lib/beta/demo-mode';
+import { isDemoModeEnabled, searchDemoTracks } from '@/lib/beta/demo-mode';
 import { setPlaybackMode } from '@/lib/playback';
 
 export async function GET(req: NextRequest) {
@@ -39,8 +35,8 @@ export async function POST(req: NextRequest) {
   const userId = auth.user.user_id;
   const pool = getPool();
 
-  // Explicitly refuse Spotify credential operations in this path
-  assertDemoDoesNotTouchSpotify('spotify_token_write');
+  // Toggle only flips demo_mode (+ manual playback when enabling).
+  // Spotify credential guards belong on OAuth/vault paths, not this toggle.
 
   await pool.query(
     `INSERT INTO user_settings (user_id) VALUES ($1)

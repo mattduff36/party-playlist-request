@@ -15,9 +15,16 @@ import { EVENT_TEMPLATES, getEventTemplate } from '@/lib/beta/templates';
 import { matchesDoNotPlay } from '@/lib/beta/guardrails';
 import {
   assertDemoDoesNotTouchSpotify,
+  DemoModeBlockedError,
+  isDemoModeBlockedError,
   isDemoModeEnabled,
   searchDemoTracks,
 } from '@/lib/beta/demo-mode';
+import {
+  combineEventReportCsv,
+  formatAuditActionsCsvSection,
+  formatRequestsCsvSection,
+} from '@/lib/beta/event-report';
 import { buildRecoveryIssues } from '@/lib/beta/recovery';
 import {
   generateSignagePdf,
@@ -200,12 +207,118 @@ describe('PRD-08: templates, guardrails, demo, recovery, legal', () => {
     ).toBe(false);
   });
 
-  it('demo mode never allows Spotify credential operations', () => {
+  it('demo mode never allows Spotify credential operations when active', () => {
     expect(isDemoModeEnabled({ demo_mode: true })).toBe(true);
+    expect(isDemoModeEnabled({ demo_mode: false })).toBe(false);
     expect(searchDemoTracks('neon').length).toBeGreaterThan(0);
-    expect(() => assertDemoDoesNotTouchSpotify('spotify_token_read')).toThrow(
-      /DEMO_MODE_BLOCKED/
+
+    // R1: inactive demo must not throw (toggle / non-credential paths)
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(false, 'spotify_token_write')
+    ).not.toThrow();
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(false, 'spotify_oauth')
+    ).not.toThrow();
+
+    // R2: active demo blocks credential ops fail-closed
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(true, 'spotify_token_read')
+    ).toThrow(DemoModeBlockedError);
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(true, 'spotify_token_write')
+    ).toThrow(/DEMO_MODE_BLOCKED/);
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(true, 'spotify_oauth')
+    ).toThrow(/DEMO_MODE_BLOCKED/);
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(true, 'spotify_refresh')
+    ).toThrow(/DEMO_MODE_BLOCKED/);
+    expect(() =>
+      assertDemoDoesNotTouchSpotify(true, 'spotify_disconnect')
+    ).toThrow(/DEMO_MODE_BLOCKED/);
+    expect(
+      isDemoModeBlockedError(
+        new DemoModeBlockedError('spotify_token_read')
+      )
+    ).toBe(true);
+  });
+
+  it('demo-mode POST route does not call Spotify credential assert', () => {
+    const routePath = path.join(
+      ROOT,
+      'src/app/api/admin/demo-mode/route.ts'
     );
+    const source = fs.readFileSync(routePath, 'utf8');
+    expect(source).not.toMatch(
+      /assert(?:User)?DemoDoesNotTouchSpotify\s*\(/
+    );
+    expect(source).toMatch(/SET demo_mode/);
+  });
+
+  it('Spotify OAuth / vault / disconnect paths wire demo isolation', () => {
+    const files = [
+      'src/lib/db.ts',
+      'src/app/api/spotify/auth/route.ts',
+      'src/app/api/spotify/callback/route.ts',
+      'src/app/api/spotify/disconnect/route.ts',
+      'src/app/api/admin/spotify/reset/route.ts',
+    ];
+    for (const rel of files) {
+      const source = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      expect(source).toMatch(/assertUserDemoDoesNotTouchSpotify|DEMO_MODE_BLOCKED/);
+    }
+    const dbSource = fs.readFileSync(path.join(ROOT, 'src/lib/db.ts'), 'utf8');
+    expect(dbSource).toMatch(/spotify_token_read/);
+    expect(dbSource).toMatch(/spotify_token_write/);
+    expect(dbSource).toMatch(/spotify_refresh/);
+    expect(dbSource).toMatch(/spotify_oauth/);
+    expect(dbSource).toMatch(/spotify_disconnect/);
+  });
+
+  it('event report CSV includes requests and audit actions', () => {
+    const requests = formatRequestsCsvSection([
+      {
+        id: 'req-1',
+        status: 'approved',
+        track_name: 'Neon Lights',
+        artist_name: 'Sample Band',
+        album_name: 'Demo',
+        requester_nickname: 'Guest',
+        dedication: null,
+        created_at: '2026-07-26T20:00:00.000Z',
+        approved_at: '2026-07-26T20:01:00.000Z',
+        played_at: null,
+        provider_id: 'manual',
+      },
+    ]);
+    const audits = formatAuditActionsCsvSection([
+      {
+        id: 'act-1',
+        created_at: '2026-07-26T20:02:00.000Z',
+        action: 'request.approve',
+        actor_role: 'admin',
+        username: 'dj',
+        summary: 'Approved request req-1',
+        route: '/api/admin/approve/req-1',
+        event_id: 'evt-1',
+      },
+    ]);
+    const csv = combineEventReportCsv(requests, audits);
+
+    expect(requests).toMatch(/record_type,id,status/);
+    expect(requests).toMatch(/^request,/m);
+    expect(audits).toMatch(/record_type,id,created_at,action/);
+    expect(audits).toMatch(/^audit_action,/m);
+    expect(csv).toContain('request,req-1,approved');
+    expect(csv).toContain('audit_action,act-1');
+    expect(csv).toContain('request.approve');
+    expect(csv).not.toMatch(/ip_hash|requester_ip/i);
+
+    const reportRoute = fs.readFileSync(
+      path.join(ROOT, 'src/app/api/admin/events/[id]/report/route.ts'),
+      'utf8'
+    );
+    expect(reportRoute).toMatch(/buildEventReportCsv/);
   });
 
   it('recovery centre covers Spotify, device, pusher, manual fallback', () => {
