@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import AdminLayout from '../../../components/AdminLayout';
 import { AdminDataProvider } from '@/contexts/AdminDataContext';
 import { SpotifyControlsProvider } from '@/contexts/SpotifyControlsContext';
-import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import PageLoader from '@/components/ui/PageLoader';
@@ -79,8 +78,10 @@ export default function UserAdminLayout({
     return <PageLoader label="Loading DJ admin..." />;
   }
 
+  // Keep the loader visible while redirecting to login / home admin —
+  // returning null paints a blank page and races e2e/UX on slow /api/auth/me.
   if (!authenticated || !authUser) {
-    return null;
+    return <PageLoader label="Loading DJ admin..." />;
   }
 
   const isOwnAccount = authUser.username === username;
@@ -99,16 +100,16 @@ export default function UserAdminLayout({
     );
   }
 
+  // Use root GlobalEventProvider only — a nested provider doubled Pusher clients
+  // and status refreshes, which wedged the finalise e2e production server.
   return (
     <AdminAuthProvider>
       <NotificationProvider>
-        <GlobalEventProvider>
-          <AdminDataProvider>
-            <SpotifyControlsProvider>
-              <AdminLayout username={username}>{children}</AdminLayout>
-            </SpotifyControlsProvider>
-          </AdminDataProvider>
-        </GlobalEventProvider>
+        <AdminDataProvider>
+          <SpotifyControlsProvider>
+            <AdminLayout username={username}>{children}</AdminLayout>
+          </SpotifyControlsProvider>
+        </AdminDataProvider>
       </NotificationProvider>
     </AdminAuthProvider>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
   ListMusic,
@@ -116,46 +116,80 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
     },
   ];
 
-  // Fetch event data for access code and display URL
+  // Primary source: pin from GlobalEventProvider (/api/event/status now returns it).
+  // Fallback: poll /api/events/current until a code appears (status-only deps so
+  // Spotify/config churn cannot cancel the loop).
+  const eventStateRef = useRef(state);
+  eventStateRef.current = state;
+
   useEffect(() => {
-    const fetchEventData = async () => {
-      // Wait for first event-state hydrate so default offline does not clear code
-      if (state?.isLoading) {
-        return;
+    if (state?.status === 'live' || state?.status === 'standby') {
+      if (typeof state.pin === 'string' && state.pin.length > 0) {
+        setEventPin(state.pin);
+        setDisplayUrl(
+          `${window.location.origin}/${displayUsername}/${state.pin}/display`
+        );
       }
-      if (state?.status === 'live' || state?.status === 'standby') {
+    } else if (!state?.isLoading) {
+      setEventPin(null);
+      setDisplayUrl(null);
+    }
+  }, [state?.status, state?.pin, state?.isLoading, displayUsername]);
+
+  useEffect(() => {
+    const status = state?.status;
+    if (status !== 'live' && status !== 'standby') {
+      return;
+    }
+
+    let stopped = false;
+
+    const applyCode = (code: unknown): boolean => {
+      if (stopped) return false;
+      if (typeof code !== 'string' || code.length === 0) return false;
+      setEventPin(code);
+      setDisplayUrl(
+        `${window.location.origin}/${displayUsername}/${code}/display`
+      );
+      return true;
+    };
+
+    const pollForCode = async () => {
+      while (!stopped) {
+        if (typeof eventStateRef.current?.pin === 'string' && eventStateRef.current.pin.length > 0) {
+          applyCode(eventStateRef.current.pin);
+          return;
+        }
         try {
           const response = await fetch('/api/events/current', {
-            credentials: 'include'
+            credentials: 'include',
+            signal: AbortSignal.timeout(12_000),
           });
           if (response.ok) {
             const data = await response.json();
-            const event = data.event;
-            const code = event.access_code || event.pin;
-            setEventPin(code);
-            setDisplayUrl(
-              `${window.location.origin}/${displayUsername}/${code}/display`
-            );
+            const event = data?.event;
+            if (event && applyCode(event.access_code || event.pin)) {
+              return;
+            }
           }
         } catch (error) {
           console.error('Failed to fetch event:', error);
         }
-      } else {
-        setEventPin(null);
-        setDisplayUrl(null);
+        await new Promise((r) => setTimeout(r, 750));
       }
     };
 
-    fetchEventData();
+    void pollForCode();
 
     const onAccessCodeChanged = () => {
-      fetchEventData();
+      void pollForCode();
     };
     window.addEventListener('pp:access-code-changed', onAccessCodeChanged);
     return () => {
+      stopped = true;
       window.removeEventListener('pp:access-code-changed', onAccessCodeChanged);
     };
-  }, [state?.status, state?.isLoading, displayUsername]);
+  }, [state?.status, displayUsername]);
 
   // Show setup party modal on first login
   useEffect(() => {

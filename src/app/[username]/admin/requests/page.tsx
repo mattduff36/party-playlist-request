@@ -38,8 +38,8 @@ export default function AdminRequestsPage() {
     return <SpotifyConnectingScreen phase="connecting" />;
   }
 
-  // Wait for event state hydrate (default offline is not authoritative)
-  if (!state || state.isLoading || !state.pagesEnabled) {
+  // Wait for first event hydrate only (pagesEnabled is always an object)
+  if (!state || (state.isLoading && !state.lastUpdated)) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>

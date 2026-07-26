@@ -30,32 +30,42 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
-  // Fetch event when component mounts OR when event status changes to Live/Standby
+  // Fetch event when hydrate finishes or status becomes live/standby
   useEffect(() => {
+    if (state?.isLoading) {
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchEvent = async () => {
-      if (state?.isLoading) {
-        return;
-      }
-      // Only fetch if event is Live or Standby (event is ON)
-      if (state?.status === 'live' || state?.status === 'standby') {
-        try {
+      setLoadingEvent(true);
+      try {
+        if (state?.status === 'live' || state?.status === 'standby') {
           const response = await fetch('/api/events/current', {
-            credentials: 'include'
+            credentials: 'include',
+            signal: AbortSignal.timeout(12_000),
           });
-          if (response.ok) {
+          if (!cancelled && response.ok) {
             const data = await response.json();
-            setEvent(data.event);
+            setEvent(data.event ?? null);
           }
-        } catch (error) {
-          console.error('Failed to fetch event:', error);
+        } else if (!cancelled) {
+          setEvent(null);
         }
-      } else {
-        setEvent(null);
+      } catch (error) {
+        console.error('Failed to fetch event:', error);
+      } finally {
+        if (!cancelled) {
+          setLoadingEvent(false);
+        }
       }
-      setLoadingEvent(false);
     };
 
-    fetchEvent();
+    void fetchEvent();
+    return () => {
+      cancelled = true;
+    };
   }, [state?.status, state?.isLoading]);
 
   // Copy to clipboard helper

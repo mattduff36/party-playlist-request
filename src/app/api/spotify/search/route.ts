@@ -15,13 +15,13 @@ import { requireGuestAccess } from '@/lib/guest-access';
 
 export async function GET(req: NextRequest) {
   try {
-    await initializeDefaults();
-    
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('q');
     const username = searchParams.get('username');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
 
+    // Validate before DB init / guest auth so short queries stay 400 even if
+    // initializeDefaults is slow or failing under suite load.
     if (!query || query.trim().length < 2) {
       return NextResponse.json(
         { error: 'Search query must be at least 2 characters long' },
@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    await initializeDefaults();
 
     const access = await requireGuestAccess(req, username);
     if (!access.ok) {

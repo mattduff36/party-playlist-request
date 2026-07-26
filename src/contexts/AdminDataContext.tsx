@@ -160,6 +160,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const lastPlaybackEventAtRef = useRef<number>(Date.now());
   const lastSyncAttemptAtRef = useRef(0);
   const syncInFlightRef = useRef(false);
+  const adminInitGenRef = useRef(0);
 
   const clearDisconnectedDebounce = useCallback(() => {
     disconnectedStreakRef.current = 0;
@@ -720,8 +721,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   // hang, leaving the admin shell stuck on "Loading admin data..." forever
   // (playback sidebar could already show data from a partial prior fetch).
   useEffect(() => {
-    let cancelled = false;
-    const INIT_TIMEOUT_MS = 12_000;
+    const initGen = ++adminInitGenRef.current;
+    const INIT_TIMEOUT_MS = 8_000;
 
     const withTimeout = async (work: Promise<void>, label: string) => {
       try {
@@ -749,34 +750,38 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           withTimeout(refreshStatsRef.current(), 'stats'),
         ]);
       } finally {
-        if (!cancelled) {
+        // Only the latest init generation may clear the gate (Strict Mode safe).
+        if (adminInitGenRef.current === initGen) {
           setLoading(false);
           setHasInitialLoad(true);
         }
       }
 
-      if (cancelled) return;
+      if (adminInitGenRef.current !== initGen) return;
 
-      try {
-        await fetch('/api/admin/spotify-watcher', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            action: 'tick',
-            force: true,
-          }),
+      // Fire-and-forget — must not keep the admin shell gated
+      void fetch('/api/admin/spotify-watcher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'tick',
+          force: true,
+        }),
+      })
+        .then(() => {
+          lastPlaybackEventAtRef.current = Date.now();
+        })
+        .catch((error) => {
+          console.error('Failed to run Spotify sync tick:', error);
         });
-        lastPlaybackEventAtRef.current = Date.now();
-      } catch (error) {
-        console.error('Failed to run Spotify sync tick:', error);
-      }
     };
 
     void initializeAdmin();
 
     return () => {
-      cancelled = true;
+      // Invalidate this generation so a superseded Strict Mode run cannot stick loading
+      adminInitGenRef.current += 1;
       hydrateRetryTimersRef.current.forEach(clearTimeout);
       if (playbackPollRef.current) clearInterval(playbackPollRef.current);
       if (disconnectedDebounceRef.current) {

@@ -311,6 +311,7 @@ function createActions(
         const response = await fetch('/api/event/status', {
           method: 'POST',
           headers,
+          credentials: 'include',
           body: JSON.stringify({
             status,
             eventId,
@@ -454,6 +455,7 @@ function createActions(
         const response = await fetch('/api/event/pages', {
           method: 'POST',
           headers,
+          credentials: 'include',
           body: JSON.stringify(requestBody),
         });
 
@@ -526,7 +528,11 @@ function createActions(
     refreshState: async () => {
       try {
         console.log('🔄 refreshState called');
-        dispatch({ type: 'SET_LOADING', payload: true });
+        // Soft refresh after first hydrate — avoid blanking admin pages on every remount
+        const alreadyHydrated = getState().version > 0 || getState().lastUpdated != null;
+        if (!alreadyHydrated) {
+          dispatch({ type: 'SET_LOADING', payload: true });
+        }
         dispatch({ type: 'SET_ERROR', payload: null });
         
         // Get current event ID
@@ -536,6 +542,12 @@ function createActions(
         // Check if we're on a public page (/:username/request or /:username/display)
         const isPublicPage = typeof window !== 'undefined' && 
           (window.location.pathname.includes('/request') || window.location.pathname.includes('/display'));
+
+        const fetchStatus = (url: string) =>
+          fetch(url, {
+            credentials: 'include',
+            signal: AbortSignal.timeout(10_000),
+          });
         
         let response;
         
@@ -546,14 +558,16 @@ function createActions(
           
           if (username && username !== 'api' && username !== 'login' && username !== 'register') {
             console.log(`🌐 Public page detected, fetching status for username: ${username}`);
-            response = await fetch(`/api/events/public-status?username=${encodeURIComponent(username)}`);
+            response = await fetchStatus(
+              `/api/events/public-status?username=${encodeURIComponent(username)}`
+            );
           } else {
             // Fallback to authenticated endpoint
-            response = await fetch('/api/event/status');
+            response = await fetchStatus('/api/event/status');
           }
         } else {
           // Admin/authenticated pages use the authenticated endpoint
-          response = await fetch('/api/event/status');
+          response = await fetchStatus('/api/event/status');
         }
         
         console.log('📡 API response status:', response.status);
@@ -612,7 +626,15 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
   const adminAuth = useOptionalAdminAuth();
   
   const actions = useMemo(() => {
-    const getToken = () => adminAuth?.token || null;
+    const getToken = () => {
+      if (adminAuth?.token) return adminAuth.token;
+      if (typeof window === 'undefined') return null;
+      try {
+        return localStorage.getItem('admin_token');
+      } catch {
+        return null;
+      }
+    };
     const nextActions = createActions(dispatch, () => stateRef.current, getToken);
     // Add alias for backward compatibility
     nextActions.setEventStatus = nextActions.updateEventStatus;
@@ -621,15 +643,32 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
 
-  // Load / refresh event state when route changes (public username may change)
+  // Only rebind when the party owner scope changes — not on every admin sub-route
+  // (avoids Pusher reconnect / status-fetch storms on every admin tab change).
+  const publicUsername = getPublicPageUsernameFromPath(pathname);
+  const isAuthShellPath =
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname.startsWith('/auth/');
+  const partyScopeKey = isAuthShellPath
+    ? 'auth-shell'
+    : publicUsername
+      ? `public:${publicUsername}`
+      : 'session';
+
+  // Load / refresh event state when party scope changes
   useEffect(() => {
-    console.log('🚀 GlobalEventProvider refreshState for path:', pathname);
+    if (partyScopeKey === 'auth-shell') {
+      return;
+    }
+    console.log('🚀 GlobalEventProvider refreshState for scope:', partyScopeKey);
     void actionsRef.current.refreshState();
-  }, [pathname]);
+  }, [partyScopeKey]);
 
   // Listen for Pusher events (state updates and page control changes)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (partyScopeKey === 'auth-shell') return;
 
     let pusherInstance: ReturnType<
       typeof import('@/lib/pusher').createPusherClient
@@ -641,7 +680,6 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
     const setupPusher = async () => {
       try {
         let userId: string | null = null;
-        const publicUsername = getPublicPageUsernameFromPath(pathname);
 
         // Public display/request: ALWAYS resolve owner from URL username
         // (same as usePusher) so a logged-in admin cookie cannot bind the wrong channel.
@@ -747,7 +785,7 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
         pusherInstance.disconnect();
       }
     };
-  }, [pathname]);
+  }, [partyScopeKey, publicUsername]);
 
   return (
     <GlobalEventContext.Provider value={{ state, dispatch, actions }}>

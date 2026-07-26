@@ -36,6 +36,20 @@ export default function EventStateDropdown() {
     }
   }, [isOpen]);
 
+  const postJson = async (url: string, body: Record<string, unknown>) => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) {
+      throw new Error(`${url} failed (${response.status})`);
+    }
+    return response;
+  };
+
   const handleStateChange = async (newStatus: 'offline' | 'standby' | 'live') => {
     if (isTransitioning || !state || state.status === newStatus) {
       setIsOpen(false);
@@ -52,121 +66,60 @@ export default function EventStateDropdown() {
 
     setIsTransitioning(true);
     try {
-      // If going to LIVE, enable both pages sequentially
+      // Status first so the shell stays responsive even if page side-effects stall.
+      await actions?.setEventStatus?.(newStatus);
+      setIsOpen(false);
+
       if (newStatus === 'live') {
         console.log('🎉 Going LIVE: Enabling Requests and Display pages...');
-        
-        // Enable requests page first
         if (!state.pagesEnabled.requests) {
           try {
-            console.log('✅ Enabling Requests page...');
-            await fetch('/api/event/pages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ page: 'requests', enabled: true })
-            });
-            // Small delay to prevent race condition
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await postJson('/api/event/pages', { page: 'requests', enabled: true });
           } catch (error) {
             console.error('❌ Failed to enable Requests page:', error);
           }
         }
-        
-        // Then enable display page
         if (!state.pagesEnabled.display) {
           try {
-            console.log('✅ Enabling Display page...');
-            await fetch('/api/event/pages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ page: 'display', enabled: true })
-            });
-            console.log('✅ Pages enabled');
+            await postJson('/api/event/pages', { page: 'display', enabled: true });
           } catch (error) {
             console.error('❌ Failed to enable Display page:', error);
           }
         }
       }
 
-      // If going to offline or standby, disable pages
-      // If going to offline, also disconnect Spotify
       if (newStatus === 'offline' || newStatus === 'standby') {
-        console.log(`🔌 Going ${newStatus}: ${newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'} pages...`);
-        
-        // Disconnect from Spotify and stop watcher only when going offline
+        console.log(
+          `🔌 Going ${newStatus}: ${
+            newStatus === 'offline' ? 'Disconnecting Spotify and disabling' : 'Disabling'
+          } pages...`
+        );
+
         if (newStatus === 'offline') {
           try {
-            // Stop Spotify watcher first
-            await fetch('/api/admin/spotify-watcher', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ action: 'stop' })
-            });
-            console.log('✅ Spotify watcher stopped');
-
-            // Then disconnect from Spotify
-            await fetch('/api/spotify/disconnect', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include' // JWT auth via cookies
-            });
-            console.log('✅ Spotify disconnected');
+            await postJson('/api/admin/spotify-watcher', { action: 'stop' });
+            await postJson('/api/spotify/disconnect', {});
           } catch (spotifyError) {
             console.error('Failed to disconnect Spotify:', spotifyError);
           }
         }
 
-        // Disable pages sequentially to prevent race condition
         if (state.pagesEnabled.requests) {
           try {
-            console.log('🔌 Disabling Requests page...');
-            await fetch('/api/event/pages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ page: 'requests', enabled: false })
-            });
-            // Small delay to prevent race condition
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await postJson('/api/event/pages', { page: 'requests', enabled: false });
           } catch (error) {
             console.error('❌ Failed to disable Requests page:', error);
           }
         }
-        
+
         if (state.pagesEnabled.display) {
           try {
-            console.log('🔌 Disabling Display page...');
-            await fetch('/api/event/pages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ page: 'display', enabled: false })
-            });
-            console.log('✅ Pages disabled');
+            await postJson('/api/event/pages', { page: 'display', enabled: false });
           } catch (error) {
             console.error('❌ Failed to disable Display page:', error);
           }
         }
       }
-
-      // Update the event status
-      await actions?.setEventStatus?.(newStatus);
-      setIsOpen(false);
     } catch (error) {
       console.error('Failed to change event status:', error);
       let errorMessage = 'Failed to update event status';
@@ -174,7 +127,7 @@ export default function EventStateDropdown() {
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null && 'error' in error) {
-        errorMessage = (error as any).error;
+        errorMessage = (error as { error: string }).error;
       }
       
       actions?.setError?.(errorMessage);

@@ -94,6 +94,23 @@ export async function GET(req: NextRequest) {
       });
     }
     
+    // Include guest access code when DJ event is on so AdminLayout "Code:" chrome
+    // can hydrate from GlobalEventProvider without a second racey /events/current fetch.
+    let pin: string | null = null;
+    if (event.status === 'live' || event.status === 'standby') {
+      try {
+        const { getActiveEvent, createEvent } = await import('@/lib/event-service');
+        let guest = await getActiveEvent(userId);
+        if (!guest) {
+          guest = await createEvent(userId);
+        }
+        const code = guest.access_code || guest.pin;
+        pin = typeof code === 'string' && code.length > 0 ? code : null;
+      } catch (guestError) {
+        console.error('❌ Failed to resolve guest access code for status GET:', guestError);
+      }
+    }
+
     const response = NextResponse.json({
       success: true,
       event: {
@@ -103,12 +120,12 @@ export async function GET(req: NextRequest) {
         activeAdminId: event.active_admin_id,
         config: event.config,
         updatedAt: event.updated_at,
+        pin,
       }
     });
     
-    // OPTIMIZATION: Add cache headers (30 seconds - event status changes less frequently)
-    response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
-    response.headers.set('CDN-Cache-Control', 'private, max-age=30');
+    // Do not cache when pin may be minted / rotated with status
+    response.headers.set('Cache-Control', 'private, no-store');
     
     return response;
 

@@ -16,12 +16,17 @@ import { requireGuestAccess } from '@/lib/guest-access';
 
 export async function GET(req: NextRequest) {
   try {
-    await initializeDefaults();
-    
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('q');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
     const username = searchParams.get('username');
+
+    if (!query || query.trim().length < 2) {
+      return NextResponse.json(
+        { error: 'Search query must be at least 2 characters long' },
+        { status: 400 }
+      );
+    }
 
     if (!username) {
       return NextResponse.json(
@@ -29,6 +34,8 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    await initializeDefaults();
 
     const access = await requireGuestAccess(req, username);
     if (!access.ok) {
@@ -52,13 +59,6 @@ export async function GET(req: NextRequest) {
     }
     
     console.log(`🔍 [API /api/search] Query: "${query}", Username: ${username}, Limit: ${limit}`);
-    
-    if (!query || query.trim().length < 2) {
-      console.log('❌ [API /api/search] Query too short');
-      return NextResponse.json({ 
-        error: 'Search query must be at least 2 characters long' 
-      }, { status: 400 });
-    }
 
     // MULTI-TENANT: Get userId from username
     let userId: string | null = null;
