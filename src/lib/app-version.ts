@@ -8,7 +8,7 @@ export interface AppVersionInfo {
 }
 
 export const APP_VERSION_INFO: AppVersionInfo = {
-  version: '2.1.23',
+  version: '2.1.24',
 };
 
 export const APP_VERSION = APP_VERSION_INFO.version;
