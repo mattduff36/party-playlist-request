@@ -576,11 +576,13 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-08-paid-beta-readiness-20260726` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `5f65b49` (source tip `eaf02c3`) |
 | Database impact | **Class B applied** — `010_prd08_paid_beta_readiness` after write-free dry-run. Adds lifecycle/readiness columns, guardrail settings, `beta_entitlements` (+ audit), `legal_pages`, `beta_observation_checklists`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
 | Depends on | PRD-07 integrated into preview (`36d343f`) |
+| Independent re-review | APPROVE_MERGE @ `eaf02c3` |
 
 ### Outcomes (this pass)
 
@@ -620,7 +622,6 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 - Do not apply Class C/D from prior PRDs.
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
-- Do not merge PRD-08 into preview until programme asks.
 - Do not push until explicitly instructed.
 - Production beta activation requires super-admin grant (or `BETA_ENTITLEMENT_BYPASS=1` — do not set in prod).
 - Legal copy remains `draft_unreviewed` until professional review.
@@ -644,5 +645,15 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run build` | Pass |
 | `npm run db:migrate:canonical:dry` | Pending `010` reported |
 | `npm run db:migrate:canonical` | Applied `010` |
-| Merged into preview | No |
+| Merged into preview | Yes — `5f65b49` |
 | Pushed | No |
+
+### Preview integration smoke (post-merge `5f65b49` + status docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass |
+| `npm run build` | Pass |
+| Pushed to remote | No (prefer local; production = `main` only) |
