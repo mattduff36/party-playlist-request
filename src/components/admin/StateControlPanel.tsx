@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { Power, Play, Pause, AlertCircle, X } from 'lucide-react';
 import { useGlobalEvent, EventStateMachine } from '@/lib/state/global-event-client';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface StateControlPanelProps {
   className?: string;
@@ -24,7 +25,7 @@ async function adminFetch(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await authenticatedFetch(input, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }

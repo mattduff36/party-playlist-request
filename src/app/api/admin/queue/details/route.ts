@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const authStart = Date.now();
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

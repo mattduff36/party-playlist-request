@@ -6,7 +6,7 @@ import { triggerEvent, getUserChannel } from '@/lib/pusher';
 export async function POST(req: NextRequest) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

@@ -6,7 +6,7 @@ import { spotifyService } from '@/lib/spotify';
 export async function GET(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

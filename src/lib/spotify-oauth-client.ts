@@ -3,6 +3,8 @@
  * Used when returning from Spotify authorization and while connection is pending.
  */
 
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
+
 export const SPOTIFY_OAUTH_PENDING_KEY = 'spotify_oauth_pending';
 
 export interface SpotifyOAuthResult {
@@ -76,10 +78,8 @@ export async function completeSpotifyOAuthCallback(
   }
 
   try {
-    const response = await fetch('/api/spotify/callback', {
+    const response = await authenticatedFetch('/api/spotify/callback', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({
         code,
         state: oauthState,

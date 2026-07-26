@@ -10,7 +10,7 @@ import { getActiveEvent, createDisplayToken } from '@/lib/event-service';
 
 export async function POST(req: NextRequest) {
   // Require authentication
-  const authResult = requireAuth(req);
+  const authResult = await requireAuth(req);
   if (!authResult.authenticated || !authResult.user) {
     return authResult.response;
   }

@@ -163,26 +163,33 @@ This document defines the business rules and automated processes for managing th
    - **No, Stay on Previous Session**: Cancels login
 
 **On Transfer Confirmation**:
-1. Force logout old session via Pusher (`force-logout` event) using `oldSessionId`
-2. Old session receives event and redirects to login with message
-3. Generate new `session_id`
-4. Update database with new `session_id`
-5. Set JWT auth cookie including `session_id`
+1. Validate `oldSessionId` against `users.active_session_id` (conditional UPDATE; mismatch rejected)
+2. Force logout old session via Pusher (`force-logout` event) using `oldSessionId`
+3. Old session receives event and redirects to login with message
+4. Generate new `session_id` and update database atomically
+5. Set JWT auth cookie including `session_id` (+ CSRF cookie)
 6. Event continues with same state when still live
+7. Old JWTs fail on next protected request (`SESSION_REVOKED`) because `session_id` no longer matches
 
-**On Logout** / **On Event Offline**:
-1. Clear `active_session_id` and `active_session_created_at` from database
-2. (Logout also clears JWT cookie and disables the event)
+**On Logout (this browser only)**:
+1. Clear JWT + CSRF cookies for this browser
+2. Conditionally release `active_session_*` only when `WHERE id = ? AND active_session_id = ?` matches
+3. Does **not** set event offline and does **not** delete requests
 
-**Implementation Status**: ✅ **COMPLETE**
+**On Event Offline (explicit end-event)**:
+1. Set event lifecycle to offline / end guest-access rows
+2. Clear admin session lock via `endAllActiveEventsForUser`
+3. Preserve request history (destructive cleanup is a separate admin action)
+
+**Implementation Status**: ✅ **COMPLETE** (PRD-02 session authority)
 - Session tracking fields on `users` (`active_session_id`, `active_session_created_at`)
 - Decision helpers + 24h TTL (`src/lib/admin-session.ts`)
 - Login API: TTL clear, same-session resume, transfer response (`src/app/api/auth/login/route.ts`)
 - Session transfer API (`src/app/api/auth/transfer-session/route.ts`) — client passes `oldSessionId`
-- JWT includes optional `session_id` (`src/lib/auth.ts`); parsers tolerate legacy tokens without it
-- Offline path clears lock via `endAllActiveEventsForUser` (`src/lib/event-service.ts`)
+- JWT includes `session_id`; authoritative `requireAuth` compares it to DB on every protected route
+- Offline path clears lock via `endAllActiveEventsForUser` (`src/lib/event-service.ts`) without deleting requests
 - `SessionTransferModal` accurate copy (`src/components/admin/SessionTransferModal.tsx`)
-- Logout route clears session tracking
+- Logout route clears cookie + conditional session release only
 
 **UI Behavior**:
 - Login shows transfer modal only for a non-expired lock that is not the same JWT session
@@ -192,9 +199,9 @@ This document defines the business rules and automated processes for managing th
 
 **Technical Details**:
 - JWT carries `session_id` so same-browser re-login can resume without a modal
-- Middleware/auth helpers must tolerate tokens without `session_id`
+- Protected APIs reject missing/mismatched `session_id` with `SESSION_REVOKED`
 - Database stores session creation timestamp for display and TTL
-- Old JWT remains valid until natural expiry unless force-logout runs
+- Old JWT is cryptographically valid until expiry but is rejected by session authority after transfer/logout/reset
 
 **Edge Cases Handled**:
 - Stale lock after End Event / offline: cleared by `endAllActiveEventsForUser`

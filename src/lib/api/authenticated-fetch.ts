@@ -1,0 +1,92 @@
+/**
+ * Central fetch helper for organiser/superadmin cookie-authenticated calls.
+ * Attaches CSRF double-submit header for mutations and handles SESSION_REVOKED.
+ *
+ * Cookie + CSRF is canonical (PRD-02). Do not attach Authorization Bearer from
+ * localStorage — stale Bearer + live cookie caused dual-path auth skips/mismatches.
+ */
+
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/auth/csrf-constants';
+
+const SAFE_READ = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const parts = document.cookie.split(';');
+  for (const part of parts) {
+    const [rawKey, ...rest] = part.trim().split('=');
+    if (rawKey === name) {
+      return decodeURIComponent(rest.join('='));
+    }
+  }
+  return null;
+}
+
+export function getCsrfTokenFromDocument(): string | null {
+  return readCookie(CSRF_COOKIE_NAME);
+}
+
+export async function authenticatedFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {}
+): Promise<Response> {
+  const method = (init.method || 'GET').toUpperCase();
+  const headers = new Headers(init.headers || {});
+
+  // Prefer cookie session: strip client-supplied Bearer so stale localStorage
+  // tokens cannot override the HttpOnly auth_token cookie.
+  if (typeof window !== 'undefined') {
+    headers.delete('Authorization');
+  }
+
+  if (!SAFE_READ.has(method)) {
+    const csrf = getCsrfTokenFromDocument();
+    if (csrf && !headers.has(CSRF_HEADER_NAME)) {
+      headers.set(CSRF_HEADER_NAME, csrf);
+    }
+    if (!headers.has('Content-Type') && init.body && typeof init.body === 'string') {
+      headers.set('Content-Type', 'application/json');
+    }
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+    credentials: init.credentials ?? 'include',
+  });
+
+  if (response.status === 401) {
+    await handleSessionRevokedResponse(response);
+  }
+
+  return response;
+}
+
+/**
+ * Handle SESSION_REVOKED without refresh loops — clear local hints and redirect once.
+ */
+export async function handleSessionRevokedResponse(
+  res: Response
+): Promise<boolean> {
+  if (res.status !== 401) return false;
+  try {
+    const body = (await res.clone().json()) as { code?: string };
+    if (body?.code !== 'SESSION_REVOKED') return false;
+    if (typeof window === 'undefined') return true;
+    try {
+      if (sessionStorage.getItem('pp_session_revoked') === '1') {
+        return true;
+      }
+      sessionStorage.setItem('pp_session_revoked', '1');
+      localStorage.removeItem('admin_token');
+    } catch {
+      // ignore storage failures
+    }
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.assign('/login?reason=session_revoked');
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}

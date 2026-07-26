@@ -12,6 +12,7 @@ import {
   Search,
 } from 'lucide-react';
 import Checkbox from '@/components/ui/Checkbox';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 const LIKED_SONGS_ID = 'liked-songs';
 
@@ -192,10 +193,8 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
     setStatusMessage(null);
 
     try {
-      const response = await fetch('/api/admin/queue/add', {
+      const response = await authenticatedFetch('/api/admin/queue/add', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           uris.length === 1 ? { track_uri: uris[0] } : { track_uris: uris }
         ),
@@ -223,10 +222,8 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
     setStatusMessage(null);
 
     try {
-      const response = await fetch('/api/admin/queue/playlist', {
+      const response = await authenticatedFetch('/api/admin/queue/playlist', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playlist_id: selectedPlaylist.id }),
       });
       const data = await response.json();

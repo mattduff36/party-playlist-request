@@ -15,6 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { useGlobalEvent, EventStateMachine } from '@/lib/state/global-event-client';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 export default function EventStateDropdown() {
   const { state, actions } = useGlobalEvent();
@@ -37,10 +38,8 @@ export default function EventStateDropdown() {
   }, [isOpen]);
 
   const postJson = async (url: string, body: Record<string, unknown>) => {
-    const response = await fetch(url, {
+    const response = await authenticatedFetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(12_000),
     });

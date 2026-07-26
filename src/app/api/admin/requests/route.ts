@@ -5,7 +5,7 @@ import { getRequestsByStatus, getAllRequests, getRequestsCount } from '@/lib/db'
 export async function GET(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

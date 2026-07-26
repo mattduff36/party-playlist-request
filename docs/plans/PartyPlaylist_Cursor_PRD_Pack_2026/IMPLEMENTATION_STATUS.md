@@ -97,3 +97,51 @@
 | Pushed to remote | No (local only; production confirmed = `main` only) |
 
 Database impact: **none** (no migrations, no DB writes from this change set).
+
+## PRD-02: Authentication / Session Authority
+
+| Field | Value |
+| --- | --- |
+| Status | Security review fixes applied on branch (FIX_THEN_MERGE; not merged into preview) |
+| Branch | `dev/prd-02-session-authority` |
+| Database impact | None (code-only; uses existing `users.active_session_id` / account columns). No Class C/D migrations. |
+| Depends on | PRD-01 integrated into preview |
+
+### Outcomes
+
+| Requirement | Result |
+| --- | --- |
+| Authoritative async admin guard (`session_id` vs `active_session_id`) | Done — `requireAuth` is async; loads DB row; returns `SESSION_REVOKED` |
+| Apply guard to protected routes | Done — all prior `requireAuth` call sites awaited (admin/superadmin/spotify/monitoring/auth/me/refresh/event) |
+| Refresh rejects revoked sessions | Done — refresh uses authoritative guard; no JSON token mint from claims alone |
+| Transfer validates `oldSessionId` | Done — conditional UPDATE; mismatch → 409; rotates session (revokes old JWTs) |
+| Logout ≠ end event / delete requests | Done — logout clears cookie + conditional session release only |
+| End-event distinct + non-destructive | Done — `/api/event/status` offline no longer `DELETE FROM requests`; audits `event.end` |
+| CSRF + same-origin for cookie mutations | Done — double-submit cookie/`X-CSRF-Token`; organiser/superadmin mutations use `authenticatedFetch` |
+| Cookie-first token extraction | Done — `extractToken` prefers HttpOnly `auth_token` over Bearer; clients strip stale `localStorage.admin_token` Bearer |
+| `SESSION_REVOKED` UI | Done — `authenticatedFetch` calls `handleSessionRevokedResponse`; AdminDataContext distinguishes revoked vs expired (no refresh loop) |
+| Auth route rate limiting | Done — Redis when available; in-memory degraded (not unbounded) when Redis missing |
+| Security audit events | Done — structured stdout JSON (`security-audit`) for login/transfer/logout/reset/event.end/revoked |
+| Negative session-abuse tests | Done — `tests/security/prd-02-session-authority.spec.ts` (stale JWT, event end, refresh, logout newer-session, CSRF, cookie-first) |
+
+### Auth decision (cookie-first)
+
+Browser organiser/superadmin auth is **cookie-canonical**: HttpOnly `auth_token` + CSRF double-submit. Preferring Bearer first let stale `localStorage.admin_token` override a valid cookie while credentials still attached the cookie (dual path). Bearer remains for cookie-less API/tests. `@/lib/auth` `requireSuperAdmin(req)` now throws (deprecated); use middleware `requireAuth` + `requireSuperAdmin`.
+
+### Incomplete / follow-ups
+
+- Login / transfer / register / guest PIN / public request posts correctly remain plain `fetch` (pre-cookie or unauthenticated).
+- Some admin GETs still use raw `fetch` with `credentials: 'include'` (CSRF N/A for safe methods); mutations migrated.
+- Durable audit table not added (Class B optional) — stdout structured logs only for this pass.
+- Distributed Redis rate-limit cross-instance proof deferred to environments with Upstash configured (memory backend covered in unit tests).
+- Email-change / privilege-change session rotation not fully enumerated beyond password reset.
+- `AdminAuthContext` may still mirror tokens in `localStorage` for legacy UI; API calls no longer send that as Bearer.
+
+### Validation notes
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 151 tests (incl. PRD-02 security + CSRF client wiring) |
+| `npm run build` | Pass |
+| Merged into preview | No (orchestrator after security review) |
+| Pushed | No |

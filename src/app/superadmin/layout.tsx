@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Shield, Users, LogOut, Loader2, Radio, Music, LifeBuoy } from 'lucide-react';
 import Link from 'next/link';
 import PageLoader from '@/components/ui/PageLoader';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -66,9 +67,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await authenticatedFetch('/api/auth/logout', {
         method: 'POST',
-        credentials: 'include'
       });
       router.push('/');
     } catch (error) {

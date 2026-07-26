@@ -131,10 +131,13 @@ describe('SpotifyConnectionPanel', () => {
     fireEvent.click(disconnectButton);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/spotify/disconnect', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/spotify/disconnect',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+        })
+      );
     });
   });
 

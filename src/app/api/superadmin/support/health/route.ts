@@ -5,7 +5,7 @@ import { getUnresolvedErrorCount } from '@/lib/support/logger';
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) return auth.response!;
     const sa = requireSuperAdmin(auth.user);
     if (!sa.authorized) return sa.response!;

@@ -13,6 +13,7 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
 import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
 import QueueTrackCover from '@/components/shared/QueueTrackCover';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface RequestManagementPanelProps {
   className?: string;
@@ -213,12 +214,9 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     
     setIsAddingRandomSong(true);
     try {
-      const response = await fetch('/api/admin/add-random-song', {
+      const response = await authenticatedFetch('/api/admin/add-random-song', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // JWT auth via cookies
+        body: JSON.stringify({}),
       });
 
       if (response.ok) {

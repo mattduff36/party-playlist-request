@@ -190,12 +190,29 @@ describe('PRD-01: monitoring unauthorized', () => {
     const prev = process.env.JWT_SECRET;
     process.env.JWT_SECRET = 'unit_test_jwt_secret_prd01';
     jest.resetModules();
+    jest.doMock('@/lib/db/neon-client', () => ({
+      sql: Object.assign(
+        jest.fn(async () => [
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            username: 'organiser-a',
+            email: 'a@example.com',
+            role: 'user',
+            active_session_id: 'sess-organiser',
+            account_status: 'active',
+            email_verified: true,
+          },
+        ]),
+        { raw: jest.fn() }
+      ),
+    }));
     const { generateToken: mint } = await import('@/lib/auth');
     const token = mint({
       user_id: '11111111-1111-1111-1111-111111111111',
       username: 'organiser-a',
       email: 'a@example.com',
       role: 'user',
+      session_id: 'sess-organiser',
     });
 
     const { GET } = await import('@/app/api/monitoring/metrics/route');
@@ -267,6 +284,23 @@ describe('PRD-01: spotify-watcher auth', () => {
   });
 
   it('organiser A cannot tick as organiser B via body userId', async () => {
+    jest.doMock('@/lib/db/neon-client', () => ({
+      sql: Object.assign(
+        jest.fn(async () => [
+          {
+            id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            username: 'organiser-a',
+            email: 'a@example.com',
+            role: 'user',
+            active_session_id: 'sess-a',
+            account_status: 'active',
+            email_verified: true,
+          },
+        ]),
+        { raw: jest.fn() }
+      ),
+    }));
+
     // Mint token from the same auth module instance the route will load after resetModules
     const { generateToken: mint } = await import('@/lib/auth');
     const tokenA = mint({
@@ -274,6 +308,7 @@ describe('PRD-01: spotify-watcher auth', () => {
       username: 'organiser-a',
       email: 'a@example.com',
       role: 'user',
+      session_id: 'sess-a',
     });
 
     const { POST } = await import('@/app/api/admin/spotify-watcher/route');

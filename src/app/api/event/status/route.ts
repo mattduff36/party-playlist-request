@@ -24,7 +24,7 @@ function canTransition(from: EventStatus, to: EventStatus): boolean {
 export async function GET(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -241,40 +241,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If status changed to offline, end guest-access events + clean up requests for THIS user
+    // End event: archive lifecycle (offline) — do NOT delete request history here.
+    // Destructive cleanup remains a separate confirmed admin action (cleanup-requests).
     if (status === 'offline') {
       try {
         const { endAllActiveEventsForUser } = await import('@/lib/event-service');
         await endAllActiveEventsForUser(userId);
       } catch (endEventsError) {
         console.error('❌ Failed to end user_events on offline:', endEventsError);
-        // Continue cleanup — status already updated; next start still mints a new code
+        // Continue — status already updated; next start still mints a new code
       }
 
       try {
-        const { sql } = await import('@/lib/db/neon-client');
-        // SECURITY: Delete only THIS user's requests (multi-tenant isolation)
-        const deleteResult = await sql`
-          DELETE FROM requests
-          WHERE user_id = ${userId}
-          RETURNING id
-        `;
-        
-        const deletedCount = deleteResult.length;
-        console.log(`🧹 [SECURITY] Event set to offline: Deleted ${deletedCount} requests for user ${userId} (multi-tenant isolation enforced)`);
-        
-        // Broadcast cleanup event via Pusher (user-specific channel)
-        try {
-          const { triggerRequestsCleanup } = await import('@/lib/pusher');
-          await triggerRequestsCleanup(userId);
-          console.log(`📡 Pusher cleanup event sent for user ${userId}`);
-        } catch (pusherError) {
-          console.error('❌ Failed to send Pusher cleanup event:', pusherError);
-        }
-      } catch (cleanupError) {
-        console.error('❌ Failed to cleanup requests on offline:', cleanupError);
-        console.error('Error details:', cleanupError);
-        // Don't fail the status change if cleanup fails
+        const { emitSecurityAudit } = await import('@/lib/auth/security-audit');
+        emitSecurityAudit('event.end', {
+          correlationId: auth.correlationId,
+          userId,
+          eventId: updatedEvent.id,
+          meta: { status: 'offline' },
+        });
+      } catch {
+        // non-fatal
       }
     }
 
