@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/neon-client';
+import { getIpHash } from '@/lib/support/withApiLogging';
+import {
+  enforceAuthRateLimit,
+  hashLimiterId,
+  genericAuthRateLimitResponse,
+} from '@/lib/auth/auth-rate-limit';
 
 /**
  * POST /api/auth/check-username
@@ -9,6 +15,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { username } = body;
+
+    const throttle = await enforceAuthRateLimit({
+      action: 'check-username',
+      ipHash: hashLimiterId('ip', getIpHash(request)),
+      maxPerIp: 60,
+    });
+    if (!throttle.allowed) {
+      return NextResponse.json(genericAuthRateLimitResponse(throttle.retryAfterSec), {
+        status: 429,
+      });
+    }
 
     // Validate username
     if (!username || typeof username !== 'string') {

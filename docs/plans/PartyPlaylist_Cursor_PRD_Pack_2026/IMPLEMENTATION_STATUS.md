@@ -97,3 +97,44 @@
 | Pushed to remote | No (local only; production confirmed = `main` only) |
 
 Database impact: **none** (no migrations, no DB writes from this change set).
+
+## PRD-02: Authentication / Session Authority
+
+| Field | Value |
+| --- | --- |
+| Status | Implemented on branch (not merged into preview; awaiting security review) |
+| Branch | `dev/prd-02-session-authority` |
+| Database impact | None (code-only; uses existing `users.active_session_id` / account columns). No Class C/D migrations. |
+| Depends on | PRD-01 integrated into preview |
+
+### Outcomes
+
+| Requirement | Result |
+| --- | --- |
+| Authoritative async admin guard (`session_id` vs `active_session_id`) | Done — `requireAuth` is async; loads DB row; returns `SESSION_REVOKED` |
+| Apply guard to protected routes | Done — all prior `requireAuth` call sites awaited (admin/superadmin/spotify/monitoring/auth/me/refresh/event) |
+| Refresh rejects revoked sessions | Done — refresh uses authoritative guard; no JSON token mint from claims alone |
+| Transfer validates `oldSessionId` | Done — conditional UPDATE; mismatch → 409; rotates session (revokes old JWTs) |
+| Logout ≠ end event / delete requests | Done — logout clears cookie + conditional session release only |
+| End-event distinct + non-destructive | Done — `/api/event/status` offline no longer `DELETE FROM requests`; audits `event.end` |
+| CSRF + same-origin for cookie mutations | Done — double-submit cookie/`X-CSRF-Token`; central `authenticatedFetch` |
+| Auth route rate limiting | Done — Redis when available; in-memory degraded (not unbounded) when Redis missing |
+| Security audit events | Done — structured stdout JSON (`security-audit`) for login/transfer/logout/reset/event.end/revoked |
+| Negative session-abuse tests | Done — `tests/security/prd-02-session-authority.spec.ts` |
+
+### Incomplete / follow-ups
+
+- Not every non-AdminDataContext client fetch path uses `authenticatedFetch` yet (e.g. some superadmin UI / login page transfer uses plain fetch — login/transfer are pre-cookie or password-bodied).
+- Durable audit table not added (Class B optional) — stdout structured logs only for this pass.
+- Distributed Redis rate-limit cross-instance proof deferred to environments with Upstash configured (memory backend covered in unit tests).
+- UI `SESSION_REVOKED` redirect helper exists (`handleSessionRevokedResponse`) but is not wired into every admin fetch call site yet.
+- Email-change / privilege-change session rotation not fully enumerated beyond password reset.
+
+### Validation notes
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 146 tests |
+| `npm run build` | Pass |
+| Merged into preview | No (orchestrator after security review) |
+| Pushed | No |

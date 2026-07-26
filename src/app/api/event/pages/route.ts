@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     console.log('🌐 [API /event/pages POST] Request received');
     
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

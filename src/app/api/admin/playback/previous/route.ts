@@ -4,7 +4,7 @@ import { spotifyService } from '@/lib/spotify';
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

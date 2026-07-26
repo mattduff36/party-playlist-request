@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   try {
     // Authenticate using JWT cookies
     const { requireAuth } = await import('@/middleware/auth');
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     
     if (!auth.authenticated || !auth.user) {
       console.error('❌ [spotify/callback] Authentication required');

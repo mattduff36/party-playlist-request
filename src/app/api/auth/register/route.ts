@@ -3,6 +3,12 @@ import { sql } from '@/lib/db/neon-client';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { sendVerificationEmail } from '@/lib/email/email-service';
+import { getIpHash } from '@/lib/support/withApiLogging';
+import {
+  enforceAuthRateLimit,
+  hashLimiterId,
+  genericAuthRateLimitResponse,
+} from '@/lib/auth/auth-rate-limit';
 
 /**
  * POST /api/auth/register
@@ -12,6 +18,21 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { username, email, password } = body;
+
+    const throttle = await enforceAuthRateLimit({
+      action: 'register',
+      ipHash: hashLimiterId('ip', getIpHash(request)),
+      accountHash: email
+        ? hashLimiterId('email', String(email))
+        : undefined,
+      maxPerIp: 20,
+      maxPerAccount: 5,
+    });
+    if (!throttle.allowed) {
+      return NextResponse.json(genericAuthRateLimitResponse(throttle.retryAfterSec), {
+        status: 429,
+      });
+    }
 
     // Validation
     if (!username || !email || !password) {

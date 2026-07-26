@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     // MULTI-TENANT: Need userId from authenticated session or username param
     const { requireAuth } = await import('@/middleware/auth');
-    const auth = requireAuth(request);
+    const auth = await requireAuth(request);
     
     if (!auth.authenticated || !auth.user) {
       return NextResponse.json({

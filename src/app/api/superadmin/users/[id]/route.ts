@@ -19,7 +19,7 @@ export async function GET(
 ) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -87,7 +87,7 @@ export async function PUT(
 ) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -274,7 +274,7 @@ export async function DELETE(
 ) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

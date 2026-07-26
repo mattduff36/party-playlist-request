@@ -25,7 +25,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = requireAuth(request);
+    const auth = await requireAuth(request);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

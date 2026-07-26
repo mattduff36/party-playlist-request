@@ -5,7 +5,7 @@ import { pruneSupportLogsOlderThan } from '@/lib/support/logger';
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) return auth.response!;
     const sa = requireSuperAdmin(auth.user);
     if (!sa.authorized) return sa.response!;
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) return auth.response!;
     const sa = requireSuperAdmin(auth.user);
     if (!sa.authorized) return sa.response!;

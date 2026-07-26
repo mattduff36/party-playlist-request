@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/neon-client';
 import { randomBytes } from 'crypto';
 import { sendPasswordResetEmail } from '@/lib/email/email-service';
+import { getIpHash } from '@/lib/support/withApiLogging';
+import {
+  enforceAuthRateLimit,
+  hashLimiterId,
+  genericAuthRateLimitResponse,
+} from '@/lib/auth/auth-rate-limit';
 
 /**
  * POST /api/auth/forgot-password
@@ -17,6 +23,20 @@ export async function POST(request: NextRequest) {
         { error: 'Email address is required' },
         { status: 400 }
       );
+    }
+
+    const throttle = await enforceAuthRateLimit({
+      action: 'forgot',
+      ipHash: hashLimiterId('ip', getIpHash(request)),
+      accountHash: hashLimiterId('email', email),
+      maxPerIp: 20,
+      maxPerAccount: 5,
+    });
+    if (!throttle.allowed) {
+      // Still generic — do not reveal account existence via rate-limit shape alone
+      return NextResponse.json(genericAuthRateLimitResponse(throttle.retryAfterSec), {
+        status: 429,
+      });
     }
 
     // Always return success to prevent email enumeration

@@ -6,7 +6,7 @@ import { getRequestsByStatus, updateRequest } from '@/lib/db';
 export async function POST(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

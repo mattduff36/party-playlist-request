@@ -8,7 +8,7 @@ async function handleDisconnect(req: NextRequest) {
   
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       console.log('❌ [spotify/disconnect] Authentication failed');
       return auth.response!;

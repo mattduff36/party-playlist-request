@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     console.log('🎵 [spotify/auth] Endpoint called');
     
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       console.log('❌ [spotify/auth] Authentication failed');
       return auth.response!;

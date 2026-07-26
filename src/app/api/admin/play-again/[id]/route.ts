@@ -6,7 +6,7 @@ import { spotifyService } from '@/lib/spotify';
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
