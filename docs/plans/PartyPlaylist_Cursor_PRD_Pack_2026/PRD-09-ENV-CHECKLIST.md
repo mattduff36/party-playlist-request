@@ -7,7 +7,7 @@
 | Variable | Presence needed | Notes |
 | --- | --- | --- |
 | `STRIPE_SECRET_KEY` | YES | Must be `sk_test_*`. Live keys are refused. |
-| `STRIPE_WEBHOOK_SECRET` | YES | Endpoint signing secret (`whsec_*`) for `/api/payments/webhook` |
+| `STRIPE_WEBHOOK_SECRET` | YES | Endpoint signing secret (`whsec_*`) for `/api/payments/webhook` (signature required; forged/missing rejected) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Recommended | `pk_test_*` (or `STRIPE_PUBLISHABLE_KEY`) |
 | `NEXT_PUBLIC_APP_URL` | YES | Base URL for success/cancel redirects |
 | `PARTY_PASS_CHECKOUT_ENABLED` | YES to enable | Must be `1`. Default off on production path. |

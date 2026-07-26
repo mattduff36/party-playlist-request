@@ -674,12 +674,13 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | --- | --- |
 | Server-side Stripe Checkout (£19.99 GBP) | Done — price via server `price_data` / optional `STRIPE_PARTY_PASS_PRICE_ID`; client price/user/duration ignored |
 | Webhook signature + idempotency | Done — raw body verify; unique `stripe_event_id` ledger; failed rows retryable |
+| Webhook amount/currency gate | Done — `checkout.session.completed` requires `currency=gbp` and `amount_total` = catalogue (`partyPassAmountPence`) or stored purchase amount; rejects `no_payment_required`; binds/verifies `stripe_checkout_session_id`; mismatches logged as `ignored` (no entitlement, no Stripe retry storm) |
 | Purchase ≠ activated; activate starts 30d | Done — entitlement `purchased` until explicit `/api/payments/activate` with `confirm: true` |
 | Feature flag / production disable | Done — requires `PARTY_PASS_CHECKOUT_ENABLED=1` + `sk_test_*`; live keys refused |
 | Refund / dispute safe handling | Done — webhook marks purchase + entitlement `refunded` / `disputed` |
 | Expiry enforcement | Done — opportunistic expire + activation gate via `assertCanActivatePaidEvent` |
 | Activation + purchase UI | Done — `/pricing`, `/account/party-pass`, admin settings card + nav |
-| Payment security tests | Done — `tests/unit/prd-09-*.spec.ts` + `tests/security/prd-09-*.spec.ts` |
+| Payment security tests | Done — `tests/unit/prd-09-*.spec.ts` + `tests/security/prd-09-*.spec.ts` (incl. duplicate `stripe_event_id` no-op, amount mismatch reject, signature required) |
 | Unified gate with beta grants | Done — event start uses Party Pass **or** PRD-08 beta entitlement |
 
 ### DB classification
@@ -728,7 +729,7 @@ Checklist: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-09-ENV-CHECKLIST.m
 | `npm run db:migrate:canonical` | Applied `011` |
 | `npm run type-check` | Pass |
 | `npm run lint` | Pass (0 errors; warnings remain) |
-| `npm run test:unit` | Pass — 288 tests (incl. PRD-09 unit + security) |
+| `npm run test:unit` | Pass — 296 tests (incl. PRD-09 amount/currency gate + idempotency) |
 | `npm run build` | Pass |
 | Merged into preview | No |
 | Pushed | No |

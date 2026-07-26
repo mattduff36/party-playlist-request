@@ -19,7 +19,13 @@ import {
   computeUseByAt,
 } from '@/lib/payments/entitlement';
 import { CANONICAL_MIGRATIONS } from '@/lib/db/migrate/registry';
-import { WebhookSignatureError } from '@/lib/payments/webhook';
+import {
+  assertPartyPassCheckoutPayment,
+  CheckoutPaymentMismatchError,
+  WebhookSignatureError,
+  constructStripeEvent,
+} from '@/lib/payments/webhook';
+import { resetStripeClientForTests } from '@/lib/payments/stripe-client';
 
 const ROOT = path.resolve(__dirname, '../..');
 
@@ -133,9 +139,104 @@ describe('PRD-09: migration Class B registered', () => {
 });
 
 describe('PRD-09: webhook signature rejection', () => {
+  const prev = {
+    secret: process.env.STRIPE_SECRET_KEY,
+    webhook: process.env.STRIPE_WEBHOOK_SECRET,
+    app: process.env.NEXT_PUBLIC_APP_URL,
+  };
+
+  afterEach(() => {
+    resetStripeClientForTests();
+    if (prev.secret === undefined) delete process.env.STRIPE_SECRET_KEY;
+    else process.env.STRIPE_SECRET_KEY = prev.secret;
+    if (prev.webhook === undefined) delete process.env.STRIPE_WEBHOOK_SECRET;
+    else process.env.STRIPE_WEBHOOK_SECRET = prev.webhook;
+    if (prev.app === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = prev.app;
+  });
+
   it('exports WebhookSignatureError for forged payloads', () => {
     const err = new WebhookSignatureError();
     expect(err.name).toBe('WebhookSignatureError');
+  });
+
+  it('requires stripe-signature header before processing', () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_unit_fixture';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_unit_fixture';
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+    resetStripeClientForTests();
+
+    expect(() => constructStripeEvent('{}', null)).toThrow(WebhookSignatureError);
+  });
+});
+
+describe('PRD-09: checkout completed amount/currency gate', () => {
+  const prevAmount = process.env.PARTY_PASS_AMOUNT_PENCE;
+
+  afterEach(() => {
+    if (prevAmount === undefined) delete process.env.PARTY_PASS_AMOUNT_PENCE;
+    else process.env.PARTY_PASS_AMOUNT_PENCE = prevAmount;
+  });
+
+  it('accepts paid GBP at catalogue amount', () => {
+    delete process.env.PARTY_PASS_AMOUNT_PENCE;
+    expect(() =>
+      assertPartyPassCheckoutPayment({
+        id: 'cs_test_ok',
+        payment_status: 'paid',
+        currency: 'gbp',
+        amount_total: 1999,
+      })
+    ).not.toThrow();
+  });
+
+  it('accepts amount matching stored purchase when catalogue differs', () => {
+    process.env.PARTY_PASS_AMOUNT_PENCE = '1999';
+    expect(() =>
+      assertPartyPassCheckoutPayment(
+        {
+          id: 'cs_test_stored',
+          payment_status: 'paid',
+          currency: 'gbp',
+          amount_total: 1500,
+        },
+        { storedAmountPence: 1500 }
+      )
+    ).not.toThrow();
+  });
+
+  it('rejects amount mismatches', () => {
+    delete process.env.PARTY_PASS_AMOUNT_PENCE;
+    expect(() =>
+      assertPartyPassCheckoutPayment({
+        id: 'cs_test_bad_amount',
+        payment_status: 'paid',
+        currency: 'gbp',
+        amount_total: 1,
+      })
+    ).toThrow(CheckoutPaymentMismatchError);
+  });
+
+  it('rejects non-gbp currency', () => {
+    expect(() =>
+      assertPartyPassCheckoutPayment({
+        id: 'cs_test_usd',
+        payment_status: 'paid',
+        currency: 'usd',
+        amount_total: 1999,
+      })
+    ).toThrow(/currency_mismatch/);
+  });
+
+  it('rejects no_payment_required for Party Pass', () => {
+    expect(() =>
+      assertPartyPassCheckoutPayment({
+        id: 'cs_test_free',
+        payment_status: 'no_payment_required',
+        currency: 'gbp',
+        amount_total: 0,
+      })
+    ).toThrow(/no_payment_required_rejected/);
   });
 });
 

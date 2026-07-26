@@ -6,8 +6,10 @@ import type Stripe from 'stripe';
 import { getPool } from '@/lib/db';
 import {
   getPartyPassStripeConfig,
+  PARTY_PASS_CURRENCY,
   PARTY_PASS_PRODUCT_CODE,
   PARTY_PASS_USE_BY_DAYS,
+  partyPassAmountPence,
 } from '@/lib/payments/config';
 import { getStripeClient, redactStripeId } from '@/lib/payments/stripe-client';
 import { computeUseByAt } from '@/lib/payments/entitlement';
@@ -18,11 +20,69 @@ export class WebhookSignatureError extends Error {
   }
 }
 
+/** Permanent checkout commercial mismatch — do not grant entitlement; do not Stripe-retry. */
+export class CheckoutPaymentMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CheckoutPaymentMismatchError';
+  }
+}
+
 export interface WebhookProcessResult {
   duplicate: boolean;
   handled: boolean;
   eventType: string;
   stripeEventId: string;
+  rejected?: boolean;
+}
+
+/**
+ * Require paid GBP Party Pass amount before entitlement.
+ * Rejects `no_payment_required` (Party Pass is a paid product).
+ * amount_total must equal catalogue price or the stored purchase amount.
+ */
+export function assertPartyPassCheckoutPayment(
+  session: Pick<
+    Stripe.Checkout.Session,
+    'payment_status' | 'currency' | 'amount_total' | 'id'
+  >,
+  options?: {
+    expectedAmountPence?: number;
+    storedAmountPence?: number | null;
+  }
+): void {
+  if (session.payment_status === 'no_payment_required') {
+    throw new CheckoutPaymentMismatchError('no_payment_required_rejected');
+  }
+  if (session.payment_status !== 'paid') {
+    throw new CheckoutPaymentMismatchError(
+      `payment_status_rejected:${session.payment_status ?? 'unknown'}`
+    );
+  }
+
+  const currency = (session.currency ?? '').toLowerCase();
+  if (currency !== PARTY_PASS_CURRENCY) {
+    throw new CheckoutPaymentMismatchError(
+      `currency_mismatch:${currency || 'missing'}`
+    );
+  }
+
+  if (typeof session.amount_total !== 'number') {
+    throw new CheckoutPaymentMismatchError('amount_total_missing');
+  }
+
+  const catalogue = options?.expectedAmountPence ?? partyPassAmountPence();
+  const allowed = new Set<number>([catalogue]);
+  const stored = options?.storedAmountPence;
+  if (typeof stored === 'number' && Number.isFinite(stored) && stored > 0) {
+    allowed.add(stored);
+  }
+
+  if (!allowed.has(session.amount_total)) {
+    throw new CheckoutPaymentMismatchError(
+      `amount_mismatch:${session.amount_total}`
+    );
+  }
 }
 
 export function constructStripeEvent(
@@ -124,6 +184,30 @@ export async function processStripeWebhookEvent(
       );
       await client.query('COMMIT');
     } catch (error) {
+      if (error instanceof CheckoutPaymentMismatchError) {
+        // Permanent commercial reject — acknowledge to Stripe; no entitlement.
+        await client.query(
+          `UPDATE stripe_webhook_events
+           SET processed_at = NOW(),
+               processing_status = 'ignored',
+               error_message = $2
+           WHERE stripe_event_id = $1`,
+          [event.id, error.message.slice(0, 500)]
+        );
+        await client.query('COMMIT');
+        alertWebhookFailure('checkout_payment_mismatch', {
+          event: event.id,
+          reason: error.message.slice(0, 200),
+        });
+        return {
+          duplicate: false,
+          handled: false,
+          rejected: true,
+          eventType: event.type,
+          stripeEventId: event.id,
+        };
+      }
+
       await client.query('ROLLBACK');
       // Mark failed outside the rolled-back txn so Stripe can retry
       await pool.query(
@@ -231,7 +315,11 @@ async function handleCheckoutCompleted(
   client: DbClient,
   session: Stripe.Checkout.Session
 ): Promise<void> {
-  if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
+  // Unpaid / incomplete sessions: ignore (Stripe may send later success events).
+  if (
+    session.payment_status !== 'paid' &&
+    session.payment_status !== 'no_payment_required'
+  ) {
     return;
   }
 
@@ -242,6 +330,30 @@ async function handleCheckoutCompleted(
     if (!userId || session.metadata?.product_code !== PARTY_PASS_PRODUCT_CODE) {
       return;
     }
+  }
+
+  const storedAmountRaw = purchase?.amount_pence;
+  const storedAmountPence =
+    typeof storedAmountRaw === 'number'
+      ? storedAmountRaw
+      : storedAmountRaw != null
+        ? Number(storedAmountRaw)
+        : null;
+
+  // Commercial gate before any paid / entitlement write
+  assertPartyPassCheckoutPayment(session, {
+    expectedAmountPence: partyPassAmountPence(),
+    storedAmountPence:
+      storedAmountPence != null && Number.isFinite(storedAmountPence)
+        ? storedAmountPence
+        : null,
+  });
+
+  const storedSessionId = purchase?.stripe_checkout_session_id
+    ? String(purchase.stripe_checkout_session_id)
+    : null;
+  if (storedSessionId && storedSessionId !== session.id) {
+    throw new CheckoutPaymentMismatchError('checkout_session_mismatch');
   }
 
   const userId =
@@ -257,7 +369,7 @@ async function handleCheckoutCompleted(
   const amountPence =
     typeof session.amount_total === 'number'
       ? session.amount_total
-      : Number(purchase?.amount_pence ?? 0);
+      : partyPassAmountPence();
 
   if (!purchaseId) {
     const inserted = await client.query(
@@ -276,7 +388,7 @@ async function handleCheckoutCompleted(
         typeof session.customer === 'string' ? session.customer : null,
         session.id,
         paymentIntentId,
-        session.currency || 'gbp',
+        PARTY_PASS_CURRENCY,
         amountPence,
         PARTY_PASS_PRODUCT_CODE,
       ]
@@ -286,6 +398,7 @@ async function handleCheckoutCompleted(
     await client.query(
       `UPDATE party_pass_purchases
        SET payment_status = 'paid',
+           stripe_checkout_session_id = COALESCE(stripe_checkout_session_id, $4),
            stripe_payment_intent_id = COALESCE($2, stripe_payment_intent_id),
            stripe_customer_id = COALESCE($3, stripe_customer_id),
            paid_at = COALESCE(paid_at, NOW()),
@@ -295,6 +408,7 @@ async function handleCheckoutCompleted(
         purchaseId,
         paymentIntentId,
         typeof session.customer === 'string' ? session.customer : null,
+        session.id,
       ]
     );
   }
