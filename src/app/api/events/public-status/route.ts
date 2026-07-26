@@ -3,6 +3,10 @@
  *
  * Unauthenticated guests may fetch event status for display/request shells.
  * Never returns access codes or bypass tokens.
+ *
+ * `event.id` is returned for client state hydration only. Public Pusher
+ * `event-{id}` dual-publish is retired — knowing the id does not grant a
+ * subscribe path without guest/display channel auth.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

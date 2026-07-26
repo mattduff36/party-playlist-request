@@ -255,9 +255,9 @@ export interface EventHandlers {
   heartbeat?: EventHandler<HeartbeatEvent>;
 }
 
-// Channel naming convention
+// Channel naming — private guest channel only (public event-{id} retired)
 export const getEventChannel = (eventId: string): string => {
-  return `event-${eventId}`;
+  return `private-event-${eventId}-guest`;
 };
 
 // Event ID generation

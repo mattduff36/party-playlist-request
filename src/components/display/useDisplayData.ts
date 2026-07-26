@@ -17,11 +17,6 @@ import {
   resolveDisplayMood,
 } from '@/styles/theme';
 
-/** Max wait for display-data / event-config before applying default mood. */
-const MOOD_CONFIRM_TIMEOUT_MS = 8000;
-/** Hard SLA: never allow staleness budget above 5s. */
-const MAX_STALE_MS = 5_000;
-const STALE_CHECK_MS = 1_000;
 import type {
   CurrentTrack,
   DisplayDeviceType,
@@ -30,11 +25,22 @@ import type {
   QueueItem,
   RequestItem,
 } from './types';
+import type { DisplayRealtimeMode } from './DisplayAuthGate';
+
+/** Max wait for display-data / event-config before applying default mood. */
+const MOOD_CONFIRM_TIMEOUT_MS = 8000;
+/** Hard SLA: never allow staleness budget above 5s. */
+const MAX_STALE_MS = 5_000;
+const STALE_CHECK_MS = 1_000;
 
 interface UseDisplayDataOptions {
   username: string;
   /** Guest access code from URL — required for gated public APIs */
   accessCode?: string;
+  /** Event id from display-token or guest verify (for private channel subscribe) */
+  eventId?: string;
+  /** guest | display | owner — controls which Pusher channel is used */
+  realtimeMode?: DisplayRealtimeMode;
 }
 
 function withAccessCode(url: string, accessCode?: string): string {
@@ -43,7 +49,12 @@ function withAccessCode(url: string, accessCode?: string): string {
   return `${url}${sep}accessCode=${encodeURIComponent(accessCode)}`;
 }
 
-export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) {
+export function useDisplayData({
+  username,
+  accessCode,
+  eventId,
+  realtimeMode = 'guest',
+}: UseDisplayDataOptions) {
   const [guestAccessCode, setGuestAccessCode] = useState<string | undefined>(accessCode);
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
@@ -285,7 +296,10 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
   // Note: original page had a duplicate onSettingsUpdate key; the settings-refresh
   // handler below is the one that actually applies (object-literal last-write-wins).
   const { isConnected, connectionState } = usePusher({
-    username: username, // Pass username for userId lookup on public pages
+    // Owner preview uses admin channels; display token uses private display channel
+    username: realtimeMode === 'owner' ? undefined : username,
+    eventId: realtimeMode === 'owner' ? undefined : eventId,
+    channelMode: realtimeMode === 'display' ? 'display' : 'guest',
     onPageControlToggle: (data: {
       pagesEnabled?: { requests?: boolean; display?: boolean };
       page?: 'requests' | 'display';

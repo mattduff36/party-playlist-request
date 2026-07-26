@@ -256,12 +256,14 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Explicit channel allowlist + ownership auth | Done — `channel-contract.ts` + hardened `/api/pusher/auth` |
 | Guest cannot auth admin/display channels | Done — guest proof only for guest/legacy party channels |
 | Display channel requires display session | Done — `pp_display_access` cookie after atomic token consume |
-| Migrate off public `event-{id}` with dual-publish | Done — broadcaster + trigger dual-publish to `private-event-{id}-guest` + legacy public |
+| Migrate off public `event-{id}` with dual-publish | Done — **public dual-publish removed**; publish to `private-event-{id}-guest` + `private-event-{id}-display` only |
+| Presence channels default-deny | Done — `/api/pusher/auth` returns 403 for `presence-*` (no anonymous authorize) |
+| Display token client path (`?dt=`) | Done — `DisplayAuthGate` → `verify-display-token` → `pp_display_access` → `display-session` → private display channel |
 | Gate `/api/users/lookup` UUID disclosure | Done — `410 USER_LOOKUP_RETIRED`; clients use `/api/events/guest-session` |
-| Event-access policy service | Done — `event-access-policy.ts` (+ guest-session / pusher proofs) |
+| Event-access policy service | Done — `event-access-policy.ts` (+ guest-session / display-session / pusher proofs) |
 | Atomic display-token use | Done — `UPDATE … WHERE uses_remaining > 0 … RETURNING` |
 | Hash/HMAC access codes & tokens (expand-and-contract) | Done — dual-verify; plaintext retained (no Class D drop) |
-| Tenant-scoped request repos | Done — required `userId`; allowlisted `updateRequest` fields |
+| Tenant-scoped request repos | Done — required `userId`; allowlisted `updateRequest` fields; hardened deprecated `getRequestsByStatusOld` / `database-service.updateRequestStatus` |
 | Negative cross-tenant tests | Done — `tests/security/prd-04-tenant-realtime-isolation.spec.ts` |
 | Legacy display 410 | Already from PRD-01 (unchanged) |
 
@@ -283,11 +285,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 ### Incomplete / follow-ups
 
-- Public `event-{id}` still dual-published (migration); remove after clients fully on private guest channels.
 - Legacy `private-party-playlist-{userId}` still authorised for guest+owner during migration.
 - Canonical `private-user-{userId}-admin` parsed/allowed but clients still use `private-admin-updates-{userId}`.
 - Guest cookie still embeds access code (httpOnly JWT) for dual-verify until opaque guest sessions.
+- Access-code display path still uses guest private channel (not display channel); display-token `?dt=` path uses display channel.
 - Username-only `/api/public/event-config` still returns entry-page config (titles/messages) without guest proof — limited public status; request lists remain guest-gated.
+- `/api/events/public-status` still returns `event.id` for hydration; safe only because public `event-{id}` publish is gone.
 - Concurrent display-token race covered by atomic SQL; no dedicated multi-worker integration race test.
 - Not merged into preview yet.
 
@@ -295,7 +298,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Command | Result |
 | --- | --- |
-| `npm run test:unit` | Pass — 193 tests (incl. 20 PRD-04 security) |
+| `npm run test:unit` | Pass — 198 tests (incl. PRD-04 public-channel / presence / guest matrix) |
 | `npm run build` | Pass |
 | Merged into preview | No |
 | Pushed | No |

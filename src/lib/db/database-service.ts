@@ -218,32 +218,50 @@ export class DatabaseService {
     );
   }
 
-  async updateRequestStatus(requestId: string, status: string, adminId?: string): Promise<any> {
+  async updateRequestStatus(
+    requestId: string,
+    status: string,
+    userId: string,
+    adminId?: string
+  ): Promise<any> {
+    if (!userId) {
+      throw new Error('user_id is required for multi-tenant data isolation');
+    }
+    // adminId reserved for future audit columns; tenant scope is userId
+    void adminId;
+
     return await this.executeQuery(
       PoolType.WRITE_ONLY,
       async (client) => {
-        const drizzle = getConnectionPoolManager().getDrizzle(PoolType.WRITE_ONLY);
-        
-        const updateData: any = {
-          status,
-          updated_at: new Date(),
-        };
-        
-        if (status === 'approved') {
-          updateData.approved_at = new Date();
-        } else if (status === 'rejected') {
-          updateData.rejected_at = new Date();
-        } else if (status === 'played') {
-          updateData.played_at = new Date();
-        }
-        
-        const result = await drizzle
-          .update(requests)
-          .set(updateData)
-          .where(eq(requests.id, requestId))
-          .returning();
-        
-        return result[0];
+        // Raw SQL: production `requests.user_id` (drizzle schema is incomplete)
+        const timestampColumn =
+          status === 'approved'
+            ? 'approved_at'
+            : status === 'rejected'
+              ? 'rejected_at'
+              : status === 'played'
+                ? 'played_at'
+                : null;
+
+        const result = timestampColumn
+          ? await client.query(
+              `UPDATE requests
+               SET status = $2,
+                   updated_at = NOW(),
+                   ${timestampColumn} = NOW()
+               WHERE id = $1 AND user_id = $3
+               RETURNING *`,
+              [requestId, status, userId]
+            )
+          : await client.query(
+              `UPDATE requests
+               SET status = $2, updated_at = NOW()
+               WHERE id = $1 AND user_id = $3
+               RETURNING *`,
+              [requestId, status, userId]
+            );
+
+        return result.rows[0];
       }
     );
   }
@@ -484,8 +502,12 @@ export const db = {
   getRequests: (eventId: string, limit?: number, offset?: number) => 
     getDatabaseService().getRequests(eventId, limit, offset),
   createRequest: (requestData: any) => getDatabaseService().createRequest(requestData),
-  updateRequestStatus: (requestId: string, status: string, adminId?: string) => 
-    getDatabaseService().updateRequestStatus(requestId, status, adminId),
+  updateRequestStatus: (
+    requestId: string,
+    status: string,
+    userId: string,
+    adminId?: string
+  ) => getDatabaseService().updateRequestStatus(requestId, status, userId, adminId),
   
   // Admin operations
   getAdmin: (username: string) => getDatabaseService().getAdmin(username),

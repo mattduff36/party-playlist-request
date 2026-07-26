@@ -10,8 +10,8 @@
  *   private-admin-updates-{userId}
  *   private-party-playlist-{userId}
  *
- * Public event-{eventId} is dual-published during migration but is not auth-gated
- * (public channels skip /api/pusher/auth). Prefer private-event-* for new clients.
+ * Public `event-{eventId}` is retired — not published and not auth-gated.
+ * Presence channels are rejected by default in `/api/pusher/auth`.
  */
 
 export type ChannelKind =
@@ -51,9 +51,17 @@ export function getDisplayEventChannel(eventId: string): string {
   return `private-event-${eventId}-display`;
 }
 
-/** @deprecated public channel — dual-publish only during migration */
+/**
+ * @deprecated Public `event-{id}` is retired (PRD-04). Kept only so tests can
+ * assert the name is unknown / not used in the production publish path.
+ */
 export function getLegacyPublicEventChannel(eventId: string): string {
   return `event-${eventId}`;
+}
+
+/** Private channels that receive event-scoped realtime (no public dual-publish). */
+export function getEventRealtimePublishChannels(eventId: string): string[] {
+  return [getGuestEventChannel(eventId), getDisplayEventChannel(eventId)];
 }
 
 export function parseChannelName(channelName: string): ParsedChannel {

@@ -7,7 +7,7 @@ import 'server-only';
 import Pusher from 'pusher';
 import { getActiveEvent } from '@/lib/event-service';
 import { getUserChannel } from '@/lib/pusher/client-shared';
-import { getGuestEventChannel } from '@/lib/pusher/channel-contract';
+import { getEventRealtimePublishChannels } from '@/lib/pusher/channel-contract';
 import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 
 function getDualPublishPusher(): Pusher {
@@ -51,7 +51,10 @@ async function publish(
   });
 }
 
-/** Dual-publish to legacy user channel + event guest channel. */
+/**
+ * Publish to organiser user channel + private event guest/display channels.
+ * Never publishes to public `event-{id}`.
+ */
 export async function dualPublishUserAndGuest(
   userId: string,
   eventName: string,
@@ -69,6 +72,8 @@ export async function dualPublishUserAndGuest(
     }
   }
   if (resolvedEventId) {
-    await publish(getGuestEventChannel(resolvedEventId), eventName, data);
+    for (const channel of getEventRealtimePublishChannels(resolvedEventId)) {
+      await publish(channel, eventName, data);
+    }
   }
 }

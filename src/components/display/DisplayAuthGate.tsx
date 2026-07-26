@@ -1,21 +1,33 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Lock } from 'lucide-react';
 import PageLoader from '@/components/ui/PageLoader';
 import { isValidAccessCodeFormat } from '@/lib/access-code';
 
+export type DisplayRealtimeMode = 'guest' | 'display' | 'owner';
+
+export interface DisplayAuthContext {
+  username: string;
+  accessCode?: string;
+  eventId?: string;
+  realtimeMode: DisplayRealtimeMode;
+}
+
 interface DisplayAuthGateProps {
-  children: (username: string, accessCode?: string) => ReactNode;
+  children: (ctx: DisplayAuthContext) => ReactNode;
   /** When set, verify this access code and set guest cookie */
   accessCode?: string;
 }
 
-async function verifyAndStore(
+async function verifyAccessCodeAndStore(
   username: string,
   code: string
-): Promise<{ ok: true; accessCode: string } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; accessCode: string; eventId?: string }
+  | { ok: false; error: string }
+> {
   const response = await fetch('/api/events/verify-pin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -38,37 +50,95 @@ async function verifyAndStore(
       timestamp: Date.now(),
     })
   );
-  return { ok: true, accessCode: resolved };
+  return {
+    ok: true,
+    accessCode: resolved,
+    eventId: typeof data.event?.id === 'string' ? data.event.id : undefined,
+  };
+}
+
+async function verifyDisplayToken(
+  username: string,
+  displayToken: string
+): Promise<
+  | { ok: true; eventId: string }
+  | { ok: false; error: string }
+> {
+  const response = await fetch('/api/events/verify-display-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ username, displayToken }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return { ok: false, error: data.error || 'Invalid display token' };
+  }
+  const eventId = data.event?.id;
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, error: 'Display session missing event id' };
+  }
+  return { ok: true, eventId };
 }
 
 export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGateProps) {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const username = params.username as string;
   const codeFromParams =
     accessCode ||
     (typeof params.accessCode === 'string' ? decodeURIComponent(params.accessCode) : undefined);
+  const displayTokenFromQuery = searchParams.get('dt')?.trim() || undefined;
 
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [resolvedCode, setResolvedCode] = useState<string | undefined>(codeFromParams);
+  const [authCtx, setAuthCtx] = useState<DisplayAuthContext | null>(null);
 
   useEffect(() => {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username, codeFromParams]);
+  }, [username, codeFromParams, displayTokenFromQuery]);
 
   async function checkAuth() {
     setLoading(true);
     setError(null);
 
     try {
+      // Display token path: ?dt= → verify-display-token → pp_display_access cookie
+      if (displayTokenFromQuery) {
+        const result = await verifyDisplayToken(username, displayTokenFromQuery);
+        if (result.ok) {
+          setAuthCtx({
+            username,
+            eventId: result.eventId,
+            realtimeMode: 'display',
+          });
+          setAuthenticated(true);
+          // Drop token from URL so it is not left in history/referrer
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('dt');
+            window.history.replaceState({}, '', url.pathname + url.search);
+          }
+          setLoading(false);
+          return;
+        }
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
+
       // Owner login bypass
       const meResponse = await fetch('/api/auth/me', { credentials: 'include' });
       if (meResponse.ok) {
         const { user } = await meResponse.json();
         if (user.username === username) {
+          setAuthCtx({
+            username,
+            realtimeMode: 'owner',
+          });
           setAuthenticated(true);
           setLoading(false);
           return;
@@ -84,9 +154,14 @@ export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGat
 
       // Prefer URL access code — always re-verify to set guest cookie
       if (codeFromParams && isValidAccessCodeFormat(codeFromParams)) {
-        const result = await verifyAndStore(username, codeFromParams);
+        const result = await verifyAccessCodeAndStore(username, codeFromParams);
         if (result.ok) {
-          setResolvedCode(result.accessCode);
+          setAuthCtx({
+            username,
+            accessCode: result.accessCode,
+            eventId: result.eventId,
+            realtimeMode: 'guest',
+          });
           setAuthenticated(true);
           setLoading(false);
           return;
@@ -94,6 +169,24 @@ export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGat
         setError(result.error);
         setLoading(false);
         return;
+      }
+
+      // Existing display cookie (pp_display_access) — restore without re-consuming token
+      const displaySession = await fetch('/api/events/display-session', {
+        credentials: 'include',
+      });
+      if (displaySession.ok) {
+        const data = await displaySession.json();
+        if (data.eventId && data.username === username) {
+          setAuthCtx({
+            username,
+            eventId: data.eventId,
+            realtimeMode: 'display',
+          });
+          setAuthenticated(true);
+          setLoading(false);
+          return;
+        }
       }
 
       // SessionStorage fallback — re-verify stored code so cookie is refreshed
@@ -106,9 +199,14 @@ export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGat
             auth.accessCode &&
             isValidAccessCodeFormat(auth.accessCode)
           ) {
-            const result = await verifyAndStore(username, auth.accessCode);
+            const result = await verifyAccessCodeAndStore(username, auth.accessCode);
             if (result.ok) {
-              setResolvedCode(result.accessCode);
+              setAuthCtx({
+                username,
+                accessCode: result.accessCode,
+                eventId: result.eventId,
+                realtimeMode: 'guest',
+              });
               setAuthenticated(true);
               setLoading(false);
               return;
@@ -121,7 +219,7 @@ export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGat
       }
 
       setError(
-        `To open the display, use /${username}/[access-code]/display (code from the admin panel).`
+        `To open the display, use /${username}/[access-code]/display or a display link with ?dt= (from the admin panel).`
       );
       setLoading(false);
     } catch (err) {
@@ -169,9 +267,9 @@ export default function DisplayAuthGate({ children, accessCode }: DisplayAuthGat
     );
   }
 
-  if (!authenticated) {
+  if (!authenticated || !authCtx) {
     return null;
   }
 
-  return <>{children(username, resolvedCode)}</>;
+  return <>{children(authCtx)}</>;
 }

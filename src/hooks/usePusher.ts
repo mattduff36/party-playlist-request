@@ -11,12 +11,17 @@ import {
   getUserChannel,
   getAdminChannel,
 } from '@/lib/pusher/client-shared';
-import { getGuestEventChannel } from '@/lib/pusher/channel-contract';
+import {
+  getDisplayEventChannel,
+  getGuestEventChannel,
+} from '@/lib/pusher/channel-contract';
 import type { Channel } from 'pusher-js';
 
 interface UsePusherOptions {
   username?: string; // Optional username for public pages (display/request pages)
-  eventId?: string; // Preferred for guest realtime (private-event-{id}-guest)
+  eventId?: string; // Preferred for guest/display realtime private channels
+  /** guest (default) or display — selects private-event-{id}-guest|display */
+  channelMode?: 'guest' | 'display';
   onRequestApproved?: (data: RequestApprovedEvent) => void;
   onRequestRejected?: (data: RequestRejectedEvent) => void;
   onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
@@ -36,7 +41,8 @@ interface UsePusherOptions {
 
 type PusherScope =
   | { mode: 'admin'; userId: string }
-  | { mode: 'guest'; eventId: string };
+  | { mode: 'guest'; eventId: string }
+  | { mode: 'display'; eventId: string };
 
 export const usePusher = (options: UsePusherOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -67,17 +73,40 @@ export const usePusher = (options: UsePusherOptions = {}) => {
     options.onRequestsCleanup,
     options.username,
     options.eventId,
+    options.channelMode,
   ]);
 
   useEffect(() => {
     const resolveScope = async () => {
       try {
-        // Public pages: event-scoped guest channel (no UUID lookup)
+        const channelMode = options.channelMode || 'guest';
+
+        // Public pages: event-scoped private guest or display channel
         if (options.username || options.eventId) {
           if (options.eventId) {
-            setScope({ mode: 'guest', eventId: options.eventId });
+            setScope({
+              mode: channelMode === 'display' ? 'display' : 'guest',
+              eventId: options.eventId,
+            });
             return;
           }
+
+          if (channelMode === 'display') {
+            const displayResponse = await fetch('/api/events/display-session', {
+              credentials: 'include',
+            });
+            if (displayResponse.ok) {
+              const data = await displayResponse.json();
+              if (data.eventId) {
+                setScope({ mode: 'display', eventId: data.eventId });
+                return;
+              }
+            }
+            console.warn('⚠️ usePusher: Display session unavailable');
+            setScope(null);
+            return;
+          }
+
           const guestResponse = await fetch('/api/events/guest-session', {
             credentials: 'include',
           });
@@ -110,7 +139,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       }
     };
     void resolveScope();
-  }, [options.username, options.eventId]);
+  }, [options.username, options.eventId, options.channelMode]);
 
   useEffect(() => {
     if (!scope) {
@@ -144,7 +173,9 @@ export const usePusher = (options: UsePusherOptions = {}) => {
     const primaryChannelName =
       scope.mode === 'guest'
         ? getGuestEventChannel(scope.eventId)
-        : getUserChannel(scope.userId);
+        : scope.mode === 'display'
+          ? getDisplayEventChannel(scope.eventId)
+          : getUserChannel(scope.userId);
 
     console.log(`📡 usePusher: Subscribing to ${primaryChannelName}`);
     const channel = pusher.subscribe(primaryChannelName);

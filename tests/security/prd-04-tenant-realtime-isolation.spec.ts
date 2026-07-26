@@ -8,7 +8,10 @@ import {
   getGuestEventChannel,
   getDisplayEventChannel,
   getCanonicalAdminChannel,
+  getEventRealtimePublishChannels,
+  getLegacyPublicEventChannel,
 } from '@/lib/pusher/channel-contract';
+import { getEventChannel } from '@/lib/pusher/events';
 import {
   hmacAccessCode,
   hashOpaqueToken,
@@ -95,6 +98,19 @@ describe('PRD-04: channel contract', () => {
     expect(parseChannelName(`private-user-not-a-uuid-admin`).kind).toBe('unknown');
     expect(parseChannelName(`event-${EVENT_A}`).kind).toBe('unknown');
   });
+
+  it('production publish targets exclude public event-{id}', () => {
+    const channels = getEventRealtimePublishChannels(EVENT_A);
+    expect(channels).toEqual([
+      getGuestEventChannel(EVENT_A),
+      getDisplayEventChannel(EVENT_A),
+    ]);
+    expect(channels).not.toContain(getLegacyPublicEventChannel(EVENT_A));
+    expect(channels.every((c) => c.startsWith('private-'))).toBe(true);
+    // Client helper must not point at retired public channel
+    expect(getEventChannel(EVENT_A)).toBe(getGuestEventChannel(EVENT_A));
+    expect(getEventChannel(EVENT_A)).not.toBe(getLegacyPublicEventChannel(EVENT_A));
+  });
 });
 
 describe('PRD-04: Pusher auth ownership matrix', () => {
@@ -177,11 +193,32 @@ describe('PRD-04: Pusher auth ownership matrix', () => {
     expect(res.status).toBe(403);
   });
 
-  it('presence auth uses random member id (not hard-coded default-user)', async () => {
+  it('rejects presence-* without proof (403, no anonymous authorize)', async () => {
     const res = await pusherAuth(pusherAuthRequest('presence-room-1'));
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
     const body = await res.json();
-    expect(JSON.stringify(body)).not.toContain('default-user');
+    expect(body.error).toMatch(/presence/i);
+  });
+
+  it('denies guest proof on display channel even when guest event matches', async () => {
+    proveGuestForEvent.mockResolvedValue({ id: EVENT_A, user_id: USER_A });
+    proveDisplayForEvent.mockResolvedValue(null);
+    const res = await pusherAuth(
+      pusherAuthRequest(getDisplayEventChannel(EVENT_A))
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('denies guest proof on canonical admin channel', async () => {
+    proveGuestForEvent.mockResolvedValue({ id: EVENT_A, user_id: USER_A });
+    proveGuestForUserChannel.mockResolvedValue({
+      id: EVENT_A,
+      user_id: USER_A,
+    });
+    const res = await pusherAuth(
+      pusherAuthRequest(getCanonicalAdminChannel(USER_A))
+    );
+    expect(res.status).toBe(401);
   });
 });
 
@@ -280,6 +317,25 @@ describe('PRD-04: repository tenant requirements (source)', () => {
     );
     expect(dbSrc).toContain('REQUEST_UPDATE_ALLOWLIST');
     expect(dbSrc).toContain('Arbitrary update columns are not permitted');
+  });
+
+  it('getRequestsByStatusOld requires userId and scopes by user_id', () => {
+    expect(dbSrc).toContain(
+      'user_id is required for multi-tenant data isolation'
+    );
+    expect(dbSrc).toContain(
+      'SELECT * FROM requests WHERE status = $1 AND user_id = $2'
+    );
+  });
+
+  it('broadcaster production path does not dual-publish public event-{id}', () => {
+    const broadcasterSrc = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/pusher/broadcaster.ts'),
+      'utf8'
+    );
+    expect(broadcasterSrc).toContain('getEventRealtimePublishChannels');
+    expect(broadcasterSrc).not.toContain('getLegacyPublicEventChannel');
+    expect(broadcasterSrc).not.toMatch(/event-\$\{eventId\}/);
   });
 
   it('getRequestsByUserId filters by user_id', () => {

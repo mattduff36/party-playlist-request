@@ -638,21 +638,42 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
 
         let channelName: string | null = null;
 
-        // Public display/request: event-scoped guest channel (no UUID lookup)
+        // Public display/request: private event channels only (no public event-{id})
         if (publicUsername) {
-          console.log(
-            `🌐 [GlobalEventProvider] Public page — guest-session for: ${publicUsername}`
-          );
-          const guestResponse = await fetch('/api/events/guest-session', {
-            credentials: 'include',
-          });
-          if (guestResponse.ok) {
-            const guestData = await guestResponse.json();
-            if (guestData.eventId) {
-              const { getGuestEventChannel } = await import(
-                '@/lib/pusher/channel-contract'
-              );
-              channelName = getGuestEventChannel(guestData.eventId);
+          const isDisplayPath = pathname.includes('/display');
+          if (isDisplayPath) {
+            console.log(
+              `🌐 [GlobalEventProvider] Display page — display-session for: ${publicUsername}`
+            );
+            const displayResponse = await fetch('/api/events/display-session', {
+              credentials: 'include',
+            });
+            if (displayResponse.ok) {
+              const displayData = await displayResponse.json();
+              if (displayData.eventId) {
+                const { getDisplayEventChannel } = await import(
+                  '@/lib/pusher/channel-contract'
+                );
+                channelName = getDisplayEventChannel(displayData.eventId);
+              }
+            }
+          }
+
+          if (!channelName) {
+            console.log(
+              `🌐 [GlobalEventProvider] Public page — guest-session for: ${publicUsername}`
+            );
+            const guestResponse = await fetch('/api/events/guest-session', {
+              credentials: 'include',
+            });
+            if (guestResponse.ok) {
+              const guestData = await guestResponse.json();
+              if (guestData.eventId) {
+                const { getGuestEventChannel } = await import(
+                  '@/lib/pusher/channel-contract'
+                );
+                channelName = getGuestEventChannel(guestData.eventId);
+              }
             }
           }
         }

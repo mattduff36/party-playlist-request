@@ -11,10 +11,7 @@ import {
   generateEventId, 
   generateEventVersion,
 } from './events';
-import {
-  getGuestEventChannel,
-  getLegacyPublicEventChannel,
-} from './channel-contract';
+import { getEventRealtimePublishChannels } from './channel-contract';
 import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 
 function createBroadcasterPusher(): Pusher {
@@ -155,16 +152,11 @@ class EventBroadcaster {
   // Process a batch of events
   private async processBatch(batch: QueuedEvent[], eventId: string): Promise<void> {
     try {
-      // Dual-publish: private guest channel (auth) + legacy public event-{id}
-      const channels = Array.from(
-        new Set([
-          getGuestEventChannel(eventId),
-          getLegacyPublicEventChannel(eventId),
-        ])
-      );
+      // Private guest + display only — public event-{id} dual-publish removed (PRD-04)
+      const channels = getEventRealtimePublishChannels(eventId);
 
       const promises = batch.map((queuedEvent) =>
-        this.sendEventDual(queuedEvent.event, channels, queuedEvent)
+        this.sendEventToPrivateChannels(queuedEvent.event, channels, queuedEvent)
       );
 
       await Promise.allSettled(promises);
@@ -184,8 +176,8 @@ class EventBroadcaster {
     }
   }
 
-  // Dual-publish to private guest + legacy public channels (PRD-04 migration)
-  private async sendEventDual(
+  // Publish to private guest + display channels only
+  private async sendEventToPrivateChannels(
     event: PusherEvent,
     channelNames: string[],
     queuedEvent: QueuedEvent
@@ -204,7 +196,7 @@ class EventBroadcaster {
       if (queuedEvent.retries < this.config.maxRetries) {
         queuedEvent.retries++;
         setTimeout(() => {
-          void this.sendEventDual(event, channelNames, queuedEvent);
+          void this.sendEventToPrivateChannels(event, channelNames, queuedEvent);
         }, this.config.retryDelay * queuedEvent.retries);
       } else {
         queuedEvent.reject(error);

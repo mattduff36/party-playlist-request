@@ -976,10 +976,22 @@ export async function updateRequest(
   return result.rows[0] || null;
 }
 
-// DEPRECATED: Use new getRequestsByStatus below
-export async function getRequestsByStatusOld(status: string, limit = 50, offset = 0, userId?: string): Promise<Request[]> {
+/**
+ * @deprecated Use getRequestsByUserId / getRequestsByStatus instead.
+ * Tenant-scoped: userId is required (unscoped status listing removed for PRD-04).
+ */
+export async function getRequestsByStatusOld(
+  status: string,
+  limit = 50,
+  offset = 0,
+  userId?: string
+): Promise<Request[]> {
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
+
   const client = getPool();
-  
+
   // For approved requests, order by approved_at ASC (oldest approved first - play order)
   // For other statuses, order by created_at DESC (newest first)
   let orderBy = 'created_at DESC';
@@ -988,11 +1000,10 @@ export async function getRequestsByStatusOld(status: string, limit = 50, offset 
   } else if (status === 'played') {
     orderBy = 'approved_at DESC'; // Most recently played first
   }
-  
-  // Single-tenant: ignore userId (not in schema)
+
   const result = await client.query(
-    `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
-    [status, limit, offset]
+    `SELECT * FROM requests WHERE status = $1 AND user_id = $2 ORDER BY ${orderBy} LIMIT $3 OFFSET $4`,
+    [status, userId, limit, offset]
   );
   return result.rows;
 }

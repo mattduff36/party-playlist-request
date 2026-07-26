@@ -4,7 +4,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import Pusher from 'pusher';
 import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 import { requireAuth } from '@/middleware/auth';
@@ -113,13 +112,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (parsed.kind === 'presence') {
-      // Random scoped member — never hard-code a shared identity
-      const memberId = `m_${crypto.randomBytes(12).toString('hex')}`;
-      const authResponse = pusher.authorizeChannel(socketId, channelName, {
-        user_id: memberId,
-        user_info: { role: 'anonymous' },
-      });
-      return NextResponse.json(authResponse);
+      // Reject unauthorized presence by default — no wildcard anonymous authorize
+      return deny('Presence channels are not authorised', 403);
     }
 
     return deny('Invalid channel name');
