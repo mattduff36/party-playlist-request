@@ -11,8 +11,13 @@ import {
   setGuestAccessCookie,
 } from '@/lib/guest-access';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getClientIp } from '@/lib/rate-limit';
 import { hashIP } from '@/lib/db';
+import {
+  enforceGuestRateLimit,
+  ensureGuestDeviceCookie,
+  resolveGuestDeviceId,
+} from '@/lib/reliability';
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,18 +29,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    const rate = checkRateLimit(
-      'accessCodeVerify',
-      `${hashIP(getClientIp(req))}:${username}`
-    );
+    const { deviceId } = resolveGuestDeviceId(req);
+    const rate = await enforceGuestRateLimit({
+      bucket: 'accessCodeVerify',
+      primaryKey: `${username}:${deviceId}`,
+      secondaryKey: hashIP(getClientIp(req)),
+      secondaryMaxMultiplier: 3,
+    });
     if (!rate.allowed) {
       const response = NextResponse.json(
-        { error: rate.message || 'Too many attempts' },
+        { error: rate.message || 'Too many attempts', code: 'RATE_LIMITED' },
         { status: 429 }
       );
       if (rate.retryAfter) {
         response.headers.set('Retry-After', String(rate.retryAfter));
       }
+      ensureGuestDeviceCookie(response, deviceId);
       return response;
     }
 
@@ -76,6 +85,7 @@ export async function POST(req: NextRequest) {
         { status: 200 }
       );
       setGuestAccessCookie(response, username, event.access_code, event.id);
+      ensureGuestDeviceCookie(response, deviceId);
       return response;
     }
 
@@ -125,6 +135,7 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
     setGuestAccessCookie(response, username, event.access_code, event.id);
+    ensureGuestDeviceCookie(response, deviceId);
     return response;
   } catch (error) {
     console.error('❌ Access code verification failed:', error);

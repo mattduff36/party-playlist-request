@@ -18,7 +18,7 @@ Runtime data access standardises on **`pg` + singleton `getPool()`** with typed 
 
 Both are retained. Guest URLs and display tokens bind to **`user_events`**. Organiser state machine binds to **`events`**. Dated removal of either is out of scope until a dedicated PRD; do not collapse them in Class D without human approval.
 
-Song requests belong to an organiser via **`requests.user_id`** (required in application code). Optional future `event_id` FK is expand-and-contract follow-up (not Class D).
+Song requests belong to an organiser via **`requests.user_id`** (required in application code). **PRD-06** adds optional `requests.event_id`, `idempotency_key`, archive stamps, and `provider_operations` (Class B expand-and-contract; no Class D drops).
 
 ## Core tables
 
@@ -51,6 +51,7 @@ Song requests belong to an organiser via **`requests.user_id`** (required in app
 | `004_spotify_playback_sync` | B | Playback sync + cache (replaces request-time DDL) |
 | `005_prd03_token_encryption` | B | Already applied on Neon; Class C/D deferred |
 | `006_prd04_token_hashes` | B | Already applied on Neon; Class C/D deferred |
+| `007_prd06_reliability` | B | Event/request archive, idempotency, provider_operations, playback freshness |
 
 ## Human stops (Class C/D)
 

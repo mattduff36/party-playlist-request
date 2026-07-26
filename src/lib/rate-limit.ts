@@ -68,15 +68,26 @@ function getStore(bucket: RateLimitBucket): Map<string, BucketState> {
   return store;
 }
 
+export interface CheckRateLimitOptions {
+  /** Override bucket max (e.g. secondary IP ceiling under NAT). */
+  maxRequests?: number;
+  /** Override cooldown; use 0 for secondary abuse signals. */
+  cooldownMs?: number;
+}
+
 /**
  * Check and record a rate-limit attempt for the given bucket + identifier.
  * Fail-closed: when a limit is exceeded, the request is denied.
  */
 export function checkRateLimit(
   bucket: RateLimitBucket,
-  identifier: string
+  identifier: string,
+  options: CheckRateLimitOptions = {}
 ): RateLimitResult {
   const config = BUCKET_CONFIGS[bucket];
+  const maxRequests = options.maxRequests ?? config.maxRequests;
+  const cooldownMs =
+    options.cooldownMs !== undefined ? options.cooldownMs : config.cooldownMs;
   const store = getStore(bucket);
   const now = Date.now();
   const current = store.get(identifier) || {
@@ -90,7 +101,7 @@ export function checkRateLimit(
     current.resetTime = now + config.windowMs;
   }
 
-  if (current.count >= config.maxRequests) {
+  if (current.count >= maxRequests) {
     const retryAfter = Math.max(1, Math.ceil((current.resetTime - now) / 1000));
     return {
       allowed: false,
@@ -101,14 +112,14 @@ export function checkRateLimit(
     };
   }
 
-  if (config.cooldownMs > 0 && now - current.lastRequest < config.cooldownMs) {
+  if (cooldownMs > 0 && now - current.lastRequest < cooldownMs) {
     const retryAfter = Math.max(
       1,
-      Math.ceil((config.cooldownMs - (now - current.lastRequest)) / 1000)
+      Math.ceil((cooldownMs - (now - current.lastRequest)) / 1000)
     );
     return {
       allowed: false,
-      remaining: Math.max(0, config.maxRequests - current.count),
+      remaining: Math.max(0, maxRequests - current.count),
       resetTime: current.resetTime,
       retryAfter,
       message: config.cooldownMessage || config.windowExceededMessage,
@@ -121,7 +132,7 @@ export function checkRateLimit(
 
   return {
     allowed: true,
-    remaining: Math.max(0, config.maxRequests - current.count),
+    remaining: Math.max(0, maxRequests - current.count),
     resetTime: current.resetTime,
   };
 }

@@ -13,7 +13,8 @@ export type SecurityAuditEventType =
   | 'auth.password_reset_complete'
   | 'auth.logout'
   | 'auth.superadmin_access'
-  | 'event.end';
+  | 'event.end'
+  | 'event.archived_data_deleted';
 
 export interface SecurityAuditEvent {
   type: SecurityAuditEventType;

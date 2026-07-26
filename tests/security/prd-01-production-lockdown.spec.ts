@@ -255,6 +255,27 @@ describe('PRD-01: spotify-watcher auth', () => {
       })),
       tickAllActiveParties: jest.fn(),
     }));
+    jest.doMock('@/lib/reliability/refresh-playback', () => ({
+      refreshPlaybackState: jest.fn(
+        async (userId: string, username: string) => ({
+          tick: {
+            userId,
+            username,
+            skipped: false,
+            broadcast: false,
+            isPlaying: false,
+          },
+          snapshot: {
+            fetchedAt: new Date().toISOString(),
+            providerStatus: 'healthy',
+            stale: false,
+            degraded: false,
+          },
+          redisBackend: 'none',
+          debounced: false,
+        })
+      ),
+    }));
   });
 
   it('returns 401 without cookie/token', async () => {
@@ -313,7 +334,9 @@ describe('PRD-01: spotify-watcher auth', () => {
     });
 
     const { POST } = await import('@/app/api/admin/spotify-watcher/route');
-    const { tickUserPlayback } = await import('@/lib/spotify-sync');
+    const { refreshPlaybackState } = await import(
+      '@/lib/reliability/refresh-playback'
+    );
 
     const res = await POST(
       asNextRequest('http://localhost/api/admin/spotify-watcher', {
@@ -331,13 +354,15 @@ describe('PRD-01: spotify-watcher auth', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(tickUserPlayback).toHaveBeenCalledWith(
+    expect(refreshPlaybackState).toHaveBeenCalledWith(
       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       'organiser-a',
+      expect.any(String),
       expect.any(Object)
     );
-    expect(tickUserPlayback).not.toHaveBeenCalledWith(
+    expect(refreshPlaybackState).not.toHaveBeenCalledWith(
       'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      expect.anything(),
       expect.anything(),
       expect.anything()
     );

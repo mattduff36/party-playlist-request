@@ -409,3 +409,66 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run build` | Pass |
 | Hygiene | Removed unused stale `.eslintrc.json` (ESLint 9 flat `eslint.config.mjs` only) |
 | Pushed to remote | No (prefer local; production = `main` only) |
+
+## PRD-06: Distributed Reliability, Concurrency Safety and Event Data Integrity
+
+| Field | Value |
+| --- | --- |
+| Status | FIX_THEN_MERGE fixes on feature branch (not merged into preview) |
+| Branch | `dev/prd-06-distributed-reliability-20260726` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Database impact | **Class B applied** — `007_prd06_reliability` (2026-07-26T21:40:08.704Z); `008_prd06_request_status_check` (2026-07-26T21:44:54.546Z) widens `requests_status_check` + `claim_started_at`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
+| Depends on | PRD-05 integrated into preview |
+
+### Outcomes (this pass)
+
+| Requirement | Result |
+| --- | --- |
+| Distributed guest rate limits (event+device primary, IP secondary) | Done — `enforceGuestRateLimit`; Redis→memory; secondary uses `secondaryMaxMultiplier` ceiling under NAT (memory + Redis) |
+| Guest device cookie | Done — `pp_guest_device` |
+| Idempotent guest submission | Done — required UUID `idempotency_key`; unique `(event_id, idempotency_key)`; transactional duplicate check |
+| Concurrent approval claim | Done — claim + stuck-`approving` reclaim after timeout; `releaseApprovalClaim` on catch; `queue_failed` on failure |
+| Uncertain ledger (no second Spotify copy) | Done — `shouldAttemptSpotifyQueueAdd` skips `uncertain`; approve + auto-approve reconcile only |
+| Playback refresh + staleness | Done — `refreshPlaybackState` on approve, admin `spotify-watcher`, public `playback-sync` (debounce + fetched_at/degraded) |
+| Event end archives history | Done — `archiveEventOnEnd` on offline; logout unchanged (non-destructive) |
+| Cleanup requires confirmation | Done — `DELETE_ARCHIVED_EVENT_DATA` + archived-only delete |
+| Queue reorder honest capability | Done — `501 CAPABILITY_NOT_SUPPORTED` |
+| Load/fault suite (150 guests / multi-instance) | Partial — unit/concurrency guardrail tests; full load scripts deferred |
+| Unify dual event writes / optimistic version everywhere | Partial — archive stamps + existing `events.version`; dual `events`/`user_events` retained per PRD-05 |
+| Retention anonymisation job | Deferred |
+
+### DB classification
+
+| Change | Class | Action |
+| --- | --- | --- |
+| `007` ADD COLUMN / CREATE TABLE provider_operations / indexes | B | **Applied** on Neon (`schema_migrations.id=007_prd06_reliability`) |
+| `008` DROP/re-ADD `requests_status_check` (expand: `approving`, `queue_failed`) + `claim_started_at` | B | **Applied** on Neon (`schema_migrations.id=008_prd06_request_status_check` at 2026-07-26T21:44:54.546Z) after write-free dry-run. Prior CHECK: pending\|approved\|rejected\|queued\|failed\|played |
+| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class D column drops | D | **STOP** — human |
+
+### Human stops
+
+- Do not apply Class C/D from prior PRDs.
+- Class B `007` / `008` applied on Neon after dry-run (backup `snap-odd-dream-abwtma9w`).
+- `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
+- Uncertain Spotify queue reconciliation UI/ops runbook still human (no automatic second enqueue).
+
+### Incomplete / follow-ups
+
+- Full 150-guest / multi-instance fault scripts not shipped (unit guardrails only).
+- Search cache + Spotify 429 cooldown Maps remain process-local (non-correctness for security; document).
+- Nickname anonymisation cron / retention job not implemented.
+- Uncertain ledger recovery is read-only / operator reconcile — no Spotify queue peek automation.
+- UI may still expose reorder controls — API now refuses; disable control in admin UI follow-up.
+- `cleanup-played` still deletes played rows after 1h — confirm product retention policy separately.
+
+### Validation notes (feature branch)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass (FIX_THEN_MERGE pass) |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass — includes PRD-06 claim/uncertain/secondary RL suite |
+| `npm run build` | Pass |
+| Merged into preview | No |
+| Pushed | No |

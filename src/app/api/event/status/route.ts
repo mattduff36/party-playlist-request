@@ -253,6 +253,16 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        const { archiveEventOnEnd } = await import('@/lib/reliability/event-archive');
+        const archived = await archiveEventOnEnd(userId, updatedEvent.id);
+        console.log(
+          `📦 Archived event ${archived.eventId}: ${archived.archivedRequests} requests stamped`
+        );
+      } catch (archiveError) {
+        console.error('❌ Failed to archive event requests on offline:', archiveError);
+      }
+
+      try {
         const { emitSecurityAudit } = await import('@/lib/auth/security-audit');
         emitSecurityAudit('event.end', {
           correlationId: auth.correlationId,

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import {
-  PLAYING_QUEUE_MS,
-  tickUserPlayback,
-} from '@/lib/spotify-sync';
+import { PLAYING_QUEUE_MS } from '@/lib/spotify-sync';
+import { refreshPlaybackState } from '@/lib/reliability/refresh-playback';
 
 /**
  * Organiser-scoped Spotify sync ticks.
  * Multi-tenant cron ticks live at GET /api/cron/spotify-sync (exact CRON_SECRET only).
  * Never trust body userId for authorization — identity comes from the session JWT.
+ * Uses PRD-06 refreshPlaybackState (Redis debounce + fetched_at/degraded) — not raw tick bypass.
  */
 export async function POST(req: NextRequest) {
   if (process.env.SPOTIFY_MOCK === 'true') {
@@ -45,18 +44,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'check' || action === 'tick') {
-      const tickResult = await tickUserPlayback(userId, username, {
+      const refresh = await refreshPlaybackState(userId, username, 'admin-watcher', {
         force: Boolean(force),
-        queueInterval,
+        minIntervalMs:
+          typeof queueInterval === 'number' && queueInterval > 0
+            ? queueInterval
+            : undefined,
       });
 
       return NextResponse.json({
         success: true,
         message: 'Spotify sync tick completed',
         action,
-        checked: tickResult.skipped ? 0 : 1,
-        broadcastCount: tickResult.broadcast ? 1 : 0,
-        results: [tickResult],
+        checked: refresh.tick.skipped ? 0 : 1,
+        broadcastCount: refresh.tick.broadcast ? 1 : 0,
+        results: [refresh.tick],
+        snapshot: {
+          fetchedAt: refresh.snapshot.fetchedAt,
+          providerStatus: refresh.snapshot.providerStatus,
+          stale: refresh.snapshot.stale,
+          degraded: refresh.snapshot.degraded,
+        },
+        debounced: refresh.debounced,
       });
     }
 
@@ -78,17 +87,25 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'refresh-queue') {
-      const tickResult = await tickUserPlayback(userId, username, {
-        force: true,
-        queueInterval: 0,
-      });
+      const refresh = await refreshPlaybackState(
+        userId,
+        username,
+        'admin-refresh-queue',
+        { force: true }
+      );
 
       return NextResponse.json({
         success: true,
         message: `Queue refresh completed for user ${username}`,
         userId,
-        broadcast: tickResult.broadcast,
-        skipped: tickResult.skipped,
+        broadcast: refresh.tick.broadcast,
+        skipped: refresh.tick.skipped,
+        snapshot: {
+          fetchedAt: refresh.snapshot.fetchedAt,
+          providerStatus: refresh.snapshot.providerStatus,
+          stale: refresh.snapshot.stale,
+          degraded: refresh.snapshot.degraded,
+        },
       });
     }
 
