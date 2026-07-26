@@ -88,17 +88,16 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
   const isOffline = globalState?.status === 'offline';
   const isStandby = globalState?.status === 'standby';
   const isLive = globalState?.status === 'live';
-  const displayEnabled = globalState?.pagesEnabled?.display ?? true;
+  // Align with request page: missing/false both mean disabled (do not default to enabled)
+  const displayEnabled = Boolean(globalState?.pagesEnabled?.display);
 
   // Show "Party Not Started" when offline
   if (isOffline) {
-    console.log('🎉 DisplayPage: Party Not Started (offline)');
     return <PartyNotStarted variant="display" />;
   }
 
   // Show "Display Disabled" when in standby or live but display is disabled
   if ((isStandby || isLive) && !displayEnabled) {
-    console.log('🚫 DisplayPage: Display Disabled');
     return (
       <MoodShell
         mood={eventSettings?.display_mood}

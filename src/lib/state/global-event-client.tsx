@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { useOptionalAdminAuth } from '@/contexts/AdminAuthContext';
 
 /**
@@ -179,7 +180,8 @@ function globalEventReducer(state: GlobalEventState, action: GlobalEventAction):
         status,
         version,
         config,
-        pagesEnabled: config?.pages_enabled || state.pagesEnabled,
+        // Prefer explicit pages_enabled (including all-false); only fall back if missing
+        pagesEnabled: config?.pages_enabled ?? state.pagesEnabled,
         activeAdminId: adminId || null,
         adminName: adminName || null,
         pin: pin || state.pin,
@@ -231,6 +233,34 @@ export interface GlobalEventActions {
   // Utility
   resetState: () => void;
   refreshState: () => Promise<void>;
+  /** Apply page-control-toggle from Pusher (display/request backup path). */
+  applyRemotePageControl: (data: {
+    pagesEnabled?: { requests?: boolean; display?: boolean };
+    page?: 'requests' | 'display';
+    enabled?: boolean;
+    requests_page_enabled?: boolean;
+    display_page_enabled?: boolean;
+  }) => void;
+}
+
+/** Username from /{username}/… or /{username}/{accessCode}/display|request */
+function getPublicPageUsernameFromPath(pathname: string): string | null {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length === 0) return null;
+  const reserved = new Set([
+    'api',
+    'login',
+    'register',
+    'auth',
+    'superadmin',
+    'contact',
+    'privacy',
+    'terms',
+  ]);
+  const username = parts[0];
+  if (!username || reserved.has(username)) return null;
+  const isPublicSurface = parts.includes('display') || parts.includes('request');
+  return isPublicSurface ? username : null;
 }
 
 // Actions implementation
@@ -462,6 +492,36 @@ function createActions(
     resetState: () => {
       dispatch({ type: 'RESET_STATE' });
     },
+
+    applyRemotePageControl: (data) => {
+      const current = getState();
+      const newPagesEnabled = {
+        requests:
+          data.pagesEnabled?.requests ??
+          data.requests_page_enabled ??
+          (data.page === 'requests' && typeof data.enabled === 'boolean'
+            ? data.enabled
+            : current.pagesEnabled.requests),
+        display:
+          data.pagesEnabled?.display ??
+          data.display_page_enabled ??
+          (data.page === 'display' && typeof data.enabled === 'boolean'
+            ? data.enabled
+            : current.pagesEnabled.display),
+      };
+
+      dispatch({
+        type: 'UPDATE_EVENT',
+        payload: {
+          status: current.status,
+          version: Date.now(),
+          config: {
+            ...current.config,
+            pages_enabled: newPagesEnabled,
+          },
+        },
+      });
+    },
     
     refreshState: async () => {
       try {
@@ -546,140 +606,139 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(globalEventReducer, initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const pathname = usePathname() || '';
   
   // Try to get admin auth context (will be null on public pages, which is fine)
   const adminAuth = useOptionalAdminAuth();
   
   const actions = useMemo(() => {
     const getToken = () => adminAuth?.token || null;
-    const actions = createActions(dispatch, () => stateRef.current, getToken);
+    const nextActions = createActions(dispatch, () => stateRef.current, getToken);
     // Add alias for backward compatibility
-    actions.setEventStatus = actions.updateEventStatus;
-    return actions;
+    nextActions.setEventStatus = nextActions.updateEventStatus;
+    return nextActions;
   }, [dispatch, adminAuth?.token]);
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
 
-  // Load initial state on mount
+  // Load / refresh event state when route changes (public username may change)
   useEffect(() => {
-    console.log('🚀 GlobalEventProvider mounted, calling refreshState');
-    actions.refreshState();
-  }, []); // Only run once on mount
+    console.log('🚀 GlobalEventProvider refreshState for path:', pathname);
+    void actionsRef.current.refreshState();
+  }, [pathname]);
 
   // Listen for Pusher events (state updates and page control changes)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let pusherInstance: any = null;
+    let pusherInstance: ReturnType<
+      typeof import('@/lib/pusher').createPusherClient
+    > | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let channelInstance: any = null;
+    let cancelled = false;
 
-    // Fetch userId and subscribe to user-specific channel
     const setupPusher = async () => {
       try {
         let userId: string | null = null;
+        const publicUsername = getPublicPageUsernameFromPath(pathname);
 
-        // First, try to get authenticated user's ID
-        const authResponse = await fetch('/api/auth/me', { credentials: 'include' });
-        if (authResponse.ok) {
-          const authData = await authResponse.json();
-          userId = authData.user?.id; // ✅ Fixed: API returns 'id', not 'user_id'
-        }
-
-        // If not authenticated, check if we're on a public page
-        if (!userId) {
-          const isPublicPage = window.location.pathname.includes('/request') || window.location.pathname.includes('/display');
-          if (isPublicPage) {
-            // Extract username from URL path (/:username/request or /:username/display)
-            const pathParts = window.location.pathname.split('/');
-            const username = pathParts[1];
-            
-            if (username && username !== 'api' && username !== 'login' && username !== 'register') {
-              console.log(`🌐 Public page detected, looking up userId for username: ${username}`);
-              // Look up userId from username via API
-              const userLookupResponse = await fetch(`/api/users/lookup?username=${encodeURIComponent(username)}`);
-              if (userLookupResponse.ok) {
-                const lookupData = await userLookupResponse.json();
-                userId = lookupData.userId;
-              }
-            }
+        // Public display/request: ALWAYS resolve owner from URL username
+        // (same as usePusher) so a logged-in admin cookie cannot bind the wrong channel.
+        if (publicUsername) {
+          console.log(
+            `🌐 [GlobalEventProvider] Public page — lookup userId for: ${publicUsername}`
+          );
+          const userLookupResponse = await fetch(
+            `/api/users/lookup?username=${encodeURIComponent(publicUsername)}`
+          );
+          if (userLookupResponse.ok) {
+            const lookupData = await userLookupResponse.json();
+            userId = lookupData.userId;
           }
         }
 
+        // Admin / non-public: use authenticated session
         if (!userId) {
-          console.warn('⚠️ No userId found, skipping Pusher setup');
+          const authResponse = await fetch('/api/auth/me', {
+            credentials: 'include',
+          });
+          if (authResponse.ok) {
+            const authData = await authResponse.json();
+            userId = authData.user?.id;
+          }
+        }
+
+        if (cancelled) return;
+
+        if (!userId) {
+          console.warn('⚠️ [GlobalEventProvider] No userId found, skipping Pusher setup');
           return;
         }
 
-        console.log(`📡 Setting up Pusher for user ${userId}`);
+        console.log(`📡 [GlobalEventProvider] Setting up Pusher for user ${userId}`);
 
-        // Import Pusher client-side only
-        const { default: Pusher } = await import('pusher-js');
-        pusherInstance = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || '', {
-          cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-          authEndpoint: '/api/pusher/auth',
-        });
+        // Same client/cluster defaults as usePusher (us2), not a divergent 'eu' fallback
+        const { createPusherClient, getUserChannel } = await import('@/lib/pusher');
+        pusherInstance = createPusherClient();
 
-        // Subscribe to USER-SPECIFIC channel
-        const userChannel = `private-party-playlist-${userId}`;
-        console.log(`📡 Subscribing to user-specific channel: ${userChannel}`);
+        const userChannel = getUserChannel(userId);
+        console.log(
+          `📡 [GlobalEventProvider] Subscribing to user-specific channel: ${userChannel}`
+        );
         channelInstance = pusherInstance.subscribe(userChannel);
 
-        // Listen for state updates (use hyphens - Pusher uses hyphens not underscores)
-        channelInstance.bind('state-update', (data: any) => {
-          console.log('📡 [GlobalEventProvider] Received state-update via Pusher:', data);
+        channelInstance.bind('state-update', (data: Record<string, unknown>) => {
+          console.log(
+            '📡 [GlobalEventProvider] Received state-update via Pusher:',
+            data
+          );
+          const dataConfig = (data.config || {}) as Record<string, unknown>;
           dispatch({
             type: 'UPDATE_EVENT',
             payload: {
-              status: data.status,
-              version: data.version || Date.now(),
+              status: (data.status as EventState) || stateRef.current.status,
+              version: (data.version as number) || Date.now(),
               config: {
                 ...stateRef.current.config,
-                ...data.config,
-                // Preserve pagesEnabled if not provided
-                pages_enabled: data.pagesEnabled || data.config?.pages_enabled || stateRef.current.pagesEnabled,
+                ...dataConfig,
+                pages_enabled:
+                  data.pagesEnabled ||
+                  dataConfig.pages_enabled ||
+                  stateRef.current.pagesEnabled,
               },
             },
           });
         });
 
-        // Listen for page control updates (use hyphens - Pusher uses hyphens not underscores)
-        channelInstance.bind('page-control-toggle', (data: any) => {
-          console.log('📡 [GlobalEventProvider] Received page-control-toggle via Pusher:', data);
-          console.log('📡 [GlobalEventProvider] Current state before update:', {
-            status: stateRef.current.status,
-            pagesEnabled: stateRef.current.pagesEnabled,
-          });
-          
-          const newPagesEnabled = data.pagesEnabled || {
-            requests: data.requests_page_enabled ?? stateRef.current.pagesEnabled.requests,
-            display: data.display_page_enabled ?? stateRef.current.pagesEnabled.display,
-          };
-          
-          console.log('📡 [GlobalEventProvider] New pagesEnabled:', newPagesEnabled);
-          
-          dispatch({
-            type: 'UPDATE_EVENT',
-            payload: {
-              status: stateRef.current.status,
-              version: Date.now(),
-              config: {
-                ...stateRef.current.config,
-                pages_enabled: newPagesEnabled,
-              },
-            },
-          });
-          
-          console.log('✅ [GlobalEventProvider] page-control-toggle state updated');
-        });
-
+        channelInstance.bind(
+          'page-control-toggle',
+          (data: {
+            pagesEnabled?: { requests?: boolean; display?: boolean };
+            page?: 'requests' | 'display';
+            enabled?: boolean;
+            requests_page_enabled?: boolean;
+            display_page_enabled?: boolean;
+          }) => {
+            console.log(
+              '📡 [GlobalEventProvider] Received page-control-toggle via Pusher:',
+              data
+            );
+            actionsRef.current.applyRemotePageControl(data);
+            console.log(
+              '✅ [GlobalEventProvider] page-control-toggle state updated'
+            );
+          }
+        );
       } catch (error) {
-        console.error('❌ Failed to setup Pusher:', error);
+        console.error('❌ [GlobalEventProvider] Failed to setup Pusher:', error);
       }
     };
 
-    // Start Pusher setup
-    setupPusher();
+    void setupPusher();
 
-    // Cleanup function
     return () => {
+      cancelled = true;
       if (channelInstance) {
         channelInstance.unbind_all();
         channelInstance.unsubscribe();
@@ -688,7 +747,7 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
         pusherInstance.disconnect();
       }
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <GlobalEventContext.Provider value={{ state, dispatch, actions }}>

@@ -64,7 +64,7 @@ export default function UserRequestPage() {
   const [mounted, setMounted] = useState(false);
   
   // Use global event state
-  const { state: globalState } = useGlobalEvent();
+  const { state: globalState, actions: globalActions } = useGlobalEvent();
   
   // Keyboard dismissal functionality
   const dismissKeyboard = () => {
@@ -176,8 +176,12 @@ export default function UserRequestPage() {
   // Listen for request updates via Pusher
   usePusher({
     username: username, // Pass username for userId lookup on public pages
-    onPageControlToggle: (data: any) => {
-      console.log('🔄 Page control changed via Pusher:', data);
+    onPageControlToggle: (data: {
+      pagesEnabled?: { requests?: boolean; display?: boolean };
+      page?: 'requests' | 'display';
+      enabled?: boolean;
+    }) => {
+      globalActions.applyRemotePageControl(data);
     },
     onRequestApproved: (data: any) => {
       console.log('🎉 Request approved via Pusher:', data);

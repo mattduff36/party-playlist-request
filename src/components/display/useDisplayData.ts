@@ -75,7 +75,10 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
   const syncInFlightRef = useRef(false);
 
   // Use global event state
-  const { state: globalState } = useGlobalEvent();
+  const { state: globalState, actions: globalActions } = useGlobalEvent();
+  const displayPageEnabled = Boolean(globalState.pagesEnabled?.display);
+  const displayPageEnabledRef = useRef(displayPageEnabled);
+  displayPageEnabledRef.current = displayPageEnabled;
 
   const markPlaybackFresh = useCallback(() => {
     lastPlaybackEventAtRef.current = Date.now();
@@ -83,6 +86,8 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
 
   const requestPlaybackSync = useCallback(
     async (force = false) => {
+      // No Spotify heartbeat while the DJ has disabled this display
+      if (!displayPageEnabled && !force) return;
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
       lastSyncAttemptAtRef.current = Date.now();
@@ -102,16 +107,8 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         syncInFlightRef.current = false;
       }
     },
-    [username, accessCode, guestAccessCode]
+    [username, accessCode, guestAccessCode, displayPageEnabled]
   );
-
-  // Log state changes for monitoring
-  useEffect(() => {
-    console.log('📺 [DisplayPage] Global state updated:', {
-      status: globalState.status,
-      pagesEnabled: globalState.pagesEnabled,
-    });
-  }, [globalState.status, globalState.pagesEnabled]);
 
   // Cleanup ResizeObserver on component unmount
   useEffect(() => {
@@ -289,19 +286,23 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
   // handler below is the one that actually applies (object-literal last-write-wins).
   const { isConnected, connectionState } = usePusher({
     username: username, // Pass username for userId lookup on public pages
-    onPageControlToggle: (data: any) => {
-      console.log('🔄 Display page control changed via Pusher:', data);
-      // State is now managed by GlobalEventProvider via Pusher listeners
+    onPageControlToggle: (data: {
+      pagesEnabled?: { requests?: boolean; display?: boolean };
+      page?: 'requests' | 'display';
+      enabled?: boolean;
+    }) => {
+      // Backup path: GlobalEventProvider also listens; apply here so UI flips even if
+      // the provider was briefly on the wrong channel/cluster.
+      globalActions.applyRemotePageControl(data);
     },
-    onAdminLogin: (data: any) => {
-      console.log('🔐 Admin login via Pusher:', data);
-      // State is now managed by GlobalEventProvider
+    onAdminLogin: () => {
+      // State is managed by GlobalEventProvider
     },
-    onAdminLogout: (data: any) => {
-      console.log('🔐 Admin logout via Pusher:', data);
-      // State is now managed by GlobalEventProvider
+    onAdminLogout: () => {
+      // State is managed by GlobalEventProvider
     },
     onRequestApproved: (data: RequestApprovedEvent) => {
+      if (!displayPageEnabled) return;
       console.log('🎉 PUSHER: Request approved!', data);
 
       // Add to approved requests list immediately for the "Requests on the way" section
@@ -333,6 +334,11 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       console.log('✅ Request approved animation completed, queue updates handled by onPlaybackUpdate');
     },
     onPlaybackUpdate: (data: any) => {
+      // Avoid re-render storms on the "Display Disabled" screen
+      if (!displayPageEnabledRef.current) {
+        markPlaybackFresh();
+        return;
+      }
       console.log('🎵 PUSHER: Playback update received!', data);
       markPlaybackFresh();
 
@@ -438,21 +444,24 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
     },
   });
 
-  // Live progress for smooth animation
-  const playbackState = currentTrack
-    ? {
-        progress_ms: currentTrack.progress_ms,
-        duration_ms: currentTrack.duration_ms,
-        is_playing: isPlaying,
-        spotify_connected: true,
-        timestamp: lastPlaybackEventAtRef.current,
-      }
-    : null;
+  // Live progress for smooth animation (paused while display page is disabled)
+  const playbackState =
+    displayPageEnabled && currentTrack
+      ? {
+          progress_ms: currentTrack.progress_ms,
+          duration_ms: currentTrack.duration_ms,
+          is_playing: isPlaying,
+          spotify_connected: true,
+          timestamp: lastPlaybackEventAtRef.current,
+        }
+      : null;
 
   const liveProgress = useLiveProgress(playbackState, 1000);
 
   // Staleness-gated heartbeat: open displays keep server sync alive (coalesced).
   useEffect(() => {
+    if (!displayPageEnabled) return;
+
     const staleBudgetMs = Math.min(
       MAX_STALE_MS,
       Math.max(
@@ -485,7 +494,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [eventSettings, requestPlaybackSync]);
+  }, [eventSettings, requestPlaybackSync, displayPageEnabled]);
 
   // Callback ref for Now Playing section - sets up ResizeObserver to detect layout changes
   // This is now reactive to isMessageVisible changes (notice board appearing/disappearing)
