@@ -263,8 +263,11 @@ export const triggerStatsUpdate = async (stats: any & { userId: string }) => {
   await triggerEvent(userChannel, EVENTS.STATS_UPDATE, stats);
 };
 
-export const triggerTokenExpired = async (data: TokenExpiredEvent) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.TOKEN_EXPIRED, data);
+export const triggerTokenExpired = async (
+  data: TokenExpiredEvent & { userId: string }
+) => {
+  // Tenant-scoped admin channel (usePusher already binds TOKEN_EXPIRED here)
+  await triggerEvent(getAdminChannel(data.userId), EVENTS.TOKEN_EXPIRED, data);
 };
 
 export const triggerAdminLogin = async (data: AdminLoginEvent) => {

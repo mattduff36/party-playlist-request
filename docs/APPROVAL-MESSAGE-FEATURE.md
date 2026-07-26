@@ -44,12 +44,10 @@ Added a new checkbox in the "Notice Board" section:
 
 ### 4. Migration Support
 
-**File**: `src/app/api/migrate/user-settings/route.ts`
-- Added migration to add `show_approval_messages` column to `user_settings` table
-- Default value: `FALSE`
+HTTP migrate routes were removed (PRD-01). Apply schema changes via SQL/migrations only.
 
 **File**: `database/add-show-approval-messages.sql`
-- Created standalone migration SQL file for manual execution if needed
+- Standalone migration SQL for manual/`db:migrate` execution (`show_approval_messages`, default `FALSE`)
 
 ## How to Use
 
@@ -126,19 +124,13 @@ The system includes intelligent message queueing to handle multiple simultaneous
 
 ### Database Migration
 
-To apply the database changes, you can either:
+To apply the database changes, run the SQL migration (no HTTP migrate route):
 
-1. **Automatic**: Call the migration endpoint (requires admin access):
-   ```
-   POST /api/migrate/user-settings
-   ```
-
-2. **Manual**: Run the SQL file:
-   ```sql
-   -- From database/add-show-approval-messages.sql
-   ALTER TABLE user_settings 
-   ADD COLUMN IF NOT EXISTS show_approval_messages BOOLEAN DEFAULT FALSE;
-   ```
+```sql
+-- From database/add-show-approval-messages.sql
+ALTER TABLE user_settings 
+ADD COLUMN IF NOT EXISTS show_approval_messages BOOLEAN DEFAULT FALSE;
+```
 
 ### Implementation Notes
 
@@ -157,7 +149,6 @@ To apply the database changes, you can either:
 5. `src/app/api/admin/event-settings/route.ts` - Added API parameter handling
 6. `src/app/api/admin/approve/[id]/route.ts` - Added message queueing for manual approvals
 7. `src/app/api/request/route.ts` - Added message queueing for auto-approvals
-8. `src/app/api/migrate/user-settings/route.ts` - Added migration
 
 ## Files Created
 

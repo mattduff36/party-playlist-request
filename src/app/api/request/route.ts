@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults, getEventSettings, updateRequest } from '@/lib/db';
+import { createRequest, hashIP, checkRecentDuplicate, getEventSettings, updateRequest } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted, triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
@@ -15,10 +15,6 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
   try {
-    console.log(`⏱️ [${requestId}] Initializing defaults...`);
-    await initializeDefaults();
-    console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
-
     const body = await req.json();
     const { track_uri, track_url, requester_nickname, user_session_id, username } = body;
 

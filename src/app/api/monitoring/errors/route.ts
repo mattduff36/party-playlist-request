@@ -3,6 +3,7 @@
  *
  * Accepts validated client error reports from ErrorBoundary.
  * Does not expose operational history; durable history is superadmin-only.
+ * Shares per-IP rate limit with /api/support/client-error.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,11 +13,23 @@ import { logError } from '@/lib/support/logger';
 import { getIpHash } from '@/lib/support/withApiLogging';
 import {
   CLIENT_ERROR_MAX_BODY_BYTES,
+  isClientErrorRateLimited,
   parseClientErrorIntake,
 } from '@/lib/support/client-error-intake';
 
 export async function POST(request: NextRequest) {
   try {
+    let ipHash: string;
+    try {
+      ipHash = getIpHash(request);
+    } catch {
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 });
+    }
+
+    if (isClientErrorRateLimited(ipHash)) {
+      return NextResponse.json({ error: 'Too many error reports' }, { status: 429 });
+    }
+
     const contentLength = Number(request.headers.get('content-length') || '0');
     if (contentLength > CLIENT_ERROR_MAX_BODY_BYTES) {
       return NextResponse.json({ error: 'Payload too large' }, { status: 400 });
@@ -44,7 +57,7 @@ export async function POST(request: NextRequest) {
       stack: data.stack,
       route: data.route,
       method: 'CLIENT',
-      ipHash: getIpHash(request),
+      ipHash,
       userAgent: data.userAgent || request.headers.get('user-agent'),
       meta: { errorId: data.errorId, clientLevel: data.level },
     });

@@ -1,12 +1,46 @@
 /**
  * Shared validation for public client-error intake endpoints (PRD-01).
  * Bounds payload size, allowlists fields, and redacts stack traces.
+ * Also owns the process-local per-IP rate limiter shared by intake routes.
  */
 
 export const CLIENT_ERROR_MAX_BODY_BYTES = 8_192;
 export const CLIENT_ERROR_MAX_MESSAGE_LEN = 500;
 export const CLIENT_ERROR_MAX_STACK_LEN = 1_024;
 export const CLIENT_ERROR_MAX_ROUTE_LEN = 300;
+
+/** Process-local per-IP cap (distributed limit is PRD-02/06). */
+export const CLIENT_ERROR_MAX_PER_HOUR = 30;
+
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+
+/**
+ * Returns true when the hashed IP has exceeded the hourly client-error budget.
+ * Call before logging or alerting.
+ */
+export function isClientErrorRateLimited(ipHash: string): boolean {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(ipHash) || {
+    count: 0,
+    resetAt: now + 60 * 60 * 1000,
+  };
+  if (now > bucket.resetAt) {
+    bucket.count = 0;
+    bucket.resetAt = now + 60 * 60 * 1000;
+  }
+  if (bucket.count >= CLIENT_ERROR_MAX_PER_HOUR) {
+    rateLimitBuckets.set(ipHash, bucket);
+    return true;
+  }
+  bucket.count += 1;
+  rateLimitBuckets.set(ipHash, bucket);
+  return false;
+}
+
+/** Test helper — clears in-memory client-error rate-limit state. */
+export function resetClientErrorRateLimitForTests(): void {
+  rateLimitBuckets.clear();
+}
 
 const ALLOWED_FIELDS = new Set([
   'message',

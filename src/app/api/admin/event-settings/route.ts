@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { getEventSettings, updateEventSettings, initializeDefaults } from '@/lib/db';
+import { getEventSettings, updateEventSettings } from '@/lib/db';
 import { regenerateActiveEventAccessCode } from '@/lib/event-service';
 import { triggerEvent, getUserChannel } from '@/lib/pusher';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
@@ -14,8 +14,6 @@ export async function GET(req: NextRequest) {
       return auth.response!;
     }
 
-    await initializeDefaults();
-    
     const userId = auth.user.user_id;
     console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) fetching settings`);
     
@@ -42,8 +40,6 @@ export async function POST(req: NextRequest) {
       return auth.response!;
     }
     
-    await initializeDefaults();
-
     const userId = auth.user.user_id;
     console.log(`⚙️ [admin/event-settings] User ${auth.user.username} (${userId}) updating settings`);
     

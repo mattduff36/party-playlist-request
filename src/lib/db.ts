@@ -112,7 +112,27 @@ export function getPool() {
 }
 
 // Initialize database tables
+/**
+ * Schema bootstrap via DDL. Must NOT be called from HTTP request handlers (PRD-01).
+ * Schema belongs in migrations (PRD-05). Local/CLI only: set ALLOW_DB_BOOTSTRAP=1
+ * and never expose this through an API route.
+ */
+function assertDbBootstrapAllowed(): void {
+  if (process.env.ALLOW_DB_BOOTSTRAP === '1') {
+    return;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'initializeDatabase is disabled in production without ALLOW_DB_BOOTSTRAP=1 (use migrations)'
+    );
+  }
+  throw new Error(
+    'initializeDatabase requires ALLOW_DB_BOOTSTRAP=1 (CLI/dev only; not HTTP request handlers)'
+  );
+}
+
 export async function initializeDatabase() {
+  assertDbBootstrapAllowed();
   const client = getPool();
   
   try {
@@ -1408,7 +1428,10 @@ export async function markNotificationAsShown(id: string): Promise<void> {
   }
 }
 
-// Initialize default data
+/**
+ * Local/CLI bootstrap only. Never call from HTTP request handlers (PRD-01).
+ * Requires ALLOW_DB_BOOTSTRAP=1 (enforced by initializeDatabase).
+ */
 export async function initializeDefaults(): Promise<void> {
   await initializeDatabase();
 

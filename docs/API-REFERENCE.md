@@ -231,7 +231,7 @@ Create/update display message.
 ### POST `/api/admin/spotify-watcher`
 Organiser-authenticated one-shot Spotify sync tick (PRD-01).
 Requires session JWT / `auth_token` cookie. Identity is taken from the session — body `userId` is ignored.
-Multi-tenant cron ticks: `GET /api/cron/spotify-sync` with exact `Authorization: Bearer <CRON_SECRET>`.
+Multi-tenant cron ticks: `GET /api/cron/spotify-sync` with exact `Authorization: Bearer <CRON_SECRET>` (required; unset/wrong secret → 401 fail-closed).
 
 **Body:**
 ```json

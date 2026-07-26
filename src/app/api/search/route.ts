@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
-import { hashIP, initializeDefaults } from '@/lib/db';
+import { hashIP } from '@/lib/db';
 import {
   isSpotifySearchBusyError,
   SPOTIFY_SEARCH_BUSY_CODE,
@@ -34,8 +34,6 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    await initializeDefaults();
 
     const access = await requireGuestAccess(req, username);
     if (!access.ok) {

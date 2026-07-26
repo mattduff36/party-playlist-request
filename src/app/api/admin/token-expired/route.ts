@@ -24,10 +24,11 @@ export async function POST(req: NextRequest) {
       reason,
     });
 
-    const eventData: TokenExpiredEvent = {
+    const eventData: TokenExpiredEvent & { userId: string } = {
       reason,
       message,
       timestamp: Date.now(),
+      userId: auth.user.user_id,
     };
 
     await triggerTokenExpired(eventData);
