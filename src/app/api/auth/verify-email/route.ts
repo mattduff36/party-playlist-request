@@ -62,20 +62,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Dual-verify (display-token rule): hash when present; plaintext only if hash null
     const tokenHash = hashOpaqueToken(token);
-    let users = await sql`
+    const users = await sql`
       SELECT id, username, email, account_status, email_verified, email_verification_expires
       FROM users
-      WHERE email_verification_token_hash = ${tokenHash}
+      WHERE (
+        email_verification_token_hash = ${tokenHash}
+        OR (
+          email_verification_token_hash IS NULL
+          AND email_verification_token = ${token}
+        )
+      )
     `;
-
-    if (users.length === 0) {
-      users = await sql`
-        SELECT id, username, email, account_status, email_verified, email_verification_expires
-        FROM users
-        WHERE email_verification_token = ${token}
-      `;
-    }
 
     if (users.length === 0) {
       return NextResponse.json(
@@ -123,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark verified but keep token until expiry so re-opens stay idempotent
-    let updated = await sql`
+    const updated = await sql`
       UPDATE users
       SET
         email_verified = true,
@@ -131,7 +130,10 @@ export async function POST(request: NextRequest) {
       WHERE id = ${user.id}
         AND (
           email_verification_token_hash = ${tokenHash}
-          OR email_verification_token = ${token}
+          OR (
+            email_verification_token_hash IS NULL
+            AND email_verification_token = ${token}
+          )
         )
         AND email_verified = false
       RETURNING id, username, email
@@ -142,8 +144,13 @@ export async function POST(request: NextRequest) {
       const again = await sql`
         SELECT id, username, email, email_verified
         FROM users
-        WHERE email_verification_token_hash = ${tokenHash}
-           OR email_verification_token = ${token}
+        WHERE (
+          email_verification_token_hash = ${tokenHash}
+          OR (
+            email_verification_token_hash IS NULL
+            AND email_verification_token = ${token}
+          )
+        )
       `;
       if (again.length > 0 && again[0].email_verified) {
         return NextResponse.json({

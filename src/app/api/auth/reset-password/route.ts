@@ -52,9 +52,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Dual-verify: prefer token_hash, fall back to plaintext column (Class B)
+    // Dual-verify (display-token rule): hash when present; plaintext only if hash null
     const tokenHash = hashOpaqueToken(token);
-    let tokens = await sql`
+    const tokens = await sql`
       SELECT 
         prt.id as token_id,
         prt.user_id,
@@ -65,28 +65,13 @@ export async function POST(request: NextRequest) {
         u.account_status
       FROM password_reset_tokens prt
       JOIN users u ON u.id = prt.user_id
-      WHERE prt.token_hash = ${tokenHash}
+      WHERE (
+        prt.token_hash = ${tokenHash}
+        OR (prt.token_hash IS NULL AND prt.token = ${token})
+      )
       ORDER BY prt.created_at DESC
       LIMIT 1
     `;
-
-    if (tokens.length === 0) {
-      tokens = await sql`
-        SELECT 
-          prt.id as token_id,
-          prt.user_id,
-          prt.expires_at,
-          prt.used,
-          u.username,
-          u.email,
-          u.account_status
-        FROM password_reset_tokens prt
-        JOIN users u ON u.id = prt.user_id
-        WHERE prt.token = ${token}
-        ORDER BY prt.created_at DESC
-        LIMIT 1
-      `;
-    }
 
     if (tokens.length === 0) {
       return NextResponse.json(

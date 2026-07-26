@@ -393,6 +393,41 @@ describe('PRD-04: repository tenant requirements (source)', () => {
     expect(eventSrc).toContain('uses_remaining > 0');
   });
 
+  it('reset-password / verify-email use hash-present IS NULL plaintext guard', () => {
+    const resetSrc = fs.readFileSync(
+      path.join(process.cwd(), 'src/app/api/auth/reset-password/route.ts'),
+      'utf8'
+    );
+    const verifySrc = fs.readFileSync(
+      path.join(process.cwd(), 'src/app/api/auth/verify-email/route.ts'),
+      'utf8'
+    );
+    expect(resetSrc).toMatch(/token_hash IS NULL AND prt\.token/);
+    expect(verifySrc).toMatch(
+      /email_verification_token_hash IS NULL\s*\n\s*AND email_verification_token/
+    );
+    // Must not fall back with a bare plaintext match after a failed hash query
+    expect(resetSrc).not.toMatch(
+      /WHERE prt\.token = \$\{token\}\s*\n\s*ORDER BY/
+    );
+    expect(verifySrc).not.toMatch(
+      /WHERE email_verification_token = \$\{token\}\s*\n\s*`/
+    );
+  });
+
+  it('verifyAccessCode does not plaintext-SQL fall back on error', () => {
+    const eventSrc = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/event-service.ts'),
+      'utf8'
+    );
+    const fnStart = eventSrc.indexOf('export async function verifyAccessCode');
+    const fnEnd = eventSrc.indexOf('export async function verifyPIN');
+    const fnBody = eventSrc.slice(fnStart, fnEnd);
+    expect(fnBody).toContain('Fail closed');
+    expect(fnBody).not.toMatch(/e\.pin = \$2/);
+    expect(fnBody).not.toMatch(/COALESCE\(e\.access_code/);
+  });
+
   it('Class B migration does not drop plaintext columns', () => {
     const mig = fs.readFileSync(
       path.join(

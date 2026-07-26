@@ -393,28 +393,10 @@ export async function verifyAccessCode(
 
     return null;
   } catch (error) {
-    // access_code_hmac column may not exist yet — plaintext equality fallback
-    try {
-      const pool = getPool();
-      const result = await pool.query(
-        `SELECT e.* FROM user_events e
-         INNER JOIN users u ON u.id = e.user_id
-         WHERE u.username = $1
-         AND (
-           e.pin = $2
-           OR COALESCE(e.access_code, '') = $2
-         )
-         AND e.active = true
-         AND e.expires_at > NOW()
-         LIMIT 1`,
-        [username, accessCode]
-      );
-      if (result.rows.length === 0) return null;
-      return mapUserEvent(result.rows[0]);
-    } catch (fallbackError) {
-      console.error('❌ Failed to verify access code:', fallbackError);
-      throw fallbackError;
-    }
+    // Fail closed: never fall back to plaintext SQL on primary-path errors
+    // (e.g. missing pepper would otherwise authenticate via pin/access_code).
+    console.error('❌ Failed to verify access code:', error);
+    throw error;
   }
 }
 

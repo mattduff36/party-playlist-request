@@ -262,7 +262,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Gate `/api/users/lookup` UUID disclosure | Done — `410 USER_LOOKUP_RETIRED`; clients use `/api/events/guest-session` |
 | Event-access policy service | Done — `event-access-policy.ts` (+ guest-session / display-session / pusher proofs) |
 | Atomic display-token use | Done — `UPDATE … WHERE uses_remaining > 0 … RETURNING` |
-| Hash/HMAC access codes & tokens (expand-and-contract) | Done — dual-verify; plaintext only when hash null/empty (no fallthrough if hash present; matches display-token SQL); plaintext columns retained (no Class D drop) |
+| Hash/HMAC access codes & tokens (expand-and-contract) | Done — dual-verify; plaintext only when hash null/empty (no fallthrough if hash present; matches display-token SQL incl. reset-password / verify-email); `verifyAccessCode` fails closed (no plaintext SQL catch fallback); plaintext columns retained (no Class D drop) |
 | Tenant-scoped request repos | Done — required `userId`; allowlisted `updateRequest` fields; hardened deprecated `getRequestsByStatusOld` / `database-service.updateRequestStatus` |
 | Negative cross-tenant tests | Done — `tests/security/prd-04-tenant-realtime-isolation.spec.ts` |
 | Legacy display 410 | Already from PRD-01 (unchanged) |
@@ -298,7 +298,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Command | Result |
 | --- | --- |
-| `npm run test:unit` | Pass — 198 tests (incl. PRD-04 public-channel / presence / guest matrix) |
+| `npm run test:unit` | Pass — reset/email-verify hash-present deny + verifyAccessCode fail-closed |
 | `npm run build` | Pass |
 | Merged into preview | No |
 | Pushed | No |
