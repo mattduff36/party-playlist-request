@@ -297,6 +297,45 @@ describe('PRD-04: secret hashing dual-verify', () => {
         hashFn: hmacAccessCode,
       })
     ).toBe(true);
+    expect(
+      dualVerifySecret({
+        presented: '123456',
+        storedHash: '',
+        storedPlaintext: '123456',
+        hashFn: hmacAccessCode,
+      })
+    ).toBe(true);
+  });
+
+  it('hash present ⇒ no plaintext fallthrough', () => {
+    const hmac = hmacAccessCode('123456');
+    // Stale/diverged plaintext must not authenticate when hash exists
+    expect(
+      dualVerifySecret({
+        presented: '999999',
+        storedHash: hmac,
+        storedPlaintext: '999999',
+        hashFn: hmacAccessCode,
+      })
+    ).toBe(false);
+    // Wrong presented + matching hash plaintext of a different secret still denied
+    expect(
+      dualVerifySecret({
+        presented: '654321',
+        storedHash: hmac,
+        storedPlaintext: '123456',
+        hashFn: hmacAccessCode,
+      })
+    ).toBe(false);
+    // Correct secret still verifies via hash
+    expect(
+      dualVerifySecret({
+        presented: '123456',
+        storedHash: hmac,
+        storedPlaintext: '123456',
+        hashFn: hmacAccessCode,
+      })
+    ).toBe(true);
   });
 });
 

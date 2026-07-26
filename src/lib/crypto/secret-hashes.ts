@@ -1,6 +1,7 @@
 /**
  * PRD-04: one-way hashes / keyed HMAC for access codes and one-time tokens.
- * Dual-verify: prefer hash match; fall back to plaintext equality until Class D.
+ * Dual-verify matches display-token SQL: hash/HMAC when present; plaintext only
+ * when storedHash is null/empty (expand-and-contract until Class D).
  */
 
 import crypto from 'crypto';
@@ -57,7 +58,11 @@ export function timingSafeEqualUtf8(a: string, b: string): boolean {
   return crypto.timingSafeEqual(ab, bb);
 }
 
-/** Dual-verify: hash/HMAC first, then plaintext (Class B expand-and-contract). */
+/**
+ * Dual-verify (Class B expand-and-contract).
+ * When storedHash is non-empty: hash/HMAC only — no plaintext fallthrough.
+ * When storedHash is null/empty: plaintext equality (legacy rows).
+ */
 export function dualVerifySecret(options: {
   presented: string;
   storedHash?: string | null;
@@ -67,11 +72,14 @@ export function dualVerifySecret(options: {
   const { presented, storedHash, storedPlaintext, hashFn } = options;
   if (!presented) return false;
 
-  if (storedHash) {
+  const hash =
+    typeof storedHash === 'string' && storedHash.trim().length > 0
+      ? storedHash
+      : null;
+
+  if (hash) {
     const computed = hashFn(presented);
-    if (timingSafeEqualHex(computed, storedHash)) {
-      return true;
-    }
+    return timingSafeEqualHex(computed, hash);
   }
 
   if (storedPlaintext) {
