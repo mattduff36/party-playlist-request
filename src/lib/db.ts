@@ -42,6 +42,24 @@ export interface SpotifyAuth {
   scope: string;
   token_type: string;
   updated_at: string;
+  /** CAS / concurrent refresh version (PRD-03). */
+  refresh_lock_version?: number;
+  /** Present when credentials are vault-encrypted. */
+  token_key_version?: string | null;
+  access_token_envelope?: string | null;
+  refresh_token_envelope?: string | null;
+}
+
+export interface OAuthTransactionRow {
+  state: string;
+  code_verifier: string | null;
+  code_verifier_encrypted: string | null;
+  user_id: string | null;
+  username: string | null;
+  redirect_id: string | null;
+  created_at: string;
+  expires_at: string;
+  consumed_at: string | null;
 }
 
 export interface Notification {
@@ -661,11 +679,41 @@ export async function initializeDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS oauth_sessions (
         state TEXT PRIMARY KEY,
-        code_verifier TEXT NOT NULL,
+        code_verifier TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '10 minutes')
       )
     `);
+
+    // PRD-03 Class B additive columns (safe IF NOT EXISTS / DROP NOT NULL)
+    try {
+      await client.query(`
+        ALTER TABLE spotify_auth
+          ADD COLUMN IF NOT EXISTS access_token_envelope TEXT,
+          ADD COLUMN IF NOT EXISTS refresh_token_envelope TEXT,
+          ADD COLUMN IF NOT EXISTS token_key_version TEXT,
+          ADD COLUMN IF NOT EXISTS refresh_lock_version BIGINT NOT NULL DEFAULT 0;
+      `);
+      await client.query(`
+        ALTER TABLE spotify_auth
+          ALTER COLUMN access_token DROP NOT NULL,
+          ALTER COLUMN refresh_token DROP NOT NULL;
+      `);
+      await client.query(`
+        ALTER TABLE oauth_sessions
+          ADD COLUMN IF NOT EXISTS user_id UUID,
+          ADD COLUMN IF NOT EXISTS username TEXT,
+          ADD COLUMN IF NOT EXISTS code_verifier_encrypted TEXT,
+          ADD COLUMN IF NOT EXISTS redirect_id TEXT DEFAULT 'admin_spotify',
+          ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ;
+      `);
+      await client.query(`
+        ALTER TABLE oauth_sessions
+          ALTER COLUMN code_verifier DROP NOT NULL;
+      `);
+    } catch (prd03MigrationError) {
+      console.error('PRD-03 encryption column ensure failed:', prd03MigrationError);
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS notifications (
@@ -1107,7 +1155,40 @@ export async function updateAdminLastLogin(username: string): Promise<void> {
   );
 }
 
-// Spotify auth operations
+// Spotify auth operations (PRD-03: dual-read plaintext+envelope; write encrypted only)
+async function decryptSpotifyRow(
+  row: SpotifyAuth,
+  userId: string
+): Promise<SpotifyAuth | null> {
+  const { decryptToken } = await import('@/lib/crypto/token-vault');
+
+  let access = row.access_token || '';
+  let refresh = row.refresh_token || '';
+
+  if (row.access_token_envelope) {
+    access = decryptToken(row.access_token_envelope, {
+      userId,
+      purpose: 'spotify.access',
+    });
+  }
+  if (row.refresh_token_envelope) {
+    refresh = decryptToken(row.refresh_token_envelope, {
+      userId,
+      purpose: 'spotify.refresh',
+    });
+  }
+
+  if (!access && !refresh) {
+    return null;
+  }
+
+  return {
+    ...row,
+    access_token: access,
+    refresh_token: refresh,
+  };
+}
+
 export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null> {
   if (!userId || !userId.trim()) {
     // Never fall back to another tenant's tokens (previously: SELECT … LIMIT 1).
@@ -1118,18 +1199,135 @@ export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null
   const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [
     userId.trim(),
   ]);
-  return result.rows[0] || null;
+  const row = result.rows[0] as SpotifyAuth | undefined;
+  if (!row) return null;
+
+  try {
+    return await decryptSpotifyRow(row, userId.trim());
+  } catch {
+    console.error('Failed to decrypt Spotify credentials for user (redacted)');
+    throw new Error('Failed to decrypt Spotify credentials');
+  }
 }
 
+/**
+ * Persist Spotify tokens. New writes encrypt envelopes and clear plaintext columns.
+ * Does not backfill existing rows (Class C — requires human approval).
+ */
 export async function setSpotifyAuth(auth: SpotifyAuth, userId: string): Promise<void> {
+  const {
+    encryptToken,
+    serializeEnvelope,
+    getTokenVaultWriteKid,
+  } = await import('@/lib/crypto/token-vault');
+
+  const accessEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.access_token,
+      userId,
+      purpose: 'spotify.access',
+    })
+  );
+  const refreshEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.refresh_token,
+      userId,
+      purpose: 'spotify.refresh',
+    })
+  );
+  const kid = getTokenVaultWriteKid();
   const client = getPool();
-  await client.query(`
-    INSERT INTO spotify_auth (user_id, access_token, refresh_token, expires_at, scope, token_type, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-    ON CONFLICT (user_id) DO UPDATE SET 
-      access_token = $2, refresh_token = $3, expires_at = $4, 
-      scope = $5, token_type = $6, updated_at = CURRENT_TIMESTAMP
-  `, [userId, auth.access_token, auth.refresh_token, auth.expires_at, auth.scope, auth.token_type]);
+
+  await client.query(
+    `
+    INSERT INTO spotify_auth (
+      user_id, access_token, refresh_token,
+      access_token_envelope, refresh_token_envelope, token_key_version,
+      expires_at, scope, token_type, refresh_lock_version, updated_at
+    )
+    VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, $7, 0, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id) DO UPDATE SET
+      access_token = NULL,
+      refresh_token = NULL,
+      access_token_envelope = $2,
+      refresh_token_envelope = $3,
+      token_key_version = $4,
+      expires_at = $5,
+      scope = $6,
+      token_type = $7,
+      updated_at = CURRENT_TIMESTAMP
+  `,
+    [
+      userId,
+      accessEnvelope,
+      refreshEnvelope,
+      kid,
+      auth.expires_at,
+      auth.scope,
+      auth.token_type,
+    ]
+  );
+}
+
+/**
+ * Compare-and-swap token refresh write. Returns true if this writer won.
+ */
+export async function setSpotifyAuthCas(
+  auth: SpotifyAuth,
+  userId: string,
+  expectedLockVersion: number
+): Promise<boolean> {
+  const {
+    encryptToken,
+    serializeEnvelope,
+    getTokenVaultWriteKid,
+  } = await import('@/lib/crypto/token-vault');
+
+  const accessEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.access_token,
+      userId,
+      purpose: 'spotify.access',
+    })
+  );
+  const refreshEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.refresh_token,
+      userId,
+      purpose: 'spotify.refresh',
+    })
+  );
+  const kid = getTokenVaultWriteKid();
+  const client = getPool();
+
+  const result = await client.query(
+    `
+    UPDATE spotify_auth SET
+      access_token = NULL,
+      refresh_token = NULL,
+      access_token_envelope = $1,
+      refresh_token_envelope = $2,
+      token_key_version = $3,
+      expires_at = $4,
+      scope = $5,
+      token_type = $6,
+      refresh_lock_version = refresh_lock_version + 1,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = $7 AND refresh_lock_version = $8
+  `,
+    [
+      accessEnvelope,
+      refreshEnvelope,
+      kid,
+      auth.expires_at,
+      auth.scope,
+      auth.token_type,
+      userId,
+      expectedLockVersion,
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function clearSpotifyAuth(userId: string): Promise<void> {
@@ -1141,66 +1339,153 @@ export async function clearSpotifyAuth(userId: string): Promise<void> {
   await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
 }
 
-// OAuth session management
-export async function storeOAuthSession(state: string, codeVerifier: string, userId?: string, username?: string): Promise<void> {
-  const client = getPool();
-  
-  // Check if user_id and username columns exist
-  try {
-    await client.query(`
-      INSERT INTO oauth_sessions (state, code_verifier, user_id, username)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (state) DO UPDATE SET 
-        code_verifier = $2,
-        user_id = $3,
-        username = $4,
-        created_at = CURRENT_TIMESTAMP,
-        expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
-    `, [state, codeVerifier, userId || null, username || null]);
-  } catch (error) {
-    // Fallback for old schema without user_id/username columns
-    await client.query(`
-      INSERT INTO oauth_sessions (state, code_verifier)
-      VALUES ($1, $2)
-      ON CONFLICT (state) DO UPDATE SET 
-        code_verifier = $2, 
-        created_at = CURRENT_TIMESTAMP,
-        expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
-    `, [state, codeVerifier]);
+export async function clearOAuthSessionsForUser(userId: string): Promise<void> {
+  if (!userId) {
+    throw new Error('userId is required for multi-tenant data isolation');
   }
+  const client = getPool();
+  await client.query('DELETE FROM oauth_sessions WHERE user_id = $1', [userId]);
 }
 
-export async function getOAuthSession(state: string): Promise<{ code_verifier: string; username?: string } | null> {
-  const client = getPool();
-  
-  // Try to get username if column exists
-  try {
-    const result = await client.query(`
-      SELECT code_verifier, username FROM oauth_sessions
-      WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
-    `, [state]);
-    
-    if (result.rows.length === 0) return null;
-    return result.rows[0];
-  } catch (error) {
-    // Fallback for old schema
-    const result = await client.query(`
-      SELECT code_verifier FROM oauth_sessions 
-      WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
-    `, [state]);
-    
-    return result.rows[0] || null;
+// OAuth transaction management (PRD-03: hashed state, encrypted verifier, single-use)
+export async function storeOAuthSession(
+  rawState: string,
+  codeVerifier: string,
+  userId?: string,
+  username?: string,
+  redirectId: string = 'admin_spotify'
+): Promise<void> {
+  if (!userId) {
+    throw new Error('userId is required to store Spotify OAuth transaction');
   }
+
+  const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
+  const {
+    encryptToken,
+    serializeEnvelope,
+  } = await import('@/lib/crypto/token-vault');
+
+  const stateHash = hashOAuthState(rawState);
+  const verifierEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: codeVerifier,
+      userId,
+      purpose: 'spotify.pkce',
+      aadExtra: stateHash,
+    })
+  );
+
+  const client = getPool();
+
+  // Invalidate prior unconsumed transactions for this user
+  await client.query(
+    `
+    UPDATE oauth_sessions
+    SET consumed_at = CURRENT_TIMESTAMP
+    WHERE user_id = $1 AND consumed_at IS NULL
+  `,
+    [userId]
+  );
+
+  await client.query(
+    `
+    INSERT INTO oauth_sessions (
+      state, code_verifier, code_verifier_encrypted,
+      user_id, username, redirect_id, created_at, expires_at, consumed_at
+    )
+    VALUES ($1, NULL, $2, $3, $4, $5, CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP + INTERVAL '10 minutes', NULL)
+    ON CONFLICT (state) DO UPDATE SET
+      code_verifier = NULL,
+      code_verifier_encrypted = $2,
+      user_id = $3,
+      username = $4,
+      redirect_id = $5,
+      created_at = CURRENT_TIMESTAMP,
+      expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes',
+      consumed_at = NULL
+  `,
+    [stateHash, verifierEnvelope, userId, username || null, redirectId]
+  );
 }
 
-export async function clearOAuthSession(state: string): Promise<void> {
+/**
+ * Atomically consume a single-use OAuth transaction bound to userId.
+ */
+export async function consumeOAuthTransaction(
+  rawState: string,
+  userId: string
+): Promise<{
+  codeVerifier: string;
+  username: string | null;
+  userId: string | null;
+  redirectId: string;
+} | null> {
+  if (!userId) {
+    throw new Error('userId is required to consume OAuth transaction');
+  }
+
+  const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
+  const { decryptToken } = await import('@/lib/crypto/token-vault');
+  const stateHash = hashOAuthState(rawState);
   const client = getPool();
-  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [state]);
+
+  const result = await client.query(
+    `
+    UPDATE oauth_sessions
+    SET consumed_at = CURRENT_TIMESTAMP
+    WHERE state = $1
+      AND user_id = $2
+      AND expires_at > CURRENT_TIMESTAMP
+      AND consumed_at IS NULL
+    RETURNING *
+  `,
+    [stateHash, userId]
+  );
+  const row = result.rows[0] as OAuthTransactionRow | undefined;
+  if (!row) return null;
+
+  let codeVerifier = '';
+  if (row.code_verifier_encrypted) {
+    if (!row.user_id) return null;
+    codeVerifier = decryptToken(row.code_verifier_encrypted, {
+      userId: row.user_id,
+      purpose: 'spotify.pkce',
+      aadExtra: stateHash,
+    });
+  } else if (row.code_verifier) {
+    // Legacy plaintext verifier dual-read (short-lived rows only)
+    codeVerifier = row.code_verifier;
+  }
+
+  if (!codeVerifier) return null;
+
+  return {
+    codeVerifier,
+    username: row.username,
+    userId: row.user_id,
+    redirectId: row.redirect_id || 'admin_spotify',
+  };
+}
+
+export async function clearOAuthSession(rawState: string): Promise<void> {
+  const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
+  const client = getPool();
+  const stateHash = hashOAuthState(rawState);
+  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [stateHash]);
+  // Also delete legacy rows that stored raw state as PK
+  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [rawState]);
 }
 
 export async function cleanupExpiredOAuthSessions(): Promise<void> {
   const client = getPool();
-  await client.query('DELETE FROM oauth_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
+  await client.query(
+    `
+    DELETE FROM oauth_sessions
+    WHERE expires_at <= CURRENT_TIMESTAMP
+       OR (consumed_at IS NOT NULL AND consumed_at < CURRENT_TIMESTAMP - INTERVAL '1 day')
+  `
+  );
 }
 
 // Event Settings functions (MULTI-TENANT!)

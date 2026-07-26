@@ -310,6 +310,11 @@ export async function DELETE(
       );
     }
 
+    // Explicit credential cleanup before user delete (oauth_sessions may lack CASCADE)
+    const { clearSpotifyAuth, clearOAuthSessionsForUser } = await import('@/lib/db');
+    await clearSpotifyAuth(id);
+    await clearOAuthSessionsForUser(id);
+
     // Delete the user
     await pool.query(
       'DELETE FROM users WHERE id = $1',

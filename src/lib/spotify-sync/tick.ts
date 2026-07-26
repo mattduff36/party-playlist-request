@@ -323,8 +323,13 @@ export async function tickAllActiveParties(
       WHERE EXISTS (
         SELECT 1 FROM spotify_auth sa
         WHERE sa.user_id = u.id
-        AND sa.access_token IS NOT NULL
-        AND sa.refresh_token IS NOT NULL
+        AND (
+          (sa.access_token IS NOT NULL AND sa.refresh_token IS NOT NULL)
+          OR (
+            sa.access_token_envelope IS NOT NULL
+            AND sa.refresh_token_envelope IS NOT NULL
+          )
+        )
       )
       AND e.status IN ('live', 'standby')
       LIMIT 10

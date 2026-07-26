@@ -1,59 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { clearSpotifyAuth } from '@/lib/db';
+import { clearSpotifyAuth, clearOAuthSessionsForUser } from '@/lib/db';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 async function handleDisconnect(req: NextRequest) {
-  console.log('🔌 [spotify/disconnect] Request received');
-  
   try {
-    // Authenticate and get user info
     const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
-      console.log('❌ [spotify/disconnect] Authentication failed');
       return auth.response!;
     }
-    
+
     const userId = auth.user.user_id;
-    console.log(`✅ [spotify/disconnect] User ${auth.user.username} (${userId}) disconnecting Spotify`);
-    
-    console.log('🗑️ [spotify/disconnect] Clearing Spotify authentication from database...');
-    await clearSpotifyAuth(userId); // Multi-tenant: Pass userId to only disconnect this user
-    const { invalidatePlaylistCacheForUser } = await import('@/lib/playlist-cache');
+
+    await clearSpotifyAuth(userId);
+    await clearOAuthSessionsForUser(userId);
+    const { invalidatePlaylistCacheForUser } = await import(
+      '@/lib/playlist-cache'
+    );
     invalidatePlaylistCacheForUser(userId);
-    console.log('✅ [spotify/disconnect] Spotify authentication cleared successfully');
 
-    reportActivity(req, 'spotify.disconnect', `Spotify disconnected for ${auth.user.username}`, {
-      user: auth.user,
-    });
-    
-    const response = {
+    reportActivity(
+      req,
+      'spotify.disconnect',
+      `Spotify disconnected for ${auth.user.username}`,
+      {
+        user: auth.user,
+      }
+    );
+
+    return NextResponse.json({
       success: true,
-      message: 'Spotify account disconnected successfully'
-    };
-    
-    console.log('📤 [spotify/disconnect] Sending success response');
-    return NextResponse.json(response);
-
+      message: 'Spotify account disconnected successfully',
+    });
   } catch (error) {
-    console.error('❌ [spotify/disconnect] Error:', error);
+    console.error('Spotify disconnect error (redacted)');
     reportApiError(req, error, { source: 'spotify' });
-    
+
     if (error instanceof Error && error.message.includes('token')) {
-      return NextResponse.json({ 
-        error: 'Authentication required',
-        details: 'Please log in to continue'
-      }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: 'Authentication required',
+          details: 'Please log in to continue',
+        },
+        { status: 401 }
+      );
     }
-    
-    return NextResponse.json({ 
-      error: 'Failed to disconnect Spotify account',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: 'Failed to disconnect Spotify account',
+      },
+      { status: 500 }
+    );
   }
 }
 
-// Support both POST and DELETE methods for disconnect
 export async function POST(req: NextRequest) {
   return handleDisconnect(req);
 }
