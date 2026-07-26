@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSuperAdmin } from '@/lib/auth';
+import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
+import { emitSecurityAudit } from '@/lib/auth/security-audit';
 import { partySimulator } from '@/lib/party-simulator';
 
 /**
@@ -13,13 +14,19 @@ import { partySimulator } from '@/lib/party-simulator';
  * Manually trigger a single request or burst during an active simulation
  */
 export async function POST(req: NextRequest) {
-  const authResult = await requireSuperAdmin(req);
-  if (!authResult.authorized) {
-    return NextResponse.json(
-      { error: authResult.error || 'Unauthorized' },
-      { status: 401 }
-    );
+  const auth = await requireAuth(req);
+  if (!auth.authenticated || !auth.user) {
+    return auth.response!;
   }
+  const sa = requireSuperAdmin(auth.user);
+  if (!sa.authorized) {
+    return sa.response!;
+  }
+  emitSecurityAudit('auth.superadmin_access', {
+    correlationId: auth.correlationId,
+    userId: auth.user.user_id,
+    meta: { route: '/api/superadmin/party-simulator/trigger' },
+  });
 
   try {
     const body = await req.json();
@@ -53,9 +60,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Manual ${type} triggered successfully`,
-      stats: partySimulator.getStats()
+      stats: partySimulator.getStats(),
     });
-
   } catch (error) {
     console.error('❌ Error triggering manual request:', error);
     return NextResponse.json(
@@ -64,4 +70,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

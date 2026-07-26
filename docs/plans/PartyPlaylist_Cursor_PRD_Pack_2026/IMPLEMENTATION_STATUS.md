@@ -129,6 +129,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - Distributed Redis rate-limit cross-instance proof deferred to environments with Upstash configured (memory backend covered in unit tests).
 - UI `SESSION_REVOKED` redirect helper exists (`handleSessionRevokedResponse`) but is not wired into every admin fetch call site yet.
 - Email-change / privilege-change session rotation not fully enumerated beyond password reset.
+- Legacy `@/lib/auth` `requireSuperAdmin(req)` remains for non-route callers; party-simulator routes now use authoritative middleware guard.
 
 ### Validation notes
 

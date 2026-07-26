@@ -6,12 +6,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { partySimulator } from '@/lib/party-simulator';
-import { requireSuperAdmin } from '@/lib/auth';
+import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
+import { emitSecurityAudit } from '@/lib/auth/security-audit';
 import {
   DEFAULT_SIMULATION_DURATION_MS,
   SIMULATION_DURATION_OPTIONS,
   SimulationDurationMs,
 } from '@/lib/party-simulator-shared';
+
+async function requirePartySimulatorAuth(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (!auth.authenticated || !auth.user) {
+    return { ok: false as const, response: auth.response! };
+  }
+  const sa = requireSuperAdmin(auth.user);
+  if (!sa.authorized) {
+    return { ok: false as const, response: sa.response! };
+  }
+  emitSecurityAudit('auth.superadmin_access', {
+    correlationId: auth.correlationId,
+    userId: auth.user.user_id,
+    meta: { route: '/api/superadmin/party-simulator' },
+  });
+  return { ok: true as const, auth };
+}
 
 /**
  * GET /api/superadmin/party-simulator
@@ -19,14 +37,8 @@ import {
  */
 export async function GET(req: NextRequest) {
   try {
-    // Check superadmin auth
-    const authResult = await requireSuperAdmin(req);
-    if (!authResult.authorized) {
-      return NextResponse.json(
-        { error: authResult.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const gate = await requirePartySimulatorAuth(req);
+    if (!gate.ok) return gate.response;
 
     const stats = partySimulator.getStats();
     return NextResponse.json({ stats });
@@ -46,14 +58,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Check superadmin auth
-    const authResult = await requireSuperAdmin(req);
-    if (!authResult.authorized) {
-      return NextResponse.json(
-        { error: authResult.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const gate = await requirePartySimulatorAuth(req);
+    if (!gate.ok) return gate.response;
 
     const body = await req.json();
     const {
@@ -168,14 +174,8 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    // Check superadmin auth
-    const authResult = await requireSuperAdmin(req);
-    if (!authResult.authorized) {
-      return NextResponse.json(
-        { error: authResult.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const gate = await requirePartySimulatorAuth(req);
+    if (!gate.ok) return gate.response;
 
     partySimulator.stop();
 
