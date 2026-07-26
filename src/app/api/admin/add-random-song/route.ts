@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, initializeDefaults } from '@/lib/db';
+import { createRequest } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted } from '@/lib/pusher';
 import { requireAuth } from '@/middleware/auth';
@@ -82,10 +82,6 @@ export async function POST(req: NextRequest) {
     
     const userId = auth.user.user_id;
     console.log(`✅ [${requestId}] User ${auth.user.username} (${userId}) adding random song`);
-
-    console.log(`⏱️ [${requestId}] Initializing defaults...`);
-    await initializeDefaults();
-    console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
 
     // Select a random song from our list
     const randomQuery = POPULAR_SONGS[Math.floor(Math.random() * POPULAR_SONGS.length)];

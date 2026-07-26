@@ -1,23 +1,62 @@
 import Pusher from 'pusher';
 import PusherClient from 'pusher-js';
 import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
+import {
+  isProductionRuntime,
+  resolveSecretEnv,
+} from '@/lib/security/fail-closed-env';
 
-// Server-side Pusher instance
-export const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID || 'fallback-app-id',
-  key: process.env.PUSHER_KEY || 'fallback-key',
-  secret: process.env.PUSHER_SECRET || 'fallback-secret',
-  cluster: process.env.PUSHER_CLUSTER || 'us2',
-  useTLS: true,
+function createPusherServer(): Pusher {
+  return new Pusher({
+    appId: resolveSecretEnv('PUSHER_APP_ID', {
+      insecureFallbacks: ['fallback-app-id'],
+      devFallback: 'fallback-app-id',
+    }),
+    key: resolveSecretEnv('PUSHER_KEY', {
+      insecureFallbacks: ['fallback-key'],
+      devFallback: 'fallback-key',
+    }),
+    secret: resolveSecretEnv('PUSHER_SECRET', {
+      insecureFallbacks: ['fallback-secret'],
+      devFallback: 'fallback-secret',
+    }),
+    cluster: process.env.PUSHER_CLUSTER?.trim() || 'us2',
+    useTLS: true,
+  });
+}
+
+let pusherServerInstance: Pusher | null = null;
+
+/** Lazy server Pusher — fails closed in production if credentials are missing/fallback. */
+export function getPusherServer(): Pusher {
+  if (!pusherServerInstance) {
+    pusherServerInstance = createPusherServer();
+  }
+  return pusherServerInstance;
+}
+
+/** @deprecated Prefer getPusherServer() — kept for existing imports. */
+export const pusherServer = new Proxy({} as Pusher, {
+  get(_target, prop, receiver) {
+    const instance = getPusherServer();
+    const value = Reflect.get(instance, prop, receiver);
+    return typeof value === 'function' ? value.bind(instance) : value;
+  },
 });
 
 // Client-side Pusher instance (for browser)
 export const createPusherClient = () => {
-  const key = process.env.NEXT_PUBLIC_PUSHER_KEY || 'fallback-key';
-  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'us2';
-  
-  return new PusherClient(key, {
-    cluster: cluster,
+  const key = process.env.NEXT_PUBLIC_PUSHER_KEY?.trim() || '';
+  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER?.trim() || '';
+
+  if (isProductionRuntime() && (!key || key === 'fallback-key')) {
+    throw new Error(
+      'NEXT_PUBLIC_PUSHER_KEY must be configured in production (fail-closed)'
+    );
+  }
+
+  return new PusherClient(key || 'fallback-key', {
+    cluster: cluster || 'us2',
     forceTLS: true,
     authEndpoint: '/api/pusher/auth',
   });
@@ -129,7 +168,7 @@ export const triggerEvent = async (
   data: any
 ) => {
   try {
-    await pusherServer.trigger(channel, event, {
+    await getPusherServer().trigger(channel, event, {
       ...data,
       timestamp: Date.now(),
     });
@@ -224,8 +263,11 @@ export const triggerStatsUpdate = async (stats: any & { userId: string }) => {
   await triggerEvent(userChannel, EVENTS.STATS_UPDATE, stats);
 };
 
-export const triggerTokenExpired = async (data: TokenExpiredEvent) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.TOKEN_EXPIRED, data);
+export const triggerTokenExpired = async (
+  data: TokenExpiredEvent & { userId: string }
+) => {
+  // Tenant-scoped admin channel (usePusher already binds TOKEN_EXPIRED here)
+  await triggerEvent(getAdminChannel(data.userId), EVENTS.TOKEN_EXPIRED, data);
 };
 
 export const triggerAdminLogin = async (data: AdminLoginEvent) => {

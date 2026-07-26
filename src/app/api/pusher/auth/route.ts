@@ -7,15 +7,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Pusher from 'pusher';
+import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 
-// Initialize Pusher server
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.PUSHER_CLUSTER || 'eu',
-  useTLS: true,
-});
+function getPusherAuthServer(): Pusher {
+  return new Pusher({
+    appId: resolveSecretEnv('PUSHER_APP_ID', {
+      insecureFallbacks: ['fallback-app-id', ''],
+      devFallback: '',
+    }),
+    key: resolveSecretEnv('PUSHER_KEY', {
+      insecureFallbacks: ['fallback-key', ''],
+      devFallback: '',
+    }),
+    secret: resolveSecretEnv('PUSHER_SECRET', {
+      insecureFallbacks: ['fallback-secret', ''],
+      devFallback: '',
+    }),
+    cluster: process.env.PUSHER_CLUSTER?.trim() || 'eu',
+    useTLS: true,
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,6 +43,8 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`🔐 [Pusher Auth] Authenticating channel: ${channelName} for socket: ${socketId}`);
+
+    const pusher = getPusherAuthServer();
 
     // For private channels, authenticate without user data
     if (channelName.startsWith('private-')) {

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { tickAllActiveParties } from '@/lib/spotify-sync';
 
@@ -5,23 +6,33 @@ import { tickAllActiveParties } from '@/lib/spotify-sync';
  * Vercel Cron safety floor — once per minute.
  * Primary freshness still comes from display/admin staleness heartbeats (~5s).
  *
- * Auth: Vercel sends `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is set.
+ * Auth (fail-closed): requires exact `Authorization: Bearer ${CRON_SECRET}`.
+ * If CRON_SECRET is unset, always 401 — including production and Vercel Cron.
+ * Production must set CRON_SECRET (name only; never log the value).
  */
-export async function GET(req: NextRequest) {
-  if (process.env.SPOTIFY_MOCK === 'true') {
-    return NextResponse.json({ success: true, mocked: true });
+function authorizeCron(req: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return false;
   }
 
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get('Authorization') || '';
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+  const authHeader = req.headers.get('authorization') || '';
+  const expected = `Bearer ${cronSecret}`;
+  const provided = Buffer.from(authHeader);
+  const required = Buffer.from(expected);
+  if (provided.length !== required.length) {
+    return false;
+  }
+  return timingSafeEqual(provided, required);
+}
 
-  if (cronSecret) {
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  } else if (process.env.NODE_ENV === 'production' && !isVercelCron) {
+export async function GET(req: NextRequest) {
+  if (!authorizeCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (process.env.SPOTIFY_MOCK === 'true') {
+    return NextResponse.json({ success: true, mocked: true });
   }
 
   try {

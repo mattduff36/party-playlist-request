@@ -229,14 +229,19 @@ Create/update display message.
 ```
 
 ### POST `/api/admin/spotify-watcher`
-Start/stop Spotify polling watcher.
+Organiser-authenticated one-shot Spotify sync tick (PRD-01).
+Requires session JWT / `auth_token` cookie. Identity is taken from the session — body `userId` is ignored.
+Multi-tenant cron ticks: `GET /api/cron/spotify-sync` with exact `Authorization: Bearer <CRON_SECRET>` (required; unset/wrong secret → 401 fail-closed).
 
 **Body:**
 ```json
 {
-  "action": "start|stop|status"
+  "action": "check|tick|refresh-queue|stop|status",
+  "force": false
 }
 ```
+
+`action: "start"` returns `410` (global watcher start disabled).
 
 ---
 
@@ -392,20 +397,20 @@ Manually trigger simulation requests.
 ## Monitoring Endpoints
 
 ### GET `/api/monitoring/health`
-System health check.
+Public liveness probe only (PRD-01). Detailed health requires superadmin (dashboard / support health).
 
 **Response:**
 ```json
 {
-  "status": "healthy",
-  "database": "connected",
-  "pusher": "connected",
-  "timestamp": "2025-10-17T12:00:00Z"
+  "status": "ok"
 }
 ```
 
 ### GET `/api/monitoring/metrics`
-System metrics (superadmin only).
+System metrics (superadmin session required).
+
+### GET `/api/monitoring/dashboard`
+Monitoring dashboard payload (superadmin session required).
 
 ---
 
