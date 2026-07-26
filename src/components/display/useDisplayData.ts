@@ -59,6 +59,8 @@ export function useDisplayData({
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
+  const [playbackMode, setPlaybackMode] = useState<'spotify' | 'manual'>('spotify');
+  const [modeLabel, setModeLabel] = useState<string | null>(null);
   /** Gates themed UI until server mood is applied (avoids default `dj` flash). */
   const [moodConfirmed, setMoodConfirmed] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
@@ -99,6 +101,8 @@ export function useDisplayData({
     async (force = false) => {
       // No Spotify heartbeat while the DJ has disabled this display
       if (!displayPageEnabled && !force) return;
+      // Manual mode has no Spotify telemetry — skip heartbeat entirely
+      if (playbackMode === 'manual') return;
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
       lastSyncAttemptAtRef.current = Date.now();
@@ -118,7 +122,7 @@ export function useDisplayData({
         syncInFlightRef.current = false;
       }
     },
-    [username, accessCode, guestAccessCode, displayPageEnabled]
+    [username, accessCode, guestAccessCode, displayPageEnabled, playbackMode]
   );
 
   // Cleanup ResizeObserver on component unmount
@@ -270,6 +274,20 @@ export function useDisplayData({
         }
         setCurrentTrack(data.current_track);
         setUpcomingSongs(data.upcoming_songs || []);
+        if (data.playback_mode === 'manual' || data.playback_mode === 'spotify') {
+          setPlaybackMode(data.playback_mode);
+        } else if (data.event_settings?.playback_mode === 'manual') {
+          setPlaybackMode('manual');
+        }
+        if (typeof data.mode_label === 'string' && data.mode_label.trim()) {
+          setModeLabel(data.mode_label);
+        } else if (data.playback_mode === 'manual') {
+          setModeLabel(
+            'Manual request mode — PartyPlaylist does not control Spotify'
+          );
+        } else {
+          setModeLabel(null);
+        }
         if (data.current_track) {
           markPlaybackFresh();
         }
@@ -481,8 +499,9 @@ export function useDisplayData({
   const liveProgress = useLiveProgress(playbackState, 1000);
 
   // Staleness-gated heartbeat: open displays keep server sync alive (coalesced).
+  // Manual mode skips Spotify playback-sync entirely.
   useEffect(() => {
-    if (!displayPageEnabled) return;
+    if (!displayPageEnabled || playbackMode === 'manual') return;
 
     const staleBudgetMs = Math.min(
       MAX_STALE_MS,
@@ -516,7 +535,7 @@ export function useDisplayData({
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [eventSettings, requestPlaybackSync, displayPageEnabled]);
+  }, [eventSettings, requestPlaybackSync, displayPageEnabled, playbackMode]);
 
   // Callback ref for Now Playing section - sets up ResizeObserver to detect layout changes
   // This is now reactive to isMessageVisible changes (notice board appearing/disappearing)
@@ -656,6 +675,21 @@ export function useDisplayData({
           if (data.upcoming_songs) {
             console.log('📱 Initial load: Loading', data.upcoming_songs.length, 'upcoming songs');
             setUpcomingSongs(data.upcoming_songs);
+          }
+
+          if (data.playback_mode === 'manual' || data.playback_mode === 'spotify') {
+            setPlaybackMode(data.playback_mode);
+          } else if (data.event_settings?.playback_mode === 'manual') {
+            setPlaybackMode('manual');
+          }
+          if (typeof data.mode_label === 'string' && data.mode_label.trim()) {
+            setModeLabel(data.mode_label);
+          } else if (data.playback_mode === 'manual') {
+            setModeLabel(
+              'Manual request mode — PartyPlaylist does not control Spotify'
+            );
+          } else {
+            setModeLabel(null);
           }
         }
 
@@ -936,6 +970,8 @@ export function useDisplayData({
     dynamicDuration,
     messageTextColor,
     spotifyConnected,
+    playbackMode,
+    modeLabel,
     fetchDisplayData,
   };
 }

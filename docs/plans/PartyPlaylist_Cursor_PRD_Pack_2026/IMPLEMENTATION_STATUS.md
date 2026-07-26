@@ -496,7 +496,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | In progress on feature branch (not merged into preview) |
+| Status | FIX_THEN_MERGE blockers addressed on feature branch (not merged into preview) |
 | Branch | `dev/prd-07-playback-manual-mode-20260726` |
 | Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
 | Database impact | **Class B applied** — `009_prd07_playback_provider` after write-free dry-run. Adds `playback_mode`, `manual_now_playing`, provider-neutral request fields, app-owned `queue_position`/`queue_version`; expands `track_uri` to nullable. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
@@ -509,15 +509,24 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | PlaybackProvider capability contract | Done — `src/lib/playback/*` |
 | Spotify adapter wrapping existing service | Done — `SpotifyPlaybackProvider` |
 | Manual request-only provider | Done — no OAuth/Premium/device; text requests |
-| Capability-aware UI / routes | Done — sidebar hides Spotify controls in manual; playback routes 501 when unsupported |
+| Capability-aware UI / routes | Done — sidebar hides Spotify controls in manual; playback routes 501 when unsupported; `play-again` / `previous` gated |
 | App-owned queue reorder | Done — `/api/admin/queue/reorder` via `reorderAppOwnedQueue` (Spotify native still 501) |
 | Event-level mode selection + audit | Done — `/api/admin/playback-mode`; `playback.mode_changed` audit |
-| Manual now-playing + mark played | Done — admin routes |
-| Guest manual form + display label | Done — ManualRequestForm; display-data `playback_mode` / mode label |
-| Provider contract + manual tests | Done — `tests/unit/prd-07-playback-provider.spec.ts` |
+| Manual now-playing + mark played | Done — admin routes + minimal UI (`ManualNowPlayingControls`; request-list Now playing / Mark played) |
+| Guest manual form + display label | Done — ManualRequestForm; display-data `mode_label`; display shows label; skips Spotify `playback-sync` in manual mode |
+| Provider contract + behavioral tests | Done — `prd-07-playback-provider.spec.ts` + `prd-07-playback-behavior.spec.ts` (mode-switch non-destructive, capability 501, VERSION_CONFLICT) |
 | Just-in-time Spotify enqueue on top-of-queue | Deferred — approve still enqueues when `queueAdd` + `add_to_queue` (Spotify path preserved) |
-| Full admin edit/correct metadata UI | Partial — allowlisted update fields; dedicated edit UI deferred |
-| Concurrent reorder version-safe under multi-worker load test | Partial — SQL FOR UPDATE + version check; load script deferred |
+| Full admin edit/correct metadata UI | Partial — allowlisted update fields; dedicated edit/copy UI deferred |
+| Concurrent reorder version-safe under multi-worker load test | Partial — SQL FOR UPDATE + version check + unit conflict coverage; load script deferred |
+
+### FIX_THEN_MERGE follow-up (this commit)
+
+| Blocker | Result |
+| --- | --- |
+| R1 Minimal admin UI for manual now-playing + mark played | Done — capability-aware; hidden when not manual |
+| R2 Gate Spotify-only `play-again` / `previous` → 501 | Done |
+| R3 Display `mode_label` + skip Spotify heartbeat in manual | Done (client + server) |
+| R4 Behavioral unit tests | Done |
 
 ### DB classification
 
@@ -532,11 +541,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - Do not apply Class C/D from prior PRDs.
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
 - Do not merge PRD-07 into preview until programme asks.
+- Do not push this branch until explicitly instructed.
 
 ### Incomplete / follow-ups
 
 - Just-in-time Spotify queue add (prefer over immediate on approve) not defaulted yet.
-- Dedicated organiser UI to edit request metadata / copy artist-title / mark-playing from queue panel (API foundations present).
+- Dedicated organiser UI to edit/correct request metadata and copy artist-title from queue panel.
 - Display reconnect polish for manual now-playing beyond `display-data` / `now-playing` payloads.
 - Full end-to-end Playwright for no-Spotify event flow deferred.
 - Apple Music / YouTube providers remain non-goals.
@@ -545,9 +555,9 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Command | Result |
 | --- | --- |
-| `npm run type-check` | Pass |
+| `npm run type-check` | Pass (FIX_THEN_MERGE pass) |
 | `npm run lint` | Pass (0 errors; warnings remain) |
-| `npm run test:unit` | Pass — 246 tests (incl. PRD-07 contract suite) |
+| `npm run test:unit` | Pass (incl. PRD-07 contract + behavior suites) |
 | `npm run build` | Pass |
 | Merged into preview | No |
 | Pushed | No |

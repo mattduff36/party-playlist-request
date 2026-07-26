@@ -164,4 +164,28 @@ describe('PRD-07: migration + route guardrails', () => {
     expect(source).toMatch(/from '@\/lib\/spotify'/);
     expect(source).toMatch(/implements PlaybackProvider/);
   });
+
+  it('display skips Spotify playback-sync heartbeat in manual mode', () => {
+    const syncRoute = fs.readFileSync(
+      path.join(ROOT, 'src/app/api/public/playback-sync/route.ts'),
+      'utf8'
+    );
+    const displayHook = fs.readFileSync(
+      path.join(ROOT, 'src/components/display/useDisplayData.ts'),
+      'utf8'
+    );
+    expect(syncRoute).toMatch(/getPlaybackMode/);
+    expect(syncRoute).toMatch(/manual_mode/);
+    expect(displayHook).toMatch(/playbackMode === 'manual'/);
+    expect(displayHook).toMatch(/mode_label/);
+  });
+
+  it('admin UI wires manual now-playing + mark-played APIs', () => {
+    const panel = fs.readFileSync(
+      path.join(ROOT, 'src/components/admin/ManualNowPlayingControls.tsx'),
+      'utf8'
+    );
+    expect(panel).toMatch(/\/api\/admin\/manual-now-playing/);
+    expect(panel).toMatch(/\/api\/admin\/requests\/\$\{.*\}\/mark-played/);
+  });
 });

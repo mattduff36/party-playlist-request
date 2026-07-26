@@ -24,6 +24,7 @@ import {
   markSpotifyOAuthPending,
 } from '@/lib/spotify-oauth-client';
 import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
+import ManualNowPlayingControls from '@/components/admin/ManualNowPlayingControls';
 
 interface SidebarSpotifyControlsProps {
   /** sidebar = compact left-rail; page = single combined card for /spotify */
@@ -68,6 +69,7 @@ export default function SidebarSpotifyControls({
   const [showPlaybackControls, setShowPlaybackControls] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
   const [showDevices, setShowDevices] = useState(true);
+  const [showManualNowPlaying, setShowManualNowPlaying] = useState(false);
 
   useEffect(() => {
     return registerConnectionListener(onConnectionChange);
@@ -89,6 +91,12 @@ export default function SidebarSpotifyControls({
           setShowPlaybackControls(Boolean(caps.playbackControls));
           setShowVolume(Boolean(caps.volume));
           setShowDevices(Boolean(caps.deviceSelection));
+          setShowManualNowPlaying(
+            data.mode === 'manual' &&
+              Boolean(caps.nowPlaying || caps.markPlaying)
+          );
+        } else {
+          setShowManualNowPlaying(data.mode === 'manual');
         }
       } catch {
         /* keep Spotify defaults */
@@ -527,12 +535,17 @@ export default function SidebarSpotifyControls({
   if (playbackMode === 'manual') {
     return (
       <div className={shellClass}>
-        <div className="space-y-2 p-3">
-          <p className="text-sm font-semibold text-bone">Manual request mode</p>
-          <p className="text-xs text-muted leading-relaxed">
-            PartyPlaylist is collecting and moderating requests only. It does not
-            play music or control Spotify. Use any separate playback device.
-          </p>
+        <div className={`space-y-3 ${isPage ? '' : 'px-1'}`}>
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-bone">Manual request mode</p>
+            <p className="text-xs text-muted leading-relaxed">
+              PartyPlaylist is collecting and moderating requests only. It does not
+              play music or control Spotify. Use any separate playback device.
+            </p>
+          </div>
+          {showManualNowPlaying ? (
+            <ManualNowPlayingControls compact={!isPage} />
+          ) : null}
         </div>
       </div>
     );
