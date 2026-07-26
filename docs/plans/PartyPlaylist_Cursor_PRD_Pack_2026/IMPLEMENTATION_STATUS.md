@@ -417,7 +417,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Status | In progress on feature branch (not merged into preview) |
 | Branch | `dev/prd-06-distributed-reliability-20260726` |
 | Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
-| Database impact | **Class B migration `007_prd06_reliability` ready** — additive columns/indexes/`provider_operations`. Not auto-applied here; run `db:migrate:canonical` after dry-run. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
+| Database impact | **Class B applied** — `007_prd06_reliability` via `db:migrate:canonical` (stamped in `schema_migrations` at 2026-07-26T21:40:08.704Z). Verified columns/indexes/`provider_operations` via `information_schema`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
 | Depends on | PRD-05 integrated into preview |
 
 ### Outcomes (this pass)
@@ -440,14 +440,14 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Change | Class | Action |
 | --- | --- | --- |
-| `007` ADD COLUMN / CREATE TABLE provider_operations / indexes | B | Ready — apply via `db:migrate:canonical` after backup/dry-run |
+| `007` ADD COLUMN / CREATE TABLE provider_operations / indexes | B | **Applied** on Neon (`schema_migrations.id=007_prd06_reliability`) |
 | Class C secret backfills (PRD-03/04) | C | **STOP** — human |
 | Class D column drops | D | **STOP** — human |
 
 ### Human stops
 
 - Do not apply Class C/D from prior PRDs.
-- Apply Class B `007` only after dry-run inspect against Neon (prefer branch first).
+- Class B `007` applied on Neon after dry-run (backup `snap-odd-dream-abwtma9w`).
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
 
 ### Incomplete / follow-ups
