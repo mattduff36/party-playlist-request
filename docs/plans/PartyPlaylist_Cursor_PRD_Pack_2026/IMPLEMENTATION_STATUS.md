@@ -4,11 +4,16 @@
 
 | Field | Value |
 | --- | --- |
-| Provider | Neon Postgres |
-| Snapshot | `main` at 2026-07-26 19:10:55 UTC (manual) |
-| Identifier | `main@2026-07-26T19:10:55Z (manual)` |
-| Confirmed by human | yes |
-| PITR | confirm in Neon console if needed |
+| Provider | Neon Postgres (project `neon-purple-flower`) |
+| Manual snapshot (human-confirmed) | `main@2026-07-26T19:10:55Z (manual)` |
+| CLI snapshot id | `snap-odd-dream-abwtma9w` |
+| CLI snapshot name | `partyplaylist-pre-prd-program-2026-07-26-2000` |
+| CLI created | `2026-07-26T19:13:35Z` |
+| CLI branch | `main` (`br-shy-math-abig49x1`) |
+| PITR history retention | 24h |
+| Snapshot expiry | none (no expiry on CLI snapshot) |
+| Primary programme backup identifier | Prefer named CLI snapshot `snap-odd-dream-abwtma9w` / `partyplaylist-pre-prd-program-2026-07-26-2000` for later PRDs |
+| Confirmed by human | yes (manual); CLI snapshot verified via Neon CLI |
 | Gate | Class B+ DB writes now permitted subject to classification/approval rules; Class C/D still require explicit human approval |
 | Restore | Neon Console → Backup & restore → restore from snapshot/instant restore per Neon docs; do not execute restore from this doc |
 
