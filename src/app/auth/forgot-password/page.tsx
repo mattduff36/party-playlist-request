@@ -50,10 +50,10 @@ export default function ForgotPasswordPage() {
       setStatus('success');
       setMessage(data.message || 'Password reset email sent!');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Forgot password error:', error);
       setStatus('error');
-      setMessage(error.message || 'Failed to send reset email. Please try again.');
+      setMessage((error instanceof Error ? error.message : String(error)) || 'Failed to send reset email. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

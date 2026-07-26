@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw } from 'lucide-react';
-import { useAdminData } from '@/contexts/AdminDataContext';
+import { useAdminData, type Request } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
 import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
 import QueueTrackCover from '@/components/shared/QueueTrackCover';
@@ -36,7 +36,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [isAddingRandomSong, setIsAddingRandomSong] = useState(false);
-  const [allRequests, setAllRequests] = useState<any[]>([]);
+  const [allRequests, setAllRequests] = useState<Request[]>([]);
   const lastRequestCountRef = useRef(1);
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     // Sort requests
     if (filterStatus === 'all') {
       const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
-      filteredRequests = filteredRequests.sort((a: any, b: any) => {
+      filteredRequests = filteredRequests.sort((a, b) => {
         const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
         const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
         if (aOrder !== bOrder) return aOrder - bOrder;
@@ -84,7 +84,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
         }
       });
     } else if (filterStatus === 'approved') {
-      filteredRequests = filteredRequests.sort((a: any, b: any) => {
+      filteredRequests = filteredRequests.sort((a, b) => {
         return new Date(a.approved_at || a.created_at).getTime() - new Date(b.approved_at || b.created_at).getTime();
       });
     }
@@ -302,7 +302,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
               className="px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="all">All ({requests?.length || 0})</option>

@@ -100,7 +100,7 @@ async function getDeliveryData() {
   return stats;
 }
 
-function calculateTrends(history: any) {
+function calculateTrends(history: Record<string, Array<{ value: number; timestamp?: number | string }>>) {
   const trends: Record<string, 'up' | 'down' | 'stable'> = {};
 
   Object.keys(history).forEach(metric => {
@@ -113,8 +113,8 @@ function calculateTrends(history: any) {
     const firstHalf = data.slice(0, Math.floor(data.length / 2));
     const secondHalf = data.slice(Math.floor(data.length / 2));
 
-    const firstAvg = firstHalf.reduce((sum: number, item: any) => sum + item.value, 0) / firstHalf.length;
-    const secondAvg = secondHalf.reduce((sum: number, item: any) => sum + item.value, 0) / secondHalf.length;
+    const firstAvg = firstHalf.reduce((sum: number, item: { value: number }) => sum + item.value, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((sum: number, item: { value: number }) => sum + item.value, 0) / secondHalf.length;
 
     const change = ((secondAvg - firstAvg) / firstAvg) * 100;
 

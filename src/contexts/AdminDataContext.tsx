@@ -270,7 +270,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       void refreshRequestsRef.current();
       void refreshStatsRef.current();
     },
-    onForceLogout: (data: any) => {
+    onForceLogout: (data) => {
       localStorage.removeItem('admin_token');
       alert(
         data.message ||
@@ -282,7 +282,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       void refreshRequestsRef.current();
       void refreshStatsRef.current();
     },
-    onStatsUpdate: (data: any) => {
+    onStatsUpdate: (data) => {
       setStats((prev) => {
         const next: Stats = {
           total_requests: data.total_requests ?? prev?.total_requests ?? 0,
@@ -305,7 +305,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         setSpotifyConnected(data.spotify_connected);
       }
     },
-    onPlaybackUpdate: (data: any) => {
+    onPlaybackUpdate: (data) => {
       if (confirmedDisconnectedRef.current) {
         return;
       }
@@ -335,15 +335,22 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             next.progress_ms = data.progress_ms;
           }
           if (data.current_track) {
+            const album = data.current_track.album;
+            const albumObj =
+              album && typeof album === 'object' ? album : null;
             next.track_name = data.current_track.name;
-            next.artist_name = formatArtists(data.current_track.artists ?? null);
+            next.artist_name = formatArtists(
+              (data.current_track.artists as string[] | Array<{ name?: string }> | null) ??
+                null
+            );
             next.album_name =
-              data.current_track.album?.name || data.current_track.album || '';
+              typeof album === 'string' ? album : albumObj?.name || '';
             next.duration_ms = data.current_track.duration_ms;
             next.image_url =
-              data.current_track.album?.images?.[1]?.url ||
-              data.current_track.album?.images?.[0]?.url ||
-              data.current_track.image_url;
+              albumObj?.images?.[1]?.url ||
+              albumObj?.images?.[0]?.url ||
+              data.current_track.image_url ||
+              undefined;
             if (data.is_playing !== undefined) {
               next.is_playing = Boolean(data.is_playing);
             }
@@ -352,13 +359,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             next.is_playing = Boolean(data.is_playing);
           }
           if (data.device?.name) {
-            next.device_name = data.device.name;
+            next.device_name = String(data.device.name);
           }
           if (typeof data.device?.volume_percent === 'number') {
             next.volume_percent = data.device.volume_percent;
           }
           if (Array.isArray(data.queue)) {
-            next.queue = data.queue;
+            next.queue = data.queue.map((track): QueueTrack => ({
+              id: track.id,
+              uri: track.uri,
+              name: track.name || '',
+              artists: track.artists as QueueTrack['artists'],
+              image_url: track.image_url,
+              album: track.album as QueueTrack['album'],
+              requester_nickname: track.requester_nickname,
+            }));
           } else if (prev?.queue) {
             next.queue = prev.queue;
           }
@@ -372,12 +387,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     onTokenExpired: () => {
       localStorage.removeItem('admin_token');
     },
-    onSettingsUpdate: (data: { settings?: EventSettings }) => {
+    onSettingsUpdate: (data) => {
       if (data.settings) {
+        const settings = data.settings as unknown as EventSettings;
         setEventSettings((prev) =>
-          JSON.stringify(prev) !== JSON.stringify(data.settings)
-            ? (data.settings as EventSettings)
-            : prev
+          JSON.stringify(prev) !== JSON.stringify(settings) ? settings : prev
         );
       }
     },

@@ -343,8 +343,8 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Quarantine conflicting Drizzle 7→4 | Done — `src/lib/db/_quarantine/drizzle-legacy/`; drizzle npm scripts disabled |
 | Fix poll route to live schema | Done — `getPool` + flat `requests` / `spotify_auth` |
 | Centralise pools (partial) | Done — login + superadmin routes use `getPool()`; multi-pool manager deprecated |
-| CI workflow | Partial — type-check + unit + build hard-fail; lint still `continue-on-error` (~236 `no-explicit-any`) |
-| Remove next.config ignore flags | Partial — `typescript.ignoreBuildErrors` removed; `eslint.ignoreDuringBuilds` remains until lint green |
+| CI workflow | Done — type-check + lint + unit + build hard-fail |
+| Remove next.config ignore flags | Done — `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds` removed |
 | Dry-run write-free | Done — `--dry-run` skips `ensureMigrationsTable` / CREATE |
 | Disable spotify_tokens foot-gun scripts | Done — `db:create-indexes` / `db:create-constraints` (+ analyze/validate/studio) exit 1; sources quarantined |
 | Full repository split | **Deferred** — compatibility `db.ts` + residual `database-service` drizzle event helpers remain |
@@ -370,7 +370,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 ### Incomplete / follow-ups
 
-- **Quality gates not fully accepted:** clear ~236 lint `no-explicit-any` errors (no rule demotion); then hard-fail lint in CI and remove `eslint.ignoreDuringBuilds`. See `docs/database/QUALITY_GATE_DEBT.md`.
+- Quality gates for type-check / lint / unit / build are **accepted** (lint errors cleared; CI lint hard-fail; ignore flags removed). See `docs/database/QUALITY_GATE_DEBT.md` for residual warnings / scoped disables.
 - Rewrite `database-service` off drizzle multi-pool onto `getPool`.
 - Consolidate `neon-client` call sites onto singleton pool (or document exceptional edge use).
 - Fresh-DB integration test in CI with ephemeral Postgres.
@@ -381,9 +381,9 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Command | Result |
 | --- | --- |
 | `npm run type-check` | Pass — 0 errors (CI hard-fail) |
-| `npm run lint` | Fail — ~236 `@typescript-eslint/no-explicit-any` (CI continue-on-error; not acceptance) |
-| `npm run test:unit` | Pass — 213 tests |
-| `npm run build` | Pass (with `eslint.ignoreDuringBuilds`) |
+| `npm run lint` | Pass — 0 errors (CI hard-fail; warnings remain) |
+| `npm run test:unit` | Pass |
+| `npm run build` | Pass (no eslint/ts ignore flags) |
 | Merged into preview | No |
 | Pushed | No |
-| PRD-05 quality-gate acceptance | **Incomplete** — lint hard-gate still open |
+| PRD-05 quality-gate acceptance | **Complete** for type-check + lint + unit + build hard gates |

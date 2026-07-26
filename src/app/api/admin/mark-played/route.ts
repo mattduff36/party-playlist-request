@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       const isMatch = 
         request.track_uri === currentTrack.uri ||
         (request.track_name.toLowerCase() === currentTrack.name.toLowerCase() &&
-         request.artist_name.toLowerCase() === currentTrack.artists.map((a: any) => a.name).join(', ').toLowerCase());
+         request.artist_name.toLowerCase() === currentTrack.artists.map((a: { name: string }) => a.name).join(', ').toLowerCase());
       
       if (isMatch) {
         // Mark as played
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       marked_played: markedCount,
       current_track: {
         name: currentTrack.name,
-        artists: currentTrack.artists.map((a: any) => a.name),
+        artists: currentTrack.artists.map((a: { name: string }) => a.name),
         uri: currentTrack.uri
       }
     });

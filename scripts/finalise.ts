@@ -25,7 +25,7 @@ const DRIZZLE_MIGRATIONS_PREFIX = 'src/lib/db/migrations/';
 
 interface PackageJsonWithVersion {
   version: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface FinaliseOptions {
@@ -945,7 +945,7 @@ async function main(): Promise<void> {
   console.log(`- Push: ${pushedBranch ? `pushed ${pushedBranch}` : 'skipped'}`);
 }
 
-main().catch((error: any) => {
+main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`\nFinalise failed: ${message}`);
   process.exit(1);

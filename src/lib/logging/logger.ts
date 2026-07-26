@@ -20,7 +20,7 @@ export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   error?: Error;
   userId?: string;
   sessionId?: string;
@@ -28,7 +28,7 @@ export interface LogEntry {
   component?: string;
   action?: string;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LoggerConfig {
@@ -88,35 +88,35 @@ export class Logger {
   /**
    * Log a debug message
    */
-  debug(message: string, context?: Record<string, any>): void {
+  debug(message: string, context?: Record<string, unknown>): void {
     this.log(LogLevel.DEBUG, message, context);
   }
 
   /**
    * Log an info message
    */
-  info(message: string, context?: Record<string, any>): void {
+  info(message: string, context?: Record<string, unknown>): void {
     this.log(LogLevel.INFO, message, context);
   }
 
   /**
    * Log a warning message
    */
-  warn(message: string, context?: Record<string, any>): void {
+  warn(message: string, context?: Record<string, unknown>): void {
     this.log(LogLevel.WARN, message, context);
   }
 
   /**
    * Log an error message
    */
-  error(message: string, error?: Error, context?: Record<string, any>): void {
+  error(message: string, error?: Error, context?: Record<string, unknown>): void {
     this.log(LogLevel.ERROR, message, context, error);
   }
 
   /**
    * Log a fatal error message
    */
-  fatal(message: string, error?: Error, context?: Record<string, any>): void {
+  fatal(message: string, error?: Error, context?: Record<string, unknown>): void {
     this.log(LogLevel.FATAL, message, context, error);
   }
 
@@ -126,7 +126,7 @@ export class Logger {
   private log(
     level: LogLevel,
     message: string,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     error?: Error
   ): void {
     if (level < this.config.level) {
@@ -139,7 +139,7 @@ export class Logger {
       message,
       context,
       error,
-      component: context?.component,
+      component: typeof context?.component === 'string' ? context.component : undefined,
       ...this.getTrackingInfo()
     };
 
@@ -376,7 +376,7 @@ export class Logger {
   /**
    * Log performance metrics
    */
-  logPerformance(operation: string, duration: number, context?: Record<string, any>): void {
+  logPerformance(operation: string, duration: number, context?: Record<string, unknown>): void {
     if (this.config.enablePerformance) {
       this.info(`Performance: ${operation}`, {
         operation,
@@ -474,7 +474,7 @@ export class Logger {
   /**
    * Get log statistics
    */
-  getLogStatistics(): Record<string, any> {
+  getLogStatistics(): Record<string, unknown> {
     const stats = {
       totalLogs: this.logBuffer.length,
       levelCounts: {} as Record<string, number>,
@@ -545,8 +545,8 @@ export const logger = new Logger({
 });
 
 // Export convenience functions
-export const debug = (message: string, context?: Record<string, any>) => logger.debug(message, context);
-export const info = (message: string, context?: Record<string, any>) => logger.info(message, context);
-export const warn = (message: string, context?: Record<string, any>) => logger.warn(message, context);
-export const error = (message: string, error?: Error, context?: Record<string, any>) => logger.error(message, error, context);
-export const fatal = (message: string, error?: Error, context?: Record<string, any>) => logger.fatal(message, error, context);
+export const debug = (message: string, context?: Record<string, unknown>) => logger.debug(message, context);
+export const info = (message: string, context?: Record<string, unknown>) => logger.info(message, context);
+export const warn = (message: string, context?: Record<string, unknown>) => logger.warn(message, context);
+export const error = (message: string, error?: Error, context?: Record<string, unknown>) => logger.error(message, error, context);
+export const fatal = (message: string, error?: Error, context?: Record<string, unknown>) => logger.fatal(message, error, context);

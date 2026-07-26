@@ -100,10 +100,10 @@ function ResetPasswordContent() {
         router.push('/login');
       }, 3000);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reset password error:', error);
       setStatus('error');
-      setMessage(error.message || 'Failed to reset password. Please try again.');
+      setMessage((error instanceof Error ? error.message : String(error)) || 'Failed to reset password. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

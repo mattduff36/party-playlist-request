@@ -206,8 +206,8 @@ export class DebugTools {
   /**
    * Get performance metrics
    */
-  getPerformanceMetrics(): Record<string, any> {
-    const metrics: Record<string, any> = {};
+  getPerformanceMetrics(): Record<string, unknown> {
+    const metrics: Record<string, unknown> = {};
 
     // Active timers
     const activeTimers = Array.from(this.performanceTimers.entries()).map(([name, startTime]) => ({
@@ -252,7 +252,7 @@ export class DebugTools {
   /**
    * Get debug information
    */
-  getDebugInfo(): Record<string, any> {
+  getDebugInfo(): Record<string, unknown> {
     return {
       timestamp: new Date().toISOString(),
       userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Node.js',
@@ -348,7 +348,7 @@ export class DebugTools {
       document.body.insertAdjacentHTML('beforeend', panel);
       
       // Make debug tools available globally
-      (window as any).debugTools = this;
+      (window as Window & { debugTools?: unknown }).debugTools = this;
       
       // Update panel content periodically
       setInterval(() => {
@@ -369,7 +369,9 @@ export class DebugTools {
 
       if (performanceEl) {
         const metrics = this.getPerformanceMetrics();
-        performanceEl.textContent = `${metrics.activeTimers?.length || 0} timers`;
+        const activeTimers = metrics.activeTimers;
+        const timerCount = Array.isArray(activeTimers) ? activeTimers.length : 0;
+        performanceEl.textContent = `${timerCount} timers`;
       }
 
       if (memoryEl && this.memorySnapshots.length > 0) {

@@ -159,8 +159,8 @@ export default function PartyTestPage() {
 
         setServerStats(data.stats);
       }
-    } catch (error: any) {
-      setError(`Network error: ${error.message || 'Could not connect to server'}`);
+    } catch (error: unknown) {
+      setError(`Network error: ${(error instanceof Error ? error.message : String(error)) || 'Could not connect to server'}`);
     } finally {
       setLoading(false);
     }
@@ -189,8 +189,8 @@ export default function PartyTestPage() {
 
         setServerStats(data.stats);
       }
-    } catch (error: any) {
-      setError(error.message || 'Network error');
+    } catch (error: unknown) {
+      setError((error instanceof Error ? error.message : String(error)) || 'Network error');
     } finally {
       setLoading(false);
     }
@@ -219,8 +219,8 @@ export default function PartyTestPage() {
         // Stats will update via polling
         await fetchStats();
       }
-    } catch (error: any) {
-      setError(error.message || 'Network error');
+    } catch (error: unknown) {
+      setError((error instanceof Error ? error.message : String(error)) || 'Network error');
     } finally {
       setManualTriggerLoading(false);
     }
@@ -249,8 +249,8 @@ export default function PartyTestPage() {
         // Stats will update via polling
         await fetchStats();
       }
-    } catch (error: any) {
-      setError(error.message || 'Network error');
+    } catch (error: unknown) {
+      setError((error instanceof Error ? error.message : String(error)) || 'Network error');
     } finally {
       setManualTriggerLoading(false);
     }

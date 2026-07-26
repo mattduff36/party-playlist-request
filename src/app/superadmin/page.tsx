@@ -116,7 +116,7 @@ export default function SuperAdminPage() {
     setFormLoading(true);
 
     try {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         email: formData.email,
         is_super_admin: formData.is_super_admin
       };

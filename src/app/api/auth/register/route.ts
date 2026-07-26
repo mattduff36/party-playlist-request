@@ -195,18 +195,19 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error creating user:', error);
     
     // Handle unique constraint violations
-    if (error.code === '23505') {
-      if (error.message.includes('username')) {
+    const pgError = error as { code?: string; message?: string };
+    if (pgError.code === '23505') {
+      if ((pgError.message || '').includes('username')) {
         return NextResponse.json(
           { error: 'Username is already taken' },
           { status: 409 }
         );
       }
-      if (error.message.includes('email')) {
+      if ((pgError.message || '').includes('email')) {
         return NextResponse.json(
           { error: 'Email address is already registered' },
           { status: 409 }

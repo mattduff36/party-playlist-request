@@ -143,7 +143,7 @@ export function serializeEnvelope(envelope: TokenEnvelopeV1): string {
 }
 
 export function parseEnvelope(raw: string): TokenEnvelopeV1 {
-  let parsed: any;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {

@@ -6,13 +6,14 @@
  */
 
 import { startupLog } from '@/lib/logging/startup';
+import type { Alert } from '@/lib/monitoring/metrics';
 
 export interface AlertChannel {
   id: string;
   name: string;
   type: 'email' | 'slack' | 'webhook' | 'console' | 'in_app';
   enabled: boolean;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export interface AlertTemplate {
@@ -67,15 +68,7 @@ class AlertingSystem {
   /**
    * Send an alert through all enabled channels
    */
-  async sendAlert(alert: {
-    id: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    message: string;
-    metric: string;
-    value: number;
-    threshold: number;
-    timestamp: number;
-  }) {
+  async sendAlert(alert: Alert) {
     const template = this.getTemplateForSeverity(alert.severity);
     
     for (const channel of this.channels.values()) {
@@ -166,14 +159,16 @@ class AlertingSystem {
     const channel = this.channels.get(channelId);
     if (!channel) return false;
 
-    const testAlert = {
+    const testAlert: Alert = {
       id: 'test_alert',
-      severity: 'low' as const,
+      ruleId: 'test_rule',
+      severity: 'low',
       message: 'Test alert from monitoring system',
       metric: 'test_metric',
       value: 0,
       threshold: 0,
       timestamp: Date.now(),
+      resolved: false,
     };
 
     const template = this.getTemplateForSeverity('low');
@@ -201,7 +196,7 @@ class AlertingSystem {
 
   private async deliverAlert(
     delivery: AlertDelivery,
-    alert: any,
+    alert: Alert,
     template: AlertTemplate,
     channel: AlertChannel
   ) {
@@ -272,7 +267,7 @@ class AlertingSystem {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  private async sendWebhook(channel: AlertChannel, data: any) {
+  private async sendWebhook(channel: AlertChannel, data: Record<string, unknown>) {
     const { config } = channel;
     
     // In a real implementation, you would make an HTTP request
@@ -282,7 +277,7 @@ class AlertingSystem {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  private sendConsole(alert: any, subject: string, body: string) {
+  private sendConsole(alert: Alert, subject: string, body: string) {
     const severity = alert.severity.toUpperCase();
     const emoji = this.getSeverityEmoji(alert.severity);
     
@@ -293,7 +288,7 @@ class AlertingSystem {
     console.log(`📝 Details: ${body}\n`);
   }
 
-  private async sendInApp(channel: AlertChannel, alert: any, subject: string, body: string) {
+  private async sendInApp(channel: AlertChannel, alert: Alert, subject: string, body: string) {
     // In a real implementation, you would store this in a database
     // and notify connected clients via WebSocket or Server-Sent Events
     console.log(`📱 IN-APP ALERT: ${subject}`);
@@ -303,7 +298,7 @@ class AlertingSystem {
     await new Promise(resolve => setTimeout(resolve, 50));
   }
 
-  private renderTemplate(template: string, data: any): string {
+  private renderTemplate(template: string, data: Alert): string {
     return template
       .replace(/\{\{severity\}\}/g, data.severity)
       .replace(/\{\{message\}\}/g, data.message)
@@ -353,14 +348,16 @@ class AlertingSystem {
       }
 
       // Get the original alert (in a real implementation, you'd fetch this from storage)
-      const alert = {
+      const alert: Alert = {
         id: delivery.alertId,
-        severity: 'medium' as const,
+        ruleId: 'retry',
+        severity: 'medium',
         message: 'Retry alert',
         metric: 'test',
         value: 0,
         threshold: 0,
         timestamp: Date.now(),
+        resolved: false,
       };
 
       const template = this.getTemplateForSeverity('medium');

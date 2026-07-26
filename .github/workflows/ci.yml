@@ -32,11 +32,7 @@ jobs:
         run: npm run type-check
 
       - name: Lint
-        # Still fails on pre-existing @typescript-eslint/no-explicit-any debt.
-        # Do NOT demote that rule to warn — clear the debt, then remove continue-on-error.
-        # See docs/database/QUALITY_GATE_DEBT.md.
         run: npm run lint
-        continue-on-error: true
 
       - name: Unit tests
         run: npm run test:unit

@@ -14,7 +14,7 @@ import {
 } from './lease';
 
 /** Process-local queue cache (optional); fingerprint/lease live in Neon. */
-const lastQueueStates = new Map<string, any[]>();
+const lastQueueStates = new Map<string, Array<Record<string, unknown>>>();
 const lastQueueChecks = new Map<string, number>();
 const lastStatsStates = new Map<string, unknown>();
 let lastStatsUpdate = 0;
@@ -148,7 +148,7 @@ export async function tickUserPlayback(
       trackChanged ||
       now - userLastQueueCheck >= effectiveQueueInterval;
 
-    let queue: { queue?: any[] } | null = null;
+    let queue: { queue?: Array<Record<string, unknown>> } | null = null;
     if (shouldCheckQueue) {
       if (trackChanged && currentPlayback?.item?.uri) {
         await autoMarkPlayed(userId, username, currentPlayback.item.uri);
@@ -156,7 +156,7 @@ export async function tickUserPlayback(
       queue = await spotifyService.getQueue(userId).catch(() => null);
       lastQueueChecks.set(userId, now);
       if (queue?.queue) {
-        lastQueueStates.set(userId, queue.queue as any[]);
+        lastQueueStates.set(userId, queue.queue);
       }
     } else {
       queue = userLastQueue ? { queue: userLastQueue } : null;
@@ -188,7 +188,7 @@ export async function tickUserPlayback(
 
       const enhancedQueue = (queue?.queue || userLastQueue || []).map(
         (track: unknown) => {
-          const trackRecord = (track ?? {}) as Record<string, any>;
+          const trackRecord = (track ?? {}) as Record<string, unknown>;
           const matchingRequest = userApprovedRequests.find(
             (req) => req.track_uri === trackRecord.uri
           );

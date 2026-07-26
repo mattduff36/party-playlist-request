@@ -227,7 +227,7 @@ export const useEventManager = (options: UseEventManagerOptions = {}): UseEventM
 export const useEventHandler = <T extends PusherEvent>(
   action: T['action'],
   handler: EventHandler<T>,
-  deps: any[] = []
+  deps: unknown[] = []
 ) => {
   const { addEventHandler, removeEventHandler } = useEventManager();
 

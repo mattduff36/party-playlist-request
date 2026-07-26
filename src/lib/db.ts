@@ -979,7 +979,7 @@ export async function updateRequest(
   const setClause = keys
     .map((key, index) => `${key} = $${index + 2}`)
     .join(', ');
-  const values: any[] = [id, ...keys.map((key) => (updates as Record<string, any>)[key]), userId];
+  const values: unknown[] = [id, ...keys.map((key) => (updates as Record<string, unknown>)[key]), userId];
 
   const result = await client.query(
     `UPDATE requests SET ${setClause}

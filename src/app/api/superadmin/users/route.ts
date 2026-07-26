@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       FROM users
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramCount = 0;
 
     // Hide durable seed fixtures from User Management UI
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     const result = await pool.query(query, params);
 
     // Transform the results to match frontend expectations
-    const users = result.rows.map((user: any) => ({
+    const users = result.rows.map((user: Record<string, unknown>) => ({
       id: user.id,
       username: user.username,
       email: user.email,
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
 
     // Get total count (same seed exclusion so pagination stays correct)
     let countQuery = 'SELECT COUNT(*) FROM users WHERE 1=1';
-    const countParams: any[] = [];
+    const countParams: unknown[] = [];
     let countParamCount = 0;
 
     countParamCount++;

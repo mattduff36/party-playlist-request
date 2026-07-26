@@ -66,12 +66,12 @@ export const pusherServer = new Proxy({} as Pusher, {
 });
 
 export interface PlaybackUpdateEvent {
-  current_track: any;
-  queue: any[];
+  current_track: import('@/lib/pusher/client-shared').PlaybackTrackPayload | null;
+  queue: import('@/lib/pusher/client-shared').PlaybackTrackPayload[];
   is_playing: boolean;
   progress_ms: number;
   timestamp: number;
-  device?: any;
+  device?: Record<string, unknown>;
 }
 
 export interface TokenExpiredEvent {
@@ -104,7 +104,7 @@ export const CHANNELS = {
 export const triggerEvent = async (
   channel: string,
   event: string,
-  data: any
+  data: object
 ) => {
   try {
     // Strip obviously sensitive keys before publish (PRD-04 minimise payloads)
@@ -132,15 +132,15 @@ export const triggerEvent = async (
 
 // Specific event triggers (USER-SPECIFIC + event guest dual-publish)
 export const triggerRequestApproved = async (data: RequestApprovedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_APPROVED, data as any as Record<string, any>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_APPROVED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerRequestRejected = async (data: RequestRejectedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_REJECTED, data as any as Record<string, any>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_REJECTED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerRequestDeleted = async (data: RequestDeletedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_DELETED, data as any as Record<string, any>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_DELETED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerRequestsCleanup = async (userId: string) => {
@@ -157,7 +157,7 @@ export const triggerRequestsCleanup = async (userId: string) => {
 };
 
 export const triggerRequestSubmitted = async (data: RequestSubmittedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_SUBMITTED, data as any as Record<string, any>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_SUBMITTED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId: string }) => {
@@ -175,7 +175,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
       artists: data.current_track.artists?.slice(0, 2).map(compactArtist) || [],
       album: data.current_track.album ? {
         name: data.current_track.album.name?.substring(0, 100) || '',
-        images: data.current_track.album.images?.slice(0, 1).map((img: any) => ({
+        images: data.current_track.album.images?.slice(0, 1).map((img: { url?: string; width?: number; height?: number }) => ({
           url: img.url,
           width: img.width,
           height: img.height
@@ -185,7 +185,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
       duration_ms: data.current_track.duration_ms
     } : null,
     // Single image_url per track (~90B) — no full album.images arrays / extra Spotify calls
-    queue: data.queue?.slice(0, 10).map((track: any) => ({
+    queue: data.queue?.slice(0, 10).map((track) => ({
       id: track.id,
       name: track.name?.substring(0, 100) || '', // Truncate long names
       artists: track.artists?.slice(0, 2).map(compactArtist) || [],
@@ -202,11 +202,11 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
   await dualPublishUserAndGuest(
     data.userId,
     EVENTS.PLAYBACK_UPDATE,
-    compactData as Record<string, any>
+    compactData as Record<string, unknown>
   );
 };
 
-export const triggerStatsUpdate = async (stats: any & { userId: string }) => {
+export const triggerStatsUpdate = async (stats: import('@/lib/pusher/client-shared').StatsUpdatePayload & { userId: string }) => {
   const userChannel = getAdminChannel(stats.userId);
   await triggerEvent(userChannel, EVENTS.STATS_UPDATE, stats);
 };
@@ -215,15 +215,15 @@ export const triggerTokenExpired = async (
   data: TokenExpiredEvent & { userId: string }
 ) => {
   // Tenant-scoped admin channel (usePusher already binds TOKEN_EXPIRED here)
-  await triggerEvent(getAdminChannel(data.userId), EVENTS.TOKEN_EXPIRED, data);
+  await triggerEvent(getAdminChannel(data.userId), EVENTS.TOKEN_EXPIRED, data as object);
 };
 
 export const triggerAdminLogin = async (data: AdminLoginEvent) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGIN, data);
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGIN, data as object);
 };
 
 export const triggerAdminLogout = async (data: AdminLogoutEvent) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGOUT, data);
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGOUT, data as object);
 };
 
 // State update event interface
@@ -248,7 +248,7 @@ export const triggerStateUpdate = async (data: StateUpdateEvent) => {
   await dualPublishUserAndGuest(
     data.userId,
     EVENTS.STATE_UPDATE,
-    data as any as Record<string, any>
+    data as unknown as Record<string, unknown>
   );
 };
 
@@ -269,7 +269,7 @@ export const triggerPageControlUpdate = async (data: PageControlUpdateEvent) => 
   await dualPublishUserAndGuest(
     data.userId,
     EVENTS.PAGE_CONTROL_TOGGLE,
-    data as any as Record<string, any>
+    data as unknown as Record<string, unknown>
   );
 };
 

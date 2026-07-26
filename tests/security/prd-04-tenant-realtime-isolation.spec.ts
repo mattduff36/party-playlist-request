@@ -45,7 +45,7 @@ jest.mock('@/lib/security/fail-closed-env', () => ({
 
 jest.mock('pusher', () => {
   return jest.fn().mockImplementation(() => ({
-    authorizeChannel: jest.fn((_socket: string, channel: string, presence?: any) => ({
+    authorizeChannel: jest.fn((_socket: string, channel: string, presence?: Record<string, unknown>) => ({
       auth: `test-auth:${channel}`,
       channel_data: presence ? JSON.stringify(presence) : undefined,
     })),

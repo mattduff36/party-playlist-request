@@ -14,7 +14,7 @@ interface PlaybackState {
   device_name?: string;
   volume_percent?: number;
   spotify_connected: boolean;
-  queue?: any[];
+  queue?: Array<Record<string, unknown>>;
   timestamp: number;
 }
 

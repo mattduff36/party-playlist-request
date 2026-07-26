@@ -187,7 +187,7 @@ export default function StateControlPanel({ className = '' }: StateControlPanelP
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null && 'error' in error) {
-        errorMessage = (error as any).error;
+        errorMessage = String((error as { error: unknown }).error);
       }
       
       actions?.setError?.(errorMessage);

@@ -43,12 +43,12 @@ export function actorRoleFromUser(user?: JWTPayload | null): SupportActorRole {
 
 export function reportApiError(
   req: NextRequest,
-  error: any,
+  error: unknown,
   options?: {
     user?: JWTPayload | null;
     eventId?: string | null;
     source?: 'api' | 'spotify' | 'db' | 'pusher' | 'unknown';
-    meta?: Record<string, any>;
+    meta?: Record<string, unknown>;
   }
 ): void {
   const err = error instanceof Error ? error : new Error(String(error));
@@ -93,7 +93,7 @@ export function reportActivity(
     eventId?: string | null;
     userId?: string | null;
     username?: string | null;
-    meta?: Record<string, any>;
+    meta?: Record<string, unknown>;
   }
 ): void {
   logActivityAsync({

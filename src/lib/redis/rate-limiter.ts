@@ -13,7 +13,7 @@ export interface RateLimitConfig {
   maxRequests: number; // Maximum requests per window
   skipSuccessfulRequests?: boolean; // Skip rate limiting for successful requests
   skipFailedRequests?: boolean; // Skip rate limiting for failed requests
-  keyGenerator?: (req: any) => string; // Custom key generator
+  keyGenerator?: (req: { headers?: Headers | Record<string, string | string[] | undefined>; ip?: string }) => string; // Custom key generator
 }
 
 export interface RateLimitResult {

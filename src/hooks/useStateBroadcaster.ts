@@ -125,8 +125,8 @@ export const useStateBroadcaster = ({
 
   // Broadcast event config change
   const broadcastEventConfigChange = useCallback(async (
-    oldConfig: any,
-    newConfig: any,
+    oldConfig: unknown,
+    newConfig: unknown,
     source: 'user' | 'system' | 'admin' = 'system'
   ) => {
     if (!broadcaster.current || !isInitialized.current) return;
@@ -222,7 +222,7 @@ export const useStateBroadcaster = ({
   // Broadcast user action
   const broadcastUserAction = useCallback(async (
     action: string,
-    data: any,
+    data: Record<string, unknown>,
     source: 'user' | 'system' | 'admin' = 'user'
   ) => {
     if (!broadcaster.current || !isInitialized.current) return;
@@ -252,7 +252,7 @@ export const useStateBroadcaster = ({
   // Broadcast system event
   const broadcastSystemEvent = useCallback(async (
     event: string,
-    data: any,
+    data: Record<string, unknown>,
     source: 'user' | 'system' | 'admin' = 'system'
   ) => {
     if (!broadcaster.current || !isInitialized.current) return;
@@ -282,7 +282,7 @@ export const useStateBroadcaster = ({
   // Broadcast admin action
   const broadcastAdminAction = useCallback(async (
     action: string,
-    data: any,
+    data: Record<string, unknown>,
     source: 'user' | 'system' | 'admin' = 'admin'
   ) => {
     if (!broadcaster.current || !isInitialized.current) return;

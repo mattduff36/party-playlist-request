@@ -7,7 +7,7 @@ const queryMock = jest.fn();
 
 jest.mock('pg', () => ({
   Pool: jest.fn().mockImplementation(() => ({
-    query: (...args: any[]) => queryMock(...args),
+    query: (...args: unknown[]) => queryMock(...args),
     end: jest.fn(),
     on: jest.fn(),
   })),
@@ -143,7 +143,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
       ],
     });
 
-    let caught: any;
+    let caught: unknown;
     try {
       await getSpotifyAuth('user-1');
     } catch (err) {

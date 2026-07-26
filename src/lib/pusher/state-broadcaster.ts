@@ -21,11 +21,11 @@ export type StateChangeType =
 // State change payload
 export interface StateChangePayload {
   type: StateChangeType;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   timestamp: number;
   source: 'user' | 'system' | 'admin';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Broadcasting configuration
@@ -116,8 +116,8 @@ export class StateBroadcaster {
 
   // Broadcast event config change
   async broadcastEventConfigChange(
-    oldConfig: any,
-    newConfig: any,
+    oldConfig: unknown,
+    newConfig: unknown,
     source: 'user' | 'system' | 'admin' = 'system'
   ): Promise<void> {
     if (!this.config.enableStateBroadcasting || !this.eventId) return;
@@ -189,7 +189,7 @@ export class StateBroadcaster {
   // Broadcast user action
   async broadcastUserAction(
     action: string,
-    data: any,
+    data: Record<string, unknown>,
     source: 'user' | 'system' | 'admin' = 'user'
   ): Promise<void> {
     if (!this.config.enableUserActionBroadcasting || !this.eventId) return;
@@ -212,7 +212,7 @@ export class StateBroadcaster {
   // Broadcast system event
   async broadcastSystemEvent(
     event: string,
-    data: any,
+    data: Record<string, unknown>,
     source: 'user' | 'system' | 'admin' = 'system'
   ): Promise<void> {
     if (!this.config.enableSystemEventBroadcasting || !this.eventId) return;
@@ -236,7 +236,7 @@ export class StateBroadcaster {
   // Broadcast admin action
   async broadcastAdminAction(
     action: string,
-    data: any,
+    data: Record<string, unknown>,
     source: 'user' | 'system' | 'admin' = 'admin'
   ): Promise<void> {
     if (!this.config.enableAdminActionBroadcasting || !this.eventId) return;

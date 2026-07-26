@@ -10,12 +10,22 @@ import {
   RequestDeletedEvent,
   getUserChannel,
   getAdminChannel,
+  type PlaybackUpdatePayload,
+  type StatsUpdatePayload,
+  type PageControlTogglePayload,
+  type MessageUpdatePayload,
+  type TokenExpiredPayload,
+  type AdminLoginPayload,
+  type AdminLogoutPayload,
+  type ForceLogoutPayload,
+  type RequestsCleanupPayload,
+  type SettingsUpdatePayload,
 } from '@/lib/pusher/client-shared';
 import {
   getDisplayEventChannel,
   getGuestEventChannel,
 } from '@/lib/pusher/channel-contract';
-import type { Channel } from 'pusher-js';
+import type { Channel, default as PusherClient } from 'pusher-js';
 
 interface UsePusherOptions {
   username?: string; // Optional username for public pages (display/request pages)
@@ -26,17 +36,17 @@ interface UsePusherOptions {
   onRequestRejected?: (data: RequestRejectedEvent) => void;
   onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
   onRequestDeleted?: (data: RequestDeletedEvent) => void;
-  onPlaybackUpdate?: (data: any) => void;
-  onStatsUpdate?: (data: any) => void;
-  onPageControlToggle?: (data: any) => void;
-  onMessageUpdate?: (data: any) => void;
-  onMessageCleared?: (data: any) => void;
-  onTokenExpired?: (data: any) => void;
-  onAdminLogin?: (data: any) => void;
-  onAdminLogout?: (data: any) => void;
-  onSettingsUpdate?: (data: any) => void;
-  onForceLogout?: (data: any) => void;
-  onRequestsCleanup?: (data: any) => void;
+  onPlaybackUpdate?: (data: PlaybackUpdatePayload) => void;
+  onStatsUpdate?: (data: StatsUpdatePayload) => void;
+  onPageControlToggle?: (data: PageControlTogglePayload) => void;
+  onMessageUpdate?: (data: MessageUpdatePayload) => void;
+  onMessageCleared?: (data: MessageUpdatePayload) => void;
+  onTokenExpired?: (data: TokenExpiredPayload) => void;
+  onAdminLogin?: (data: AdminLoginPayload) => void;
+  onAdminLogout?: (data: AdminLogoutPayload) => void;
+  onSettingsUpdate?: (data: SettingsUpdatePayload) => void;
+  onForceLogout?: (data: ForceLogoutPayload) => void;
+  onRequestsCleanup?: (data: RequestsCleanupPayload) => void;
 }
 
 type PusherScope =
@@ -48,7 +58,7 @@ export const usePusher = (options: UsePusherOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<string>('initializing');
   const [scope, setScope] = useState<PusherScope | null>(null);
-  const pusherRef = useRef<any>(null);
+  const pusherRef = useRef<PusherClient | null>(null);
   const userChannelRef = useRef<Channel | null>(null);
   const adminChannelRef = useRef<Channel | null>(null);
   const optionsRef = useRef(options);
@@ -194,25 +204,25 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       channel.bind(EVENTS.REQUEST_DELETED, (data: RequestDeletedEvent) => {
         optionsRef.current.onRequestDeleted?.(data);
       });
-      channel.bind(EVENTS.PLAYBACK_UPDATE, (data: any) => {
+      channel.bind(EVENTS.PLAYBACK_UPDATE, (data: PlaybackUpdatePayload) => {
         optionsRef.current.onPlaybackUpdate?.(data);
       });
-      channel.bind(EVENTS.PAGE_CONTROL_TOGGLE, (data: any) => {
+      channel.bind(EVENTS.PAGE_CONTROL_TOGGLE, (data: PageControlTogglePayload) => {
         optionsRef.current.onPageControlToggle?.(data);
       });
-      channel.bind('message-update', (data: any) => {
+      channel.bind('message-update', (data: MessageUpdatePayload) => {
         optionsRef.current.onMessageUpdate?.(data);
       });
-      channel.bind('message-cleared', (data: any) => {
+      channel.bind('message-cleared', (data: MessageUpdatePayload) => {
         optionsRef.current.onMessageCleared?.(data);
       });
-      channel.bind('settings-update', (data: any) => {
+      channel.bind('settings-update', (data: SettingsUpdatePayload) => {
         optionsRef.current.onSettingsUpdate?.(data);
       });
-      channel.bind(EVENTS.STATE_UPDATE, (data: any) => {
+      channel.bind(EVENTS.STATE_UPDATE, (data: PageControlTogglePayload) => {
         optionsRef.current.onPageControlToggle?.(data);
       });
-      channel.bind(EVENTS.REQUESTS_CLEANUP, (data: any) => {
+      channel.bind(EVENTS.REQUESTS_CLEANUP, (data: RequestsCleanupPayload) => {
         optionsRef.current.onRequestsCleanup?.(data);
       });
     };
@@ -225,22 +235,22 @@ export const usePusher = (options: UsePusherOptions = {}) => {
       const adminChan = pusher.subscribe(adminChannelName);
       adminChannelRef.current = adminChan;
 
-      adminChan.bind(EVENTS.STATS_UPDATE, (data: any) => {
+      adminChan.bind(EVENTS.STATS_UPDATE, (data: StatsUpdatePayload) => {
         optionsRef.current.onStatsUpdate?.(data);
       });
-      adminChan.bind(EVENTS.TOKEN_EXPIRED, (data: any) => {
+      adminChan.bind(EVENTS.TOKEN_EXPIRED, (data: TokenExpiredPayload) => {
         optionsRef.current.onTokenExpired?.(data);
       });
-      adminChan.bind(EVENTS.ADMIN_LOGIN, (data: any) => {
+      adminChan.bind(EVENTS.ADMIN_LOGIN, (data: AdminLoginPayload) => {
         optionsRef.current.onAdminLogin?.(data);
       });
-      adminChan.bind(EVENTS.ADMIN_LOGOUT, (data: any) => {
+      adminChan.bind(EVENTS.ADMIN_LOGOUT, (data: AdminLogoutPayload) => {
         optionsRef.current.onAdminLogout?.(data);
       });
-      adminChan.bind(EVENTS.FORCE_LOGOUT, (data: any) => {
+      adminChan.bind(EVENTS.FORCE_LOGOUT, (data: ForceLogoutPayload) => {
         optionsRef.current.onForceLogout?.(data);
       });
-      adminChan.bind(EVENTS.REQUESTS_CLEANUP, (data: any) => {
+      adminChan.bind(EVENTS.REQUESTS_CLEANUP, (data: RequestsCleanupPayload) => {
         optionsRef.current.onRequestsCleanup?.(data);
       });
     }

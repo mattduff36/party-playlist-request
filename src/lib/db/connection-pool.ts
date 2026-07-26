@@ -352,7 +352,7 @@ export function getPool(poolType: PoolType = PoolType.READ_WRITE): Pool {
   return getConnectionPoolManager().getPool(poolType);
 }
 
-export function getDrizzle(poolType: PoolType = PoolType.READ_WRITE): any {
+export function getDrizzle(poolType: PoolType = PoolType.READ_WRITE): DrizzleDB {
   return getConnectionPoolManager().getDrizzle(poolType);
 }
 

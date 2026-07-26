@@ -96,11 +96,19 @@ describe('PRD-05: no request-time DDL in hot paths', () => {
 });
 
 describe('PRD-05: quality gate flags', () => {
-  it('removes typescript.ignoreBuildErrors; eslint ignore remains until lint debt cleared', () => {
+  it('removes typescript.ignoreBuildErrors and eslint.ignoreDuringBuilds', () => {
     const config = fs.readFileSync(path.join(ROOT, 'next.config.ts'), 'utf8');
     expect(config).not.toMatch(/ignoreBuildErrors:\s*true/);
-    // Lint not green yet — see docs/database/QUALITY_GATE_DEBT.md
-    expect(config).toMatch(/ignoreDuringBuilds:\s*true/);
+    expect(config).not.toMatch(/ignoreDuringBuilds:\s*true/);
+    const ci = fs.readFileSync(
+      path.join(ROOT, '.github/workflows/ci.yml'),
+      'utf8'
+    );
+    // Lint step must hard-fail (no continue-on-error on the lint job step)
+    expect(ci).toMatch(/name:\s*Lint[\s\S]*?run:\s*npm run lint/);
+    expect(ci).not.toMatch(
+      /name:\s*Lint[\s\S]*?continue-on-error:\s*true/
+    );
     expect(
       fs.existsSync(path.join(ROOT, 'docs/database/QUALITY_GATE_DEBT.md'))
     ).toBe(true);

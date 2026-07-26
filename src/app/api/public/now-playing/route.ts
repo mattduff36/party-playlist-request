@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       nowPlaying: {
         track_name: playback.item.name,
-        artist_name: playback.item.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
+        artist_name: playback.item.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown',
         album_name: playback.item.album?.name || 'Unknown Album',
         duration_ms: playback.item.duration_ms || 0,
         progress_ms: playback.progress_ms || 0,

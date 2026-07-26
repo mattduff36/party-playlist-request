@@ -7,7 +7,7 @@ import { getPool } from '@/lib/db';
 
 export interface CacheEntry {
   key: string;
-  value: any;
+  value: unknown;
   expires_at: Date;
   created_at: Date;
 }
@@ -18,7 +18,7 @@ export class DatabaseCache {
   /**
    * Get a value from cache
    */
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     try {
       const result = await getPool().query(
         `
@@ -51,7 +51,7 @@ export class DatabaseCache {
   /**
    * Set a value in cache with TTL
    */
-  async set(key: string, value: any, ttlSeconds: number = 3600): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds: number = 3600): Promise<void> {
     try {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
       const serializedValue = JSON.stringify(value);

@@ -92,7 +92,7 @@ const DEFAULT_CONFIG: PusherClientConfig = {
 export class CentralizedPusherClient {
   private client: PusherClient | null = null;
   private eventId: string | null = null;
-  private channel: any = null;
+  private channel: import('pusher-js').Channel | null = null;
   private handlers: EventHandlers = {};
   private connectionState: ConnectionState = 'initializing';
   private reconnectAttempts = 0;
@@ -207,7 +207,7 @@ export class CentralizedPusherClient {
     this.channel = this.client.subscribe(channelName);
 
     // Bind to the unified event handler
-    this.channel.bind('event', (data: any) => {
+    this.channel.bind('event', (data: unknown) => {
       this.handleEvent(data);
     });
 
@@ -215,7 +215,7 @@ export class CentralizedPusherClient {
   }
 
   // Handle incoming events
-  private handleEvent(data: any): void {
+  private handleEvent(data: unknown): void {
     try {
       // Validate event
       if (!isValidEvent(data)) {

@@ -49,7 +49,7 @@ interface HealthCheck {
   message: string;
   timestamp: number;
   responseTime?: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 interface SystemHealth {

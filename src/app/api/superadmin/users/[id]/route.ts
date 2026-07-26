@@ -120,7 +120,7 @@ export async function PUT(
 
     // Build update query dynamically
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramCount = 0;
 
     if (email !== undefined) {

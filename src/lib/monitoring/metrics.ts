@@ -15,7 +15,7 @@ export interface MetricData {
   value: number;
   timestamp: number;
   tags?: Record<string, string>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SystemMetrics {

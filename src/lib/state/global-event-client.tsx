@@ -19,6 +19,18 @@ import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 // Event State Machine Types
 export type EventState = 'offline' | 'standby' | 'live';
 
+export interface EventConfig {
+  pages_enabled: {
+    requests: boolean;
+    display: boolean;
+  };
+  event_title: string;
+  dj_name: string;
+  max_requests: number;
+  request_limit: number;
+  auto_approve: boolean;
+}
+
 export interface GlobalEventState {
   // Core state
   status: EventState;
@@ -36,17 +48,7 @@ export interface GlobalEventState {
   };
   
   // Event configuration
-  config: {
-    pages_enabled: {
-      requests: boolean;
-      display: boolean;
-    };
-    event_title: string;
-    dj_name: string;
-    max_requests: number;
-    request_limit: number;
-    auto_approve: boolean;
-  };
+  config: EventConfig;
   
   // Connection state
   isConnected: boolean;
@@ -63,7 +65,7 @@ export type GlobalEventAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_CONNECTION'; payload: boolean }
   | { type: 'SET_EVENT_STATE'; payload: Partial<GlobalEventState> }
-  | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: any; adminId?: string; adminName?: string; pin?: string; bypassToken?: string } }
+  | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: EventConfig; adminId?: string; adminName?: string; pin?: string; bypassToken?: string } }
   | { type: 'RESET_STATE' };
 
 // Get or create default event ID
@@ -224,7 +226,7 @@ export interface GlobalEventActions {
   // Event management
   updateEventStatus: (status: EventState) => Promise<void>;
   setEventStatus: (status: EventState) => Promise<void>; // Alias for updateEventStatus
-  updateEventConfig: (config: Partial<any>) => Promise<void>;
+  updateEventConfig: (config: Partial<EventConfig>) => Promise<void>;
   enablePages: (pages: { requests?: boolean; display?: boolean }) => Promise<void>;
   disablePages: () => Promise<void>;
   setPageEnabled: (page: 'requests' | 'display', enabled: boolean) => Promise<void>;
@@ -331,7 +333,7 @@ function createActions(
     },
     
     
-    updateEventConfig: async (config: Partial<any>) => {
+    updateEventConfig: async (config: Partial<EventConfig>) => {
       try {
         dispatch({ type: 'SET_UPDATING', payload: true });
         dispatch({ type: 'SET_ERROR', payload: null });
@@ -718,12 +720,12 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
 
         channelInstance = pusherInstance.subscribe(channelName);
 
-        channelInstance.bind('state-update', (data: Record<string, any>) => {
+        channelInstance.bind('state-update', (data: Record<string, unknown>) => {
           console.log(
             '📡 [GlobalEventProvider] Received state-update via Pusher:',
             data
           );
-          const dataConfig = (data.config || {}) as Record<string, any>;
+          const dataConfig = (data.config || {}) as Record<string, unknown>;
           dispatch({
             type: 'UPDATE_EVENT',
             payload: {
@@ -732,10 +734,12 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
               config: {
                 ...stateRef.current.config,
                 ...dataConfig,
-                pages_enabled:
-                  data.pagesEnabled ||
+                pages_enabled: (data.pagesEnabled ||
                   dataConfig.pages_enabled ||
-                  stateRef.current.pagesEnabled,
+                  stateRef.current.pagesEnabled) as {
+                  requests: boolean;
+                  display: boolean;
+                },
               },
             },
           });
@@ -823,7 +827,7 @@ export function getGlobalEventActions() {
       // This would be implemented on the server side
       console.log('Server-side updateEventStatus called with:', status);
     },
-    updateEventConfig: async (config: Partial<any>) => {
+    updateEventConfig: async (config: Partial<EventConfig>) => {
       // This would be implemented on the server side
       console.log('Server-side updateEventConfig called with:', config);
     },

@@ -7,8 +7,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+interface SpotifyQueueItem {
+  id?: string;
+  uri?: string;
+  name?: string;
+  artists?: Array<{ name?: string } | string>;
+  album?: { name?: string } | string;
+  duration_ms?: number;
+  explicit?: boolean;
+  external_urls?: Record<string, string>;
+  currently_playing?: SpotifyQueueItem | null;
+  queue?: SpotifyQueueItem[];
+  item?: SpotifyQueueItem | null;
+  is_playing?: boolean;
+  progress_ms?: number;
+  shuffle_state?: boolean;
+  repeat_state?: string;
+  device?: { name?: string; is_active?: boolean; [key: string]: unknown };
+  devices?: Array<{ is_active?: boolean; name?: string }>;
+}
+
 function mapSpotifyTrackToCurrent(
-  item: any,
+  item: SpotifyQueueItem | null | undefined,
   extras?: { progress_ms?: number; is_playing?: boolean }
 ) {
   if (!item) return null;
@@ -17,10 +37,10 @@ function mapSpotifyTrackToCurrent(
     id: item.id,
     uri: item.uri,
     name: item.name,
-    artists: (item.artists || []).map((artist: any) =>
+    artists: (item.artists || []).map((artist) =>
       typeof artist === 'string' ? artist : artist.name
     ),
-    album: item.album?.name || item.album || '',
+    album: typeof item.album === 'string' ? item.album : item.album?.name || '',
     duration_ms: item.duration_ms,
     explicit: item.explicit,
     external_urls: item.external_urls,
@@ -86,8 +106,8 @@ export async function GET(req: NextRequest) {
     console.log(`🎵 [${requestId}] Fetching Spotify playback and queue data...`);
     const spotifyCallStart = Date.now();
 
-    let playbackState: any = null;
-    let queueData: any = null;
+    let playbackState: SpotifyQueueItem | null = null;
+    let queueData: SpotifyQueueItem | null = null;
     const spotifyErrors: string[] = [];
 
     console.log(`🎵 [${requestId}] Calling getCurrentPlayback(${userId})...`);
@@ -176,21 +196,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let queueItems: any[] = [];
+    let queueItems: ReturnType<typeof mapSpotifyTrackToCurrent>[] = [];
     if (queueData?.queue) {
-      queueItems = queueData.queue.slice(0, 10).map((item: any) => {
-        return {
-          id: item.id,
-          uri: item.uri,
-          name: item.name,
-          artists: item.artists.map((artist: any) => artist.name),
-          album: item.album.name,
-          duration_ms: item.duration_ms,
-          explicit: item.explicit,
-          external_urls: item.external_urls,
-          image_url: getTrackAlbumImageUrl(item) || null,
-        };
-      });
+      queueItems = queueData.queue.slice(0, 10).map((item) =>
+        mapSpotifyTrackToCurrent(item)
+      );
     }
 
     // Best-effort device when player payload was empty.
@@ -205,7 +215,7 @@ export async function GET(req: NextRequest) {
     if (!device && !alreadyRateLimited) {
       try {
         const devicesData = await spotifyService.getAvailableDevices(userId);
-        const active = devicesData?.devices?.find((d: any) => d.is_active);
+        const active = devicesData?.devices?.find((d: { is_active?: boolean }) => d.is_active);
         device = active || devicesData?.devices?.[0] || null;
       } catch {
         // best-effort only
