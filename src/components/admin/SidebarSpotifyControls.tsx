@@ -368,10 +368,10 @@ export default function SidebarSpotifyControls({
     </div>
   );
 
-  // ~2 device rows visible; 3+ scrolls. Heights match sidebar/page row padding.
+  // ~3 device rows visible; 4+ scrolls. Heights match sidebar/page skeleton rows (h-8 / h-10) + space-y-1.5 gaps.
   const deviceListClass = isPage
-    ? 'space-y-1.5 max-h-[5.5rem] overflow-y-auto overscroll-contain pr-0.5'
-    : 'space-y-1.5 max-h-[4.5rem] overflow-y-auto overscroll-contain pr-0.5';
+    ? 'space-y-1.5 max-h-[8.25rem] overflow-y-auto overscroll-contain pr-0.5'
+    : 'space-y-1.5 max-h-[6.75rem] overflow-y-auto overscroll-contain pr-0.5';
 
   const devicesBlock = (
     <div>
@@ -536,7 +536,7 @@ export default function SidebarSpotifyControls({
 
       {connected && !isPage && (
         // Fixed-height sidebar stack keeps transport stable while track/devices change.
-        <div className="flex flex-col gap-4 min-h-[20rem]">
+        <div className="flex flex-col gap-4 min-h-[22.25rem]">
           <div className="h-14 shrink-0 flex items-center justify-center">
             {transportBlock}
           </div>
@@ -544,7 +544,7 @@ export default function SidebarSpotifyControls({
             {nowPlayingBlock}
           </div>
           <div className="shrink-0">{volumeBlock}</div>
-          <div className="min-h-[4.5rem] shrink-0">{devicesBlock}</div>
+          <div className="min-h-[6.75rem] shrink-0">{devicesBlock}</div>
           <div className="shrink-0 mt-auto">{sidebarConnectedRow}</div>
         </div>
       )}

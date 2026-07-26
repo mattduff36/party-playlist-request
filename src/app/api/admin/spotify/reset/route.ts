@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
     const userId = auth.user.user_id;
     console.log(`🔄 [spotify/reset] User ${auth.user.username} (${userId}) resetting Spotify connection`);
     
-    // Properly revoke tokens with Spotify before clearing from database
+    // Clear this user's Spotify auth only (never fall back to another tenant)
     const { spotifyService } = await import('@/lib/spotify');
-    await spotifyService.revokeTokens();
-    
-    // Clear user's Spotify auth from database
+    await spotifyService.revokeTokens(userId);
+
+    // revokeTokens already clears DB + playlist cache; keep explicit clear for safety
     await clearSpotifyAuth(userId);
     
     console.log(`✅ Spotify connection reset completed for user ${userId}`);

@@ -74,6 +74,7 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
     try {
       const response = await fetch('/api/spotify/playlists', {
         credentials: 'include',
+        cache: 'no-store',
       });
       const data = await response.json();
 
@@ -101,6 +102,7 @@ export function PlaylistBrowser({ isConnected }: PlaylistBrowserProps) {
     try {
       const response = await fetch(`/api/spotify/playlists/${playlist.id}/tracks`, {
         credentials: 'include',
+        cache: 'no-store',
       });
       const data = await response.json();
 

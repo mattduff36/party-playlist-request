@@ -1061,16 +1061,16 @@ export async function updateAdminLastLogin(username: string): Promise<void> {
 }
 
 // Spotify auth operations
-export async function getSpotifyAuth(userId?: string): Promise<SpotifyAuth | null> {
-  const client = getPool();
-  
-  if (userId) {
-    const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [userId]);
-    return result.rows[0] || null;
+export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null> {
+  if (!userId || !userId.trim()) {
+    // Never fall back to another tenant's tokens (previously: SELECT … LIMIT 1).
+    throw new Error('userId is required for multi-tenant Spotify auth isolation');
   }
-  
-  // Fallback for single-tenant compatibility (shouldn't be used in multi-tenant)
-  const result = await client.query('SELECT * FROM spotify_auth LIMIT 1');
+
+  const client = getPool();
+  const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [
+    userId.trim(),
+  ]);
   return result.rows[0] || null;
 }
 

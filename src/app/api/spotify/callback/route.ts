@@ -148,6 +148,10 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    // Drop any prior playlist list cached under this DJ (old Spotify account)
+    const { invalidatePlaylistCacheForUser } = await import('@/lib/playlist-cache');
+    invalidatePlaylistCacheForUser(userId);
+
     console.log('✅ Spotify authentication complete - ready for API calls');
     
     return NextResponse.json({

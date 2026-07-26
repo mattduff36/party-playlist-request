@@ -109,12 +109,20 @@ class SpotifyService {
     });
   }
 
+  private requireUserId(userId: string | undefined, action: string): string {
+    if (!userId || !userId.trim()) {
+      throw new Error(`userId is required for ${action} (multi-tenant isolation)`);
+    }
+    return userId.trim();
+  }
+
   async isConnected(userId?: string): Promise<boolean> {
     if (isSpotifyMockEnabled()) {
       return true;
     }
     try {
-      const auth = await getSpotifyAuth(userId);
+      const scopedUserId = this.requireUserId(userId, 'isConnected');
+      const auth = await getSpotifyAuth(scopedUserId);
       return !!(auth && auth.access_token && auth.refresh_token);
     } catch (error) {
       return false;
@@ -126,7 +134,8 @@ class SpotifyService {
       return true;
     }
     try {
-      const auth = await getSpotifyAuth(userId);
+      const scopedUserId = this.requireUserId(userId, 'isConnectedAndValid');
+      const auth = await getSpotifyAuth(scopedUserId);
       if (!auth || !auth.access_token || !auth.refresh_token) {
         return false;
       }
@@ -135,7 +144,7 @@ class SpotifyService {
       if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
         spotifyDebug('Access token expired, attempting refresh...');
         try {
-          await this.refreshAccessToken(userId || auth.user_id);
+          await this.refreshAccessToken(scopedUserId);
           return true;
         } catch (refreshError) {
           // Error is already logged in refreshAccessToken, just return false
@@ -150,23 +159,27 @@ class SpotifyService {
     }
   }
 
-  async clearTokens(): Promise<void> {
+  async clearTokens(userId: string): Promise<void> {
     try {
+      const scopedUserId = this.requireUserId(userId, 'clearTokens');
       const { clearSpotifyAuth } = await import('./db');
-      await clearSpotifyAuth();
-      spotifyDebug('✅ Spotify tokens cleared from database');
+      await clearSpotifyAuth(scopedUserId);
+      const { invalidatePlaylistCacheForUser } = await import('./playlist-cache');
+      invalidatePlaylistCacheForUser(scopedUserId);
+      spotifyDebug(`✅ Spotify tokens cleared from database for user ${scopedUserId}`);
     } catch (error) {
       console.error('Error clearing Spotify tokens:', error);
     }
   }
 
-  async revokeTokens(): Promise<void> {
+  async revokeTokens(userId: string): Promise<void> {
+    const scopedUserId = this.requireUserId(userId, 'revokeTokens');
     try {
       const { getSpotifyAuth, clearSpotifyAuth } = await import('./db');
-      const auth = await getSpotifyAuth();
+      const auth = await getSpotifyAuth(scopedUserId);
       
       if (!auth?.access_token) {
-        spotifyDebug('No Spotify tokens to revoke');
+        spotifyDebug(`No Spotify tokens to revoke for user ${scopedUserId}`);
         return;
       }
 
@@ -177,15 +190,19 @@ class SpotifyService {
       // This forces the user to re-authenticate when they try to connect again
       
       // Clear tokens from our database immediately
-      await clearSpotifyAuth();
-      spotifyDebug('✅ Spotify tokens cleared from database - user will need to re-authenticate');
+      await clearSpotifyAuth(scopedUserId);
+      const { invalidatePlaylistCacheForUser } = await import('./playlist-cache');
+      invalidatePlaylistCacheForUser(scopedUserId);
+      spotifyDebug(`✅ Spotify tokens cleared from database for user ${scopedUserId}`);
       
     } catch (error) {
       console.error('Error clearing Spotify tokens:', error);
       // Still try to clear from database
       try {
         const { clearSpotifyAuth } = await import('./db');
-        await clearSpotifyAuth();
+        await clearSpotifyAuth(scopedUserId);
+        const { invalidatePlaylistCacheForUser } = await import('./playlist-cache');
+        invalidatePlaylistCacheForUser(scopedUserId);
         spotifyDebug('⚠️ Error occurred, but cleared tokens from database');
       } catch (clearError) {
         console.error('Failed to clear tokens from database:', clearError);
@@ -293,38 +310,37 @@ class SpotifyService {
   }
 
   async getAccessToken(userId?: string): Promise<string> {
-    spotifyDebug(`🔑 Getting Spotify access token${userId ? ` for user ${userId}` : ''}...`);
+    const scopedUserId = this.requireUserId(userId, 'getAccessToken');
+    spotifyDebug(`🔑 Getting Spotify access token for user ${scopedUserId}...`);
     const startTime = Date.now();
     
-    const auth = await getSpotifyAuth(userId);
+    const auth = await getSpotifyAuth(scopedUserId);
     spotifyDebug(`🔑 Auth data retrieved (${Date.now() - startTime}ms)`);
     
     if (!auth || !auth.access_token) {
-      throw new Error(`No Spotify authentication found${userId ? ` for user ${userId}` : ''}`);
+      throw new Error(`No Spotify authentication found for user ${scopedUserId}`);
     }
 
     // Check if token is expired
     if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
       spotifyDebug('🔄 Access token expired, refreshing...');
-      return await this.refreshAccessToken(userId);
+      return await this.refreshAccessToken(scopedUserId);
     }
 
     return auth.access_token;
   }
 
   async refreshAccessToken(userId?: string): Promise<string> {
-    const auth = await getSpotifyAuth(userId);
+    const scopedUserId = this.requireUserId(userId, 'refreshAccessToken');
+    const auth = await getSpotifyAuth(scopedUserId);
     if (!auth || !auth.refresh_token) {
-      throw new Error(`No refresh token available${userId ? ` for user ${userId}` : ''}`);
-    }
-    
-    if (!userId && auth.user_id) {
-      userId = auth.user_id;
+      throw new Error(`No refresh token available for user ${scopedUserId}`);
     }
 
     try {
       const response = await fetch(`${this.authURL}/api/token`, {
         method: 'POST',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
@@ -363,12 +379,9 @@ class SpotifyService {
         refresh_token: tokenData.refresh_token || auth.refresh_token
       };
 
-      if (!userId) {
-        throw new Error('userId is required for setSpotifyAuth');
-      }
-      await setSpotifyAuth(updatedAuth, userId);
+      await setSpotifyAuth(updatedAuth, scopedUserId);
       
-      spotifyDebug(`✅ Access token refreshed for user ${userId}`);
+      spotifyDebug(`✅ Access token refreshed for user ${scopedUserId}`);
       
       return tokenData.access_token;
     } catch (error) {
@@ -423,18 +436,20 @@ class SpotifyService {
 
   async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, userId?: string, retries = 1): Promise<any> {
     const requestId = Math.random().toString(36).substr(2, 6);
+    const scopedUserId = this.requireUserId(userId, `Spotify ${method} ${endpoint}`);
+    userId = scopedUserId;
     const startTime = Date.now();
-    spotifyDebug(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint}${userId ? ` (user: ${userId})` : ''} (retries left: ${retries})`);
+    spotifyDebug(`🌐 [${requestId}] Making Spotify API request: ${method} ${endpoint} (user: ${scopedUserId}) (retries left: ${retries})`);
 
     // Short-circuit while Spotify has rate-limited this user
-    this.assertNotRateLimited(userId);
+    this.assertNotRateLimited(scopedUserId);
     
     // Always use real Spotify API
     
     let accessToken: string;
     try {
       const tokenStart = Date.now();
-      accessToken = await this.getAccessToken(userId);
+      accessToken = await this.getAccessToken(scopedUserId);
       spotifyDebug(`🔑 [${requestId}] Access token obtained (${Date.now() - tokenStart}ms)`);
     } catch (tokenError) {
       console.error(`❌ [${requestId}] Failed to get access token:`, (tokenError as Error).message);
@@ -444,6 +459,8 @@ class SpotifyService {
     const url = `${this.baseURL}${endpoint}`;
     const options: RequestInit = {
       method,
+      // Never let Next.js / intermediaries reuse another tenant's Spotify JSON
+      cache: 'no-store',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -840,6 +857,7 @@ class SpotifyService {
    * (and playlist-read-collaborative for collaborative playlists).
    */
   async getUserPlaylists(userId?: string, options?: { maxPlaylists?: number }): Promise<SpotifyPlaylist[]> {
+    const scopedUserId = this.requireUserId(userId, 'getUserPlaylists');
     const pageLimit = 50;
     const maxPlaylists = options?.maxPlaylists ?? 200;
     const playlists: SpotifyPlaylist[] = [];
@@ -851,7 +869,7 @@ class SpotifyService {
         'GET',
         `/me/playlists?limit=${limit}&offset=${offset}`,
         undefined,
-        userId
+        scopedUserId
       );
 
       const items = Array.isArray(data?.items) ? data.items : [];
@@ -1050,7 +1068,8 @@ class SpotifyService {
     required: readonly string[],
     userId?: string
   ): Promise<boolean> {
-    const auth = await getSpotifyAuth(userId);
+    const scopedUserId = this.requireUserId(userId, 'hasGrantedScopes');
+    const auth = await getSpotifyAuth(scopedUserId);
     if (!auth?.scope) return false;
     const granted = new Set(auth.scope.split(/[\s,]+/).filter(Boolean));
     return required.every((scope) => granted.has(scope));

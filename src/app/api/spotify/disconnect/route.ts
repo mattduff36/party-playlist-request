@@ -19,6 +19,8 @@ async function handleDisconnect(req: NextRequest) {
     
     console.log('🗑️ [spotify/disconnect] Clearing Spotify authentication from database...');
     await clearSpotifyAuth(userId); // Multi-tenant: Pass userId to only disconnect this user
+    const { invalidatePlaylistCacheForUser } = await import('@/lib/playlist-cache');
+    invalidatePlaylistCacheForUser(userId);
     console.log('✅ [spotify/disconnect] Spotify authentication cleared successfully');
 
     reportActivity(req, 'spotify.disconnect', `Spotify disconnected for ${auth.user.username}`, {

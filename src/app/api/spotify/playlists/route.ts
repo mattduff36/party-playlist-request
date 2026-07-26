@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import {
+  buildPlaylistCacheKey,
+  getCachedPlaylists,
+  setCachedPlaylists,
+} from '@/lib/playlist-cache';
+import {
   SPOTIFY_LIKED_SONGS_ID,
   spotifyService,
   type SpotifyPlaylist,
 } from '@/lib/spotify';
+
+/** Never statically cache authenticated playlist responses. */
+export const dynamic = 'force-dynamic';
 
 function parseSpotifyStatus(error: unknown): number | null {
   if (!(error instanceof Error)) return null;
@@ -18,41 +26,93 @@ function parseSpotifyStatus(error: unknown): number | null {
   return null;
 }
 
+interface PlaylistsPayload {
+  connected: boolean;
+  playlists: SpotifyPlaylist[];
+  needs_reconnect: boolean;
+  spotify_user_id?: string | null;
+  error?: string;
+  code?: string;
+}
+
+function withNoStore(response: NextResponse): NextResponse {
+  response.headers.set(
+    'Cache-Control',
+    'private, no-store, no-cache, must-revalidate, max-age=0'
+  );
+  response.headers.set('CDN-Cache-Control', 'private, no-store');
+  response.headers.set('Vary', 'Cookie, Authorization');
+  response.headers.set('Pragma', 'no-cache');
+  return response;
+}
+
 /** List Spotify playlists for browse + queue (read-only). */
 export async function GET(req: NextRequest) {
   try {
     const auth = requireAuth(req);
     if (!auth.authenticated || !auth.user) {
-      return auth.response!;
+      return withNoStore(auth.response!);
     }
 
     const userId = auth.user.user_id;
+    if (!userId) {
+      return withNoStore(
+        NextResponse.json(
+          { error: 'Authenticated session is missing user id', code: 'NO_USER_ID' },
+          { status: 401 }
+        )
+      );
+    }
 
     const isConnected = await spotifyService.isConnected(userId);
     if (!isConnected) {
-      return NextResponse.json({
-        connected: false,
-        playlists: [],
-        needs_reconnect: false,
-      });
+      return withNoStore(
+        NextResponse.json({
+          connected: false,
+          playlists: [],
+          needs_reconnect: false,
+          spotify_user_id: null,
+        } satisfies PlaylistsPayload)
+      );
     }
 
     const hasReadScopes = await spotifyService.hasPlaylistReadScopes(userId);
     if (!hasReadScopes) {
-      return NextResponse.json(
-        {
-          connected: true,
-          playlists: [],
-          needs_reconnect: true,
-          error:
-            'Spotify needs to be reconnected to grant playlist read access. Disconnect and connect again.',
-          code: 'MISSING_PLAYLIST_SCOPES',
-        },
-        { status: 403 }
+      return withNoStore(
+        NextResponse.json(
+          {
+            connected: true,
+            playlists: [],
+            needs_reconnect: true,
+            spotify_user_id: null,
+            error:
+              'Spotify needs to be reconnected to grant playlist read access. Disconnect and connect again.',
+            code: 'MISSING_PLAYLIST_SCOPES',
+          } satisfies PlaylistsPayload,
+          { status: 403 }
+        )
       );
     }
 
     try {
+      // Resolve Spotify account id first so the cache key is tenant + Spotify scoped
+      let spotifyUserId: string | null = null;
+      try {
+        const profile = await spotifyService.getUserProfile(userId);
+        spotifyUserId =
+          typeof profile?.id === 'string' && profile.id.trim()
+            ? profile.id.trim()
+            : null;
+      } catch (profileError) {
+        console.warn('Could not load Spotify profile id for playlist cache key:', profileError);
+      }
+
+      const cacheKey = buildPlaylistCacheKey(userId, spotifyUserId);
+      const cached = getCachedPlaylists<PlaylistsPayload>(cacheKey);
+      if (cached) {
+        return withNoStore(NextResponse.json(cached));
+      }
+
       const playlists = await spotifyService.getUserPlaylists(userId);
 
       // Liked Songs always pinned first (saved tracks via GET /me/tracks)
@@ -74,67 +134,85 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({
+      const payload: PlaylistsPayload = {
         connected: true,
         playlists: [liked, ...playlists],
         needs_reconnect: false,
-      });
+        spotify_user_id: spotifyUserId,
+      };
+      setCachedPlaylists(cacheKey, payload);
+
+      return withNoStore(NextResponse.json(payload));
     } catch (error) {
       const status = parseSpotifyStatus(error) ?? 500;
       console.error('Error fetching Spotify playlists:', error);
 
       if (status === 401) {
-        return NextResponse.json(
-          {
-            connected: false,
-            playlists: [],
-            needs_reconnect: true,
-            error: 'Spotify session expired. Please reconnect Spotify.',
-            code: 'SPOTIFY_UNAUTHORIZED',
-          },
-          { status: 401 }
+        return withNoStore(
+          NextResponse.json(
+            {
+              connected: false,
+              playlists: [],
+              needs_reconnect: true,
+              spotify_user_id: null,
+              error: 'Spotify session expired. Please reconnect Spotify.',
+              code: 'SPOTIFY_UNAUTHORIZED',
+            } satisfies PlaylistsPayload,
+            { status: 401 }
+          )
         );
       }
 
       if (status === 403) {
-        return NextResponse.json(
-          {
-            connected: true,
-            playlists: [],
-            needs_reconnect: true,
-            error:
-              'Spotify denied playlist access. Disconnect and reconnect Spotify to grant playlist permissions.',
-            code: 'SPOTIFY_FORBIDDEN',
-          },
-          { status: 403 }
+        return withNoStore(
+          NextResponse.json(
+            {
+              connected: true,
+              playlists: [],
+              needs_reconnect: true,
+              spotify_user_id: null,
+              error:
+                'Spotify denied playlist access. Disconnect and reconnect Spotify to grant playlist permissions.',
+              code: 'SPOTIFY_FORBIDDEN',
+            } satisfies PlaylistsPayload,
+            { status: 403 }
+          )
         );
       }
 
       if (status === 429) {
-        return NextResponse.json(
+        return withNoStore(
+          NextResponse.json(
+            {
+              connected: true,
+              playlists: [],
+              needs_reconnect: false,
+              spotify_user_id: null,
+              error: 'Spotify is rate limiting playlist requests. Try again in a moment.',
+              code: 'SPOTIFY_RATE_LIMITED',
+            } satisfies PlaylistsPayload,
+            { status: 429 }
+          )
+        );
+      }
+
+      return withNoStore(
+        NextResponse.json(
           {
             connected: true,
             playlists: [],
             needs_reconnect: false,
-            error: 'Spotify is rate limiting playlist requests. Try again in a moment.',
-            code: 'SPOTIFY_RATE_LIMITED',
-          },
-          { status: 429 }
-        );
-      }
-
-      return NextResponse.json(
-        {
-          connected: true,
-          playlists: [],
-          needs_reconnect: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch playlists',
-        },
-        { status: 500 }
+            spotify_user_id: null,
+            error: error instanceof Error ? error.message : 'Failed to fetch playlists',
+          } satisfies PlaylistsPayload,
+          { status: 500 }
+        )
       );
     }
   } catch (error) {
     console.error('Error in /api/spotify/playlists:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return withNoStore(
+      NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    );
   }
 }
