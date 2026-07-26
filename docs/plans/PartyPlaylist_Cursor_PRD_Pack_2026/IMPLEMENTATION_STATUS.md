@@ -243,11 +243,13 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-04-tenant-realtime-isolation-20260726` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (base; do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `04081bf` (source tip `5885dbb`) |
 | Database impact | **Class B applied** to Neon (`add_prd04_token_hash_columns.sql`). Backup: `snap-odd-dream-abwtma9w`. **Class C:** backfill hashes from plaintext — AWAITING human. **Class D:** drop plaintext — deferred. |
 | Depends on | PRD-02 + PRD-03 integrated into preview |
+| Independent re-review | APPROVE_MERGE @ `5885dbb` |
 
 ### Outcomes
 
@@ -292,7 +294,15 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - Username-only `/api/public/event-config` still returns entry-page config (titles/messages) without guest proof — limited public status; request lists remain guest-gated.
 - `/api/events/public-status` still returns `event.id` for hydration; safe only because public `event-{id}` publish is gone.
 - Concurrent display-token race covered by atomic SQL; no dedicated multi-worker integration race test.
-- Not merged into preview yet.
+- **PRD-03 deploy gate still open:** `TOKEN_ENCRYPTION_KEY_V1` must be set before production deploy (never commit). Class C/D human gates remain for both PRD-03 and PRD-04.
+
+### Human stops (Class C/D — do not run without approval)
+
+- **PRD-03 Class C:** 8 candidate plaintext Spotify token rows — AWAITING human approval.
+- **PRD-03 Class D:** Drop plaintext Spotify token columns — deferred.
+- **PRD-04 Class C:** Backfill existing plaintext codes/tokens into hash columns — AWAITING human approval.
+- **PRD-04 Class D:** Drop plaintext `pin` / `access_code` / `bypass_token` / `token` / reset / email-verify columns — deferred.
+- **Deploy:** `TOKEN_ENCRYPTION_KEY_V1` still required before production deploy (PRD-03).
 
 ### Validation notes (feature branch)
 
@@ -300,5 +310,14 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | --- | --- |
 | `npm run test:unit` | Pass — reset/email-verify hash-present deny + verifyAccessCode fail-closed |
 | `npm run build` | Pass |
-| Merged into preview | No |
+| Independent re-review | APPROVE_MERGE @ `5885dbb` |
+| Merged into preview | Yes — `04081bf` |
 | Pushed | No |
+
+### Preview integration smoke (post-merge `04081bf` + status docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 204 tests |
+| `npm run build` | Pass |
+| Pushed to remote | No (prefer local; production = `main` only) |
