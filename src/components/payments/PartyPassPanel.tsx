@@ -126,7 +126,13 @@ export default function PartyPassPanel(props: {
         return;
       }
       if (json.url) {
+        // Mock Preview checkout grants entitlement server-side then redirects to success.
         window.location.href = json.url as string;
+        return;
+      }
+      if (json.mock && json.purchaseId) {
+        setMessage('Payment accepted (Preview mock). Activate when ready.');
+        await load();
         return;
       }
       setError('Checkout session missing redirect URL');

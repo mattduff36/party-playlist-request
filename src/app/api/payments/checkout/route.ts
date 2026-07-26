@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       amountPence: result.amountPence,
       currency: result.currency,
       product: 'party_pass',
+      ...(result.mock ? { mock: true } : {}),
     });
   } catch (error) {
     if (error instanceof CheckoutDisabledError) {

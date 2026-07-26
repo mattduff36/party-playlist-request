@@ -779,3 +779,20 @@ Preview-only fixes from superadmin manual test (event `683948`, v2.1.30). **Not 
 | Recovery: “No active Spotify playback device” while sidebar shows **MPDEE-SERVER ACTIVE** | Recovery/readiness used `events.device_id` only (often null). Player uses live `/me/player` + devices. | `resolveActiveSpotifyDevice` — same live Spotify truth as queue/details; recovery returns `activeDevice` source. |
 
 Acceptance note: re-test **T-32** (Ready mode switch) and **T-35** (Recovery device issue clears when player shows ACTIVE).
+
+### Human sign-off (2026-07-27)
+
+User signed off Preview rehearsal for:
+
+- **T-32** Ready mode / `updated_at` fix
+- **T-35 / T-49** Recovery matches ACTIVE device
+- **T-25 / T-26** Play controls (Spotify-on-Preview OAuth blocked by Spotify redirect allowlist — not a code defect)
+- **T-13 / T-16** Guest request + approve
+- **T-19 / T-47** Open Display
+- **T-08 / T-29** Start → End event
+
+See `MANUAL_ACCEPTANCE_TEST_PLAN.md` § Human sign-off. **Class D not run.** No merge to `main`.
+
+### Preview Stripe mock (2026-07-27)
+
+Preview-safe Party Pass mock: `PARTY_PASS_STRIPE_MOCK=1` + dummy `sk_test_*` placeholder → checkout button grants paid/unactivated entitlement via the same `processStripeWebhookEvent` path as a real `checkout.session.completed`. Hard gates: never on `VERCEL_ENV=production`, never with `sk_live_*`, never with real-length `sk_test_*` (real Stripe path retained). Documented in `PRD-09-ENV-CHECKLIST.md` / `PREVIEW_ENV_CHECKLIST.md`.

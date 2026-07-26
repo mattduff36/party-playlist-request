@@ -32,8 +32,52 @@ export class PaymentsConfigError extends Error {
 }
 
 /**
+ * Detect clearly non-real Stripe test placeholders (Preview boot dummies).
+ * Real `sk_test_*` secrets from Stripe Dashboard are long and lack these markers.
+ */
+export function isDummyStripeSecretKey(secretKey: string): boolean {
+  const secret = secretKey.trim().toLowerCase();
+  if (!secret.startsWith('sk_test_')) return false;
+  const markers = [
+    'dummy',
+    'placeholder',
+    'preview',
+    'fake',
+    'example',
+    'xxxx',
+    'changeme',
+    'not_a_real',
+    'test_key',
+  ];
+  if (markers.some((m) => secret.includes(m))) return true;
+  // Stripe Dashboard secrets are long; short sk_test_* values are placeholders.
+  return secret.length < 40;
+}
+
+/**
+ * Preview-safe Party Pass Stripe mock.
+ * Requires explicit `PARTY_PASS_STRIPE_MOCK=1` AND a dummy `sk_test_*` placeholder.
+ * Never activates on Vercel Production, with live keys, or with real `sk_test_*` secrets.
+ */
+export function isPartyPassStripeMockActive(): boolean {
+  if (process.env.VERCEL_ENV === 'production') {
+    return false;
+  }
+  if (process.env.PARTY_PASS_STRIPE_MOCK !== '1') {
+    return false;
+  }
+  const secret = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
+  if (!secret || secret.startsWith('sk_live_')) {
+    return false;
+  }
+  return isDummyStripeSecretKey(secret);
+}
+
+/**
  * Checkout is disabled by default on production deployments.
- * Requires PARTY_PASS_CHECKOUT_ENABLED=1 and a Stripe *test* secret key.
+ * Requires PARTY_PASS_CHECKOUT_ENABLED=1 and either:
+ * - a Stripe *test* secret key (real Checkout path), or
+ * - Preview Stripe mock (`PARTY_PASS_STRIPE_MOCK=1` + dummy `sk_test_*`).
  * Live keys are refused for this PRD (test mode only).
  */
 export function isPartyPassCheckoutEnabled(): boolean {
@@ -41,6 +85,12 @@ export function isPartyPassCheckoutEnabled(): boolean {
     return false;
   }
   const secret = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
+  if (secret.startsWith('sk_live_')) {
+    return false;
+  }
+  if (isPartyPassStripeMockActive()) {
+    return true;
+  }
   if (!secret.startsWith('sk_test_')) {
     return false;
   }
@@ -71,6 +121,7 @@ export function getAppBaseUrl(): string {
 /**
  * Load and validate Stripe config for checkout / webhook paths.
  * Throws PaymentsConfigError when required secrets are missing or live.
+ * Preview mock mode allows dummy secrets and skips webhook-secret requirement.
  */
 export function getPartyPassStripeConfig(): PartyPassStripeConfig {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
@@ -79,13 +130,14 @@ export function getPartyPassStripeConfig(): PartyPassStripeConfig {
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ||
     process.env.STRIPE_PUBLISHABLE_KEY?.trim() ||
     '';
+  const mockActive = isPartyPassStripeMockActive();
 
   if (!secretKey) {
     throw new PaymentsConfigError('STRIPE_SECRET_KEY is not configured');
   }
   assertStripeTestModeSecret(secretKey);
 
-  if (!webhookSecret) {
+  if (!mockActive && !webhookSecret) {
     throw new PaymentsConfigError('STRIPE_WEBHOOK_SECRET is not configured');
   }
 
@@ -95,7 +147,7 @@ export function getPartyPassStripeConfig(): PartyPassStripeConfig {
 
   return {
     secretKey,
-    webhookSecret,
+    webhookSecret: webhookSecret || (mockActive ? 'whsec_preview_mock' : ''),
     publishableKey,
     priceId,
     appBaseUrl,

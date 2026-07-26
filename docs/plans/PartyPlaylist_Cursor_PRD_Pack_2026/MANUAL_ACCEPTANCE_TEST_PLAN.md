@@ -8,11 +8,30 @@ Programme §27 coverage for preview branch `preview/partyplaylist-prd-program-20
 
 - Preview deployment (or local) built from programme tip.
 - Preview env vars configured per `PREVIEW_ENV_CHECKLIST.md` (names only).
-- Stripe: test mode only; checkout off until T-36+ credentials ready.
+- Stripe: test mode only. Preview may use **Stripe mock** (`PARTY_PASS_STRIPE_MOCK=1` + dummy `sk_test_*`) for Party Pass UX; real Checkout needs real `sk_test_*` (T-36+).
 - Two organiser test accounts available (A and B); do not use production customer data.
 - Never paste secrets into reports.
 
 For each test: **Preconditions → Steps → Expected → Evidence → Failure info**.
+
+---
+
+## Human sign-off (2026-07-27) — Preview rehearsal
+
+**Signed off by user on 2026-07-27** for the Preview deployment on branch `preview/partyplaylist-prd-program-2026`.
+
+**Caveat:** Spotify OAuth against the Preview URL is **blocked by Spotify redirect URI allowlist** (Dashboard config), **not by application code**. Flows that need a live Spotify link on Preview were verified where Manual / already-connected paths allowed, or accepted as blocked externally.
+
+| Area | T-IDs | Result |
+| --- | --- | --- |
+| Ready mode switch / `user_events.updated_at` fix verify | T-32 | **Signed off** |
+| Recovery matches ACTIVE device | T-35, T-49 | **Signed off** |
+| Play controls | T-25, T-26 | **Signed off** (Spotify-on-Preview caveat) |
+| Guest request + approve | T-13, T-16 | **Signed off** |
+| Open Display | T-19, T-47 | **Signed off** |
+| Start → End event | T-08, T-29 | **Signed off** |
+
+Party Pass real Stripe Checkout (T-36+) remains separate; Preview mock path (when enabled) is for entitlement UX only — not a substitute for Stripe Dashboard test-mode rehearsal before production enablement.
 
 ---
 
@@ -320,11 +339,11 @@ For each test: **Preconditions → Steps → Expected → Evidence → Failure i
 
 ### T-36 Stripe test checkout
 
-- **Preconditions:** `PARTY_PASS_CHECKOUT_ENABLED=1`, `sk_test_*`, publishable test key, `NEXT_PUBLIC_APP_URL`.
-- **Steps:** Open `/pricing` → start checkout → pay with Stripe test card.
-- **Expected:** Server-priced £19.99 GBP; client cannot change price; success page does not grant access from query alone.
+- **Preconditions:** `PARTY_PASS_CHECKOUT_ENABLED=1`, real `sk_test_*`, publishable test key, `NEXT_PUBLIC_APP_URL`. (Preview mock: `PARTY_PASS_STRIPE_MOCK=1` + dummy `sk_test_*` — UX path only; does not replace Stripe Dashboard rehearsal.)
+- **Steps:** Open `/pricing` or `/account/party-pass` → start checkout → pay with Stripe test card (or mock Buy on Preview).
+- **Expected:** Server-priced £19.99 GBP; client cannot change price; success page does not grant access from query alone (mock grants via server webhook path, not query string).
 - **Evidence:** Checkout amount screenshot; success page + server status.
-- **Failure info:** Client price accepted; live mode; grant without webhook.
+- **Failure info:** Client price accepted; live mode; grant without webhook/mock server path.
 
 ### T-37 Webhook processing
 
@@ -440,10 +459,10 @@ For each test: **Preconditions → Steps → Expected → Evidence → Failure i
 
 | Field | Value |
 | --- | --- |
-| Tester | |
-| Preview URL | |
-| Commit hash | |
-| Date (UTC) | |
-| Overall | Pass / Fail / Partial |
+| Tester | User (human) |
+| Preview URL | Vercel Preview for `preview/partyplaylist-prd-program-2026` |
+| Commit hash | See programme tip at sign-off; hotfix + Stripe mock commits on preview branch |
+| Date (UTC) | 2026-07-27 |
+| Overall | **Partial** — core organiser/guest/display/lifecycle areas signed off; Spotify-on-Preview OAuth blocked by redirect allowlist; Party Pass real Stripe Checkout still pending credentials / mock UX path |
 
 Return failures using `FAILURE_REPORTING.md`. Do not merge to `main` after testing without explicit approval.

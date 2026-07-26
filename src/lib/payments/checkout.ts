@@ -3,12 +3,15 @@
  * Price / product / user are determined server-side only.
  */
 
+import { randomBytes } from 'crypto';
 import type Stripe from 'stripe';
 import { getPool } from '@/lib/db';
 import {
   buildCheckoutRedirectUrls,
+  getAppBaseUrl,
   getPartyPassStripeConfig,
   isPartyPassCheckoutEnabled,
+  isPartyPassStripeMockActive,
   PARTY_PASS_CURRENCY,
   PARTY_PASS_DISPLAY_NAME,
   PARTY_PASS_PRODUCT_CODE,
@@ -17,6 +20,7 @@ import {
 } from '@/lib/payments/config';
 import { getStripeClient, redactStripeId } from '@/lib/payments/stripe-client';
 import { recordFunnelEvent, recordPartyPassAudit } from '@/lib/payments/audit';
+import { processStripeWebhookEvent } from '@/lib/payments/webhook';
 
 export class CheckoutDisabledError extends Error {
   constructor(message = 'Party Pass checkout is disabled') {
@@ -64,6 +68,139 @@ async function getOrCreateStripeCustomer(userId: string, email?: string | null):
 }
 
 /**
+ * Preview-only mock checkout: mark payment accepted via the same webhook grant path
+ * (no Stripe network). Requires PARTY_PASS_STRIPE_MOCK=1 + dummy sk_test_* and never
+ * runs on Vercel Production / live keys.
+ */
+async function createPartyPassMockCheckoutSession(input: {
+  userId: string;
+}): Promise<{
+  sessionId: string;
+  url: string;
+  purchaseId: string;
+  amountPence: number;
+  currency: string;
+  mock: true;
+}> {
+  const amountPence = partyPassAmountPence();
+  const pool = getPool();
+  const sessionId = `cs_mock_${randomBytes(12).toString('hex')}`;
+  const customerId = `cus_mock_${input.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'user'}`;
+  const appBaseUrl = getAppBaseUrl();
+  const redirects = buildCheckoutRedirectUrls(appBaseUrl);
+
+  const existingOpen = await pool.query(
+    `SELECT id FROM party_pass_purchases
+     WHERE user_id = $1
+       AND payment_status = 'pending'
+       AND created_at > NOW() - INTERVAL '2 hours'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [input.userId]
+  );
+
+  let purchaseId: string;
+  if (existingOpen.rows[0]?.id) {
+    purchaseId = String(existingOpen.rows[0].id);
+    await pool.query(
+      `UPDATE party_pass_purchases
+       SET stripe_checkout_session_id = $2,
+           stripe_customer_id = COALESCE(stripe_customer_id, $3),
+           amount_pence = $4,
+           currency = $5,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [purchaseId, sessionId, customerId, amountPence, PARTY_PASS_CURRENCY]
+    );
+  } else {
+    const purchaseInsert = await pool.query(
+      `INSERT INTO party_pass_purchases
+         (user_id, stripe_customer_id, stripe_checkout_session_id, currency, amount_pence,
+          payment_status, product_code)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+       RETURNING id`,
+      [
+        input.userId,
+        customerId,
+        sessionId,
+        PARTY_PASS_CURRENCY,
+        amountPence,
+        PARTY_PASS_PRODUCT_CODE,
+      ]
+    );
+    purchaseId = String(purchaseInsert.rows[0].id);
+  }
+
+  const mockEvent = {
+    id: `evt_mock_${randomBytes(12).toString('hex')}`,
+    object: 'event',
+    api_version: '2024-11-20.acacia',
+    created: Math.floor(Date.now() / 1000),
+    livemode: false,
+    pending_webhooks: 0,
+    request: null,
+    type: 'checkout.session.completed',
+    data: {
+      object: {
+        id: sessionId,
+        object: 'checkout.session',
+        payment_status: 'paid',
+        status: 'complete',
+        currency: PARTY_PASS_CURRENCY,
+        amount_total: amountPence,
+        customer: customerId,
+        payment_intent: null,
+        client_reference_id: input.userId,
+        metadata: {
+          partyplaylist_user_id: input.userId,
+          partyplaylist_purchase_id: purchaseId,
+          product_code: PARTY_PASS_PRODUCT_CODE,
+        },
+      },
+    },
+  } as Stripe.Event;
+
+  const result = await processStripeWebhookEvent(mockEvent);
+  if (result.rejected || !result.handled) {
+    throw new PaymentsConfigError(
+      'Preview Stripe mock failed to grant Party Pass entitlement'
+    );
+  }
+
+  await recordPartyPassAudit({
+    action: 'checkout_created',
+    userId: input.userId,
+    purchaseId,
+    actorId: input.userId,
+    meta: {
+      session: redactStripeId(sessionId),
+      amount_pence: amountPence,
+      currency: PARTY_PASS_CURRENCY,
+      mock: true,
+    },
+  });
+  await recordFunnelEvent({
+    eventName: 'checkout_started',
+    userId: input.userId,
+    meta: { purchase_id: purchaseId, mock: true },
+  });
+
+  const successUrl = redirects.successUrl.replace(
+    '{CHECKOUT_SESSION_ID}',
+    sessionId
+  );
+
+  return {
+    sessionId,
+    url: successUrl,
+    purchaseId,
+    amountPence,
+    currency: PARTY_PASS_CURRENCY,
+    mock: true,
+  };
+}
+
+/**
  * Create a Checkout Session. Ignores any client-supplied price/duration/user fields.
  */
 export async function createPartyPassCheckoutSession(input: {
@@ -79,6 +216,7 @@ export async function createPartyPassCheckoutSession(input: {
   purchaseId: string;
   amountPence: number;
   currency: string;
+  mock?: boolean;
 }> {
   if (!isPartyPassCheckoutEnabled()) {
     throw new CheckoutDisabledError(
@@ -90,6 +228,10 @@ export async function createPartyPassCheckoutSession(input: {
   void input.clientPricePence;
   void input.clientUserId;
   void input.clientDurationDays;
+
+  if (isPartyPassStripeMockActive()) {
+    return createPartyPassMockCheckoutSession({ userId: input.userId });
+  }
 
   const config = getPartyPassStripeConfig();
   if (!config.checkoutEnabled) {
@@ -279,6 +421,20 @@ export async function getVerifiedPurchaseForSession(input: {
     };
   }
 
+  const paymentStatus = String(local.rows[0].payment_status);
+  const activated =
+    String(local.rows[0].entitlement_status || '') === 'activated';
+
+  // Preview mock sessions never hit Stripe — trust local paid row only.
+  if (input.checkoutSessionId.startsWith('cs_mock_')) {
+    return {
+      verified: paymentStatus === 'paid',
+      paymentStatus,
+      purchaseId: String(local.rows[0].id),
+      activated,
+    };
+  }
+
   const stripe = getStripeClient();
   const session = await stripe.checkout.sessions.retrieve(input.checkoutSessionId);
   const paid =
@@ -286,9 +442,9 @@ export async function getVerifiedPurchaseForSession(input: {
     session.metadata?.partyplaylist_user_id === input.userId;
 
   return {
-    verified: paid && String(local.rows[0].payment_status) === 'paid',
-    paymentStatus: String(local.rows[0].payment_status),
+    verified: paid && paymentStatus === 'paid',
+    paymentStatus,
     purchaseId: String(local.rows[0].id),
-    activated: String(local.rows[0].entitlement_status || '') === 'activated',
+    activated,
   };
 }

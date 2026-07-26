@@ -19,6 +19,24 @@
 | `STRIPE_PARTY_PASS_PRICE_ID` | When unset, Checkout uses server `price_data` at £19.99 GBP |
 | `PARTY_PASS_AMOUNT_PENCE` | Override catalogue amount (default `1999`) |
 | `STRIPE_PUBLISHABLE_KEY` | Server-side alias if not using `NEXT_PUBLIC_` |
+| `PARTY_PASS_STRIPE_MOCK` | Preview-only. Set `1` **with** a clearly dummy `sk_test_*` placeholder to accept payment without Stripe network. See below. |
+
+## Preview Stripe mock (Party Pass UX)
+
+Use when Preview has dummy Stripe placeholders and you need the Buy button to mark payment accepted (same DB grant path as webhook).
+
+| Gate | Rule |
+| --- | --- |
+| Explicit flag | `PARTY_PASS_STRIPE_MOCK=1` |
+| Dummy key | `STRIPE_SECRET_KEY` must be a short / marker placeholder (`dummy`, `placeholder`, etc.) under `sk_test_*` |
+| Checkout flag | `PARTY_PASS_CHECKOUT_ENABLED=1` so the button is enabled |
+| Never Production | Inactive when `VERCEL_ENV=production` |
+| Never live keys | Inactive for any `sk_live_*` |
+| Real test keys | If a real-length `sk_test_*` is present, mock stays **off** and the real Stripe Checkout path is used |
+
+Behaviour: POST `/api/payments/checkout` creates a `cs_mock_*` session and runs `processStripeWebhookEvent` for a synthetic `checkout.session.completed` (paid GBP catalogue amount) → purchase `paid` + entitlement `purchased` (not activated).
+
+**Do not set `PARTY_PASS_STRIPE_MOCK` on Production.** Prefer real Stripe test keys + webhook for T-36+ acceptance before any production enablement.
 
 ## Hard gates (keep checkout disabled until complete)
 

@@ -9,6 +9,7 @@ import { getPartyPassAccountSummary } from '@/lib/payments/entitlement';
 import { getVerifiedPurchaseForSession } from '@/lib/payments/checkout';
 import {
   isPartyPassCheckoutEnabled,
+  isPartyPassStripeMockActive,
   PARTY_PASS_ACTIVE_DAYS,
   PARTY_PASS_AMOUNT_PENCE,
   PARTY_PASS_CURRENCY,
@@ -65,6 +66,7 @@ export async function GET(req: NextRequest) {
         activeDays: PARTY_PASS_ACTIVE_DAYS,
       },
       checkoutEnabled: isPartyPassCheckoutEnabled(),
+      stripeMockActive: isPartyPassStripeMockActive(),
       canStartEvent: summary.canStartEvent,
       reason: summary.reason,
       betaActive: summary.betaActive,

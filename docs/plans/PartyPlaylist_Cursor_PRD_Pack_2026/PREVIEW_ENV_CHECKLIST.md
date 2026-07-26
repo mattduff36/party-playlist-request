@@ -59,13 +59,14 @@
 
 | Variable | Notes |
 | --- | --- |
-| `STRIPE_SECRET_KEY` | Must be `sk_test_*` (live keys refused). Preview has a **dummy** `sk_test_*` placeholder so boot/UI does not crash; replace with a real Stripe test secret before enabling checkout |
+| `STRIPE_SECRET_KEY` | Must be `sk_test_*` (live keys refused). Preview has a **dummy** `sk_test_*` placeholder so boot/UI does not crash; replace with a real Stripe test secret for real Checkout |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_*` for `/api/payments/webhook`. Preview has a **dummy** placeholder |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_*`. Preview has a **dummy** placeholder |
 | `STRIPE_PUBLISHABLE_KEY` | Optional server alias |
 | `STRIPE_PARTY_PASS_PRICE_ID` | Optional; else server `price_data` £19.99 GBP |
 | `PARTY_PASS_AMOUNT_PENCE` | Optional; default `1999` |
-| `PARTY_PASS_CHECKOUT_ENABLED` | Must be `1` to enable checkout; **leave unset/false** on Preview until real Stripe test keys are configured |
+| `PARTY_PASS_CHECKOUT_ENABLED` | Must be `1` to enable the Buy button |
+| `PARTY_PASS_STRIPE_MOCK` | Set `1` on **Preview only** with dummy `sk_test_*` to grant Party Pass on Buy without Stripe network (same webhook DB path). Never set on Production |
 
 ### Preview env status (names only — 2026-07-27)
 
@@ -77,7 +78,8 @@
 | `STRIPE_SECRET_KEY` | Dummy placeholder (agent) | Preview only |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Dummy placeholder (agent) | Preview only |
 | `STRIPE_WEBHOOK_SECRET` | Dummy placeholder (agent) | Preview only |
-| `PARTY_PASS_CHECKOUT_ENABLED` | Unset | Checkout stays off |
+| `PARTY_PASS_STRIPE_MOCK` | `1` (agent) | Preview only — mock checkout grant |
+| `PARTY_PASS_CHECKOUT_ENABLED` | `1` (agent) | Preview only — Buy button usable with mock |
 
 Untracked local copy of generated Preview values (never commit): `docs_private/preview-env-generated.env`.
 
@@ -90,12 +92,13 @@ Untracked local copy of generated Preview values (never commit): `docs_private/p
 | `ALLOW_DB_BOOTSTRAP` | CLI-only schema bootstrap |
 | `SYSTEM_STARTUP_TOKEN` | Removed; must remain absent |
 | Live Stripe keys (`sk_live_*`) | Refused by design |
+| `PARTY_PASS_STRIPE_MOCK` on Production | Forbidden — code also no-ops when `VERCEL_ENV=production` |
 
 ## External dashboard actions (human)
 
 1. Vercel: ensure Preview env vars listed above (names only in this doc).
-2. Spotify Developer Dashboard: add Preview callback URL if testing OAuth.
-3. Stripe Dashboard (test mode): webhook → Preview `/api/payments/webhook`; configure Customer Portal if testing invoices.
-4. Neon: Class B applied; Class C expand-only backfill ran (plaintext retained); Class D still deferred.
+2. Spotify Developer Dashboard: add Preview callback URL if testing OAuth (currently blocks Spotify-on-Preview — not a code defect).
+3. Stripe Dashboard (test mode): webhook → Preview `/api/payments/webhook`; configure Customer Portal if testing invoices. Optional while mock is on.
+4. Neon: Class B applied; Class C expand-only backfill ran (plaintext retained); Class D still deferred (**not required** for new app to function — dual-read/dual-verify).
 5. Do **not** change Production Vercel env vars for this programme.
-6. Replace Stripe dummy Preview placeholders with real `sk_test_*` / `pk_test_*` / `whsec_*` before setting `PARTY_PASS_CHECKOUT_ENABLED=1`.
+6. For real Stripe rehearsal: replace dummy Preview placeholders with real `sk_test_*` / `pk_test_*` / `whsec_*` and set `PARTY_PASS_STRIPE_MOCK` unset/`0` so the real Checkout path runs.

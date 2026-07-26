@@ -10,7 +10,9 @@ import {
   PARTY_PASS_CURRENCY,
   assertStripeTestModeSecret,
   buildCheckoutRedirectUrls,
+  isDummyStripeSecretKey,
   isPartyPassCheckoutEnabled,
+  isPartyPassStripeMockActive,
   partyPassAmountPence,
   PaymentsConfigError,
 } from '@/lib/payments/config';
@@ -55,6 +57,8 @@ describe('PRD-09: feature flag / production disable', () => {
   const prev = {
     enabled: process.env.PARTY_PASS_CHECKOUT_ENABLED,
     secret: process.env.STRIPE_SECRET_KEY,
+    mock: process.env.PARTY_PASS_STRIPE_MOCK,
+    vercelEnv: process.env.VERCEL_ENV,
   };
 
   afterEach(() => {
@@ -62,6 +66,10 @@ describe('PRD-09: feature flag / production disable', () => {
     else process.env.PARTY_PASS_CHECKOUT_ENABLED = prev.enabled;
     if (prev.secret === undefined) delete process.env.STRIPE_SECRET_KEY;
     else process.env.STRIPE_SECRET_KEY = prev.secret;
+    if (prev.mock === undefined) delete process.env.PARTY_PASS_STRIPE_MOCK;
+    else process.env.PARTY_PASS_STRIPE_MOCK = prev.mock;
+    if (prev.vercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = prev.vercelEnv;
   });
 
   it('disables checkout when flag unset', () => {
@@ -86,6 +94,46 @@ describe('PRD-09: feature flag / production disable', () => {
     expect(() => assertStripeTestModeSecret('sk_live_x')).toThrow(
       PaymentsConfigError
     );
+  });
+
+  it('detects dummy sk_test placeholders', () => {
+    expect(isDummyStripeSecretKey('sk_test_dummy')).toBe(true);
+    expect(isDummyStripeSecretKey('sk_test_placeholder_preview')).toBe(true);
+    expect(
+      isDummyStripeSecretKey(
+        'sk_test_' + 'a'.repeat(80)
+      )
+    ).toBe(false);
+  });
+
+  it('activates Stripe mock only with explicit flag + dummy key', () => {
+    delete process.env.VERCEL_ENV;
+    process.env.PARTY_PASS_STRIPE_MOCK = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    expect(isPartyPassStripeMockActive()).toBe(true);
+  });
+
+  it('never activates Stripe mock on Vercel production', () => {
+    process.env.VERCEL_ENV = 'production';
+    process.env.PARTY_PASS_STRIPE_MOCK = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    expect(isPartyPassStripeMockActive()).toBe(false);
+  });
+
+  it('never activates Stripe mock with live keys', () => {
+    delete process.env.VERCEL_ENV;
+    process.env.PARTY_PASS_STRIPE_MOCK = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_live_dummy';
+    expect(isPartyPassStripeMockActive()).toBe(false);
+  });
+
+  it('keeps real Stripe path when real sk_test_* present even if mock flag set', () => {
+    delete process.env.VERCEL_ENV;
+    process.env.PARTY_PASS_STRIPE_MOCK = '1';
+    process.env.PARTY_PASS_CHECKOUT_ENABLED = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_' + 'b'.repeat(80);
+    expect(isPartyPassStripeMockActive()).toBe(false);
+    expect(isPartyPassCheckoutEnabled()).toBe(true);
   });
 });
 
