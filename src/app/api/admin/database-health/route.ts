@@ -6,17 +6,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/middleware/auth';
+import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { getDatabaseService } from '@/lib/db/database-service';
 import { getConnectionPoolManager } from '@/lib/db/connection-pool';
 import { PoolType } from '@/lib/db/connection-pool';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
     const auth = requireAuth(request);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
+    }
+    const sa = requireSuperAdmin(auth.user);
+    if (!sa.authorized) {
+      return sa.response!;
     }
 
     // Get comprehensive health information
@@ -65,9 +68,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('❌ Database health check error:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Health check failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

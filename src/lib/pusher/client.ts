@@ -71,7 +71,9 @@ interface PusherClientConfig {
 
 // Default configuration
 const DEFAULT_CONFIG: PusherClientConfig = {
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'fallback-key',
+  key:
+    process.env.NEXT_PUBLIC_PUSHER_KEY ||
+    (process.env.NODE_ENV === 'production' ? '' : 'fallback-key'),
   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'us2',
   forceTLS: true,
   enabledTransports: ['ws', 'wss'],

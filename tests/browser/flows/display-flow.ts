@@ -1,11 +1,9 @@
 /**
  * Display Flow Tests
- * 
- * Tests the display screen functionality:
+ *
+ * Tests the display screen functionality via supported public APIs:
  * - Access display screen with username
- * - Verify it shows offline state
- * - Check display API endpoints
- * - Verify real-time updates work (via Pusher)
+ * - Verify public/guest display endpoints (legacy /api/display/* is 410)
  */
 
 import type { TestSuiteResult, TestResult } from '../interactive-test-suite';
@@ -26,9 +24,9 @@ export async function runDisplayFlowTests(baseURL: string): Promise<TestSuiteRes
   // Test 1: Access display page
   await runTest(results, '1. Display page loads', async () => {
     console.log(`   📍 Checking ${baseURL}/testuser1/display`);
-    
+
     const response = await fetch(`${baseURL}/testuser1/display`);
-    
+
     if (response.ok || response.status === 302 || response.status === 307) {
       console.log('   ✅ Display page route exists');
     } else {
@@ -36,49 +34,64 @@ export async function runDisplayFlowTests(baseURL: string): Promise<TestSuiteRes
     }
   });
 
-  // Test 2: Check display current API
-  await runTest(results, '2. Display current API responds', async () => {
-    console.log('   📡 Testing display current endpoint');
-    
-    const response = await fetch(`${baseURL}/api/display/current?username=testuser1`);
-    
-    // Should return data or error
-    if ([200, 400, 404, 500].includes(response.status)) {
-      console.log(`   ✅ Display API responds (${response.status})`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`   📊 Has current track: ${!!data.current_track}`);
-        console.log(`   📊 Is playing: ${data.is_playing}`);
-      }
-    } else {
-      throw new Error(`Display API returned unexpected ${response.status}`);
+  // Test 2: Legacy display current API is retired
+  await runTest(results, '2. Legacy display current returns 410', async () => {
+    console.log('   📡 Testing retired /api/display/current');
+
+    const response = await fetch(
+      `${baseURL}/api/display/current?username=testuser1`
+    );
+
+    if (response.status !== 410) {
+      throw new Error(`Expected 410 Gone, got ${response.status}`);
     }
+
+    const data = await response.json();
+    if (data.current_track !== undefined || data.event_settings !== undefined) {
+      throw new Error('Legacy display endpoint must not return event data');
+    }
+    console.log('   ✅ Legacy display current retired (410)');
   });
 
-  // Test 3: Check display requests API
-  await runTest(results, '3. Display requests API responds', async () => {
-    console.log('   📋 Testing display requests endpoint');
-    
+  // Test 3: Legacy display requests API is retired
+  await runTest(results, '3. Legacy display requests returns 410', async () => {
+    console.log('   📋 Testing retired /api/display/requests');
+
     const response = await fetch(`${baseURL}/api/display/requests`);
-    
-    // Could be 200 (data) or 500 (error)
-    if ([200, 500].includes(response.status)) {
-      console.log(`   ✅ Display requests API responds (${response.status})`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`   📊 Approved requests: ${data.approved_requests?.length || 0}`);
-        console.log(`   📊 Recently played: ${data.recently_played_requests?.length || 0}`);
-      }
-    } else {
-      throw new Error(`Display requests API returned unexpected ${response.status}`);
+
+    if (response.status !== 410) {
+      throw new Error(`Expected 410 Gone, got ${response.status}`);
     }
+
+    const data = await response.json();
+    if (
+      data.approved_requests !== undefined ||
+      data.recently_played_requests !== undefined
+    ) {
+      throw new Error('Legacy display requests must not return request data');
+    }
+    console.log('   ✅ Legacy display requests retired (410)');
+  });
+
+  // Test 4: Supported public event-config responds
+  await runTest(results, '4. Public event-config API responds', async () => {
+    console.log('   📡 Testing /api/public/event-config');
+
+    const response = await fetch(
+      `${baseURL}/api/public/event-config?username=testuser1`
+    );
+
+    if (![200, 400, 401, 403, 404].includes(response.status)) {
+      throw new Error(`Public event-config returned unexpected ${response.status}`);
+    }
+    console.log(`   ✅ Public event-config responds (${response.status})`);
   });
 
   results.duration = (Date.now() - suiteStart) / 1000;
 
-  console.log(`\n🏁 Display Flow Tests Complete: ${results.passed}/${results.tests.length} passed\n`);
+  console.log(
+    `\n🏁 Display Flow Tests Complete: ${results.passed}/${results.tests.length} passed\n`
+  );
 
   return results;
 }
@@ -112,4 +125,3 @@ async function runTest(
   result.duration = (Date.now() - start) / 1000;
   results.tests.push(result);
 }
-

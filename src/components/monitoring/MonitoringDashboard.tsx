@@ -124,7 +124,9 @@ export default function MonitoringDashboard() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/monitoring/dashboard');
+      const response = await fetch('/api/monitoring/dashboard', {
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch monitoring data');
       }

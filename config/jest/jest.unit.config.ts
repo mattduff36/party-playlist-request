@@ -34,6 +34,8 @@ const config: Config = {
       testMatch: [
         '<rootDir>/tests/unit/**/*.spec.ts',
         '<rootDir>/tests/unit/**/*.test.ts',
+        '<rootDir>/tests/security/**/*.spec.ts',
+        '<rootDir>/tests/security/**/*.test.ts',
       ],
       transform: sharedTransform,
       moduleNameMapper: {

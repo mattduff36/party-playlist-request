@@ -385,6 +385,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       await fetch('/api/admin/token-expired', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           reason,
           message: 'Admin token has expired. Please log in again.',

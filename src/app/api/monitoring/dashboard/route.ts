@@ -6,17 +6,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/middleware/auth';
+import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { metricsCollector } from '@/lib/monitoring/metrics';
 import { alertingSystem } from '@/lib/monitoring/alerts';
 import { healthCheckSystem } from '@/lib/monitoring/health';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
     const auth = requireAuth(request);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
+    }
+    const sa = requireSuperAdmin(auth.user);
+    if (!sa.authorized) {
+      return sa.response!;
     }
 
     // Get all monitoring data

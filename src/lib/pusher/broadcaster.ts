@@ -12,15 +12,35 @@ import {
   generateEventVersion,
   getEventChannel 
 } from './events';
+import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 
-// Server-side Pusher instance
-const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID || 'fallback-app-id',
-  key: process.env.PUSHER_KEY || 'fallback-key',
-  secret: process.env.PUSHER_SECRET || 'fallback-secret',
-  cluster: process.env.PUSHER_CLUSTER || 'us2',
-  useTLS: true,
-});
+function createBroadcasterPusher(): Pusher {
+  return new Pusher({
+    appId: resolveSecretEnv('PUSHER_APP_ID', {
+      insecureFallbacks: ['fallback-app-id'],
+      devFallback: 'fallback-app-id',
+    }),
+    key: resolveSecretEnv('PUSHER_KEY', {
+      insecureFallbacks: ['fallback-key'],
+      devFallback: 'fallback-key',
+    }),
+    secret: resolveSecretEnv('PUSHER_SECRET', {
+      insecureFallbacks: ['fallback-secret'],
+      devFallback: 'fallback-secret',
+    }),
+    cluster: process.env.PUSHER_CLUSTER?.trim() || 'us2',
+    useTLS: true,
+  });
+}
+
+let pusherServerInstance: Pusher | null = null;
+
+function getBroadcasterPusher(): Pusher {
+  if (!pusherServerInstance) {
+    pusherServerInstance = createBroadcasterPusher();
+  }
+  return pusherServerInstance;
+}
 
 // Broadcasting configuration
 interface BroadcastConfig {
@@ -162,7 +182,7 @@ class EventBroadcaster {
       // Compress large events
       const payload = this.compressEvent(event);
       
-      await pusherServer.trigger(channelName, 'event', payload);
+      await getBroadcasterPusher().trigger(channelName, 'event', payload);
       
       console.log(`📡 Event broadcasted: ${event.action}`, event.id);
       queuedEvent.resolve(event);

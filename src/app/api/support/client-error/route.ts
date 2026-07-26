@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/support/logger';
 import { getIpHash } from '@/lib/support/withApiLogging';
+import {
+  CLIENT_ERROR_MAX_BODY_BYTES,
+  parseClientErrorIntake,
+} from '@/lib/support/client-error-intake';
 
-/** Simple in-memory rate limit for client error reports */
+/** Simple in-memory rate limit for client error reports (process-local; distributed limit is PRD-02/06). */
 const buckets = new Map<string, { count: number; resetAt: number }>();
 const MAX_PER_HOUR = 30;
 
@@ -29,33 +33,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many error reports' }, { status: 429 });
     }
 
-    const body = await req.json();
-    const message = typeof body.message === 'string' ? body.message : 'Client error';
-    const stack = typeof body.stack === 'string' ? body.stack : null;
-    const route = typeof body.url === 'string' ? body.url : req.headers.get('referer');
-    const level = body.level === 'fatal' || body.level === 'page' || body.level === 'critical'
-      ? 'fatal'
-      : 'error';
+    const contentLength = Number(req.headers.get('content-length') || '0');
+    if (contentLength > CLIENT_ERROR_MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 400 });
+    }
 
-    const classification =
-      body.classification === 'handled' ? 'handled' : 'unhandled';
+    const rawBody = await req.text();
+    const parsed = parseClientErrorIntake(
+      rawBody,
+      req.headers.get('referer')
+    );
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    }
 
+    const { data } = parsed;
     const id = await logError({
-      level,
+      level: data.level,
       source: 'client',
-      classification,
-      message,
-      stack: stack || (typeof body.componentStack === 'string' ? body.componentStack : null),
-      route,
+      classification: data.classification,
+      message: data.message,
+      stack: data.stack,
+      route: data.route,
       method: 'CLIENT',
-      username: typeof body.username === 'string' ? body.username : null,
-      userId: typeof body.userId === 'string' ? body.userId : null,
+      username: data.username,
+      userId: data.userId,
       ipHash,
-      userAgent: req.headers.get('user-agent') || body.userAgent,
+      userAgent: req.headers.get('user-agent') || data.userAgent,
       meta: {
-        errorId: body.errorId,
-        clientLevel: body.level,
-        handled: classification === 'handled',
+        errorId: data.errorId,
+        clientLevel: data.level,
+        handled: data.classification === 'handled',
       },
     });
 

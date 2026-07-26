@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Syne, DM_Sans } from "next/font/google";
 import { Analytics } from '@vercel/analytics/react';
-import ServerStartup from '@/components/ServerStartup';
 import MobileCacheBuster from '@/components/MobileCacheBuster';
 import { GlobalEventProvider } from '@/lib/state/global-event-client';
 import { QueryProvider } from '@/providers/QueryProvider';
@@ -47,7 +46,6 @@ export default function RootLayout({
             <GlobalEventProvider>
               <ClientErrorCapture />
               <MobileCacheBuster />
-              <ServerStartup />
               {children}
             </GlobalEventProvider>
           </QueryProvider>

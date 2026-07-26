@@ -1346,8 +1346,19 @@ export async function updateEventSettings(settings: Partial<Omit<EventSettings, 
 }
 
 // Utility functions
-export function hashIP(ip: string): string {
-  return crypto.createHash('sha256').update(ip + (process.env.IP_SALT || 'default-salt')).digest('hex');
+export function hashIP(
+  ip: string,
+  nodeEnv: string | undefined = process.env.NODE_ENV
+): string {
+  const salt = process.env.IP_SALT?.trim();
+  if (!salt) {
+    if (nodeEnv === 'production') {
+      throw new Error('IP_SALT must be configured in production (fail-closed)');
+    }
+    // Dev/test-only fallback — never used in production
+    return crypto.createHash('sha256').update(ip + 'default-salt').digest('hex');
+  }
+  return crypto.createHash('sha256').update(ip + salt).digest('hex');
 }
 
 export function generateUUID(): string {
