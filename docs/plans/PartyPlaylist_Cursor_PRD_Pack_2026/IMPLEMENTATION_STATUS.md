@@ -571,3 +571,78 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run test:unit` | Pass — 255 tests |
 | `npm run build` | Pass |
 | Pushed to remote | No (prefer local; production = `main` only) |
+
+## PRD-08: Paid Beta Product Readiness, Event Setup and Customer Deliverables
+
+| Field | Value |
+| --- | --- |
+| Status | Implemented on feature branch (not merged into preview) |
+| Branch | `dev/prd-08-paid-beta-readiness-20260726` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Database impact | **Class B applied** — `010_prd08_paid_beta_readiness` after write-free dry-run. Adds lifecycle/readiness columns, guardrail settings, `beta_entitlements` (+ audit), `legal_pages`, `beta_observation_checklists`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
+| Depends on | PRD-07 integrated into preview (`36d343f`) |
+
+### Outcomes (this pass)
+
+| Requirement | Result |
+| --- | --- |
+| Lifecycle phases alongside operational status | Done — `lifecycle_phase` + started/ended stamps; runtime still `offline\|standby\|live` |
+| Guided readiness wizard + score/gate | Done — `/admin/wizard` + `/api/admin/readiness`; required checks block Ready; warning override audited |
+| Event-day recovery centre | Done — `/admin/recovery` + `/api/admin/recovery` |
+| Printable QR signage PDFs | Done — pdfkit server PDFs (A4/A5/table/16:9); access code opt-in; guest URLs only |
+| Event archive report + CSV | Done — `/admin/history` + `/api/admin/events/.../report` (+ `format=csv` requests **and** audit actions); no raw IPs |
+| Event templates | Done — blank/birthday/anniversary/house/wedding_reception via `/api/admin/templates` |
+| Guardrails | Done — do-not-play / artist cooldown / max active per guest enforced on `/api/request`; must-play stored; API for lists |
+| Beta entitlement grants | Done — SA grant/revoke API + UI shield action; gates offline→standby/live in production |
+| Demo mode (no Spotify credentials) | Done — `/api/admin/demo-mode` toggle works; credential ops fail-closed when demo active (OAuth / vault / refresh / disconnect) |
+| Legal pages with review status | Done — privacy/terms/cookies/retention/refund/spotify disconnect/organiser duties (draft_unreviewed) |
+| Observed beta checklist | Done — `/api/admin/observation-checklist` + 11-item catalogue |
+| Unit tests | Done — `tests/unit/prd-08-paid-beta-readiness.spec.ts` (incl. FIX_THEN_MERGE R1–R3) |
+
+### FIX_THEN_MERGE follow-up (this commit)
+
+| Blocker | Result |
+| --- | --- |
+| R1 `/api/admin/demo-mode` POST broken by unconditional `assertDemoDoesNotTouchSpotify` | Done — toggle no longer asserts; assert is conditional on demo active |
+| R2 Demo credential isolation on OAuth / token vault / refresh / disconnect | Done — `assertUserDemoDoesNotTouchSpotify` in `db` vault helpers + Spotify auth/callback/disconnect/reset routes (403 / `demo_mode_blocked`) |
+| R3 Event report CSV missing audit actions | Done — `buildEventReportCsv` emits request + `audit_action` sections from `support_activity` |
+| Unit tests for R1–R3 | Done |
+
+### DB classification
+
+| Change | Class | Action |
+| --- | --- | --- |
+| `010` ADD COLUMN lifecycle/readiness/guardrails; CREATE beta_entitlements, legal_pages, observation checklists | B | **Applied** on Neon after dry-run (`schema_migrations.id=010_prd08_paid_beta_readiness`) |
+| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class D column drops | D | **STOP** — human |
+
+### Human stops
+
+- Do not apply Class C/D from prior PRDs.
+- `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
+- Do not merge PRD-08 into preview until programme asks.
+- Do not push until explicitly instructed.
+- Production beta activation requires super-admin grant (or `BETA_ENTITLEMENT_BYPASS=1` — do not set in prod).
+- Legal copy remains `draft_unreviewed` until professional review.
+
+### Incomplete / follow-ups
+
+- Dedicated must-play / do-not-play organiser list UI (API + settings hooks present; full list editor deferred).
+- Full scripted Playwright beta rehearsal (50+ requests / iOS-Android QR) deferred — unit/PDF/gate coverage shipped.
+- Concurrent multi-worker guardrail stress beyond unit matching deferred.
+- Automated axe accessibility suite for wizard/guest entry deferred.
+- Stripe live checkout / public payment → PRD-09 (non-goal).
+- Durable security-audit table still deferred (CSV audit actions use `support_activity`; stdout `security-audit` remains for PRD-02 events).
+
+### Validation notes (feature branch)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass (FIX_THEN_MERGE pass) |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass (incl. PRD-08 R1–R3) |
+| `npm run build` | Pass |
+| `npm run db:migrate:canonical:dry` | Pending `010` reported |
+| `npm run db:migrate:canonical` | Applied `010` |
+| Merged into preview | No |
+| Pushed | No |

@@ -226,6 +226,24 @@ export default function SuperAdminPage() {
     });
   };
 
+  const grantBeta = async (userId: string) => {
+    try {
+      const response = await authenticatedFetch('/api/superadmin/beta-entitlements', {
+        method: 'POST',
+        body: JSON.stringify({ userId, days: 30, notes: 'Paid beta grant' }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Failed to grant beta entitlement');
+        return;
+      }
+      alert(`Beta entitlement granted until ${data.entitlement?.ends_at || 'n/a'}`);
+    } catch (error) {
+      console.error(error);
+      alert('Failed to grant beta entitlement');
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -367,6 +385,13 @@ export default function SuperAdminPage() {
                             </button>
                           </>
                         )}
+                        <button
+                          onClick={() => void grantBeta(user.id)}
+                          className="p-2 text-amber-300 hover:bg-amber-400/20 rounded-lg transition-colors"
+                          title="Grant 30-day beta entitlement"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => openEditModal(user)}
                           className="p-2 text-accent hover:bg-accent/20 rounded-lg transition-colors"

@@ -14,6 +14,10 @@ import {
   type SpotifyOAuthRedirectId,
 } from '@/lib/spotify/oauth-redirects';
 import { SpotifyServiceError } from '@/lib/spotify/token-errors';
+import {
+  assertUserDemoDoesNotTouchSpotify,
+  isDemoModeBlockedError,
+} from '@/lib/beta/demo-mode';
 
 function redirectToResult(
   req: NextRequest,
@@ -49,6 +53,17 @@ export async function GET(req: NextRequest) {
     const userId = auth.user.user_id;
     const username = auth.user.username;
     fallbackPath = resolveOAuthRedirectPath('admin_spotify', username);
+
+    try {
+      await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
+    } catch (demoErr) {
+      if (isDemoModeBlockedError(demoErr)) {
+        return redirectToResult(req, fallbackPath, {
+          spotify_error: 'demo_mode_blocked',
+        });
+      }
+      throw demoErr;
+    }
 
     if (providerError) {
       return redirectToResult(req, fallbackPath, {
@@ -112,6 +127,11 @@ export async function GET(req: NextRequest) {
 
     return redirectToResult(req, resultPath, { spotify: 'connected' });
   } catch (error) {
+    if (isDemoModeBlockedError(error)) {
+      return redirectToResult(req, fallbackPath, {
+        spotify_error: 'demo_mode_blocked',
+      });
+    }
     console.error('Error in Spotify callback (redacted)');
     return redirectToResult(req, fallbackPath, {
       spotify_error: 'callback_failed',

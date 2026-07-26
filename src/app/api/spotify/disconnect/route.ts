@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { clearSpotifyAuth, clearOAuthSessionsForUser } from '@/lib/db';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
+import {
+  assertUserDemoDoesNotTouchSpotify,
+  isDemoModeBlockedError,
+} from '@/lib/beta/demo-mode';
 
 async function handleDisconnect(req: NextRequest) {
   try {
@@ -11,6 +15,23 @@ async function handleDisconnect(req: NextRequest) {
     }
 
     const userId = auth.user.user_id;
+
+    try {
+      await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_disconnect');
+    } catch (demoErr) {
+      if (isDemoModeBlockedError(demoErr)) {
+        return NextResponse.json(
+          {
+            error: 'Demo mode active',
+            code: 'DEMO_MODE_BLOCKED',
+            message:
+              'Spotify disconnect is disabled while interactive demo mode is on. Disable demo mode first.',
+          },
+          { status: 403 }
+        );
+      }
+      throw demoErr;
+    }
 
     await clearSpotifyAuth(userId);
     await clearOAuthSessionsForUser(userId);
@@ -33,6 +54,17 @@ async function handleDisconnect(req: NextRequest) {
       message: 'Spotify account disconnected successfully',
     });
   } catch (error) {
+    if (isDemoModeBlockedError(error)) {
+      return NextResponse.json(
+        {
+          error: 'Demo mode active',
+          code: 'DEMO_MODE_BLOCKED',
+          message:
+            'Spotify disconnect is disabled while interactive demo mode is on.',
+        },
+        { status: 403 }
+      );
+    }
     console.error('Spotify disconnect error (redacted)');
     reportApiError(req, error, { source: 'spotify' });
 

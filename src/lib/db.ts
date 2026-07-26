@@ -132,6 +132,17 @@ export interface EventSettings {
   show_approval_messages: boolean;
   /** When true, guest URLs use an 8-char secure code instead of 6 digits */
   secure_url_access: boolean;
+  /** PRD-08: include access code on printable signage when true */
+  print_access_code_on_signage?: boolean;
+  /** PRD-08: interactive demo mode (mock tracks; no Spotify credentials) */
+  demo_mode?: boolean;
+  pre_event_requests_enabled?: boolean;
+  must_play_list?: unknown;
+  do_not_play_list?: unknown;
+  artist_cooldown_minutes?: number;
+  max_active_requests_per_guest?: number | null;
+  /** PRD-07/08 playback mode mirror on settings */
+  playback_mode?: string;
   updated_at: string;
 }
 
@@ -1277,6 +1288,11 @@ export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null
     throw new Error('userId is required for multi-tenant Spotify auth isolation');
   }
 
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId.trim(), 'spotify_token_read');
+
   const client = getPool();
   const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [
     userId.trim(),
@@ -1297,6 +1313,11 @@ export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null
  * Does not backfill existing rows (Class C — requires human approval).
  */
 export async function setSpotifyAuth(auth: SpotifyAuth, userId: string): Promise<void> {
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_token_write');
+
   const {
     encryptToken,
     serializeEnvelope,
@@ -1359,6 +1380,12 @@ export async function setSpotifyAuthCas(
   userId: string,
   expectedLockVersion: number
 ): Promise<boolean> {
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  // Refresh path writes new vault envelopes — blocked in demo mode.
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_refresh');
+
   const {
     encryptToken,
     serializeEnvelope,
@@ -1416,6 +1443,11 @@ export async function clearSpotifyAuth(userId: string): Promise<void> {
   if (!userId) {
     throw new Error('userId is required for multi-tenant data isolation');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_disconnect');
   
   const client = getPool();
   await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
@@ -1440,6 +1472,11 @@ export async function storeOAuthSession(
   if (!userId) {
     throw new Error('userId is required to store Spotify OAuth transaction');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
 
   const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
   const {
@@ -1506,6 +1543,11 @@ export async function consumeOAuthTransaction(
   if (!userId) {
     throw new Error('userId is required to consume OAuth transaction');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
 
   const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
   const { decryptToken } = await import('@/lib/crypto/token-vault');
@@ -1638,6 +1680,12 @@ const EVENT_SETTINGS_UPDATABLE_FIELDS = new Set([
   'karaoke_mode',
   'show_approval_messages',
   'secure_url_access',
+  'print_access_code_on_signage',
+  'demo_mode',
+  'pre_event_requests_enabled',
+  'artist_cooldown_minutes',
+  'max_active_requests_per_guest',
+  'playback_mode',
 ]);
 
 export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {
