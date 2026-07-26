@@ -414,11 +414,13 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | FIX_THEN_MERGE fixes on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-06-distributed-reliability-20260726` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `ca5e420` (source tip `af3f9ad`) |
 | Database impact | **Class B applied** — `007_prd06_reliability` (2026-07-26T21:40:08.704Z); `008_prd06_request_status_check` (2026-07-26T21:44:54.546Z) widens `requests_status_check` + `claim_started_at`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
 | Depends on | PRD-05 integrated into preview |
+| Independent re-review | APPROVE_MERGE @ `af3f9ad` |
 
 ### Outcomes (this pass)
 
@@ -455,12 +457,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 ### Incomplete / follow-ups
 
-- Full 150-guest / multi-instance fault scripts not shipped (unit guardrails only).
+- Full 150-guest / multi-instance fault scripts not shipped (unit guardrails only) — **deferred load scripts**.
 - Search cache + Spotify 429 cooldown Maps remain process-local (non-correctness for security; document).
 - Nickname anonymisation cron / retention job not implemented.
 - Uncertain ledger recovery is read-only / operator reconcile — no Spotify queue peek automation.
-- UI may still expose reorder controls — API now refuses; disable control in admin UI follow-up.
-- `cleanup-played` still deletes played rows after 1h — confirm product retention policy separately.
+- UI may still expose reorder controls — API now refuses; disable control in admin UI follow-up (PRD-07 app-owned queue makes reorder truthful).
+- **`cleanup-played` policy:** still deletes played rows after 1h — product retention policy confirmation deferred (separate from PRD-06 merge).
 
 ### Validation notes (feature branch)
 
@@ -470,5 +472,22 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run lint` | Pass (0 errors; warnings remain) |
 | `npm run test:unit` | Pass — includes PRD-06 claim/uncertain/secondary RL suite |
 | `npm run build` | Pass |
-| Merged into preview | No |
+| Merged into preview | Yes — `ca5e420` |
 | Pushed | No |
+
+### Preview integration smoke (post-merge `ca5e420` + status docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass — 234 tests |
+| `npm run build` | Pass |
+| Pushed to remote | No (prefer local; production = `main` only) |
+
+### Deferred notes (explicit)
+
+| Item | Status |
+| --- | --- |
+| Full 150-guest / multi-instance load & fault scripts | Deferred (unit concurrency guardrails only) |
+| `cleanup-played` 1h delete of played rows | Deferred product policy confirmation — not changed by this merge |
