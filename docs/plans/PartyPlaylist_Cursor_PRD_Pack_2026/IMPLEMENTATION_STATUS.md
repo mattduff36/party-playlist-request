@@ -168,7 +168,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Status | Implemented on feature branch (not merged into preview) |
 | Branch | `dev/prd-03-spotify-token-security-20260726` |
 | Preview branch | `preview/partyplaylist-prd-program-2026` (base; do not merge yet) |
-| Database impact | **Class B** additive migration `add_spotify_token_encryption.sql` (envelopes + oauth txn columns; nullable plaintext). **Class C backfill deferred** (encrypt existing production tokens — awaiting human approval). **Class D deferred** (drop plaintext columns). See `PRD-03-MIGRATION-NOTES.md`. |
+| Database impact | **Class B applied** to Neon production/`main` (YES). Verified columns/indexes present. Backup: `snap-odd-dream-abwtma9w`. **Class C:** 8 candidate rows, AWAITING human approval — not run. **Class D:** deferred. See `PRD-03-MIGRATION-NOTES.md`. |
 | Depends on | PRD-02 integrated into preview |
 
 ### Outcomes
@@ -183,18 +183,31 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Concurrent refresh locking/CAS | Done — `refresh_lock_version` + `setSpotifyAuthCas` |
 | Redact sensitive logging | Done — callback/auth/exchange logs redacted |
 | Disconnect clears oauth sessions | Done — disconnect + admin reset + user delete |
+| Production vault fail-fast | Done — `assertTokenVaultConfiguredForProduction()` via `src/instrumentation.ts` |
+
+### Migration status (Neon production / `main`)
+
+| Field | Value |
+| --- | --- |
+| Class B applied | **YES** (`add_spotify_token_encryption.sql`) |
+| Columns / indexes verified present | **YES** |
+| Backup | `snap-odd-dream-abwtma9w` |
+| `TOKEN_ENCRYPTION_KEY_V1` in local `.env.local` | **NOT set** (awaiting human) |
+| Class C backfill | **8 candidate rows**; **AWAITING human approval** — not run |
+| Class D (drop plaintext columns) | **Deferred** |
 
 ### Human stop (Class C/D)
 
-- **Do not run** production plaintext → ciphertext backfill without approval (Class C).
+- **Do not run** production plaintext → ciphertext backfill without approval (Class C; 8 candidates).
 - **Do not drop** plaintext token columns (Class D).
 - Impact pack: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-03-MIGRATION-NOTES.md`
 
 ### Incomplete / follow-ups
 
-- Apply Class B SQL to Neon before deploying PRD-03 (backup `snap-odd-dream-abwtma9w` already exists).
-- Set production `TOKEN_ENCRYPTION_KEY_V1` (never commit the value).
-- Class C backfill CLI + Class D column drop after dual-read verification.
+- **Class B:** Applied on Neon (complete; columns/indexes verified).
+- **`TOKEN_ENCRYPTION_KEY_V1`:** Missing locally — must be set in `.env.local` and production before deploy (never commit the value). Production startup fails fast without it.
+- **Class C:** 8 candidate rows — awaiting explicit human approval (not run).
+- Class D column drop deferred after dual-read verification.
 - Existing connected users keep working via plaintext dual-read until they reconnect (new writes encrypted) or Class C runs.
 - Full typed error mapping coverage for every Spotify API call path beyond OAuth/refresh/search (partial).
 
@@ -202,7 +215,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Command | Result |
 | --- | --- |
-| `npm run test:unit` | Pass — 168 tests (incl. 17 PRD-03 security) |
+| `npm run test:unit` | Pass — PRD-03 security + behavioral negatives (cross-user, replay, decrypt leak) |
 | `npm run build` | Pass |
 | Merged into preview | No |
 | Pushed | No |
