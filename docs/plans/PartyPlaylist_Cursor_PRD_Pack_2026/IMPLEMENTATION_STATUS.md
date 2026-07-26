@@ -768,3 +768,14 @@ Checklist: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-09-ENV-CHECKLIST.m
 | `npm run build` | Pass |
 | Vercel production branch | `main` (API `link.productionBranch`) |
 | Pushed to remote | Yes — preview branch only (`-u`); production = `main` unchanged |
+
+## Manual acceptance hotfix (2026-07-27)
+
+Preview-only fixes from superadmin manual test (event `683948`, v2.1.30). **Not merged to `main`.**
+
+| Bug | Root cause | Fix |
+| --- | --- | --- |
+| Ready / Guided setup: `column "updated_at" of relation "user_events" does not exist` | Live Neon `user_events` predated baseline; `CREATE IF NOT EXISTS` never added `updated_at`. `setPlaybackMode` stamps `user_events.updated_at`. | Class B **`012_user_events_updated_at`** applied on Neon (`ADD COLUMN IF NOT EXISTS`). Backup: `snap-odd-dream-abwtma9w`. |
+| Recovery: “No active Spotify playback device” while sidebar shows **MPDEE-SERVER ACTIVE** | Recovery/readiness used `events.device_id` only (often null). Player uses live `/me/player` + devices. | `resolveActiveSpotifyDevice` — same live Spotify truth as queue/details; recovery returns `activeDevice` source. |
+
+Acceptance note: re-test **T-32** (Ready mode switch) and **T-35** (Recovery device issue clears when player shows ACTIVE).

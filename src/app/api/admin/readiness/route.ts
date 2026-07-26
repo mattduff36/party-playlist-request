@@ -43,9 +43,16 @@ async function spotifySnapshot(userId: string): Promise<{
       `SELECT device_id FROM events WHERE user_id = $1 AND device_id IS NOT NULL LIMIT 1`,
       [userId]
     );
+    const { resolveActiveSpotifyDevice } = await import(
+      '@/lib/spotify/active-device'
+    );
+    const resolved = await resolveActiveSpotifyDevice(userId, {
+      eventDeviceId: device.rows[0]?.device_id ?? null,
+      probeLive: true,
+    });
     return {
       connected: true,
-      hasDevice: Boolean(device.rows[0]?.device_id),
+      hasDevice: resolved.hasActiveDevice,
     };
   } catch {
     return { connected: false, hasDevice: false };

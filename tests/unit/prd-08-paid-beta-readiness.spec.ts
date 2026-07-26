@@ -389,6 +389,23 @@ describe('PRD-08: templates, guardrails, demo, recovery, legal', () => {
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS/);
     expect(sql).not.toMatch(/DROP COLUMN/);
   });
+
+  it('registers Class B migration 012 for user_events.updated_at', () => {
+    const mig = CANONICAL_MIGRATIONS.find(
+      (m) => m.id === '012_user_events_updated_at'
+    );
+    expect(mig?.classification).toBe('B');
+    const sqlPath = path.join(
+      ROOT,
+      'src/lib/db/migrations/canonical/012_user_events_updated_at.sql'
+    );
+    expect(fs.existsSync(sqlPath)).toBe(true);
+    const sql = fs.readFileSync(sqlPath, 'utf8');
+    expect(sql).toMatch(/user_events/);
+    expect(sql).toMatch(/updated_at/);
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS/);
+    expect(sql).not.toMatch(/DROP COLUMN/);
+  });
 });
 
 describe('PRD-08: entitlement bypass helpers', () => {

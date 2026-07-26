@@ -93,4 +93,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     description:
       'PRD-09 Party Pass purchases, entitlements, Stripe customer/webhook ledger, audit + funnel (no card data)',
   },
+  {
+    id: '012_user_events_updated_at',
+    file: '012_user_events_updated_at.sql',
+    classification: 'B',
+    description:
+      'Add user_events.updated_at (live Neon gap vs baseline / setPlaybackMode)',
+  },
 ];
