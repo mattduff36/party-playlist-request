@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { useOptionalAdminAuth } from '@/contexts/AdminAuthContext';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 /**
  * Client-side Global Event State Management
@@ -13,8 +13,7 @@ import { useOptionalAdminAuth } from '@/contexts/AdminAuthContext';
  * 
  * AUTHENTICATION:
  * - Public pages (home, display) use this WITHOUT admin auth - read-only GET requests
- * - Admin pages use this WITH admin auth - authenticated POST/PUT requests
- * - Auth token is provided via AdminAuthContext (optional)
+ * - Admin pages use cookie + CSRF via authenticatedFetch for mutations (PRD-02)
  */
 
 // Event State Machine Types
@@ -266,8 +265,7 @@ function getPublicPageUsernameFromPath(pathname: string): string | null {
 // Actions implementation
 function createActions(
   dispatch: React.Dispatch<GlobalEventAction>, 
-  getState: () => GlobalEventState,
-  getToken: () => string | null
+  getState: () => GlobalEventState
 ): GlobalEventActions {
   return {
     setLoading: (loading: boolean) => {
@@ -294,24 +292,9 @@ function createActions(
         // Get current event ID
         const eventId = getState().eventId || getDefaultEventId();
         
-        // Get auth token (if available - only for admin pages)
-        const token = getToken();
-        
-        // Build headers
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        
-        // Add Authorization header if token is available (admin context)
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
         // Bound so Event Control "Updating..." cannot stick if the API stalls
-        const response = await fetch('/api/event/status', {
+        const response = await authenticatedFetch('/api/event/status', {
           method: 'POST',
-          headers,
-          credentials: 'include',
           body: JSON.stringify({
             status,
             eventId,
@@ -435,27 +418,11 @@ function createActions(
         const eventId = getState().eventId || getDefaultEventId();
         console.log('🔄 [setPageEnabled] eventId:', eventId);
         
-        // Get auth token (if available - only for admin pages)
-        const token = getToken();
-        console.log('🔄 [setPageEnabled] token present:', !!token);
-        
-        // Build headers
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        
-        // Add Authorization header if token is available (admin context)
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
         const requestBody = { page, enabled, eventId };
         console.log('🔄 [setPageEnabled] Making API request to /api/event/pages:', requestBody);
         
-        const response = await fetch('/api/event/pages', {
+        const response = await authenticatedFetch('/api/event/pages', {
           method: 'POST',
-          headers,
-          credentials: 'include',
           body: JSON.stringify(requestBody),
         });
 
@@ -622,24 +589,12 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
   const pathname = usePathname() || '';
   
-  // Try to get admin auth context (will be null on public pages, which is fine)
-  const adminAuth = useOptionalAdminAuth();
-  
   const actions = useMemo(() => {
-    const getToken = () => {
-      if (adminAuth?.token) return adminAuth.token;
-      if (typeof window === 'undefined') return null;
-      try {
-        return localStorage.getItem('admin_token');
-      } catch {
-        return null;
-      }
-    };
-    const nextActions = createActions(dispatch, () => stateRef.current, getToken);
+    const nextActions = createActions(dispatch, () => stateRef.current);
     // Add alias for backward compatibility
     nextActions.setEventStatus = nextActions.updateEventStatus;
     return nextActions;
-  }, [dispatch, adminAuth?.token]);
+  }, [dispatch]);
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
 

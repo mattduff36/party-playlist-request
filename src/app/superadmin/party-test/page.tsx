@@ -29,6 +29,7 @@ import {
   formatSimulationDurationLabel,
 } from '@/lib/party-simulator-shared';
 import Checkbox from '@/components/ui/Checkbox';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 const EMPTY_STATS: SimulationStats = {
   isRunning: false,
@@ -141,10 +142,8 @@ export default function PartyTestPage() {
         startClientSimulation(config);
       } else {
         // Server-side implementation (local development)
-        const response = await fetch('/api/superadmin/party-simulator', {
+        const response = await authenticatedFetch('/api/superadmin/party-simulator', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify(config)
         });
 
@@ -177,9 +176,8 @@ export default function PartyTestPage() {
         stopClientSimulation();
       } else {
         // Server-side implementation (local development)
-        const response = await fetch('/api/superadmin/party-simulator', {
+        const response = await authenticatedFetch('/api/superadmin/party-simulator', {
           method: 'DELETE',
-          credentials: 'include'
         });
 
         const data = await response.json();
@@ -208,10 +206,8 @@ export default function PartyTestPage() {
         await triggerClientManualRequest();
       } else {
         // Server-side implementation (local development)
-        const response = await fetch('/api/superadmin/party-simulator/trigger', {
+        const response = await authenticatedFetch('/api/superadmin/party-simulator/trigger', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({ type: 'single' })
         });
 
@@ -240,10 +236,8 @@ export default function PartyTestPage() {
         await triggerClientManualBurst();
       } else {
         // Server-side implementation (local development)
-        const response = await fetch('/api/superadmin/party-simulator/trigger', {
+        const response = await authenticatedFetch('/api/superadmin/party-simulator/trigger', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({ type: 'burst' })
         });
 

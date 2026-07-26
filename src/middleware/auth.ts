@@ -36,6 +36,9 @@ function genericUnauthorized(code: string): NextResponse {
 /**
  * Require authentication — validates JWT and users.active_session_id.
  * Cookie mutations also enforce CSRF / same-origin.
+ *
+ * Token resolution is cookie-first (see extractToken). When an auth cookie is
+ * present, CSRF applies regardless of any Authorization header.
  */
 export async function requireAuth(req: NextRequest): Promise<AuthContext> {
   const correlationId = req.headers.get('x-correlation-id') || newCorrelationId();

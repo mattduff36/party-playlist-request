@@ -23,6 +23,7 @@ import {
   clearSpotifyOAuthPending,
   markSpotifyOAuthPending,
 } from '@/lib/spotify-oauth-client';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface SidebarSpotifyControlsProps {
   /** sidebar = compact left-rail; page = single combined card for /spotify */
@@ -97,9 +98,8 @@ export default function SidebarSpotifyControls({
     setIsBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/spotify/disconnect', {
+      const response = await authenticatedFetch('/api/spotify/disconnect', {
         method: 'POST',
-        credentials: 'include',
       });
       if (!response.ok) {
         const data = await response.json();
@@ -125,10 +125,8 @@ export default function SidebarSpotifyControls({
         ? '/api/admin/playback/pause'
         : '/api/admin/playback/resume';
       const deviceId = getActiveDeviceId();
-      const response = await fetch(endpoint, {
+      const response = await authenticatedFetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(deviceId ? { device_id: deviceId } : {}),
       });
       if (!response.ok) {
@@ -162,10 +160,8 @@ export default function SidebarSpotifyControls({
           ? '/api/admin/playback/skip'
           : '/api/admin/playback/previous';
       const deviceId = getActiveDeviceId();
-      const response = await fetch(endpoint, {
+      const response = await authenticatedFetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(deviceId ? { device_id: deviceId } : {}),
       });
       if (!response.ok) {

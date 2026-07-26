@@ -12,6 +12,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 // Query Keys - centralized for cache invalidation
 export const QUERY_KEYS = {
@@ -153,11 +154,9 @@ export function useApproveRequest() {
   
   return useMutation({
     mutationFn: async ({ id, playNext }: { id: string; playNext?: boolean }) => {
-      const response = await fetch(`/api/admin/approve/${id}`, {
+      const response = await authenticatedFetch(`/api/admin/approve/${id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ play_next: playNext }),
-        credentials: 'include',
       });
       
       if (!response.ok) {
@@ -179,11 +178,9 @@ export function useRejectRequest() {
   
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
-      const response = await fetch(`/api/admin/reject/${id}`, {
+      const response = await authenticatedFetch(`/api/admin/reject/${id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
-        credentials: 'include',
       });
       
       if (!response.ok) {
@@ -205,9 +202,8 @@ export function useDeleteRequest() {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/admin/delete/${id}`, {
+      const response = await authenticatedFetch(`/api/admin/delete/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       
       if (!response.ok) {

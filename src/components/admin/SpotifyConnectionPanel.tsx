@@ -21,6 +21,7 @@ import {
   clearSpotifyOAuthPending,
   markSpotifyOAuthPending,
 } from '@/lib/spotify-oauth-client';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface SpotifyConnectionPanelProps {
   className?: string;
@@ -121,9 +122,8 @@ export default function SpotifyConnectionPanel({
 
   const resetConnectionState = async () => {
     try {
-      const response = await fetch('/api/spotify/reset-connection-state', {
+      const response = await authenticatedFetch('/api/spotify/reset-connection-state', {
         method: 'POST',
-        credentials: 'include',
       });
 
       if (response.ok) {
@@ -146,9 +146,8 @@ export default function SpotifyConnectionPanel({
     setState(prev => ({ ...prev, isBusy: true, error: null }));
 
     try {
-      const response = await fetch('/api/spotify/disconnect', {
+      const response = await authenticatedFetch('/api/spotify/disconnect', {
         method: 'POST',
-        credentials: 'include',
       });
 
       if (response.ok) {

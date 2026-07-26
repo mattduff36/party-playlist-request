@@ -23,6 +23,7 @@ import {
 } from '@/styles/theme';
 import Checkbox from '@/components/ui/Checkbox';
 import Radio from '@/components/ui/Radio';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 const SCROLLING_MESSAGE_PLACEHOLDER = 'Your requests will be reviewed by the DJ';
 const SCROLLING_MESSAGE_SECOND_PLACEHOLDER = 'Keep the party going!';
@@ -242,12 +243,8 @@ export default function DisplaySettingsPage() {
         durationInSeconds = parseInt(messageDuration);
       }
 
-      const response = await fetch('/api/admin/message', {
+      const response = await authenticatedFetch('/api/admin/message', {
         method: 'POST',
-        credentials: 'include', // JWT auth via cookies
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           message_text: messageText.trim(),
           message_duration: durationInSeconds
@@ -276,9 +273,8 @@ export default function DisplaySettingsPage() {
     setMessageStatus('');
 
     try {
-      const response = await fetch('/api/admin/message', {
+      const response = await authenticatedFetch('/api/admin/message', {
         method: 'DELETE',
-        credentials: 'include' // JWT auth via cookies
       });
 
       if (response.ok) {

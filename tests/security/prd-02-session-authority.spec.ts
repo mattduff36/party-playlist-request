@@ -20,10 +20,24 @@ import {
   hashLimiterId,
   resetAuthRateLimitForTests,
 } from '@/lib/auth/auth-rate-limit';
+import { extractToken } from '@/lib/auth';
 
 function asNextRequest(url: string, init?: RequestInit): NextRequest {
   return new NextRequest(url, init);
 }
+
+describe('PRD-02: cookie-first token extraction', () => {
+  it('prefers auth cookie over Authorization Bearer', () => {
+    expect(extractToken('Bearer stale-localstorage', 'live-cookie-jwt')).toBe(
+      'live-cookie-jwt'
+    );
+  });
+
+  it('falls back to Bearer when no cookie is present', () => {
+    expect(extractToken('Bearer api-token', null)).toBe('api-token');
+    expect(extractToken(null, null)).toBeNull();
+  });
+});
 
 describe('PRD-02: active session equality', () => {
   it('rejects missing token session_id even when DB has a lock', () => {
@@ -301,6 +315,117 @@ describe('PRD-02: requireAuth session revocation', () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.code).toBe('SESSION_REVOKED');
+  });
+
+  it('event end (status offline) denied for stale session', async () => {
+    jest.doMock('@/lib/db/neon-client', () => ({
+      sql: Object.assign(
+        jest.fn(async () => [
+          {
+            id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            username: 'organiser-a',
+            email: 'a@example.com',
+            role: 'user',
+            active_session_id: 'active-session',
+            account_status: 'active',
+            email_verified: true,
+          },
+        ]),
+        { raw: jest.fn() }
+      ),
+    }));
+
+    const { generateToken } = await import('@/lib/auth');
+    const { POST } = await import('@/app/api/event/status/route');
+
+    const token = generateToken({
+      user_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      username: 'organiser-a',
+      email: 'a@example.com',
+      role: 'user',
+      session_id: 'stale-session',
+    });
+
+    const res = await POST(
+      asNextRequest('http://localhost/api/event/status', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'offline' }),
+      })
+    );
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe('SESSION_REVOKED');
+  });
+
+  it('stale cookie loses to active cookie when both Bearer and cookie present', async () => {
+    jest.doMock('@/lib/db/neon-client', () => ({
+      sql: Object.assign(
+        jest.fn(async () => [
+          {
+            id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            username: 'organiser-a',
+            email: 'a@example.com',
+            role: 'user',
+            active_session_id: 'live-session',
+            account_status: 'active',
+            email_verified: true,
+          },
+        ]),
+        { raw: jest.fn() }
+      ),
+    }));
+
+    const { generateToken } = await import('@/lib/auth');
+    const { requireAuth } = await import('@/middleware/auth');
+
+    const stale = generateToken({
+      user_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      username: 'organiser-a',
+      email: 'a@example.com',
+      role: 'user',
+      session_id: 'stale-session',
+    });
+    const live = generateToken({
+      user_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      username: 'organiser-a',
+      email: 'a@example.com',
+      role: 'user',
+      session_id: 'live-session',
+    });
+
+    const res = await requireAuth(
+      asNextRequest('http://localhost/api/admin/stats', {
+        headers: {
+          Authorization: `Bearer ${stale}`,
+          cookie: `auth_token=${live}`,
+        },
+      })
+    );
+
+    expect(res.authenticated).toBe(true);
+    expect(res.sessionId).toBe('live-session');
+  });
+
+  it('logout does not clear a newer active session', async () => {
+    const sqlMock = jest.fn(async () => []);
+    jest.doMock('@/lib/db/neon-client', () => ({
+      sql: Object.assign(sqlMock, { raw: jest.fn() }),
+    }));
+
+    const { releaseActiveSessionIfMatch } = await import(
+      '@/lib/auth/session-authority'
+    );
+    const released = await releaseActiveSessionIfMatch(
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      'old-session'
+    );
+    expect(released).toBe(false);
+    expect(sqlMock).toHaveBeenCalled();
   });
 });
 

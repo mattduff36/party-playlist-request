@@ -18,7 +18,10 @@ import {
 } from '@/lib/pusher';
 import { formatArtists } from '@/lib/format-artists';
 import type { DisplayMood } from '@/styles/theme';
-import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
+import {
+  authenticatedFetch,
+  handleSessionRevokedResponse,
+} from '@/lib/api/authenticated-fetch';
 
 export interface Request {
   id: string;
@@ -381,12 +384,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   });
 
   const handleTokenExpiration = useCallback(async (reason: string = 'expired') => {
+    // Revoked sessions redirect once — never start refresh/token-expired loops.
+    if (reason === 'session_revoked') {
+      localStorage.removeItem('admin_token');
+      return;
+    }
     localStorage.removeItem('admin_token');
     try {
       await authenticatedFetch('/api/admin/token-expired', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           reason,
           message: 'Admin token has expired. Please log in again.',
@@ -396,6 +402,17 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       console.error('Failed to trigger token expiration event:', pusherError);
     }
   }, []);
+
+  const handleUnauthorized = useCallback(
+    async (response: Response) => {
+      if (await handleSessionRevokedResponse(response)) {
+        await handleTokenExpiration('session_revoked');
+        return;
+      }
+      await handleTokenExpiration('expired');
+    },
+    [handleTokenExpiration]
+  );
 
   const refreshRequests = useCallback(async () => {
     const gen = ++requestsGenRef.current;
@@ -413,12 +430,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             : prev
         );
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch requests:', error);
     }
-  }, [handleTokenExpiration]);
+  }, [handleUnauthorized]);
 
   const patchPlaybackState = useCallback((patch: Partial<PlaybackState>) => {
     setPlaybackState((prev) => {
@@ -573,12 +590,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           scheduleHydrateRetries();
         }
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch playback state:', error);
     }
-  }, [handleTokenExpiration, scheduleHydrateRetries, setSpotifyConnected]);
+  }, [handleUnauthorized, scheduleHydrateRetries, setSpotifyConnected]);
 
   const refreshEventSettings = useCallback(async () => {
     try {
@@ -591,12 +608,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           JSON.stringify(prev) !== JSON.stringify(data) ? data : prev
         );
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch event settings:', error);
     }
-  }, [handleTokenExpiration]);
+  }, [handleUnauthorized]);
 
   const refreshStats = useCallback(async () => {
     const gen = ++statsGenRef.current;
@@ -621,12 +638,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           setSpotifyConnected(data.spotify_connected);
         }
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     }
-  }, [handleTokenExpiration, setSpotifyConnected]);
+  }, [handleUnauthorized, setSpotifyConnected]);
 
   refreshRequestsRef.current = refreshRequests;
   refreshStatsRef.current = refreshStats;

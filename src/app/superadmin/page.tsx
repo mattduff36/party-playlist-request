@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import Checkbox from '@/components/ui/Checkbox';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface User {
   id: string;
@@ -84,10 +85,8 @@ export default function SuperAdminPage() {
     setFormLoading(true);
 
     try {
-      const response = await fetch('/api/superadmin/users', {
+      const response = await authenticatedFetch('/api/superadmin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -127,10 +126,8 @@ export default function SuperAdminPage() {
         updateData.password = formData.password;
       }
 
-      const response = await fetch(`/api/superadmin/users/${selectedUser.id}`, {
+      const response = await authenticatedFetch(`/api/superadmin/users/${selectedUser.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(updateData)
       });
 
@@ -159,9 +156,8 @@ export default function SuperAdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/superadmin/users/${user.id}`, {
+      const response = await authenticatedFetch(`/api/superadmin/users/${user.id}`, {
         method: 'DELETE',
-        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -186,10 +182,8 @@ export default function SuperAdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/superadmin/users/${user.id}`, {
+      const response = await authenticatedFetch(`/api/superadmin/users/${user.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ account_status }),
       });
 

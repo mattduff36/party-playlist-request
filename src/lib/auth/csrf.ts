@@ -5,9 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { getAppBaseUrl } from '@/lib/app-url';
+import {
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+} from '@/lib/auth/csrf-constants';
 
-export const CSRF_COOKIE_NAME = 'csrf_token';
-export const CSRF_HEADER_NAME = 'x-csrf-token';
+export { CSRF_COOKIE_NAME, CSRF_HEADER_NAME };
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
