@@ -326,11 +326,13 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | In progress on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-05-canonical-database-ci-20260726` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `cae2960` (source tip `43cf95f`) |
 | Database impact | **Class B applied** — `001`–`006` via `db:migrate:canonical` (idempotent; stamped in `schema_migrations`). No Class C/D. Backup: `snap-odd-dream-abwtma9w`. |
 | Depends on | PRD-01…04 integrated into preview |
+| Independent re-review | APPROVE_MERGE @ `43cf95f` |
 
 ### Outcomes (this pass)
 
@@ -384,6 +386,26 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run lint` | Pass — 0 errors (CI hard-fail; warnings remain) |
 | `npm run test:unit` | Pass |
 | `npm run build` | Pass (no eslint/ts ignore flags) |
-| Merged into preview | No |
+| Merged into preview | Yes — `cae2960` |
 | Pushed | No |
 | PRD-05 quality-gate acceptance | **Complete** for type-check + lint + unit + build hard gates |
+
+### Human gates (still open — do not run without approval)
+
+- **PRD-03 Class C:** 8 candidate plaintext Spotify token rows — AWAITING human approval.
+- **PRD-03 Class D:** Drop plaintext Spotify token columns — deferred.
+- **PRD-04 Class C:** Backfill existing plaintext codes/tokens into hash columns — AWAITING human approval.
+- **PRD-04 Class D:** Drop plaintext pin/access_code/bypass_token/token/reset/email-verify columns — deferred.
+- **Deploy:** `TOKEN_ENCRYPTION_KEY_V1` required before production deploy (never commit).
+- **PRD-05:** No additional Class C/D from this PRD; do not run quarantined 7→4 destructive SQL.
+
+### Preview integration smoke (post-merge `cae2960` + hygiene)
+
+| Command | Result |
+| --- | --- |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (warnings remain; 0 errors) |
+| `npm run test:unit` | Pass — 213 tests |
+| `npm run build` | Pass |
+| Hygiene | Removed unused stale `.eslintrc.json` (ESLint 9 flat `eslint.config.mjs` only) |
+| Pushed to remote | No (prefer local; production = `main` only) |
