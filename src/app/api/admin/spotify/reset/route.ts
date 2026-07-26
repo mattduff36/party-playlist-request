@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { clearSpotifyAuth } from '@/lib/db';
+import { clearSpotifyAuth, clearOAuthSessionsForUser } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
 
     // revokeTokens already clears DB + playlist cache; keep explicit clear for safety
     await clearSpotifyAuth(userId);
+    await clearOAuthSessionsForUser(userId);
     
     console.log(`✅ Spotify connection reset completed for user ${userId}`);
     

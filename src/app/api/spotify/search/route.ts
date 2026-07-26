@@ -94,55 +94,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(payload);
     }
 
-    // Get user's Spotify auth tokens
-    const authResult = await pool.query(
-      'SELECT access_token, refresh_token, expires_at FROM spotify_auth WHERE user_id = $1',
-      [userId]
-    );
+    // Resolve access token via vault-aware Spotify service (never read plaintext columns raw)
+    const { spotifyService } = await import('@/lib/spotify');
+    let accessToken: string;
+    try {
+      accessToken = await spotifyService.getAccessToken(userId);
+    } catch (tokenError) {
+      console.error('Search failed to resolve Spotify access token (redacted)');
 
-    if (authResult.rows.length === 0) {
-      console.log(`⚠️ [search] User ${username} has not connected Spotify`);
-      return NextResponse.json(
-        { error: 'Spotify not connected. Please connect your Spotify account in the admin panel.' },
-        { status: 503 }
-      );
-    }
-
-    const auth = authResult.rows[0];
-
-    // Check if token is expired and refresh if needed
-    if (new Date(auth.expires_at) <= new Date()) {
-      console.log(`🔄 [search] Access token expired for ${username}, refreshing...`);
-      
-      // Import spotify service to refresh token
-      const { spotifyService } = await import('@/lib/spotify');
-      try {
-        await spotifyService.refreshAccessToken(userId);
-        
-        // Get updated token
-        const refreshedResult = await pool.query(
-          'SELECT access_token FROM spotify_auth WHERE user_id = $1',
-          [userId]
-        );
-        auth.access_token = refreshedResult.rows[0].access_token;
-      } catch (refreshError) {
-        console.error(`❌ [search] Failed to refresh token for ${username}:`, refreshError);
-
-        if (isSpotifySearchBusyError(refreshError)) {
-          return NextResponse.json(
-            {
-              code: SPOTIFY_SEARCH_BUSY_CODE,
-              error: SPOTIFY_SEARCH_BUSY_MESSAGE
-            },
-            { status: 429 }
-          );
-        }
-
+      if (isSpotifySearchBusyError(tokenError)) {
         return NextResponse.json(
-          { error: 'Spotify connection expired. Please reconnect in the admin panel.' },
-          { status: 503 }
+          {
+            code: SPOTIFY_SEARCH_BUSY_CODE,
+            error: SPOTIFY_SEARCH_BUSY_MESSAGE,
+          },
+          { status: 429 }
         );
       }
+
+      return NextResponse.json(
+        {
+          error:
+            'Spotify not connected. Please connect your Spotify account in the admin panel.',
+        },
+        { status: 503 }
+      );
     }
 
     // Search using user's Spotify tokens (Feb 2026: max limit is 10)
@@ -150,7 +126,7 @@ export async function GET(req: NextRequest) {
     
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'Authorization': `Bearer ${auth.access_token}`
+        'Authorization': `Bearer ${accessToken}`
       }
     });
 

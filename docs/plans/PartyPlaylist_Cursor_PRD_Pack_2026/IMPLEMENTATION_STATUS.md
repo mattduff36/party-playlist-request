@@ -160,3 +160,49 @@ Browser organiser/superadmin auth is **cookie-canonical**: HttpOnly `auth_token`
 | Pushed to remote | No (prefer local; production = `main` only) |
 
 Database impact: **none** (no migrations, no DB writes from this change set).
+
+## PRD-03: Spotify OAuth / Token Security
+
+| Field | Value |
+| --- | --- |
+| Status | Implemented on feature branch (not merged into preview) |
+| Branch | `dev/prd-03-spotify-token-security-20260726` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (base; do not merge yet) |
+| Database impact | **Class B** additive migration `add_spotify_token_encryption.sql` (envelopes + oauth txn columns; nullable plaintext). **Class C backfill deferred** (encrypt existing production tokens — awaiting human approval). **Class D deferred** (drop plaintext columns). See `PRD-03-MIGRATION-NOTES.md`. |
+| Depends on | PRD-02 integrated into preview |
+
+### Outcomes
+
+| Requirement | Result |
+| --- | --- |
+| Remove `/api/spotify/oauth-session` | Done — route deleted |
+| Server-owned PKCE exchange; no verifier to browser | Done — GET callback consumes txn + exchanges; POST → 410 |
+| Auth code not left in browser URL long-term | Done — redirect result uses `spotify=connected` / `spotify_error=…` only |
+| Atomic single-use state bound to user | Done — hashed state PK; `UPDATE … consumed_at … RETURNING`; prior unconsumed invalidated |
+| Encrypt tokens at rest (expand) | Done — AES-256-GCM vault; dual-read plaintext+envelope; new writes encrypted + plaintext NULL |
+| Concurrent refresh locking/CAS | Done — `refresh_lock_version` + `setSpotifyAuthCas` |
+| Redact sensitive logging | Done — callback/auth/exchange logs redacted |
+| Disconnect clears oauth sessions | Done — disconnect + admin reset + user delete |
+
+### Human stop (Class C/D)
+
+- **Do not run** production plaintext → ciphertext backfill without approval (Class C).
+- **Do not drop** plaintext token columns (Class D).
+- Impact pack: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-03-MIGRATION-NOTES.md`
+
+### Incomplete / follow-ups
+
+- Apply Class B SQL to Neon before deploying PRD-03 (backup `snap-odd-dream-abwtma9w` already exists).
+- Set production `TOKEN_ENCRYPTION_KEY_V1` (never commit the value).
+- Class C backfill CLI + Class D column drop after dual-read verification.
+- Existing connected users keep working via plaintext dual-read until they reconnect (new writes encrypted) or Class C runs.
+- Full typed error mapping coverage for every Spotify API call path beyond OAuth/refresh/search (partial).
+
+### Validation notes
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 168 tests (incl. 17 PRD-03 security) |
+| `npm run build` | Pass |
+| Merged into preview | No |
+| Pushed | No |

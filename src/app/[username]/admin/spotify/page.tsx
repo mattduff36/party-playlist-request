@@ -8,9 +8,9 @@ import { PlaylistBrowser } from '@/components/admin/PlaylistBrowser';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import {
   clearSpotifyOAuthPending,
-  completeSpotifyOAuthCallback,
   isSpotifyOAuthPending,
   markSpotifyOAuthPending,
+  messageForSpotifyOAuthError,
   waitForSpotifyConnected,
 } from '@/lib/spotify-oauth-client';
 
@@ -80,71 +80,37 @@ export default function SpotifyPage() {
     window.location.href = '/api/spotify/auth';
   }, []);
 
-  // Handle return from Spotify OAuth (or pending connect flag)
+  // Handle return from server-owned Spotify OAuth (result codes only — never code/verifier)
   useEffect(() => {
     if (oauthHandledRef.current) return;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const oauthState = urlParams.get('state');
-    const urlError = urlParams.get('error');
+    const spotifyResult = urlParams.get('spotify');
+    const spotifyError = urlParams.get('spotify_error');
+    const legacyError = urlParams.get('error');
+    // Legacy client-exchange params — ignore secrets; ask user to reconnect.
+    const legacyCode = urlParams.get('code');
+    const legacyState = urlParams.get('state');
     const pending =
-      isSpotifyOAuthPending() || urlParams.get('spotify') === 'connected';
+      isSpotifyOAuthPending() || spotifyResult === 'connected';
 
-    if (urlError && !code) {
+    if (legacyCode || legacyState) {
       oauthHandledRef.current = true;
       failOAuth(
-        urlError.startsWith('Spotify')
-          ? urlError
-          : `Spotify authorization failed: ${urlError}`
+        'Please reconnect Spotify. Authorization now completes securely on the server.'
       );
       return;
     }
 
-    if (code && oauthState) {
+    if (spotifyError || (legacyError && !spotifyResult)) {
       oauthHandledRef.current = true;
-      setOauthGatePhase('connecting');
-
-      const processedKey = `oauth_processed_${oauthState}`;
-      if (sessionStorage.getItem(processedKey)) {
-        void (async () => {
-          const waitResult = await waitForSpotifyConnected();
-          if (waitResult.success) {
-            await finishOAuthSuccess();
-          } else {
-            failOAuth(
-              waitResult.error ||
-                'Spotify connection is taking longer than expected. Please try again.'
-            );
-          }
-        })();
-        return;
-      }
-
-      sessionStorage.setItem(processedKey, 'true');
-
-      void (async () => {
-        const result = await completeSpotifyOAuthCallback(code, oauthState);
-        if (!result.success) {
-          failOAuth(result.error || 'Failed to complete Spotify connection');
-          return;
-        }
-
-        const waitResult = await waitForSpotifyConnected();
-        if (!waitResult.success) {
-          failOAuth(
-            waitResult.error ||
-              'Spotify connection is taking longer than expected. Please try again.'
-          );
-          return;
-        }
-
-        await finishOAuthSuccess();
-      })();
+      failOAuth(
+        messageForSpotifyOAuthError(spotifyError || legacyError)
+      );
       return;
     }
 
-    if (pending) {
+    if (spotifyResult === 'connected' || pending) {
       oauthHandledRef.current = true;
       setOauthGatePhase('connecting');
 
