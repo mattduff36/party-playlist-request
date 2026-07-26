@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
     if (data.level === 'fatal') {
       await alertingSystem.sendAlert({
         id: data.errorId,
+        ruleId: 'monitoring_errors',
+        resolved: false,
         severity: 'high',
         message: `Critical Error: ${data.message}`,
         metric: 'error_count',

@@ -159,10 +159,10 @@ export async function POST(req: NextRequest) {
       stats: partySimulator.getStats()
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error starting simulator:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to start simulator' },
+      { error: (error instanceof Error ? error.message : String(error)) || 'Failed to start simulator' },
       { status: 500 }
     );
   }

@@ -159,8 +159,8 @@ export default function PartyTestPage() {
 
         setServerStats(data.stats);
       }
-    } catch (error: any) {
-      setError(`Network error: ${error.message || 'Could not connect to server'}`);
+    } catch (error: unknown) {
+      setError(`Network error: ${(error instanceof Error ? error.message : String(error)) || 'Could not connect to server'}`);
     } finally {
       setLoading(false);
     }
@@ -189,8 +189,8 @@ export default function PartyTestPage() {
 
         setServerStats(data.stats);
       }
-    } catch (error: any) {
-      setError(error.message || 'Network error');
+    } catch (error: unknown) {
+      setError((error instanceof Error ? error.message : String(error)) || 'Network error');
     } finally {
       setLoading(false);
     }
@@ -219,8 +219,8 @@ export default function PartyTestPage() {
         // Stats will update via polling
         await fetchStats();
       }
-    } catch (error: any) {
-      setError(error.message || 'Network error');
+    } catch (error: unknown) {
+      setError((error instanceof Error ? error.message : String(error)) || 'Network error');
     } finally {
       setManualTriggerLoading(false);
     }
@@ -249,8 +249,8 @@ export default function PartyTestPage() {
         // Stats will update via polling
         await fetchStats();
       }
-    } catch (error: any) {
-      setError(error.message || 'Network error');
+    } catch (error: unknown) {
+      setError((error instanceof Error ? error.message : String(error)) || 'Network error');
     } finally {
       setManualTriggerLoading(false);
     }
@@ -354,7 +354,7 @@ export default function PartyTestPage() {
               <p className="text-accent font-semibold mb-1">Server-Side Mode (Local Development)</p>
               <p className="text-muted text-sm">
                 The simulation runs on the server using setTimeout, which works perfectly in local development 
-                but not in Vercel's serverless environment. This mode is ideal for development and testing.
+                but not in Vercel&apos;s serverless environment. This mode is ideal for development and testing.
               </p>
             </div>
           </div>
@@ -690,7 +690,7 @@ export default function PartyTestPage() {
                       <span className="font-semibold">{log.requester}</span> requested
                     </div>
                     <div className="text-muted">
-                      "{log.song}" by {log.artist}
+                      &quot;{log.song}&quot; by {log.artist}
                     </div>
                     {log.error && (
                       <div className="text-red-300 mt-1 text-xs">

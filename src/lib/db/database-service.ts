@@ -10,7 +10,8 @@ import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { 
   getConnectionPoolManager, 
   PoolType, 
-  executeWithPool 
+  executeWithPool,
+  type PoolStats,
 } from './connection-pool';
 import { 
   events, 
@@ -164,7 +165,7 @@ export class DatabaseService {
   }
 
   // Request operations
-  async getRequests(eventId: string, limit = 50, offset = 0): Promise<QueryResult<any>> {
+  async getRequests(eventId: string, limit = 50, offset = 0): Promise<QueryResult<unknown>> {
     return await this.executeQuery(
       PoolType.READ_ONLY,
       async (client) => {
@@ -196,10 +197,10 @@ export class DatabaseService {
   async createRequest(requestData: {
     event_id: string;
     track_id: string;
-    track_data: any;
+    track_data: Record<string, unknown>;
     submitted_by?: string;
     idempotency_key?: string;
-  }): Promise<any> {
+  }): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     return await this.executeQuery(
       PoolType.WRITE_ONLY,
       async (client) => {
@@ -223,7 +224,7 @@ export class DatabaseService {
     status: string,
     userId: string,
     adminId?: string
-  ): Promise<any> {
+  ): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     if (!userId) {
       throw new Error('user_id is required for multi-tenant data isolation');
     }
@@ -261,13 +262,13 @@ export class DatabaseService {
               [requestId, status, userId]
             );
 
-        return result.rows[0];
+        return (result.rows[0]) || null;
       }
     );
   }
 
   // Admin operations
-  async getAdmin(username: string): Promise<any> {
+  async getAdmin(username: string): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     return await this.executeQuery(
       PoolType.READ_ONLY,
       async (client) => {
@@ -279,7 +280,7 @@ export class DatabaseService {
           .where(eq(admins.email, username))
           .limit(1);
         
-        return result[0] || null;
+        return (result[0]) || null;
       }
     );
   }
@@ -288,7 +289,7 @@ export class DatabaseService {
     email: string;
     password_hash: string;
     name?: string;
-  }): Promise<any> {
+  }): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     return await this.executeQuery(
       PoolType.WRITE_ONLY,
       async (client) => {
@@ -305,7 +306,7 @@ export class DatabaseService {
   }
 
   // Spotify operations
-  async getSpotifyToken(adminId: string): Promise<any> {
+  async getSpotifyToken(adminId: string): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     return await this.executeQuery(
       PoolType.READ_ONLY,
       async (client) => {
@@ -317,7 +318,7 @@ export class DatabaseService {
           .where(eq(spotify_tokens.admin_id, adminId))
           .limit(1);
         
-        return result[0] || null;
+        return (result[0]) || null;
       }
     );
   }
@@ -327,7 +328,7 @@ export class DatabaseService {
     refresh_token?: string;
     expires_at?: Date;
     scope?: string;
-  }): Promise<any> {
+  }): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     return await this.executeQuery(
       PoolType.WRITE_ONLY,
       async (client) => {
@@ -355,7 +356,7 @@ export class DatabaseService {
   }
 
   // Analytics operations
-  async getEventStats(eventId: string): Promise<any> {
+  async getEventStats(eventId: string): Promise<any> /* eslint-disable-line @typescript-eslint/no-explicit-any */ {
     return await this.executeQuery(
       PoolType.ANALYTICS,
       async (client) => {
@@ -441,7 +442,7 @@ export class DatabaseService {
   // Statistics and monitoring
   getStats(): DatabaseStats {
     const poolManager = getConnectionPoolManager();
-    const poolHealth: Record<PoolType, boolean> = {};
+    const poolHealth = {} as Record<PoolType, boolean>;
     
     for (const poolType of Object.values(PoolType)) {
       poolHealth[poolType] = poolManager.isHealthy(poolType);
@@ -456,12 +457,14 @@ export class DatabaseService {
   }
 
   // Health check
-  async healthCheck(): Promise<{ healthy: boolean; details: any }> {
+  async healthCheck(): Promise<{ healthy: boolean; details: Record<string, unknown> }> {
     try {
       const poolManager = getConnectionPoolManager();
-      const stats = poolManager.getStats();
+      const stats = poolManager.getStats() as Map<PoolType, PoolStats>;
       
-      const healthy = Array.from(stats.values()).every(stat => stat.health === 'healthy');
+      const healthy = Array.from(stats.values()).every(
+        (stat: PoolStats) => stat.health === 'healthy'
+      );
       
       return {
         healthy,
@@ -501,7 +504,7 @@ export const db = {
   // Request operations
   getRequests: (eventId: string, limit?: number, offset?: number) => 
     getDatabaseService().getRequests(eventId, limit, offset),
-  createRequest: (requestData: any) => getDatabaseService().createRequest(requestData),
+  createRequest: (requestData: Parameters<DatabaseService['createRequest']>[0]) => getDatabaseService().createRequest(requestData),
   updateRequestStatus: (
     requestId: string,
     status: string,
@@ -511,11 +514,11 @@ export const db = {
   
   // Admin operations
   getAdmin: (username: string) => getDatabaseService().getAdmin(username),
-  createAdmin: (adminData: any) => getDatabaseService().createAdmin(adminData),
+  createAdmin: (adminData: Parameters<DatabaseService['createAdmin']>[0]) => getDatabaseService().createAdmin(adminData),
   
   // Spotify operations
   getSpotifyToken: (adminId: string) => getDatabaseService().getSpotifyToken(adminId),
-  upsertSpotifyToken: (adminId: string, tokenData: any) => 
+  upsertSpotifyToken: (adminId: string, tokenData: Parameters<DatabaseService['upsertSpotifyToken']>[1]) => 
     getDatabaseService().upsertSpotifyToken(adminId, tokenData),
   
   // Analytics

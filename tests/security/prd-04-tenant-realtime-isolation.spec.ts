@@ -21,6 +21,8 @@ import {
 import { POST as pusherAuth } from '@/app/api/pusher/auth/route';
 import { GET as usersLookup } from '@/app/api/users/lookup/route';
 import { NextRequest } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 jest.mock('@/middleware/auth', () => ({
   requireAuth: jest.fn(),
@@ -43,7 +45,7 @@ jest.mock('@/lib/security/fail-closed-env', () => ({
 
 jest.mock('pusher', () => {
   return jest.fn().mockImplementation(() => ({
-    authorizeChannel: jest.fn((_socket: string, channel: string, presence?: unknown) => ({
+    authorizeChannel: jest.fn((_socket: string, channel: string, presence?: Record<string, unknown>) => ({
       auth: `test-auth:${channel}`,
       channel_data: presence ? JSON.stringify(presence) : undefined,
     })),
@@ -340,8 +342,6 @@ describe('PRD-04: secret hashing dual-verify', () => {
 });
 
 describe('PRD-04: repository tenant requirements (source)', () => {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
   const dbSrc = fs.readFileSync(
     path.join(process.cwd(), 'src/lib/db.ts'),
     'utf8'

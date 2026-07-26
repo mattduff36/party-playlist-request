@@ -66,11 +66,12 @@ export const pusherServer = new Proxy({} as Pusher, {
 });
 
 export interface PlaybackUpdateEvent {
-  current_track: any;
-  queue: any[];
+  current_track: import('@/lib/pusher/client-shared').PlaybackTrackPayload | null;
+  queue: import('@/lib/pusher/client-shared').PlaybackTrackPayload[];
   is_playing: boolean;
   progress_ms: number;
   timestamp: number;
+  device?: Record<string, unknown>;
 }
 
 export interface TokenExpiredEvent {
@@ -103,7 +104,7 @@ export const CHANNELS = {
 export const triggerEvent = async (
   channel: string,
   event: string,
-  data: any
+  data: object
 ) => {
   try {
     // Strip obviously sensitive keys before publish (PRD-04 minimise payloads)
@@ -174,7 +175,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
       artists: data.current_track.artists?.slice(0, 2).map(compactArtist) || [],
       album: data.current_track.album ? {
         name: data.current_track.album.name?.substring(0, 100) || '',
-        images: data.current_track.album.images?.slice(0, 1).map((img: any) => ({
+        images: data.current_track.album.images?.slice(0, 1).map((img: { url?: string; width?: number; height?: number }) => ({
           url: img.url,
           width: img.width,
           height: img.height
@@ -184,7 +185,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
       duration_ms: data.current_track.duration_ms
     } : null,
     // Single image_url per track (~90B) — no full album.images arrays / extra Spotify calls
-    queue: data.queue?.slice(0, 10).map((track: any) => ({
+    queue: data.queue?.slice(0, 10).map((track) => ({
       id: track.id,
       name: track.name?.substring(0, 100) || '', // Truncate long names
       artists: track.artists?.slice(0, 2).map(compactArtist) || [],
@@ -205,7 +206,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
   );
 };
 
-export const triggerStatsUpdate = async (stats: any & { userId: string }) => {
+export const triggerStatsUpdate = async (stats: import('@/lib/pusher/client-shared').StatsUpdatePayload & { userId: string }) => {
   const userChannel = getAdminChannel(stats.userId);
   await triggerEvent(userChannel, EVENTS.STATS_UPDATE, stats);
 };
@@ -214,15 +215,15 @@ export const triggerTokenExpired = async (
   data: TokenExpiredEvent & { userId: string }
 ) => {
   // Tenant-scoped admin channel (usePusher already binds TOKEN_EXPIRED here)
-  await triggerEvent(getAdminChannel(data.userId), EVENTS.TOKEN_EXPIRED, data);
+  await triggerEvent(getAdminChannel(data.userId), EVENTS.TOKEN_EXPIRED, data as object);
 };
 
 export const triggerAdminLogin = async (data: AdminLoginEvent) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGIN, data);
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGIN, data as object);
 };
 
 export const triggerAdminLogout = async (data: AdminLogoutEvent) => {
-  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGOUT, data);
+  await triggerEvent(CHANNELS.ADMIN_UPDATES, EVENTS.ADMIN_LOGOUT, data as object);
 };
 
 // State update event interface

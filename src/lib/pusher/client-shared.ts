@@ -85,3 +85,116 @@ export interface RequestSubmittedEvent {
   requester_nickname: string;
   submitted_at: string;
 }
+
+/** Compact Spotify-shaped track used on playback / queue realtime payloads */
+export interface PlaybackTrackPayload {
+  id?: string;
+  name?: string;
+  artists?: Array<string | { name?: string }>;
+  album?: {
+    name?: string;
+    images?: Array<{ url?: string; width?: number; height?: number }>;
+  };
+  uri?: string;
+  duration_ms?: number;
+  image_url?: string | null;
+  requester_nickname?: string | null;
+}
+
+export interface PlaybackUpdatePayload {
+  current_track?: PlaybackTrackPayload | null;
+  queue?: PlaybackTrackPayload[];
+  is_playing?: boolean;
+  progress_ms?: number;
+  timestamp?: number;
+  userId?: string;
+  device?: {
+    name?: string;
+    volume_percent?: number;
+    [key: string]: unknown;
+  };
+}
+
+export interface StatsUpdatePayload {
+  userId?: string;
+  total?: number;
+  pending?: number;
+  approved?: number;
+  rejected?: number;
+  played?: number;
+  totalRequests?: number;
+  approvedRequests?: number;
+  rejectedRequests?: number;
+  pendingRequests?: number;
+  activeUsers?: number;
+  lastUpdated?: string;
+  total_requests?: number;
+  pending_requests?: number;
+  approved_requests?: number;
+  rejected_requests?: number;
+  played_requests?: number;
+  unique_requesters?: number;
+  spotify_connected?: boolean;
+}
+
+export interface PageControlTogglePayload {
+  page?: 'requests' | 'display';
+  enabled?: boolean;
+  pagesEnabled?: {
+    requests?: boolean;
+    display?: boolean;
+  };
+  adminId?: string;
+  adminName?: string;
+  userId?: string;
+  status?: 'offline' | 'standby' | 'live';
+  config?: Record<string, unknown>;
+}
+
+export interface MessageUpdatePayload {
+  message?: string;
+  text?: string;
+  duration?: number;
+  created_at?: string;
+  message_text?: string | null;
+  message_duration?: number | null;
+  message_created_at?: string | null;
+  settings?: Record<string, unknown>;
+}
+
+export interface TokenExpiredPayload {
+  reason?: 'expired' | 'invalid' | 'revoked';
+  message?: string;
+  timestamp?: number;
+}
+
+export interface AdminLoginPayload {
+  admin_id?: string;
+  username?: string;
+  login_time?: string;
+  message?: string;
+}
+
+export interface AdminLogoutPayload {
+  admin_id?: string;
+  username?: string;
+  logout_time?: string;
+  message?: string;
+}
+
+export interface ForceLogoutPayload {
+  userId?: string;
+  sessionId?: string;
+  reason?: string;
+  message?: string;
+}
+
+export interface RequestsCleanupPayload {
+  message?: string;
+  timestamp?: string;
+  userId?: string;
+}
+
+export interface SettingsUpdatePayload {
+  settings?: Record<string, unknown>;
+}

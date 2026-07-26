@@ -561,7 +561,7 @@ export default function DisplaySettingsPage() {
                   </label>
                 </div>
                 <p className="text-muted text-sm mt-2 ml-8">
-                  Automatically display a 10-second Notice Board message when a request is approved, showing the requester's name and song details.
+                  Automatically display a 10-second Notice Board message when a request is approved, showing the requester&apos;s name and song details.
                 </p>
               </div>
 

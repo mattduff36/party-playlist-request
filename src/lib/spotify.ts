@@ -14,11 +14,11 @@ import {
   classifySpotifyHttpError,
   SpotifyServiceError,
 } from '@/lib/spotify/token-errors';
-
 /** Verbose Spotify client logs — on in non-production, or when SPOTIFY_DEBUG=true */
 function spotifyDebug(...args: unknown[]): void {
   if (process.env.SPOTIFY_DEBUG === 'true' || process.env.NODE_ENV !== 'production') {
-    console.log(...args);
+    // console.log accepts a broad rest type; keep args typed as unknown at the boundary
+    console.log(...(args as Parameters<typeof console.log>));
   }
 }
 
@@ -60,7 +60,7 @@ export interface SpotifyTrack {
   duration_ms: number;
   explicit: boolean;
   preview_url?: string;
-  external_urls: any;
+  external_urls: Record<string, string>;
   image?: string;
 }
 
@@ -479,7 +479,16 @@ class SpotifyService {
     return waitMs;
   }
 
-  async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, userId?: string, retries = 1): Promise<any> {
+  // Spotify REST payloads vary widely by endpoint; callers narrow at use sites.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- open Spotify JSON
+  async makeAuthenticatedRequest(
+    method: string,
+    endpoint: string,
+    data?: unknown,
+    userId?: string,
+    retries = 1
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- open Spotify JSON
+  ): Promise<any> {
     const requestId = Math.random().toString(36).substr(2, 6);
     const scopedUserId = this.requireUserId(userId, `Spotify ${method} ${endpoint}`);
     userId = scopedUserId;
@@ -718,7 +727,7 @@ class SpotifyService {
     if (isSpotifyMockEnabled()) {
       return null;
     }
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     if (contextUri) data.context_uri = contextUri;
     if (trackUris) data.uris = trackUris;
     
@@ -841,6 +850,9 @@ class SpotifyService {
     this.appTokenExpiry = new Date(Date.now() + (data.expires_in * 1000));
     
     spotifyDebug('✅ App access token obtained');
+    if (!this.appAccessToken) {
+      throw new Error('App access token missing after successful token response');
+    }
     return this.appAccessToken;
   }
 

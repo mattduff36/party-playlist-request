@@ -36,7 +36,7 @@ export class RedisCache {
   /**
    * Get a value from cache
    */
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     if (!this.redis.isReady()) {
       console.warn('⚠️ Redis not available, cache miss');
       return null;
@@ -65,7 +65,7 @@ export class RedisCache {
    */
   async set(
     key: string, 
-    value: any, 
+    value: unknown, 
     options: CacheOptions = {}
   ): Promise<boolean> {
     if (!this.redis.isReady()) {
@@ -141,7 +141,7 @@ export class RedisCache {
   /**
    * Get multiple values from cache
    */
-  async mget<T = any>(keys: string[]): Promise<(T | null)[]> {
+  async mget<T = unknown>(keys: string[]): Promise<(T | null)[]> {
     if (!this.redis.isReady()) {
       return keys.map(() => null);
     }
@@ -169,7 +169,7 @@ export class RedisCache {
    * Set multiple values in cache
    */
   async mset(
-    keyValuePairs: Record<string, any>,
+    keyValuePairs: Record<string, unknown>,
     options: CacheOptions = {}
   ): Promise<boolean> {
     if (!this.redis.isReady()) {
@@ -178,7 +178,7 @@ export class RedisCache {
 
     try {
       const ttl = options.ttl || this.config.defaultTtl;
-      const cacheData: Record<string, any> = {};
+      const cacheData: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(keyValuePairs)) {
         const cacheKey = REDIS_KEYS.CACHE(key);

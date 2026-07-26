@@ -91,6 +91,8 @@ export function reportActivity(
     user?: JWTPayload | null;
     actorRole?: SupportActorRole;
     eventId?: string | null;
+    userId?: string | null;
+    username?: string | null;
     meta?: Record<string, unknown>;
   }
 ): void {
@@ -98,8 +100,8 @@ export function reportActivity(
     action,
     actorRole: options?.actorRole || actorRoleFromUser(options?.user),
     summary,
-    userId: options?.user?.user_id,
-    username: options?.user?.username,
+    userId: options?.userId ?? options?.user?.user_id,
+    username: options?.username ?? options?.user?.username,
     eventId: options?.eventId,
     route: req.nextUrl?.pathname || req.url,
     ipHash: getIpHash(req),

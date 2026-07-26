@@ -347,7 +347,7 @@ export function useDisplayData({
       // This callback only handles the "Requests on the way" animation
       console.log('✅ Request approved animation completed, queue updates handled by onPlaybackUpdate');
     },
-    onPlaybackUpdate: (data: any) => {
+    onPlaybackUpdate: (data) => {
       // Avoid re-render storms on the "Display Disabled" screen
       if (!displayPageEnabledRef.current) {
         markPlaybackFresh();
@@ -362,10 +362,12 @@ export function useDisplayData({
 
       // Update current track
       if (data.current_track) {
-        const newTrack = {
+        const newTrack: CurrentTrack = {
           name: data.current_track.name || '',
           artists: Array.isArray(data.current_track.artists)
-            ? data.current_track.artists.map((a: any) => (typeof a === 'string' ? a : a.name))
+            ? data.current_track.artists
+                .map((a) => (typeof a === 'string' ? a : a.name || ''))
+                .filter(Boolean)
             : [],
           album: data.current_track.album?.name || '',
           duration_ms: data.current_track.duration_ms || 0,
@@ -398,7 +400,9 @@ export function useDisplayData({
         console.log('✅ Current track state updated:', newTrack.name);
       } else if (typeof data.progress_ms === 'number') {
         setCurrentTrack((prev) =>
-          prev ? { ...prev, progress_ms: data.progress_ms } : prev
+          prev && typeof data.progress_ms === 'number'
+            ? { ...prev, progress_ms: data.progress_ms }
+            : prev
         );
       }
 
@@ -406,15 +410,17 @@ export function useDisplayData({
       if (data.queue) {
         console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks');
 
-        const processedQueue = data.queue.map((track: any) => ({
+        const processedQueue: QueueItem[] = data.queue.map((track) => ({
           name: track.name || '',
           artists: Array.isArray(track.artists)
-            ? track.artists.map((a: any) => (typeof a === 'string' ? a : a.name))
+            ? track.artists
+                .map((a) => (typeof a === 'string' ? a : a.name || ''))
+                .filter(Boolean)
             : [],
-          album: track.album?.name || track.album || '',
+          album: track.album?.name || '',
           uri: track.uri || '',
           image_url: track.image_url || undefined,
-          requester_nickname: track.requester_nickname,
+          requester_nickname: track.requester_nickname || undefined,
         }));
 
         // Force state update by creating new array reference
@@ -422,7 +428,7 @@ export function useDisplayData({
         console.log('✅ Queue state updated with', processedQueue.length, 'tracks');
       }
     },
-    onMessageUpdate: (data: any) => {
+    onMessageUpdate: (data) => {
       console.log('💬 PUSHER: Message updated!', data);
 
       // Validate message data
@@ -431,10 +437,11 @@ export function useDisplayData({
         return;
       }
 
-      const messageData = {
-        text: data.message_text,
-        duration: data.message_duration,
-        created_at: data.message_created_at,
+      const messageData: DisplayMessage = {
+        text: String(data.message_text),
+        duration:
+          typeof data.message_duration === 'number' ? data.message_duration : null,
+        created_at: String(data.message_created_at),
       };
 
       console.log('✅ Setting current message:', {
@@ -445,11 +452,11 @@ export function useDisplayData({
 
       setCurrentMessage(messageData);
     },
-    onMessageCleared: (data: any) => {
+    onMessageCleared: (data) => {
       console.log('💬 PUSHER: Message cleared!', data);
       setCurrentMessage(null);
     },
-    onSettingsUpdate: (data: any) => {
+    onSettingsUpdate: (data) => {
       console.log('⚙️ PUSHER: Settings updated!', data);
       if (data.settings) {
         applyEventSettings(data.settings);
@@ -665,7 +672,7 @@ export function useDisplayData({
           const requestsData = await requestsResponse.json();
           // Use the requests directly - they're already approved/pending
           setApprovedRequests(
-            (requestsData.requests || []).filter((r: any) => r.status === 'approved')
+            (requestsData.requests || []).filter((r: { status?: string }) => r.status === 'approved')
           );
         }
 

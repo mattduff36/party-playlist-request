@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     console.log(`⚙️ [${requestId}] Checking event settings for user ${userId}...`);
     const eventSettings = await getEventSettings(userId);
     const shouldAutoApprove = eventSettings.auto_approve;
-    const shouldDeclineExplicit = (eventSettings as any).decline_explicit || false;
+    const shouldDeclineExplicit = Boolean(eventSettings.decline_explicit);
     console.log(`🔧 [${requestId}] Auto-approve: ${shouldAutoApprove}, Decline explicit: ${shouldDeclineExplicit}`);
 
     // Check if track is explicit and should be auto-declined
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     const newRequest = await createRequest({
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
-      artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+      artist_name: trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
       album_name: trackInfo.album?.name || 'Unknown Album',
       album_image_url: albumImageUrl,
       duration_ms: trackInfo.duration_ms,
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
         await triggerRequestSubmitted({
           id: newRequest.id,
           track_name: trackInfo.name,
-          artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          artist_name: trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
           album_image_url: albumImageUrl,
           track_uri: trackInfo.uri,
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
         await triggerRequestApproved({
           id: newRequest.id,
           track_name: trackInfo.name,
-          artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          artist_name: trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
           track_uri: trackInfo.uri,
           requester_nickname: validatedNickname || 'Anonymous',
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
         
         if (eventSettings.show_approval_messages) {
           const requesterName = validatedNickname || 'Anonymous';
-          const artistName = trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist';
+          const artistName = trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist';
           const trackName = trackInfo.name;
           
           const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nParty Playlist!`;

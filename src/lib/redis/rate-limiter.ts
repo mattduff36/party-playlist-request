@@ -13,7 +13,7 @@ export interface RateLimitConfig {
   maxRequests: number; // Maximum requests per window
   skipSuccessfulRequests?: boolean; // Skip rate limiting for successful requests
   skipFailedRequests?: boolean; // Skip rate limiting for failed requests
-  keyGenerator?: (req: any) => string; // Custom key generator
+  keyGenerator?: (req: { headers?: Headers | Record<string, string | string[] | undefined>; ip?: string }) => string; // Custom key generator
 }
 
 export interface RateLimitResult {
@@ -149,20 +149,21 @@ export class RedisRateLimiter {
   }> {
     const key = REDIS_KEYS.RATE_LIMIT(identifier, 'system', action);
     
-    const [count, ttl] = await Promise.all([
-      this.redis.get<number>(key) || 0,
+    const [rawCount, ttl] = await Promise.all([
+      this.redis.get<number>(key),
       this.redis.ttl(key),
     ]);
+    const count = rawCount ?? 0;
 
     const now = Date.now();
-    const resetTime = now + (ttl > 0 ? ttl * 1000 : this.config.windowMs);
+    const resetTime = now + ((ttl ?? 0) > 0 ? (ttl ?? 0) * 1000 : this.config.windowMs);
     const remaining = Math.max(0, this.config.maxRequests - count);
 
     return {
       count,
       remaining,
       resetTime,
-      ttl,
+      ttl: ttl ?? 0,
     };
   }
 

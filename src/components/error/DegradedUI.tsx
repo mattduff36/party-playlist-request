@@ -10,6 +10,7 @@
 import React from 'react';
 import { AlertTriangle, Wifi, WifiOff, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useGracefulDegradation } from '@/hooks/useGracefulDegradation';
+import type { DegradationLevel } from '@/lib/error/graceful-degradation';
 
 interface DegradedUIProps {
   children: React.ReactNode;
@@ -116,7 +117,7 @@ function DegradationStatus() {
   );
 }
 
-function renderDegradedContent(level: any, children: React.ReactNode) {
+function renderDegradedContent(level: DegradationLevel, children: React.ReactNode) {
   switch (level.level) {
     case 'reduced':
       return (

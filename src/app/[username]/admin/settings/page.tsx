@@ -24,7 +24,15 @@ export default function SettingsPage() {
   const [secureUrlAccess, setSecureUrlAccess] = useState(false);
   const [savingSecure, setSavingSecure] = useState(false);
   
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<{
+    id: string;
+    event_title?: string | null;
+    status?: string | null;
+    created_at?: string | null;
+    access_code?: string | null;
+    pin?: string | null;
+    expires_at?: string | null;
+  } | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -377,7 +385,10 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="text-center text-faint text-xs border-t border-white/10 pt-4">
-                    Event expires: {new Date(event.expires_at).toLocaleString()}
+                    Event expires:{' '}
+                    {event.expires_at
+                      ? new Date(event.expires_at).toLocaleString()
+                      : '—'}
                   </div>
                 </>
               );

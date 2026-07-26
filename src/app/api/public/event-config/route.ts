@@ -49,7 +49,12 @@ export async function GET(req: NextRequest) {
     let isExpired = false;
 
     if (eventRows.length > 0) {
-      const config = eventRows[0].config as any;
+      const config = eventRows[0].config as {
+      message_text?: string | null;
+      message_duration?: number | null;
+      message_created_at?: string | null;
+      [key: string]: unknown;
+    };
       messageText = config?.message_text || null;
       messageDuration = config?.message_duration || null;
       messageCreatedAt = config?.message_created_at || null;

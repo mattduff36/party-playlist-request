@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       const albumArt = await spotifyService.getAlbumArt(playbackState.item.uri);
       currentTrackWithArt = {
         name: playbackState.item.name,
-        artists: playbackState.item.artists.map((a: any) => a.name),
+        artists: playbackState.item.artists.map((a: { name: string }) => a.name),
         album: playbackState.item.album.name,
         duration_ms: playbackState.item.duration_ms,
         progress_ms: playbackState.progress_ms,

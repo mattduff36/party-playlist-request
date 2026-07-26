@@ -7,7 +7,7 @@ import { getPool } from '@/lib/db';
 
 export interface CacheEntry {
   key: string;
-  value: any;
+  value: unknown;
   expires_at: Date;
   created_at: Date;
 }
@@ -18,7 +18,7 @@ export class DatabaseCache {
   /**
    * Get a value from cache
    */
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     try {
       const result = await getPool().query(
         `
@@ -51,7 +51,7 @@ export class DatabaseCache {
   /**
    * Set a value in cache with TTL
    */
-  async set(key: string, value: any, ttlSeconds: number = 3600): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds: number = 3600): Promise<void> {
     try {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
       const serializedValue = JSON.stringify(value);
@@ -149,25 +149,25 @@ export class DatabaseCache {
   }
 }
 
-// Create cache table if it doesn't exist
+/**
+ * Verify cache table exists (PRD-05: no request-time DDL).
+ * Table is created by canonical migration `004_spotify_playback_sync`.
+ */
 export async function initializeCacheTable(): Promise<void> {
   try {
-    await getPool().query(`
-      CREATE TABLE IF NOT EXISTS cache_entries (
-        key VARCHAR(255) PRIMARY KEY,
-        value TEXT NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    // Create index for performance
-    await getPool().query(`
-      CREATE INDEX IF NOT EXISTS idx_cache_expires 
-      ON cache_entries (expires_at)
-    `);
+    const result = await getPool().query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name = 'cache_entries'
+       ) AS exists`
+    );
+    if (!result.rows[0]?.exists) {
+      console.error(
+        'cache_entries missing — run npm run db:migrate:canonical (no request-time DDL)'
+      );
+    }
   } catch (error) {
-    console.error('Failed to initialize cache table:', error);
+    console.error('Failed to verify cache table:', error);
   }
 }
 

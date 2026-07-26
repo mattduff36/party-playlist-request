@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Allow re-adding any song to queue, regardless of status
     let queueSuccess = false;
-    let errors: string[] = [];
+    const errors: string[] = [];
 
     // Add to Spotify queue (MULTI-TENANT!)
     try {

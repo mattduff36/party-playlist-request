@@ -23,3 +23,5 @@ export default function Badge({ children, tone = 'accent', className = '' }: Bad
     </span>
   );
 }
+
+export { Badge };

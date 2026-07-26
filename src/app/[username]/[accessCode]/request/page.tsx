@@ -183,7 +183,7 @@ export default function UserRequestPage() {
     }) => {
       globalActions.applyRemotePageControl(data);
     },
-    onRequestApproved: (data: any) => {
+    onRequestApproved: (data) => {
       console.log('🎉 Request approved via Pusher:', data);
       
       if (data.user_session_id === userSessionId || userRequests.has(data.id)) {
@@ -206,7 +206,7 @@ export default function UserRequestPage() {
         });
       }
     },
-    onSettingsUpdate: (data: any) => {
+    onSettingsUpdate: (data) => {
       console.log('⚙️ PUSHER: Settings updated!', data);
       if (data.settings) {
         setEventSettings(data.settings);
@@ -355,22 +355,7 @@ export default function UserRequestPage() {
         withCredentials: true,
       });
       
-      // Transform Spotify API response
-      const transformedTracks = response.data.tracks.map((track: any) => ({
-        id: track.id,
-        uri: track.uri,
-        name: track.name,
-        artists: Array.isArray(track.artists) 
-          ? (typeof track.artists[0] === 'string' ? track.artists : track.artists.map((a: any) => a.name))
-          : [],
-        album: typeof track.album === 'string' ? track.album : track.album?.name || 'Unknown Album',
-        duration_ms: track.duration_ms,
-        explicit: track.explicit || false,
-        preview_url: track.preview_url,
-        image: track.album?.images?.[0]?.url || track.image
-      }));
-      
-      setSearchResults(transformedTracks);
+      setSearchResults(response.data.tracks);
     } catch (error: unknown) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -448,7 +433,18 @@ export default function UserRequestPage() {
 
     try {
       // Use censored nickname for the request
-      const requestData: any = {
+      const requestData: {
+        requester_nickname: string;
+        user_session_id: string;
+        username: string;
+        accessCode: string;
+        track_uri?: string;
+        track_name?: string;
+        artist_name?: string;
+        album_name?: string;
+        duration_ms?: number;
+        track_url?: string;
+      } = {
         requester_nickname: validation.censoredName,
         user_session_id: userSessionId,
         username,
@@ -487,18 +483,23 @@ export default function UserRequestPage() {
         
         setTimeout(() => setRequestStatus('idle'), 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Request submission error:', error);
       setRequestStatus('error');
       
       let errorMessage = 'Failed to submit request. Please try again.';
+      const err = error as {
+        response?: { data?: { error?: string }; status?: number };
+        request?: unknown;
+        message?: string;
+      };
       
-      if (error.response) {
-        errorMessage = error.response.data?.error || `Server error: ${error.response.status}`;
-      } else if (error.request) {
+      if (err.response) {
+        errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
+      } else if (err.request) {
         errorMessage = 'Request timeout or network error. Please check your connection.';
       } else {
-        errorMessage = error.message || 'An unexpected error occurred.';
+        errorMessage = err.message || 'An unexpected error occurred.';
       }
       
       setStatusMessage(errorMessage);

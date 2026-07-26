@@ -112,14 +112,14 @@ export async function POST(req: NextRequest) {
     // Select the first track (usually the most relevant)
     const selectedTrack = tracks[0];
     const albumImageUrl = getTrackAlbumImageUrl(selectedTrack) || null;
-    console.log(`🎵 [${requestId}] Selected track: "${selectedTrack.name}" by ${selectedTrack.artists?.map((a: any) => a.name).join(', ')}`);
+    console.log(`🎵 [${requestId}] Selected track: "${selectedTrack.name}" by ${selectedTrack.artists?.map((a: { name: string }) => a.name).join(', ')}`);
 
     // Create the request in the database
     console.log(`💾 [${requestId}] Creating database request...`);
     const newRequest = await createRequest({
       track_uri: selectedTrack.uri,
       track_name: selectedTrack.name,
-      artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+      artist_name: selectedTrack.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
       album_name: selectedTrack.album?.name || 'Unknown Album',
       album_image_url: albumImageUrl,
       duration_ms: selectedTrack.duration_ms || 0,
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
       await triggerRequestSubmitted({
         id: newRequest.id,
         track_name: selectedTrack.name,
-        artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+        artist_name: selectedTrack.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
         album_name: selectedTrack.album?.name || 'Unknown Album',
         album_image_url: albumImageUrl,
         track_uri: selectedTrack.uri,

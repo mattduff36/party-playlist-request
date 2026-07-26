@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { hashPassword } from '@/lib/auth';
 import { SEED_USERNAMES } from '@/lib/seed-users';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = getPool();
 
 /**
  * GET /api/superadmin/users
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       FROM users
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramCount = 0;
 
     // Hide durable seed fixtures from User Management UI
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     const result = await pool.query(query, params);
 
     // Transform the results to match frontend expectations
-    const users = result.rows.map((user: any) => ({
+    const users = result.rows.map((user: Record<string, unknown>) => ({
       id: user.id,
       username: user.username,
       email: user.email,
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
 
     // Get total count (same seed exclusion so pagination stays correct)
     let countQuery = 'SELECT COUNT(*) FROM users WHERE 1=1';
-    const countParams: any[] = [];
+    const countParams: unknown[] = [];
     let countParamCount = 0;
 
     countParamCount++;
