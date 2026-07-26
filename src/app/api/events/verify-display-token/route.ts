@@ -1,11 +1,15 @@
 /**
  * POST /api/events/verify-display-token
- * Verify a display token for accessing the display page
- * Public endpoint (no authentication required)
+ * Atomic display-token consume + display session cookie (PRD-04).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
 import { verifyDisplayToken } from '@/lib/event-service';
+import {
+  DISPLAY_ACCESS_COOKIE,
+  type DisplayAccessPayload,
+} from '@/lib/event-access-policy';
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,20 +32,44 @@ export async function POST(req: NextRequest) {
     }
 
     const { event, token } = result;
+    const secret = process.env.JWT_SECRET || '';
+    if (!secret) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json(
-      { 
-        success: true, 
+    const displayPayload: DisplayAccessPayload = {
+      typ: 'display',
+      eventId: event.id,
+      userId: event.user_id,
+      username,
+    };
+    const displayJwt = jwt.sign(displayPayload, secret, { expiresIn: '24h' });
+
+    const response = NextResponse.json(
+      {
+        success: true,
         event: {
           id: event.id,
           name: event.name,
-          expires_at: event.expires_at
+          expires_at: event.expires_at,
         },
-        tokenUsesRemaining: token.uses_remaining
+        tokenUsesRemaining: token.uses_remaining,
       },
       { status: 200 }
     );
 
+    response.cookies.set(DISPLAY_ACCESS_COOKIE, displayJwt, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 24 * 60 * 60,
+    });
+
+    return response;
   } catch (error) {
     console.error('❌ Display token verification failed:', error);
     return NextResponse.json(
@@ -50,4 +78,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

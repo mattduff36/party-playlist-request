@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         await updateRequest(request.id, {
           status: 'played',
           approved_at: new Date().toISOString()
-        });
+        }, userId);
         markedCount++;
         console.log(`✅ Marked request ${request.id} as played: ${request.track_name} by ${request.artist_name}`);
       }

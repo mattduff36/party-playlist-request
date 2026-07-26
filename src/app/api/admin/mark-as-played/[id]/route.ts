@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await updateRequest(id, {
       status: 'played',
       approved_at: new Date().toISOString()
-    });
+    }, userId);
 
     return NextResponse.json({
       success: true,

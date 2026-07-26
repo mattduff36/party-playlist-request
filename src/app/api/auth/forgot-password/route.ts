@@ -8,6 +8,7 @@ import {
   hashLimiterId,
   genericAuthRateLimitResponse,
 } from '@/lib/auth/auth-rate-limit';
+import { hashOpaqueToken } from '@/lib/crypto/secret-hashes';
 
 /**
  * POST /api/auth/forgot-password
@@ -66,8 +67,9 @@ export async function POST(request: NextRequest) {
       return successResponse;
     }
 
-    // Generate reset token (32 bytes = 64 hex characters)
+    // Generate reset token (32 bytes = 64 hex characters); store hash + plaintext dual-write (Class B)
     const resetToken = randomBytes(32).toString('hex');
+    const tokenHash = hashOpaqueToken(resetToken);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Get IP and user agent for security tracking
@@ -76,11 +78,17 @@ export async function POST(request: NextRequest) {
                       'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Create password reset token
-    await sql`
-      INSERT INTO password_reset_tokens (user_id, token, expires_at, ip_address, user_agent)
-      VALUES (${user.id}, ${resetToken}, ${expiresAt.toISOString()}, ${ipAddress}, ${userAgent})
-    `;
+    try {
+      await sql`
+        INSERT INTO password_reset_tokens (user_id, token, token_hash, expires_at, ip_address, user_agent)
+        VALUES (${user.id}, ${resetToken}, ${tokenHash}, ${expiresAt.toISOString()}, ${ipAddress}, ${userAgent})
+      `;
+    } catch {
+      await sql`
+        INSERT INTO password_reset_tokens (user_id, token, expires_at, ip_address, user_agent)
+        VALUES (${user.id}, ${resetToken}, ${expiresAt.toISOString()}, ${ipAddress}, ${userAgent})
+      `;
+    }
 
     console.log('✅ Password reset token created for user:', user.username);
 

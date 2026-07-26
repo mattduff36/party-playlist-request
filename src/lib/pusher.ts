@@ -1,10 +1,31 @@
 import Pusher from 'pusher';
-import PusherClient from 'pusher-js';
 import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
+import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 import {
-  isProductionRuntime,
-  resolveSecretEnv,
-} from '@/lib/security/fail-closed-env';
+  getUserChannel,
+  getAdminChannel,
+  EVENTS,
+} from '@/lib/pusher/client-shared';
+import { dualPublishUserAndGuest } from '@/lib/pusher/dual-publish';
+import type {
+  RequestApprovedEvent,
+  RequestRejectedEvent,
+  RequestDeletedEvent,
+  RequestSubmittedEvent,
+} from '@/lib/pusher/client-shared';
+
+export {
+  createPusherClient,
+  getUserChannel,
+  getAdminChannel,
+  EVENTS,
+} from '@/lib/pusher/client-shared';
+export type {
+  RequestApprovedEvent,
+  RequestRejectedEvent,
+  RequestDeletedEvent,
+  RequestSubmittedEvent,
+} from '@/lib/pusher/client-shared';
 
 function createPusherServer(): Pusher {
   return new Pusher({
@@ -44,66 +65,6 @@ export const pusherServer = new Proxy({} as Pusher, {
   },
 });
 
-// Client-side Pusher instance (for browser)
-export const createPusherClient = () => {
-  const key = process.env.NEXT_PUBLIC_PUSHER_KEY?.trim() || '';
-  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER?.trim() || '';
-
-  if (isProductionRuntime() && (!key || key === 'fallback-key')) {
-    throw new Error(
-      'NEXT_PUBLIC_PUSHER_KEY must be configured in production (fail-closed)'
-    );
-  }
-
-  return new PusherClient(key || 'fallback-key', {
-    cluster: cluster || 'us2',
-    forceTLS: true,
-    authEndpoint: '/api/pusher/auth',
-  });
-};
-
-// Event types for type safety
-export interface RequestApprovedEvent {
-  id: string;
-  track_name: string;
-  artist_name: string;
-  album_name: string;
-  track_uri: string;
-  requester_nickname: string;
-  user_session_id?: string; // For user notification tracking
-  play_next?: boolean; // Whether this was added as "play next"
-  approved_at: string;
-  approved_by: string;
-}
-
-export interface RequestRejectedEvent {
-  id: string;
-  track_name: string;
-  artist_name: string;
-  requester_nickname: string;
-  rejected_at: string;
-  rejected_by: string;
-}
-
-export interface RequestDeletedEvent {
-  id: string;
-  track_name: string;
-  artist_name: string;
-  status: string;
-  deleted_at: string;
-}
-
-export interface RequestSubmittedEvent {
-  id: string;
-  track_name: string;
-  artist_name: string;
-  album_name: string;
-  album_image_url?: string | null;
-  track_uri: string;
-  requester_nickname: string;
-  submitted_at: string;
-}
-
 export interface PlaybackUpdateEvent {
   current_track: any;
   queue: any[];
@@ -132,33 +93,10 @@ export interface AdminLogoutEvent {
   message: string;
 }
 
-// Pusher channel helpers - USER-SPECIFIC channels for multi-tenancy
-export const getUserChannel = (userId: string) => `private-party-playlist-${userId}`;
-export const getAdminChannel = (userId: string) => `private-admin-updates-${userId}`;
-
 // Legacy global channels (DEPRECATED - DO NOT USE for user-specific events)
 export const CHANNELS = {
   PARTY_PLAYLIST: 'party-playlist', // ⚠️ DEPRECATED: Use getUserChannel(userId) instead
   ADMIN_UPDATES: 'admin-updates',   // ⚠️ DEPRECATED: Use getAdminChannel(userId) instead
-} as const;
-
-// Pusher events
-export const EVENTS = {
-  REQUEST_APPROVED: 'request-approved',
-  REQUEST_REJECTED: 'request-rejected',
-  REQUEST_SUBMITTED: 'request-submitted',
-  REQUEST_DELETED: 'request-deleted',
-  REQUESTS_CLEANUP: 'requests-cleanup',
-  PLAYBACK_UPDATE: 'playback-update',
-  STATS_UPDATE: 'stats-update',
-  QUEUE_UPDATE: 'queue-update',
-  PAGE_CONTROL_TOGGLE: 'page-control-toggle',
-  STATE_UPDATE: 'state-update',
-  TOKEN_EXPIRED: 'token-expired',
-  ADMIN_LOGIN: 'admin-login',
-  ADMIN_LOGOUT: 'admin-logout',
-  SESSION_TRANSFERRED: 'session-transferred',
-  FORCE_LOGOUT: 'force-logout',
 } as const;
 
 // Helper function to trigger events
@@ -168,51 +106,57 @@ export const triggerEvent = async (
   data: any
 ) => {
   try {
+    // Strip obviously sensitive keys before publish (PRD-04 minimise payloads)
+    const safe =
+      data && typeof data === 'object'
+        ? Object.fromEntries(
+            Object.entries(data).filter(
+              ([key]) =>
+                !/^(email|access_code|accessCode|pin|password|refresh_token|access_token|code_verifier|bypass_token|displayToken|display_token|requester_ip_hash)$/i.test(
+                  key
+                )
+            )
+          )
+        : data;
     await getPusherServer().trigger(channel, event, {
-      ...data,
+      ...safe,
       timestamp: Date.now(),
     });
-    console.log(`📡 Pusher event sent: ${channel}/${event}`, data);
+    console.log(`📡 Pusher event sent: ${channel}/${event}`);
   } catch (error) {
     console.error('❌ Pusher trigger failed:', error);
     throw error;
   }
 };
 
-// Specific event triggers (USER-SPECIFIC)
+// Specific event triggers (USER-SPECIFIC + event guest dual-publish)
 export const triggerRequestApproved = async (data: RequestApprovedEvent & { userId: string }) => {
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.REQUEST_APPROVED, data);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_APPROVED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerRequestRejected = async (data: RequestRejectedEvent & { userId: string }) => {
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.REQUEST_REJECTED, data);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_REJECTED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerRequestDeleted = async (data: RequestDeletedEvent & { userId: string }) => {
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.REQUEST_DELETED, data);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_DELETED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerRequestsCleanup = async (userId: string) => {
   const adminChannel = getAdminChannel(userId);
-  const userChannel = getUserChannel(userId);
-  
+
   const data = {
     message: 'All requests have been cleared',
     timestamp: new Date().toISOString(),
     userId
   };
-  
-  // Notify both admin and public channels
+
   await triggerEvent(adminChannel, EVENTS.REQUESTS_CLEANUP, data);
-  await triggerEvent(userChannel, EVENTS.REQUESTS_CLEANUP, data);
+  await dualPublishUserAndGuest(userId, EVENTS.REQUESTS_CLEANUP, data);
 };
 
 export const triggerRequestSubmitted = async (data: RequestSubmittedEvent & { userId: string }) => {
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.REQUEST_SUBMITTED, data);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_SUBMITTED, data as unknown as Record<string, unknown>);
 };
 
 export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId: string }) => {
@@ -254,8 +198,11 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
     userId: data.userId
   };
   
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.PLAYBACK_UPDATE, compactData);
+  await dualPublishUserAndGuest(
+    data.userId,
+    EVENTS.PLAYBACK_UPDATE,
+    compactData as Record<string, unknown>
+  );
 };
 
 export const triggerStatsUpdate = async (stats: any & { userId: string }) => {
@@ -297,8 +244,11 @@ export interface StateUpdateEvent {
 }
 
 export const triggerStateUpdate = async (data: StateUpdateEvent) => {
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.STATE_UPDATE, data);
+  await dualPublishUserAndGuest(
+    data.userId,
+    EVENTS.STATE_UPDATE,
+    data as unknown as Record<string, unknown>
+  );
 };
 
 // Page control update event interface
@@ -315,8 +265,11 @@ export interface PageControlUpdateEvent {
 }
 
 export const triggerPageControlUpdate = async (data: PageControlUpdateEvent) => {
-  const userChannel = getUserChannel(data.userId);
-  await triggerEvent(userChannel, EVENTS.PAGE_CONTROL_TOGGLE, data);
+  await dualPublishUserAndGuest(
+    data.userId,
+    EVENTS.PAGE_CONTROL_TOGGLE,
+    data as unknown as Record<string, unknown>
+  );
 };
 
 // Force logout event (for session transfer)

@@ -910,19 +910,29 @@ export async function createRequest(
   return result.rows[0];
 }
 
-export async function getRequest(id: string, userId?: string): Promise<Request | null> {
+export async function getRequest(id: string, userId: string): Promise<Request | null> {
   const client = getPool();
-  
-  // If userId provided, ensure ownership (multi-tenant isolation)
-  if (userId) {
-    const result = await client.query('SELECT * FROM requests WHERE id = $1 AND user_id = $2', [id, userId]);
-    return result.rows[0] || null;
+
+  if (!userId) {
+    throw new Error('userId is required for tenant-scoped getRequest');
   }
-  
-  // Legacy: return any (for backward compatibility during migration)
-  const result = await client.query('SELECT * FROM requests WHERE id = $1', [id]);
+
+  const result = await client.query(
+    'SELECT * FROM requests WHERE id = $1 AND user_id = $2',
+    [id, userId]
+  );
   return result.rows[0] || null;
 }
+
+/** Allowlisted columns for organiser request updates (PRD-04). */
+const REQUEST_UPDATE_ALLOWLIST = new Set([
+  'status',
+  'approved_at',
+  'spotify_added_to_queue',
+  'spotify_added_to_playlist',
+  'approved_by',
+  'rejection_reason',
+]);
 
 // Helper: Verify request ownership
 export async function verifyRequestOwnership(requestId: string, userId: string): Promise<boolean> {
@@ -931,29 +941,38 @@ export async function verifyRequestOwnership(requestId: string, userId: string):
   return result.rows.length > 0;
 }
 
-export async function updateRequest(id: string, updates: Partial<Request>, userId?: string): Promise<Request | null> {
+export async function updateRequest(
+  id: string,
+  updates: Partial<Request>,
+  userId: string
+): Promise<Request | null> {
   const client = getPool();
-  
-  const setClause = Object.keys(updates)
+
+  if (!userId) {
+    throw new Error('userId is required for tenant-scoped updateRequest');
+  }
+
+  const keys = Object.keys(updates).filter((key) =>
+    REQUEST_UPDATE_ALLOWLIST.has(key)
+  );
+  if (keys.length === 0) {
+    throw new Error('No allowlisted update fields provided');
+  }
+  if (Object.keys(updates).some((key) => !REQUEST_UPDATE_ALLOWLIST.has(key))) {
+    throw new Error('Arbitrary update columns are not permitted');
+  }
+
+  const setClause = keys
     .map((key, index) => `${key} = $${index + 2}`)
     .join(', ');
-  
-  const values = [id, ...Object.values(updates)];
-  
-  // If userId provided, ensure ownership (multi-tenant isolation)
-  if (userId) {
-    values.push(userId);
-    const result = await client.query(`
-      UPDATE requests SET ${setClause} WHERE id = $1 AND user_id = $${values.length} RETURNING *
-    `, values);
-    return result.rows[0] || null;
-  }
-  
-  // Legacy: update any (for backward compatibility during migration)
-  const result = await client.query(`
-    UPDATE requests SET ${setClause} WHERE id = $1 RETURNING *
-  `, values);
-  
+  const values: unknown[] = [id, ...keys.map((key) => (updates as Record<string, unknown>)[key]), userId];
+
+  const result = await client.query(
+    `UPDATE requests SET ${setClause}
+     WHERE id = $1 AND user_id = $${values.length}
+     RETURNING *`,
+    values
+  );
   return result.rows[0] || null;
 }
 
@@ -996,7 +1015,7 @@ export async function getAllRequests(limit = 50, offset = 0, userId?: string): P
 
 // OPTIMIZED: Get requests filtered by user ID and optionally by status
 export async function getRequestsByUserId(
-  userId: string, 
+  userId: string,
   options?: {
     status?: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
     limit?: number;
@@ -1004,21 +1023,22 @@ export async function getRequestsByUserId(
   }
 ): Promise<Request[]> {
   const client = getPool();
+  if (!userId) {
+    throw new Error('userId is required for tenant-scoped getRequestsByUserId');
+  }
   const { status, limit = 50, offset = 0 } = options || {};
-  
-  // For single-tenant systems (current schema), userId is not in requests table
-  // Instead, all requests belong to the single user
+
   if (status) {
     const result = await client.query(
-      'SELECT * FROM requests WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
-      [status, limit, offset]
+      'SELECT * FROM requests WHERE user_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4',
+      [userId, status, limit, offset]
     );
     return result.rows;
   }
-  
+
   const result = await client.query(
-    'SELECT * FROM requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-    [limit, offset]
+    'SELECT * FROM requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+    [userId, limit, offset]
   );
   return result.rows;
 }

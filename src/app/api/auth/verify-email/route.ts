@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/neon-client';
 import { sendWelcomeEmail } from '@/lib/email/email-service';
 import { generateAccessCode } from '@/lib/access-code';
+import { hashOpaqueToken } from '@/lib/crypto/secret-hashes';
 
 interface VerifyUserRow {
   id: string;
@@ -61,11 +62,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const users = await sql`
+    const tokenHash = hashOpaqueToken(token);
+    let users = await sql`
       SELECT id, username, email, account_status, email_verified, email_verification_expires
       FROM users
-      WHERE email_verification_token = ${token}
+      WHERE email_verification_token_hash = ${tokenHash}
     `;
+
+    if (users.length === 0) {
+      users = await sql`
+        SELECT id, username, email, account_status, email_verified, email_verification_expires
+        FROM users
+        WHERE email_verification_token = ${token}
+      `;
+    }
 
     if (users.length === 0) {
       return NextResponse.json(
@@ -113,13 +123,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark verified but keep token until expiry so re-opens stay idempotent
-    const updated = await sql`
+    let updated = await sql`
       UPDATE users
       SET
         email_verified = true,
         updated_at = NOW()
       WHERE id = ${user.id}
-        AND email_verification_token = ${token}
+        AND (
+          email_verification_token_hash = ${tokenHash}
+          OR email_verification_token = ${token}
+        )
         AND email_verified = false
       RETURNING id, username, email
     `;
@@ -129,7 +142,8 @@ export async function POST(request: NextRequest) {
       const again = await sql`
         SELECT id, username, email, email_verified
         FROM users
-        WHERE email_verification_token = ${token}
+        WHERE email_verification_token_hash = ${tokenHash}
+           OR email_verification_token = ${token}
       `;
       if (again.length > 0 && again[0].email_verified) {
         return NextResponse.json({

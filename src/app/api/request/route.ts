@@ -187,9 +187,13 @@ export async function POST(req: NextRequest) {
         console.log(`✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`);
         
         // Update the request to mark it as added to queue
-        await updateRequest(newRequest.id, {
-          spotify_added_to_queue: true
-        });
+        await updateRequest(
+          newRequest.id,
+          {
+            spotify_added_to_queue: true,
+          },
+          userId
+        );
       } catch (error) {
         console.error(`❌ [${requestId}] Failed to add auto-approved request to Spotify queue:`, error);
         // Don't fail the request if Spotify queue fails - the request is still approved

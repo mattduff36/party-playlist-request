@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, type CSSProperties } from 're
 import QRCode from 'qrcode';
 import { usePusher } from '@/hooks/usePusher';
 import { useLiveProgress } from '@/hooks/useLiveProgress';
-import { RequestApprovedEvent } from '@/lib/pusher';
+import { RequestApprovedEvent } from '@/lib/pusher/client-shared';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
 import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';

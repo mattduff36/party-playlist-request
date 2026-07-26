@@ -8,6 +8,7 @@ import {
   genericAuthRateLimitResponse,
 } from '@/lib/auth/auth-rate-limit';
 import { emitSecurityAudit } from '@/lib/auth/security-audit';
+import { hashOpaqueToken } from '@/lib/crypto/secret-hashes';
 
 /**
  * POST /api/auth/reset-password
@@ -51,8 +52,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find valid reset token
-    const tokens = await sql`
+    // Dual-verify: prefer token_hash, fall back to plaintext column (Class B)
+    const tokenHash = hashOpaqueToken(token);
+    let tokens = await sql`
       SELECT 
         prt.id as token_id,
         prt.user_id,
@@ -63,10 +65,28 @@ export async function POST(request: NextRequest) {
         u.account_status
       FROM password_reset_tokens prt
       JOIN users u ON u.id = prt.user_id
-      WHERE prt.token = ${token}
+      WHERE prt.token_hash = ${tokenHash}
       ORDER BY prt.created_at DESC
       LIMIT 1
     `;
+
+    if (tokens.length === 0) {
+      tokens = await sql`
+        SELECT 
+          prt.id as token_id,
+          prt.user_id,
+          prt.expires_at,
+          prt.used,
+          u.username,
+          u.email,
+          u.account_status
+        FROM password_reset_tokens prt
+        JOIN users u ON u.id = prt.user_id
+        WHERE prt.token = ${token}
+        ORDER BY prt.created_at DESC
+        LIMIT 1
+      `;
+    }
 
     if (tokens.length === 0) {
       return NextResponse.json(

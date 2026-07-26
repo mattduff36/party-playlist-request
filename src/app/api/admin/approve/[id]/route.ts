@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       approved_by: auth.user.username,
       spotify_added_to_queue: queueSuccess,
       spotify_added_to_playlist: false,
-    });
+    }, userId);
 
     // Create approval notification for display
     if (newStatus === 'approved') {

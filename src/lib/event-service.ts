@@ -6,6 +6,13 @@
 import { getPool } from '@/lib/db';
 import crypto from 'crypto';
 import { generateAccessCode } from '@/lib/access-code';
+import {
+  dualVerifySecret,
+  getAccessCodeHmacVersion,
+  hashOpaqueToken,
+  hmacAccessCode,
+  tokenPrefix,
+} from '@/lib/crypto/secret-hashes';
 
 // ============================================================================
 // Types
@@ -134,15 +141,29 @@ export async function createEvent(
     const secure = await getSecureUrlAccessPreference(userId);
     const accessCode = generateAccessCode(secure);
     const bypassToken = generateBypassToken();
+    const accessCodeHmac = hmacAccessCode(accessCode);
+    const bypassTokenHash = hashOpaqueToken(bypassToken);
+    const hmacVersion = getAccessCodeHmacVersion();
 
-    // pin column stores the access code (TEXT); access_code mirrored when column exists
+    // pin/access_code plaintext retained for Class B dual-read / organiser redisplay
     let result;
     try {
       result = await client.query(
-        `INSERT INTO user_events (user_id, name, pin, access_code, bypass_token, active, expires_at)
-         VALUES ($1, $2, $3, $3, $4, true, NOW() + INTERVAL '24 hours')
+        `INSERT INTO user_events (
+           user_id, name, pin, access_code, bypass_token, active, expires_at,
+           access_code_hmac, access_code_hmac_version, bypass_token_hash
+         )
+         VALUES ($1, $2, $3, $3, $4, true, NOW() + INTERVAL '24 hours', $5, $6, $7)
          RETURNING *`,
-        [userId, eventName || null, accessCode, bypassToken]
+        [
+          userId,
+          eventName || null,
+          accessCode,
+          bypassToken,
+          accessCodeHmac,
+          hmacVersion,
+          bypassTokenHash,
+        ]
       );
     } catch {
       result = await client.query(
@@ -164,17 +185,27 @@ export async function createEvent(
 
     await client.query('COMMIT');
 
-    console.log(`✅ Created new event for user ${userId}, access code: ${accessCode}`);
+    console.log(`✅ Created new event for user ${userId} (access code redacted)`);
 
     try {
       const { getEventSettings } = await import('@/lib/db');
       const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
+      const { getGuestEventChannel } = await import(
+        '@/lib/pusher/channel-contract'
+      );
       const settings = await getEventSettings(userId);
-      await triggerEvent(getUserChannel(userId), 'settings-update', {
+      const payload = {
         settings,
         timestamp: Date.now(),
         userId,
-      });
+      };
+      await triggerEvent(getUserChannel(userId), 'settings-update', payload);
+      const created = mapUserEvent(result.rows[0]);
+      await triggerEvent(
+        getGuestEventChannel(created.id),
+        'settings-update',
+        payload
+      );
     } catch (pusherError) {
       console.error('Failed to broadcast mood reset after createEvent:', pusherError);
     }
@@ -199,16 +230,28 @@ export async function regenerateActiveEventAccessCode(
   const secure = await getSecureUrlAccessPreference(userId);
   const accessCode = generateAccessCode(secure);
   const bypassToken = generateBypassToken();
+  const accessCodeHmac = hmacAccessCode(accessCode);
+  const bypassTokenHash = hashOpaqueToken(bypassToken);
+  const hmacVersion = getAccessCodeHmacVersion();
 
   try {
     let result;
     try {
       result = await pool.query(
         `UPDATE user_events
-         SET pin = $2, access_code = $2, bypass_token = $3
+         SET pin = $2, access_code = $2, bypass_token = $3,
+             access_code_hmac = $4, access_code_hmac_version = $5,
+             bypass_token_hash = $6
          WHERE user_id = $1 AND active = true AND expires_at > NOW()
          RETURNING *`,
-        [userId, accessCode, bypassToken]
+        [
+          userId,
+          accessCode,
+          bypassToken,
+          accessCodeHmac,
+          hmacVersion,
+          bypassTokenHash,
+        ]
       );
     } catch {
       result = await pool.query(
@@ -224,7 +267,7 @@ export async function regenerateActiveEventAccessCode(
       return null;
     }
 
-    console.log(`✅ Regenerated access code for user ${userId}: ${accessCode}`);
+    console.log(`✅ Regenerated access code for user ${userId} (redacted)`);
     return mapUserEvent(result.rows[0]);
   } catch (error) {
     console.error('❌ Failed to regenerate access code:', error);
@@ -242,6 +285,13 @@ export async function endEvent(eventId: string, userId: string): Promise<void> {
       `UPDATE user_events 
        SET active = false, ended_at = NOW() 
        WHERE id = $1 AND user_id = $2`,
+      [eventId, userId]
+    );
+    // Rotate/revoke display tokens when event ends (PRD-04)
+    await pool.query(
+      `UPDATE display_tokens
+       SET uses_remaining = 0
+       WHERE event_id = $1 AND user_id = $2`,
       [eventId, userId]
     );
 
@@ -269,6 +319,13 @@ export async function endAllActiveEventsForUser(userId: string): Promise<number>
     );
     const count = result.rowCount ?? result.rows.length;
     if (count > 0) {
+      const eventIds = result.rows.map((r: { id: string }) => r.id);
+      await pool.query(
+        `UPDATE display_tokens
+         SET uses_remaining = 0
+         WHERE user_id = $1 AND event_id = ANY($2::uuid[])`,
+        [userId, eventIds]
+      );
       console.log(`✅ Ended ${count} active user_event(s) for user ${userId}`);
     }
 
@@ -310,35 +367,44 @@ export async function verifyAccessCode(
 ): Promise<UserEvent | null> {
   try {
     const pool = getPool();
+    // Load candidate active events for username; dual-verify HMAC then plaintext
     const result = await pool.query(
       `SELECT e.* FROM user_events e
        INNER JOIN users u ON u.id = e.user_id
-       WHERE u.username = $1 
-       AND (
-         e.pin = $2
-         OR COALESCE(e.access_code, '') = $2
-       )
-       AND e.active = true 
+       WHERE u.username = $1
+       AND e.active = true
        AND e.expires_at > NOW()
-       LIMIT 1`,
-      [username, accessCode]
+       LIMIT 5`,
+      [username]
     );
 
-    if (result.rows.length === 0) {
-      return null;
+    for (const row of result.rows) {
+      const plain = String(row.access_code || row.pin || '');
+      const ok = dualVerifySecret({
+        presented: accessCode,
+        storedHash: row.access_code_hmac ? String(row.access_code_hmac) : null,
+        storedPlaintext: plain || null,
+        hashFn: hmacAccessCode,
+      });
+      if (ok) {
+        return mapUserEvent(row);
+      }
     }
 
-    return mapUserEvent(result.rows[0]);
+    return null;
   } catch (error) {
-    // access_code column may not exist yet
+    // access_code_hmac column may not exist yet — plaintext equality fallback
     try {
       const pool = getPool();
       const result = await pool.query(
         `SELECT e.* FROM user_events e
          INNER JOIN users u ON u.id = e.user_id
-         WHERE u.username = $1 
-         AND e.pin = $2
-         AND e.active = true 
+         WHERE u.username = $1
+         AND (
+           e.pin = $2
+           OR COALESCE(e.access_code, '') = $2
+         )
+         AND e.active = true
          AND e.expires_at > NOW()
          LIMIT 1`,
         [username, accessCode]
@@ -369,19 +435,28 @@ export async function verifyBypassToken(
     const result = await pool.query(
       `SELECT e.* FROM user_events e
        INNER JOIN users u ON u.id = e.user_id
-       WHERE u.username = $1 
-       AND e.bypass_token = $2 
-       AND e.active = true 
+       WHERE u.username = $1
+       AND e.active = true
        AND e.expires_at > NOW()
-       LIMIT 1`,
-      [username, bypassToken]
+       LIMIT 5`,
+      [username]
     );
 
-    if (result.rows.length === 0) {
-      return null;
+    for (const row of result.rows) {
+      const ok = dualVerifySecret({
+        presented: bypassToken,
+        storedHash: row.bypass_token_hash
+          ? String(row.bypass_token_hash)
+          : null,
+        storedPlaintext: row.bypass_token ? String(row.bypass_token) : null,
+        hashFn: hashOpaqueToken,
+      });
+      if (ok) {
+        return mapUserEvent(row);
+      }
     }
 
-    return mapUserEvent(result.rows[0]);
+    return null;
   } catch (error) {
     console.error('❌ Failed to verify bypass token:', error);
     throw error;
@@ -402,13 +477,27 @@ export async function createDisplayToken(
     const pool = getPool();
     const token = generateDisplayToken();
     const expiresAt = new Date(Date.now() + hoursValid * 60 * 60 * 1000);
+    const tokenHash = hashOpaqueToken(token);
+    const prefix = tokenPrefix(token);
 
-    const result = await pool.query(
-      `INSERT INTO display_tokens (event_id, user_id, token, uses_remaining, expires_at)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [eventId, userId, token, usesRemaining, expiresAt]
-    );
+    let result;
+    try {
+      result = await pool.query(
+        `INSERT INTO display_tokens (
+           event_id, user_id, token, token_hash, token_prefix, uses_remaining, expires_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [eventId, userId, token, tokenHash, prefix, usesRemaining, expiresAt]
+      );
+    } catch {
+      result = await pool.query(
+        `INSERT INTO display_tokens (event_id, user_id, token, uses_remaining, expires_at)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [eventId, userId, token, usesRemaining, expiresAt]
+      );
+    }
 
     console.log(`✅ Created display token for event ${eventId}`);
     return result.rows[0] as DisplayToken;
@@ -423,70 +512,91 @@ export async function verifyDisplayToken(
   displayToken: string
 ): Promise<{ event: UserEvent; token: DisplayToken } | null> {
   const pool = getPool();
-  const client = await pool.connect();
+  const tokenHash = hashOpaqueToken(displayToken);
 
+  // Atomic consume: UPDATE … WHERE uses_remaining > 0 … RETURNING
+  // Dual-verify: match token_hash OR legacy plaintext token column
+  let result;
   try {
-    await client.query('BEGIN');
-
-    const result = await client.query(
-      `SELECT dt.*, e.*, 
-              dt.id as token_id, dt.uses_remaining as token_uses,
-              e.id as event_id, e.user_id as event_user_id
-       FROM display_tokens dt
-       INNER JOIN user_events e ON e.id = dt.event_id
+    result = await pool.query(
+      `UPDATE display_tokens dt
+       SET uses_remaining = uses_remaining - 1, last_used_at = NOW()
+       FROM user_events e
        INNER JOIN users u ON u.id = e.user_id
-       WHERE u.username = $1 
-       AND dt.token = $2 
-       AND dt.uses_remaining > 0 
-       AND dt.expires_at > NOW()
-       AND e.active = true 
-       AND e.expires_at > NOW()
-       LIMIT 1`,
+       WHERE dt.event_id = e.id
+         AND u.username = $1
+         AND dt.uses_remaining > 0
+         AND dt.expires_at > NOW()
+         AND e.active = true
+         AND e.expires_at > NOW()
+         AND (
+           dt.token_hash = $2
+           OR (dt.token_hash IS NULL AND dt.token = $3)
+         )
+       RETURNING dt.id as token_id, dt.event_id, dt.user_id as token_user_id,
+                 dt.token, dt.uses_remaining as token_uses, dt.expires_at as token_expires,
+                 dt.created_at as token_created, dt.last_used_at as token_last_used,
+                 e.id as event_id, e.user_id as event_user_id, e.name, e.pin,
+                 e.access_code, e.bypass_token, e.active, e.started_at, e.ended_at,
+                 e.expires_at, e.created_at`,
+      [username, tokenHash, displayToken]
+    );
+  } catch {
+    // Columns may not exist yet — plaintext atomic consume
+    result = await pool.query(
+      `UPDATE display_tokens dt
+       SET uses_remaining = uses_remaining - 1, last_used_at = NOW()
+       FROM user_events e
+       INNER JOIN users u ON u.id = e.user_id
+       WHERE dt.event_id = e.id
+         AND u.username = $1
+         AND dt.token = $2
+         AND dt.uses_remaining > 0
+         AND dt.expires_at > NOW()
+         AND e.active = true
+         AND e.expires_at > NOW()
+       RETURNING dt.id as token_id, dt.event_id, dt.user_id as token_user_id,
+                 dt.token, dt.uses_remaining as token_uses, dt.expires_at as token_expires,
+                 dt.created_at as token_created, dt.last_used_at as token_last_used,
+                 e.id as event_id, e.user_id as event_user_id, e.name, e.pin,
+                 e.access_code, e.bypass_token, e.active, e.started_at, e.ended_at,
+                 e.expires_at, e.created_at`,
       [username, displayToken]
     );
-
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return null;
-    }
-
-    const row = result.rows[0];
-
-    await client.query(
-      `UPDATE display_tokens 
-       SET uses_remaining = uses_remaining - 1, last_used_at = NOW() 
-       WHERE id = $1`,
-      [row.token_id]
-    );
-
-    await client.query('COMMIT');
-
-    const event = mapUserEvent({
-      ...row,
-      id: row.event_id,
-      user_id: row.event_user_id,
-    });
-
-    const token: DisplayToken = {
-      id: row.token_id,
-      event_id: row.event_id,
-      user_id: row.event_user_id,
-      token: row.token,
-      uses_remaining: row.token_uses - 1,
-      expires_at: row.expires_at,
-      created_at: row.created_at,
-      last_used_at: new Date(),
-    };
-
-    console.log(`✅ Verified display token for event ${event.id}`);
-    return { event, token };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Failed to verify display token:', error);
-    throw error;
-  } finally {
-    client.release();
   }
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  const event = mapUserEvent({
+    id: row.event_id,
+    user_id: row.event_user_id,
+    name: row.name,
+    pin: row.pin,
+    access_code: row.access_code,
+    bypass_token: row.bypass_token,
+    active: row.active,
+    started_at: row.started_at,
+    ended_at: row.ended_at,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+  });
+
+  const token: DisplayToken = {
+    id: row.token_id,
+    event_id: row.event_id,
+    user_id: row.token_user_id,
+    token: row.token,
+    uses_remaining: row.token_uses,
+    expires_at: row.token_expires,
+    created_at: row.token_created,
+    last_used_at: row.token_last_used,
+  };
+
+  console.log(`✅ Verified display token for event ${event.id}`);
+  return { event, token };
 }
 
 export async function revokeDisplayToken(tokenId: string, userId: string): Promise<void> {
