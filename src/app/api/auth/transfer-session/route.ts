@@ -71,12 +71,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate JWT
+    // Generate JWT (includes session_id for same-session resume on later logins)
     const token = generateToken({
       user_id: user.id,
       username: user.username,
       email: user.email,
-      role: role
+      role: role,
+      session_id: newSessionId,
     });
 
     // Create response with cookie

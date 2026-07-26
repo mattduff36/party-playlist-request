@@ -141,6 +141,8 @@ export default function SidebarSpotifyControls({
           typeof data.error === 'string' ? data.error : 'playback toggle failed'
         );
       }
+      // Successful play/pause — ensure stale NO_ACTIVE_DEVICE banner is gone
+      setError(null);
       setTimeout(() => {
         void refreshPlaybackState();
         void fetchStatus();
@@ -180,6 +182,7 @@ export default function SidebarSpotifyControls({
               : 'Failed to go previous'
         );
       }
+      setError(null);
       setTimeout(() => {
         void refreshPlaybackState();
         void fetchStatus();

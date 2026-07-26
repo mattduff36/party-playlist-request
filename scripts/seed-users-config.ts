@@ -1,33 +1,12 @@
 /**
- * Canonical seeded test accounts shared by seed + cleanup.
- * Keep usernames/emails aligned with tests/fixtures/users.ts.
+ * Re-export canonical seed fixtures from the shared app module.
+ * Prefer importing from here in scripts/; app code should use `@/lib/seed-users`.
  */
 
-export interface SeedUserConfig {
-  username: string;
-  email: string;
-  displayName: string;
-  pin: string;
-  eventTitle: string;
-}
-
-export const SEED_PASSWORD = 'testpassword123';
-
-export const SEED_USERS: SeedUserConfig[] = [
-  {
-    username: 'testuser1',
-    email: 'testuser1@example.com',
-    displayName: 'Test User 1',
-    pin: '101234',
-    eventTitle: 'DJ1 Test Event',
-  },
-  {
-    username: 'testuser2',
-    email: 'testuser2@example.com',
-    displayName: 'Test User 2',
-    pin: '202345',
-    eventTitle: 'DJ2 Test Event',
-  },
-];
-
-export const SEED_USERNAMES = SEED_USERS.map((user) => user.username);
+export {
+  SEED_PASSWORD,
+  SEED_USERS,
+  SEED_USERNAMES,
+  isSeedUsername,
+  type SeedUserConfig,
+} from '../src/lib/seed-users';

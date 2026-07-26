@@ -58,6 +58,13 @@ interface SpotifyControlsContextType {
 const EMPTY_CONFIRM_MS = 2500;
 const EMPTY_CONFIRM_STREAK = 2;
 
+/** Sticky banner copy from playback routes when Spotify returns NO_ACTIVE_DEVICE. */
+function isNoActiveDeviceError(message: string | null | undefined): boolean {
+  return Boolean(
+    message && message.includes('No active Spotify device found')
+  );
+}
+
 function devicesStorageKey(username: string | undefined): string {
   return `ppr_spotify_devices_${username || 'default'}`;
 }
@@ -131,6 +138,11 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
   const [devicesRefreshing, setDevicesRefreshing] = useState(false);
   const [volume, setVolume] = useState(50);
   const [error, setError] = useState<string | null>(null);
+
+  /** Clear only the stale NO_ACTIVE_DEVICE banner; leave auth/rate-limit/etc. alone. */
+  const clearStaleNoActiveDeviceError = useCallback(() => {
+    setError((prev) => (isNoActiveDeviceError(prev) ? null : prev));
+  }, []);
 
   const devicesHydratedRef = useRef(false);
   const trackNameRef = useRef(playbackState?.track_name);
@@ -277,6 +289,14 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
           writeStoredDevices(username, next);
           return next;
         });
+        const lock = deviceTransferLockRef.current;
+        const lockActive = Boolean(lock && Date.now() < lock.until);
+        if (
+          incoming.some((device) => device.is_active) ||
+          lockActive
+        ) {
+          clearStaleNoActiveDeviceError();
+        }
         return;
       }
 
@@ -298,6 +318,7 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
     [
       applyLockToDevices,
       clearEmptyConfirm,
+      clearStaleNoActiveDeviceError,
       scheduleEmptyClearIfConfirmed,
       username,
     ]
@@ -349,12 +370,22 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // Status shows a live device / track — drop stale NO_ACTIVE_DEVICE banner
+      if (isConnected && (data.device || data.current_track)) {
+        clearStaleNoActiveDeviceError();
+      }
+
       return isConnected;
     } catch {
       applyConnectedFalse();
       return false;
     }
-  }, [applyConnectedFalse, applyConnectedTrue, patchPlaybackState]);
+  }, [
+    applyConnectedFalse,
+    applyConnectedTrue,
+    clearStaleNoActiveDeviceError,
+    patchPlaybackState,
+  ]);
 
   const devicesBackoffUntilRef = useRef(0);
 
@@ -469,6 +500,22 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
     }
   }, [hasResolved, spotifyConnected, notifyConnection]);
 
+  // Playback poll can recover after a failed play/pause while the banner still shows
+  useEffect(() => {
+    const hasActiveDevice = devices.some((device) => device.is_active);
+    const hasPlaybackContext = Boolean(
+      playbackState?.track_name || playbackState?.device_name
+    );
+    if (hasActiveDevice || hasPlaybackContext) {
+      clearStaleNoActiveDeviceError();
+    }
+  }, [
+    clearStaleNoActiveDeviceError,
+    devices,
+    playbackState?.device_name,
+    playbackState?.track_name,
+  ]);
+
   const handleVolumeChange = useCallback(
     async (newVolume: number) => {
       const clamped = Math.max(0, Math.min(100, Math.round(newVolume)));
@@ -561,6 +608,8 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
         });
         if (!response.ok) throw new Error('transfer failed');
 
+        clearStaleNoActiveDeviceError();
+
         const retryDelaysMs = [800, 1800, 3200];
         for (const delayMs of retryDelaysMs) {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -584,6 +633,7 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
     },
     [
       applyDevices,
+      clearStaleNoActiveDeviceError,
       devices,
       fetchDevices,
       fetchStatus,

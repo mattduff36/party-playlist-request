@@ -18,6 +18,8 @@ export interface JWTPayload {
   username: string;
   email: string;
   role: 'user' | 'superadmin';
+  /** Admin single-session id. Optional for legacy tokens minted before this claim existed. */
+  session_id?: string;
   iat?: number;
   exp?: number;
 }
@@ -26,16 +28,18 @@ export interface JWTPayload {
  * Generate a JWT token for a user
  */
 export function generateToken(user: Omit<JWTPayload, 'iat' | 'exp'>): string {
-  const token = jwt.sign(
-    {
-      user_id: user.user_id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  );
+  const payload: Record<string, string> = {
+    user_id: user.user_id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+  };
+  // Omit session_id when absent so legacy callers stay valid; parsers tolerate missing claim.
+  if (user.session_id) {
+    payload.session_id = user.session_id;
+  }
+
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   
   console.log('🔑 Generated JWT for user:', user.username);
   return token;

@@ -18,13 +18,13 @@ This document defines the business rules and automated processes for managing th
 **Actions**:
 1. Set event status to `offline`
 2. Disable both `display` and `requests` pages
-3. Clear admin session
+3. Clear admin session lock (`users.active_session_id` / `active_session_created_at`)
 4. Stop Spotify watcher for the user
 
 **Implementation Status**: ✅ **COMPLETE**
-- Logout route (`src/app/api/auth/logout/route.ts`) handles this
+- Logout route (`src/app/api/auth/logout/route.ts`) clears the admin session lock and sets the event offline
 - Token expiry handling exists in AdminDataContext
-- Manual status change to offline (`src/app/api/event/status/route.ts`) handles this
+- Manual status change to offline (`src/app/api/event/status/route.ts`) ends guest-access events via `endAllActiveEventsForUser`, which also clears the admin session lock (event over ⇒ session done for this lock)
 
 **UI Behavior**:
 - Display page shows: "Party Not Started - Check back soon!"
@@ -128,67 +128,80 @@ This document defines the business rules and automated processes for managing th
 ---
 
 ### Rule 5: Single Admin Session Enforcement
-**Trigger**: When admin attempts to login while already logged in elsewhere
+**Trigger**: When a non-superadmin attempts to login while a non-expired admin session lock exists
 
 **Rules**:
-- Only ONE active admin session allowed per user at any time
-- Each session has a unique `session_id` stored in database
-- Attempting to login from a second device requires transfer confirmation
+- Only ONE active admin session allowed per user at any time (superadmin exempt)
+- Each session has a unique `session_id` stored in `users.active_session_id` and also embedded in the JWT as `session_id` (optional on legacy tokens)
+- Admin session lock TTL is **24 hours** (shorter than the 7-day JWT). Locks older than TTL are cleared on login with no modal
+- Ending the event (status → `offline`) clears the admin session lock via `endAllActiveEventsForUser`
+- Transfer modal copy defaults to “previous/registered session” wording; “another device/browser” is used only when the existing auth cookie’s `session_id` differs from the DB lock
+- Pusher presence is **not** used to decide messaging (optional/unreliable); TTL + same-session resume + accurate copy are preferred
 
 **Actions**:
 
 **On Initial Login** (No Existing Session):
 1. Generate unique `session_id` (UUID)
 2. Store in `users.active_session_id` with current timestamp
-3. Set JWT auth cookie
+3. Set JWT auth cookie including `session_id`
 4. Proceed to admin panel
 
-**On Login with Existing Session**:
+**On Login with Same Session** (cookie JWT `session_id` matches DB lock):
+1. Skip transfer modal
+2. Refresh `active_session_created_at`
+3. Mint a fresh JWT with the same `session_id`
+
+**On Login with Expired Lock** (`active_session_created_at` older than 24h):
+1. Clear `active_session_*`
+2. Proceed as a new login (no modal)
+
+**On Login with Existing Non-Expired Session** (different or unknown client):
 1. Detect existing `active_session_id` in database
-2. Return special response with `requiresTransfer: true`
+2. Return `requiresTransfer: true` with `sessionInfo` (`sessionId`, `created_at`, `likelyDifferentClient`)
 3. Client displays `SessionTransferModal` with options:
-   - **Yes, Transfer to This Device**: Proceeds with transfer
-   - **No, Stay on Other Device**: Cancels login
+   - **Yes, Transfer**: Proceeds with transfer (must send `oldSessionId` from `sessionInfo.sessionId`)
+   - **No, Stay on Previous Session**: Cancels login
 
 **On Transfer Confirmation**:
-1. Force logout old session via Pusher (`force-logout` event)
+1. Force logout old session via Pusher (`force-logout` event) using `oldSessionId`
 2. Old session receives event and redirects to login with message
-3. Generate new `session_id` for new device
+3. Generate new `session_id`
 4. Update database with new `session_id`
-5. Set JWT auth cookie on new device
-6. Event continues on new device with same state
+5. Set JWT auth cookie including `session_id`
+6. Event continues with same state when still live
 
-**On Logout**:
+**On Logout** / **On Event Offline**:
 1. Clear `active_session_id` and `active_session_created_at` from database
-2. Clear JWT cookie
-3. Proceed with normal logout cleanup
+2. (Logout also clears JWT cookie and disables the event)
 
 **Implementation Status**: ✅ **COMPLETE**
-- Session tracking fields added to `users` table (`active_session_id`, `active_session_created_at`)
-- Login API checks for existing sessions (`src/app/api/auth/login/route.ts`)
-- Session transfer API endpoint (`src/app/api/auth/transfer-session/route.ts`)
-- `SessionTransferModal` component (`src/components/admin/SessionTransferModal.tsx`)
-- Pusher `force-logout` event integrated
-- AdminDataContext listens for force-logout and redirects
+- Session tracking fields on `users` (`active_session_id`, `active_session_created_at`)
+- Decision helpers + 24h TTL (`src/lib/admin-session.ts`)
+- Login API: TTL clear, same-session resume, transfer response (`src/app/api/auth/login/route.ts`)
+- Session transfer API (`src/app/api/auth/transfer-session/route.ts`) — client passes `oldSessionId`
+- JWT includes optional `session_id` (`src/lib/auth.ts`); parsers tolerate legacy tokens without it
+- Offline path clears lock via `endAllActiveEventsForUser` (`src/lib/event-service.ts`)
+- `SessionTransferModal` accurate copy (`src/components/admin/SessionTransferModal.tsx`)
 - Logout route clears session tracking
 
 **UI Behavior**:
-- Login shows transfer modal if session exists
-- Modal displays when existing session was created
-- Old device shows alert and redirects to login
-- New device continues seamlessly with same event state
-- Event remains live throughout transfer (no interruption)
+- Login shows transfer modal only for a non-expired lock that is not the same JWT session
+- Modal defaults to previous-session wording; “another device/browser” only with mismatch evidence
+- Old tabs can be force-logged out when `oldSessionId` is passed on transfer
+- Event remains live throughout transfer when applicable (no interruption)
 
 **Technical Details**:
-- Session ID is separate from JWT (allows multiple sessions to be tracked)
-- Pusher broadcasts to admin channel for old session
-- Database stores session creation timestamp for display
-- Old JWT remains valid until natural expiry (server validates session ID)
+- JWT carries `session_id` so same-browser re-login can resume without a modal
+- Middleware/auth helpers must tolerate tokens without `session_id`
+- Database stores session creation timestamp for display and TTL
+- Old JWT remains valid until natural expiry unless force-logout runs
 
 **Edge Cases Handled**:
+- Stale lock after End Event / offline: cleared by `endAllActiveEventsForUser`
+- Stale lock after overnight close without logout: expired by 24h TTL on next login
 - Session ID mismatch during transfer: Proceeds anyway (handles race conditions)
 - Multiple rapid login attempts: Last one wins
-- Browser tabs on same device: Both tabs share same session ID
+- Browser tabs on same device: share/resume the same `session_id` when cookie present
 - Pusher failure: Transfer still succeeds (old device remains logged in until token expires)
 
 ---

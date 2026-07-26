@@ -14,12 +14,13 @@ export async function POST(req: NextRequest) {
 
     const user = auth.user;
 
-    // Generate a new token with extended expiry
+    // Generate a new token with extended expiry (preserve session_id when present)
     const newToken = generateToken({
       user_id: user.user_id,
       username: user.username,
       email: user.email,
-      role: user.role
+      role: user.role,
+      session_id: user.session_id,
     });
 
     console.log(`🔄 Session refreshed for user: ${user.username}`);

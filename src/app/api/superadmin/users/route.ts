@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { hashPassword } from '@/lib/auth';
+import { SEED_USERNAMES } from '@/lib/seed-users';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 /**
  * GET /api/superadmin/users
- * List all users (super admin only)
+ * List users (super admin only). Durable seed fixtures are omitted from
+ * list + pagination totals so they stay available for finalise/tests only.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -52,6 +54,11 @@ export async function GET(req: NextRequest) {
     const params: any[] = [];
     let paramCount = 0;
 
+    // Hide durable seed fixtures from User Management UI
+    paramCount++;
+    query += ` AND NOT (username = ANY($${paramCount}::text[]))`;
+    params.push(SEED_USERNAMES);
+
     // Add search filter
     if (search) {
       paramCount++;
@@ -90,10 +97,14 @@ export async function GET(req: NextRequest) {
       last_login: user.active_session_created_at // Use session created as proxy for last login
     }));
 
-    // Get total count
+    // Get total count (same seed exclusion so pagination stays correct)
     let countQuery = 'SELECT COUNT(*) FROM users WHERE 1=1';
     const countParams: any[] = [];
     let countParamCount = 0;
+
+    countParamCount++;
+    countQuery += ` AND NOT (username = ANY($${countParamCount}::text[]))`;
+    countParams.push(SEED_USERNAMES);
 
     if (search) {
       countParamCount++;

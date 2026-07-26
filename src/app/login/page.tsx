@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import SessionTransferModal from '@/components/admin/SessionTransferModal';
+import { buildSessionTransferRequestBody } from '@/lib/admin-session';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -19,8 +20,10 @@ export default function LoginPage() {
     username: string;
     password: string;
     sessionInfo?: {
+      sessionId?: string;
       created_at: string;
       device_info?: string;
+      likelyDifferentClient?: boolean;
     };
   } | null>(null);
 
@@ -71,10 +74,13 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/transfer-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: transferData.username,
-          password: transferData.password,
-        }),
+        body: JSON.stringify(
+          buildSessionTransferRequestBody({
+            username: transferData.username,
+            password: transferData.password,
+            oldSessionId: transferData.sessionInfo?.sessionId,
+          })
+        ),
       });
 
       if (!response.ok) {

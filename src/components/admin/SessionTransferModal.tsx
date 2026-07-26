@@ -3,14 +3,19 @@
 import { useState } from 'react';
 import { AlertTriangle, Smartphone, RefreshCw, X } from 'lucide-react';
 
+export interface SessionTransferModalSessionInfo {
+  sessionId?: string;
+  created_at: string;
+  device_info?: string;
+  /** Only true when login saw evidence of a different session (cookie session_id mismatch). */
+  likelyDifferentClient?: boolean;
+}
+
 interface SessionTransferModalProps {
   isOpen: boolean;
   onTransfer: () => Promise<void>;
   onCancel: () => void;
-  sessionInfo?: {
-    created_at: string;
-    device_info?: string;
-  };
+  sessionInfo?: SessionTransferModalSessionInfo;
 }
 
 export default function SessionTransferModal({ 
@@ -22,6 +27,8 @@ export default function SessionTransferModal({
   const [isTransferring, setIsTransferring] = useState(false);
 
   if (!isOpen) return null;
+
+  const likelyDifferentClient = Boolean(sessionInfo?.likelyDifferentClient);
 
   const handleTransfer = async () => {
     setIsTransferring(true);
@@ -68,14 +75,16 @@ export default function SessionTransferModal({
             Active Session Detected
           </h3>
           <p className="text-muted text-sm mb-4">
-            You're already logged in on another device
+            {likelyDifferentClient
+              ? "You're already signed in on another device or browser"
+              : 'An existing admin session is still registered for this account'}
           </p>
 
           {sessionInfo && (
             <div className="bg-surface/60 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-center space-x-2 text-muted mb-2">
                 <Smartphone className="w-5 h-5 text-accent" />
-                <span className="text-sm font-medium">Current Session</span>
+                <span className="text-sm font-medium">Previous Session</span>
               </div>
               <p className="text-xs text-muted">
                 Started {formatSessionAge(sessionInfo.created_at)}
@@ -90,10 +99,12 @@ export default function SessionTransferModal({
 
           <div className="bg-amber-900/20 border border-amber-600/50 rounded-lg p-4 mb-4">
             <p className="text-amber-300 text-sm font-medium mb-2">
-              Do you want to transfer the event to this device?
+              Do you want to replace the previous session and continue here?
             </p>
             <p className="text-muted text-xs">
-              Your other session will be automatically logged out, and your event will continue here.
+              {likelyDifferentClient
+                ? 'Your other session will be logged out, and your event will continue here.'
+                : 'This usually means a previous login was not fully cleared (for example after ending an event without logging out). Replacing continues here; keeping the previous session cancels this login.'}
             </p>
           </div>
         </div>
@@ -112,7 +123,7 @@ export default function SessionTransferModal({
             ) : (
               <>
                 <Smartphone className="w-5 h-5 mr-2" />
-                Yes, Transfer to This Device
+                Yes, Transfer
               </>
             )}
           </button>
@@ -122,7 +133,7 @@ export default function SessionTransferModal({
             disabled={isTransferring}
             className="w-full bg-surface hover:bg-surface text-bone font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
           >
-            No, Stay on Other Device
+            No, Stay on Previous Session
           </button>
         </div>
 
@@ -133,5 +144,3 @@ export default function SessionTransferModal({
     </div>
   );
 }
-
-

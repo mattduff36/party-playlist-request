@@ -1,5 +1,5 @@
 /**
- * Canonical test users — aligned with scripts/seed-test-data.ts
+ * Canonical test users — aligned with src/lib/seed-users.ts (via scripts/seed-users-config).
  */
 
 import { faker } from '@faker-js/faker';

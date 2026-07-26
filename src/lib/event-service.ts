@@ -255,6 +255,7 @@ export async function endEvent(eventId: string, userId: string): Promise<void> {
 /**
  * End every active guest-access event for a user (DJ Event Control → Offline).
  * Prevents GET /api/events/current from resurrecting the previous access code.
+ * Also clears the single-admin-session lock — event over ⇒ session done for this lock.
  */
 export async function endAllActiveEventsForUser(userId: string): Promise<number> {
   try {
@@ -270,11 +271,30 @@ export async function endAllActiveEventsForUser(userId: string): Promise<number>
     if (count > 0) {
       console.log(`✅ Ended ${count} active user_event(s) for user ${userId}`);
     }
+
+    await clearActiveAdminSessionForUser(userId);
+
     return count;
   } catch (error) {
     console.error('❌ Failed to end active events for user:', error);
     throw error;
   }
+}
+
+/**
+ * Clear the single-admin-session lock on users (active_session_*).
+ * Used when the event ends (offline) so re-login does not show a stale transfer modal.
+ */
+export async function clearActiveAdminSessionForUser(userId: string): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users
+     SET active_session_id = NULL,
+         active_session_created_at = NULL
+     WHERE id = $1`,
+    [userId]
+  );
+  console.log(`✅ Cleared active admin session lock for user ${userId}`);
 }
 
 // ============================================================================

@@ -38,6 +38,20 @@ describe('@/lib/auth', () => {
     expect(payload).not.toBeNull();
     expect(payload?.username).toBe('testuser1');
     expect(payload?.role).toBe('user');
+    // Legacy-style mint without session_id must not crash parsers
+    expect(payload?.session_id).toBeUndefined();
+  });
+
+  it('includes optional session_id in JWT when provided', () => {
+    const token = generateToken({
+      user_id: '11111111-1111-1111-1111-111111111111',
+      username: 'testuser1',
+      email: 'testuser1@example.com',
+      role: 'user',
+      session_id: 'sess-abc-123',
+    });
+    const payload = verifyToken(token);
+    expect(payload?.session_id).toBe('sess-abc-123');
   });
 
   it('rejects invalid tokens', () => {
