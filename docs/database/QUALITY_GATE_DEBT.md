@@ -1,28 +1,34 @@
 # Quality gate debt (PRD-05)
 
-Measured on `dev/prd-05-canonical-database-ci-20260726` after PRD-04 integration.
+Measured on `dev/prd-05-canonical-database-ci-20260726` after FIX_THEN_MERGE corrective pass.
 
 | Gate | Current | Target |
 | --- | --- | --- |
-| `npm run test:unit` | Pass (blocking in CI) | Keep blocking |
-| `npm run build` | Pass with ignore flags (blocking in CI) | Pass without ignore flags |
-| `npm run type-check` | ~114 errors | Zero; CI hard-fail |
-| `npm run lint` | ~267 errors / ~154 warnings | Zero errors; CI hard-fail |
-| `next.config.ts` `typescript.ignoreBuildErrors` | `true` | Remove when type-check clean |
-| `next.config.ts` `eslint.ignoreDuringBuilds` | `true` | Remove when lint clean |
+| `npm run type-check` | **Pass (0 errors)** — CI hard-fail | Keep blocking |
+| `npm run test:unit` | Pass — CI hard-fail | Keep blocking |
+| `npm run build` | Pass with `eslint.ignoreDuringBuilds` | Pass without ignore flags |
+| `npm run lint` | **~236 errors** (almost all `@typescript-eslint/no-explicit-any`) + warnings | Zero errors; CI hard-fail |
+| `next.config.ts` `typescript.ignoreBuildErrors` | **Removed** | Keep removed |
+| `next.config.ts` `eslint.ignoreDuringBuilds` | `true` (lint not green) | Remove when lint clean |
 
-## Why ignore flags remain
+## What was reverted / not done
 
-Removing `ignoreBuildErrors` / `ignoreDuringBuilds` now would fail `next build` on widespread pre-existing Pusher/state/test typing and ESLint `no-explicit-any` debt unrelated to the database migration slice. PRD-05 documents the debt and wires CI steps for visibility (`continue-on-error: true` on type-check/lint until green).
+- **Reverted:** global ESLint demotion of `@typescript-eslint/no-explicit-any` / `no-require-imports` to `warn` (conflicts with PRD-05 “do not globally suppress categories to fake green”).
+- **Reverted:** broad `tsconfig` excludes of `indexes.ts` / `constraints.ts`. Those foot-gun modules were **moved** to `src/lib/db/_quarantine/` instead (already excluded as quarantine).
+- **Kept path-scoped:** ESLint ignore for `src/lib/db/_quarantine/**`; `scripts/**/*.{js,cjs}` may use `require` (legacy CJS ops scripts only).
 
-## Incomplete before preview merge
+## Why lint is not hard-fail yet
 
-1. Clear type-check + lint (or narrowly suppress with justification — not preferred).
-2. Flip CI `continue-on-error` to `false` for type-check and lint.
-3. Remove both ignore flags from `next.config.ts`.
-4. Optionally add `test:api` + Playwright smoke + Dependabot (PRD stretch).
+Clearing ~236 `no-explicit-any` findings without rule demotion requires a dedicated typing pass. A bulk `any`→`unknown` rewrite was attempted and **rolled back** after it produced ~455 new type-check errors. Prefer incremental real typing over suppressions.
+
+## Incomplete before claiming PRD-05 quality-gate acceptance
+
+1. Clear lint errors (primarily `no-explicit-any`) with real types — zero lint errors.
+2. Flip CI lint `continue-on-error` to hard-fail.
+3. Remove `eslint.ignoreDuringBuilds` from `next.config.ts`.
 
 ## Do not
 
-- Globally suppress TypeScript/ESLint categories to fake green.
+- Globally demote TypeScript/ESLint categories to warn/off to fake green.
+- Re-introduce `typescript.ignoreBuildErrors`.
 - Re-introduce request-time DDL to paper over missing migrations.

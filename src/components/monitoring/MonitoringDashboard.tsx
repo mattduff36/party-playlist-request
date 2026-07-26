@@ -8,9 +8,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { 
   Activity, 
   AlertTriangle, 
@@ -18,7 +18,7 @@ import {
   XCircle, 
   Clock, 
   Database, 
-  Memory, 
+  MemoryStick, 
   Cpu,
   Wifi,
   Users,
@@ -239,7 +239,7 @@ export default function MonitoringDashboard() {
         </div>
         <div className="flex items-center space-x-4">
           <Button
-            variant={autoRefresh ? "default" : "outline"}
+            variant={autoRefresh ? "primary" : "secondary"}
             onClick={() => setAutoRefresh(!autoRefresh)}
             size="sm"
           >
@@ -348,7 +348,7 @@ export default function MonitoringDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Memory className="h-5 w-5 mr-2" />
+              <MemoryStick className="h-5 w-5 mr-2" />
               Resource Usage
             </CardTitle>
           </CardHeader>

@@ -34,6 +34,18 @@ async function ensureMigrationsTable(client: PoolClient): Promise<void> {
   `);
 }
 
+async function schemaMigrationsTableExists(client: PoolClient): Promise<boolean> {
+  const result = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.tables
+       WHERE table_schema = 'public'
+         AND table_name = 'schema_migrations'
+     ) AS exists`
+  );
+  return result.rows[0]?.exists === true;
+}
+
 async function appliedIds(client: PoolClient): Promise<Set<string>> {
   const result = await client.query<{ id: string }>(
     `SELECT id FROM schema_migrations`
@@ -52,7 +64,8 @@ function readMigrationSql(definition: MigrationDefinition): string {
 /**
  * Apply pending canonical migrations.
  * @param pool pg Pool (normally getPool())
- * @param options.dryRun when true, report pending without executing
+ * @param options.dryRun when true, report pending without executing — truly
+ *   read-only (no CREATE / INSERT / DDL). Missing schema_migrations ⇒ all pending.
  */
 export async function runCanonicalMigrations(
   pool: Pool,
@@ -64,8 +77,16 @@ export async function runCanonicalMigrations(
   const skipped: string[] = [];
 
   try {
-    await ensureMigrationsTable(client);
-    const done = await appliedIds(client);
+    let done: Set<string>;
+
+    if (dryRun) {
+      // Read-only: never CREATE TABLE / INSERT during dry-run.
+      const exists = await schemaMigrationsTableExists(client);
+      done = exists ? await appliedIds(client) : new Set();
+    } else {
+      await ensureMigrationsTable(client);
+      done = await appliedIds(client);
+    }
 
     for (const migration of CANONICAL_MIGRATIONS) {
       if (migration.classification !== 'A' && migration.classification !== 'B') {
@@ -79,12 +100,15 @@ export async function runCanonicalMigrations(
         continue;
       }
 
-      const sql = readMigrationSql(migration);
+      // Ensure SQL file exists even in dry-run (read-only filesystem check).
+      readMigrationSql(migration);
 
       if (dryRun) {
         applied.push(migration.id);
         continue;
       }
+
+      const sql = readMigrationSql(migration);
 
       await client.query('BEGIN');
       try {

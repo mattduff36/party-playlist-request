@@ -16,9 +16,11 @@
  */
 
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { drizzle, type NeonHttpDatabase } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import * as schema from './schema';
+
+type DrizzleDB = NeonHttpDatabase<typeof schema>;
 
 // Pool configuration types
 export interface PoolConfiguration {
@@ -67,7 +69,7 @@ export interface PoolStats {
 // Connection pool manager
 export class ConnectionPoolManager {
   private pools: Map<PoolType, Pool> = new Map();
-  private drizzleInstances: Map<PoolType, DrizzleDB<any>> = new Map();
+  private drizzleInstances: Map<PoolType, DrizzleDB> = new Map();
   private stats: Map<PoolType, PoolStats> = new Map();
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
@@ -122,7 +124,11 @@ export class ConnectionPoolManager {
     // Create pools
     for (const [poolType, config] of Object.entries(poolConfigs)) {
       const pool = new Pool(config as PoolConfig);
-      const drizzleInstance = drizzle(neon(config.connectionString), { schema });
+      const connectionString = config.connectionString;
+      if (!connectionString) {
+        throw new Error(`Missing connectionString for pool type ${poolType}`);
+      }
+      const drizzleInstance = drizzle(neon(connectionString), { schema });
       
       this.pools.set(poolType as PoolType, pool);
       this.drizzleInstances.set(poolType as PoolType, drizzleInstance);
@@ -224,7 +230,7 @@ export class ConnectionPoolManager {
     return pool;
   }
 
-  public getDrizzle(poolType: PoolType = PoolType.READ_WRITE): DrizzleDB<any> {
+  public getDrizzle(poolType: PoolType = PoolType.READ_WRITE): DrizzleDB {
     const drizzle = this.drizzleInstances.get(poolType);
     if (!drizzle) {
       throw new Error(`Drizzle instance for ${poolType} not found`);

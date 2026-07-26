@@ -67,7 +67,7 @@ interface QueuedEvent {
   retries: number;
 }
 
-class EventBroadcaster {
+export class EventBroadcaster {
   private config: BroadcastConfig;
   private eventQueue: QueuedEvent[] = [];
   private processingQueue = false;
@@ -212,12 +212,15 @@ class EventBroadcaster {
       return event;
     }
 
-    // Compress large data fields
-    const compressedEvent = { ...event };
-    
-    if (event.action === 'playback_update' && event.data.currentTrack) {
-      const track = event.data.currentTrack;
-      compressedEvent.data.currentTrack = {
+    if (event.action !== 'playback_update') {
+      return event;
+    }
+
+    const data = { ...event.data };
+
+    if (data.currentTrack) {
+      const track = data.currentTrack;
+      data.currentTrack = {
         ...track,
         name: track.name?.substring(0, 100) || '',
         artists: track.artists?.slice(0, 2).map(a => ({ name: a.name?.substring(0, 50) || '' })) || [],
@@ -229,8 +232,8 @@ class EventBroadcaster {
       };
     }
 
-    if (event.action === 'playback_update' && event.data.queue) {
-      compressedEvent.data.queue = event.data.queue.slice(0, 10).map((track) => {
+    if (data.queue) {
+      data.queue = data.queue.slice(0, 10).map((track) => {
         const trackWithArt = track as typeof track & {
           image_url?: string | null;
           album?: { images?: Array<{ url?: string }> };
@@ -254,7 +257,7 @@ class EventBroadcaster {
       });
     }
 
-    return compressedEvent;
+    return { ...event, data };
   }
 
   // Get queue statistics

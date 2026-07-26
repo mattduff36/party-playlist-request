@@ -25,7 +25,7 @@ const DRIZZLE_MIGRATIONS_PREFIX = 'src/lib/db/migrations/';
 
 interface PackageJsonWithVersion {
   version: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface FinaliseOptions {
@@ -817,7 +817,7 @@ async function main(): Promise<void> {
       console.log(`Running ${unitScript}...`);
       // React Testing Library needs React.act from the development build.
       // .env.local may set NODE_ENV=production for Next; override for unit tests.
-      process.env.NODE_ENV = 'test';
+      (process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
       runCommand('npm', ['run', unitScript]);
     } else {
       console.log('No unit test script found; skipping unit tests.');
@@ -945,7 +945,7 @@ async function main(): Promise<void> {
   console.log(`- Push: ${pushedBranch ? `pushed ${pushedBranch}` : 'skipped'}`);
 }
 
-main().catch((error: unknown) => {
+main().catch((error: any) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`\nFinalise failed: ${message}`);
   process.exit(1);

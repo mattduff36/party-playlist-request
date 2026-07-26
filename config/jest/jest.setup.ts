@@ -6,7 +6,7 @@
 
 import '@testing-library/jest-dom';
 
-process.env.NODE_ENV = 'test';
+(process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
@@ -32,7 +32,9 @@ global.console = {
 };
 
 // Global test utilities
-global.waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+(globalThis as typeof globalThis & { waitFor: (ms: number) => Promise<void> }).waitFor = (
+  ms: number
+) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Mock fetch globally if needed
 global.fetch = global.fetch || jest.fn();

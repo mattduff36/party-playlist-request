@@ -10,6 +10,8 @@ export * from './client';
 export * from './rate-limiter';
 export * from './cache';
 
+import { initializeRedis } from './client';
+
 // Re-export commonly used items
 export { 
   getRedisClient, 

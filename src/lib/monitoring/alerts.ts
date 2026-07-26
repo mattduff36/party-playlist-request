@@ -123,6 +123,43 @@ class AlertingSystem {
   }
 
   /**
+   * In-memory alert history for the monitoring dashboard (delivery-derived).
+   */
+  getAlerts(): Array<{
+    id: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    message: string;
+    metric: string;
+    value: number;
+    threshold: number;
+    timestamp: number;
+    resolved: boolean;
+  }> {
+    return this.deliveries.map((delivery) => ({
+      id: delivery.alertId,
+      severity: 'medium' as const,
+      message: delivery.error || `Delivery ${delivery.status}`,
+      metric: 'delivery',
+      value: delivery.attempts,
+      threshold: delivery.maxAttempts,
+      timestamp: delivery.sentAt || Date.now(),
+      resolved: delivery.status === 'sent' || delivery.status === 'failed',
+    }));
+  }
+
+  getAlertStats() {
+    const alerts = this.getAlerts();
+    const unresolved = alerts.filter((a) => !a.resolved);
+    return {
+      total: alerts.length,
+      active: unresolved.length,
+      unresolved: unresolved.length,
+      resolved: alerts.filter((a) => a.resolved).length,
+      critical: unresolved.filter((a) => a.severity === 'critical').length,
+    };
+  }
+
+  /**
    * Test a channel configuration
    */
   async testChannel(channelId: string): Promise<boolean> {

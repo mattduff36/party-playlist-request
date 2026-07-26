@@ -979,7 +979,7 @@ export async function updateRequest(
   const setClause = keys
     .map((key, index) => `${key} = $${index + 2}`)
     .join(', ');
-  const values: unknown[] = [id, ...keys.map((key) => (updates as Record<string, unknown>)[key]), userId];
+  const values: any[] = [id, ...keys.map((key) => (updates as Record<string, any>)[key]), userId];
 
   const result = await client.query(
     `UPDATE requests SET ${setClause}
@@ -1717,7 +1717,7 @@ export function generateUUID(): string {
 
 // Notification functions
 export async function createNotification(notification: Omit<Notification, 'id' | 'created_at' | 'shown'>): Promise<string> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const id = generateUUID();
     const created_at = new Date().toISOString();
@@ -1735,7 +1735,7 @@ export async function createNotification(notification: Omit<Notification, 'id' |
 }
 
 export async function getNotifications(): Promise<Notification[]> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const result = await client.query(
       'SELECT * FROM notifications WHERE shown = false ORDER BY created_at ASC LIMIT 5'
@@ -1747,7 +1747,7 @@ export async function getNotifications(): Promise<Notification[]> {
 }
 
 export async function markNotificationAsShown(id: string): Promise<void> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query(
       'UPDATE notifications SET shown = true WHERE id = $1',

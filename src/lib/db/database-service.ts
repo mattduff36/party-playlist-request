@@ -10,7 +10,8 @@ import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { 
   getConnectionPoolManager, 
   PoolType, 
-  executeWithPool 
+  executeWithPool,
+  type PoolStats,
 } from './connection-pool';
 import { 
   events, 
@@ -441,7 +442,7 @@ export class DatabaseService {
   // Statistics and monitoring
   getStats(): DatabaseStats {
     const poolManager = getConnectionPoolManager();
-    const poolHealth: Record<PoolType, boolean> = {};
+    const poolHealth = {} as Record<PoolType, boolean>;
     
     for (const poolType of Object.values(PoolType)) {
       poolHealth[poolType] = poolManager.isHealthy(poolType);
@@ -459,9 +460,11 @@ export class DatabaseService {
   async healthCheck(): Promise<{ healthy: boolean; details: any }> {
     try {
       const poolManager = getConnectionPoolManager();
-      const stats = poolManager.getStats();
+      const stats = poolManager.getStats() as Map<PoolType, PoolStats>;
       
-      const healthy = Array.from(stats.values()).every(stat => stat.health === 'healthy');
+      const healthy = Array.from(stats.values()).every(
+        (stat: PoolStats) => stat.health === 'healthy'
+      );
       
       return {
         healthy,

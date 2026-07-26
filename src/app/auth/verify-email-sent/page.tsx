@@ -33,7 +33,7 @@ function VerifyEmailSentContent() {
 
           {/* Message */}
           <p className="text-muted mb-2">
-            We've sent a verification link to:
+            We&apos;ve sent a verification link to:
           </p>
           <p className="text-accent font-semibold text-lg mb-6">
             {email}
@@ -70,7 +70,7 @@ function VerifyEmailSentContent() {
           {/* Note */}
           <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 mb-6">
             <p className="text-muted text-sm">
-              <strong className="text-bone">Tip:</strong> Check your spam folder if you don't see the email in a few minutes.
+              <strong className="text-bone">Tip:</strong> Check your spam folder if you don&apos;t see the email in a few minutes.
             </p>
           </div>
 

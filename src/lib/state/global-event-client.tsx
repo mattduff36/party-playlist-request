@@ -267,7 +267,7 @@ function createActions(
   dispatch: React.Dispatch<GlobalEventAction>, 
   getState: () => GlobalEventState
 ): GlobalEventActions {
-  return {
+  const actions: GlobalEventActions = {
     setLoading: (loading: boolean) => {
       dispatch({ type: 'SET_LOADING', payload: loading });
     },
@@ -282,6 +282,10 @@ function createActions(
     
     setConnection: (connected: boolean) => {
       dispatch({ type: 'SET_CONNECTION', payload: connected });
+    },
+
+    setEventStatus: async (status: EventState) => {
+      await actions.updateEventStatus(status);
     },
     
     updateEventStatus: async (status: EventState) => {
@@ -580,6 +584,7 @@ function createActions(
       }
     },
   };
+  return actions;
 }
 
 // Provider component
@@ -713,12 +718,12 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
 
         channelInstance = pusherInstance.subscribe(channelName);
 
-        channelInstance.bind('state-update', (data: Record<string, unknown>) => {
+        channelInstance.bind('state-update', (data: Record<string, any>) => {
           console.log(
             '📡 [GlobalEventProvider] Received state-update via Pusher:',
             data
           );
-          const dataConfig = (data.config || {}) as Record<string, unknown>;
+          const dataConfig = (data.config || {}) as Record<string, any>;
           dispatch({
             type: 'UPDATE_EVENT',
             payload: {

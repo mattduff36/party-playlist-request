@@ -24,7 +24,8 @@ function routeExists(relativePath: string): boolean {
 }
 
 function asNextRequest(url: string, init?: RequestInit): NextRequest {
-  return new NextRequest(url, init);
+  // NextRequest's RequestInit differs slightly from the DOM lib (signal: null).
+  return new NextRequest(url, init as ConstructorParameters<typeof NextRequest>[1]);
 }
 
 function walkSourceFiles(dir: string, out: string[] = []): string[] {

@@ -18,7 +18,17 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Quarantined archive only — not an active quality-gate exemption for live code
+      "src/lib/db/_quarantine/**",
     ],
+  },
+  {
+    // Legacy Node CJS ops scripts (not Next/app TypeScript). Path-scoped, not a
+    // global rule demotion — keep require allowed only here.
+    files: ["scripts/**/*.{js,cjs}"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
   },
 ];
 

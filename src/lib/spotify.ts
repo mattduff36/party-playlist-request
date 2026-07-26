@@ -16,7 +16,7 @@ import {
 } from '@/lib/spotify/token-errors';
 
 /** Verbose Spotify client logs — on in non-production, or when SPOTIFY_DEBUG=true */
-function spotifyDebug(...args: unknown[]): void {
+function spotifyDebug(...args: any[]): void {
   if (process.env.SPOTIFY_DEBUG === 'true' || process.env.NODE_ENV !== 'production') {
     console.log(...args);
   }
@@ -30,11 +30,11 @@ interface SpotifyTokenResponse {
   refresh_token?: string;
 }
 
-function parseSpotifyTokenResponse(data: unknown): SpotifyTokenResponse {
+function parseSpotifyTokenResponse(data: any): SpotifyTokenResponse {
   if (!data || typeof data !== 'object') {
     throw new SpotifyServiceError('oauth_invalid', 'Invalid Spotify token response');
   }
-  const obj = data as Record<string, unknown>;
+  const obj = data as Record<string, any>;
   if (typeof obj.access_token !== 'string' || !obj.access_token) {
     throw new SpotifyServiceError('oauth_invalid', 'Spotify token response missing access_token');
   }
@@ -841,6 +841,9 @@ class SpotifyService {
     this.appTokenExpiry = new Date(Date.now() + (data.expires_in * 1000));
     
     spotifyDebug('✅ App access token obtained');
+    if (!this.appAccessToken) {
+      throw new Error('App access token missing after successful token response');
+    }
     return this.appAccessToken;
   }
 

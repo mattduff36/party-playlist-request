@@ -11,7 +11,8 @@
 import PusherClient from 'pusher-js';
 import { 
   PusherEvent, 
-  EventHandlers, 
+  EventHandlers,
+  EventHandler,
   getEventChannel, 
   generateEventId, 
   generateEventVersion,
@@ -135,8 +136,8 @@ export class CentralizedPusherClient {
       this.client = new PusherClient(this.config.key, {
         cluster: this.config.cluster,
         forceTLS: this.config.forceTLS,
-        enabledTransports: this.config.enabledTransports,
-        disabledTransports: this.config.disabledTransports,
+        enabledTransports: this.config.enabledTransports as ('ws' | 'wss' | 'xhr_streaming' | 'xhr_polling' | 'sockjs')[],
+        disabledTransports: this.config.disabledTransports as ('ws' | 'wss' | 'xhr_streaming' | 'xhr_polling' | 'sockjs')[],
         authEndpoint: '/api/pusher/auth',
         auth: {
           headers: {
@@ -225,7 +226,7 @@ export class CentralizedPusherClient {
       const event = data as PusherEvent;
 
       // Check rate limiting
-      const rateLimitResult = this.rateLimiter.checkRateLimit(event, undefined, this.eventId);
+      const rateLimitResult = this.rateLimiter.checkRateLimit(event, undefined, this.eventId ?? undefined);
       if (!rateLimitResult.allowed) {
         console.warn('⚠️ Rate limit exceeded, dropping event:', event.id, rateLimitResult.reason);
         return;
@@ -247,7 +248,7 @@ export class CentralizedPusherClient {
 
   // Process individual event
   private processEvent(event: PusherEvent): void {
-    const handler = this.handlers[event.action];
+    const handler = this.handlers[event.action] as EventHandler | undefined;
     if (handler) {
       try {
         handler(event);

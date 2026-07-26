@@ -2,7 +2,7 @@ import type { Config } from 'jest';
 
 // Component tests need React's development build (`React.act`).
 // Finalise may inherit NODE_ENV=production from .env.local.
-process.env.NODE_ENV = 'test';
+(process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
 import * as dotenv from 'dotenv';
 import path from 'path';
 

@@ -15,7 +15,7 @@ const pool = getPool();
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Authenticate user
@@ -30,7 +30,7 @@ export async function GET(
       return superAdminCheck.response!;
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Get user
     const result = await pool.query(
@@ -83,7 +83,7 @@ export async function GET(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Authenticate user
@@ -98,7 +98,7 @@ export async function PUT(
       return superAdminCheck.response!;
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { email, password, account_status, is_super_admin } = body;
 
@@ -270,7 +270,7 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Authenticate user
@@ -285,7 +285,7 @@ export async function DELETE(
       return superAdminCheck.response!;
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Check if user exists
     const userCheck = await pool.query(

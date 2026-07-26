@@ -343,8 +343,10 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Quarantine conflicting Drizzle 7→4 | Done — `src/lib/db/_quarantine/drizzle-legacy/`; drizzle npm scripts disabled |
 | Fix poll route to live schema | Done — `getPool` + flat `requests` / `spotify_auth` |
 | Centralise pools (partial) | Done — login + superadmin routes use `getPool()`; multi-pool manager deprecated |
-| CI workflow | Done — `.github/workflows/ci.yml` (unit+build hard-fail; type-check/lint visible with continue-on-error) |
-| Remove next.config ignore flags | **Deferred** — documented in `docs/database/QUALITY_GATE_DEBT.md` (~114 TS / ~267 lint errors) |
+| CI workflow | Partial — type-check + unit + build hard-fail; lint still `continue-on-error` (~236 `no-explicit-any`) |
+| Remove next.config ignore flags | Partial — `typescript.ignoreBuildErrors` removed; `eslint.ignoreDuringBuilds` remains until lint green |
+| Dry-run write-free | Done — `--dry-run` skips `ensureMigrationsTable` / CREATE |
+| Disable spotify_tokens foot-gun scripts | Done — `db:create-indexes` / `db:create-constraints` (+ analyze/validate/studio) exit 1; sources quarantined |
 | Full repository split | **Deferred** — compatibility `db.ts` + residual `database-service` drizzle event helpers remain |
 | Neon HTTP client consolidation | **Deferred** — `neon-client.ts` still used by some auth routes |
 | Playwright smoke / test:api in CI | **Deferred** |
@@ -368,7 +370,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 ### Incomplete / follow-ups
 
-- Clear type-check + lint debt; remove `continue-on-error` and next.config ignore flags.
+- **Quality gates not fully accepted:** clear ~236 lint `no-explicit-any` errors (no rule demotion); then hard-fail lint in CI and remove `eslint.ignoreDuringBuilds`. See `docs/database/QUALITY_GATE_DEBT.md`.
 - Rewrite `database-service` off drizzle multi-pool onto `getPool`.
 - Consolidate `neon-client` call sites onto singleton pool (or document exceptional edge use).
 - Fresh-DB integration test in CI with ephemeral Postgres.
@@ -378,7 +380,10 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Command | Result |
 | --- | --- |
-| `npm run test:unit` | Pass — 211 tests (incl. PRD-05 migration/DDL guards) |
-| `npm run build` | Pass |
+| `npm run type-check` | Pass — 0 errors (CI hard-fail) |
+| `npm run lint` | Fail — ~236 `@typescript-eslint/no-explicit-any` (CI continue-on-error; not acceptance) |
+| `npm run test:unit` | Pass — 213 tests |
+| `npm run build` | Pass (with `eslint.ignoreDuringBuilds`) |
 | Merged into preview | No |
 | Pushed | No |
+| PRD-05 quality-gate acceptance | **Incomplete** — lint hard-gate still open |

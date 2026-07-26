@@ -7,7 +7,7 @@ const queryMock = jest.fn();
 
 jest.mock('pg', () => ({
   Pool: jest.fn().mockImplementation(() => ({
-    query: (...args: unknown[]) => queryMock(...args),
+    query: (...args: any[]) => queryMock(...args),
     end: jest.fn(),
     on: jest.fn(),
   })),
@@ -38,7 +38,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
   beforeEach(() => {
     process.env.TOKEN_ENCRYPTION_KEY_V1 = Buffer.alloc(32, 11).toString('base64');
     process.env.TOKEN_ENCRYPTION_WRITE_KID = 'v1';
-    process.env.NODE_ENV = 'test';
+    (process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
     resetTokenVaultForTests();
     queryMock.mockReset();
   });
@@ -48,7 +48,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
     else process.env.TOKEN_ENCRYPTION_KEY_V1 = prevV1;
     if (prevWrite === undefined) delete process.env.TOKEN_ENCRYPTION_WRITE_KID;
     else process.env.TOKEN_ENCRYPTION_WRITE_KID = prevWrite;
-    process.env.NODE_ENV = prevNodeEnv;
+    (process.env as { NODE_ENV?: string }).NODE_ENV = prevNodeEnv;
     resetTokenVaultForTests();
   });
 
@@ -143,7 +143,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
       ],
     });
 
-    let caught: unknown;
+    let caught: any;
     try {
       await getSpotifyAuth('user-1');
     } catch (err) {
@@ -162,7 +162,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
   it('assertTokenVaultConfiguredForProduction fails fast without key (no key leak)', () => {
     delete process.env.TOKEN_ENCRYPTION_KEY_V1;
     resetTokenVaultForTests();
-    process.env.NODE_ENV = 'production';
+    (process.env as { NODE_ENV?: string }).NODE_ENV = 'production';
 
     expect(() => assertTokenVaultConfiguredForProduction()).toThrow(
       'TOKEN_ENCRYPTION_KEY_V1 is required in production'
@@ -180,7 +180,7 @@ describe('PRD-03: behavioral OAuth + vault negatives', () => {
   it('assertTokenVaultConfiguredForProduction is a no-op outside production', () => {
     delete process.env.TOKEN_ENCRYPTION_KEY_V1;
     resetTokenVaultForTests();
-    process.env.NODE_ENV = 'test';
+    (process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
     expect(() => assertTokenVaultConfiguredForProduction()).not.toThrow();
   });
 });

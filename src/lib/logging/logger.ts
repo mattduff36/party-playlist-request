@@ -5,6 +5,9 @@
  * output formats, log levels, and debugging capabilities.
  */
 
+import fs from 'fs';
+import path from 'path';
+
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -239,9 +242,6 @@ export class Logger {
     if (!this.config.filePath) return;
 
     try {
-      const fs = require('fs');
-      const path = require('path');
-      
       // Ensure directory exists
       const dir = path.dirname(this.config.filePath);
       if (!fs.existsSync(dir)) {
@@ -277,9 +277,6 @@ export class Logger {
     if (!this.config.filePath) return;
 
     try {
-      const fs = require('fs');
-      const path = require('path');
-      
       if (!fs.existsSync(this.config.filePath)) return;
 
       const stats = fs.statSync(this.config.filePath);
@@ -522,7 +519,6 @@ export class Logger {
    */
   exportLogs(filePath: string, filter?: LogFilter): void {
     try {
-      const fs = require('fs');
       const logs = this.getLogs(filter);
       const exportData = {
         exportedAt: new Date().toISOString(),

@@ -31,9 +31,13 @@ export async function GET(request: NextRequest) {
 
     // Get detailed pool information
     const poolDetails: Record<string, any> = {};
+    const statsMap =
+      poolStats instanceof Map
+        ? poolStats
+        : new Map([[PoolType.READ_WRITE, poolStats]]);
     for (const poolType of Object.values(PoolType)) {
       const poolInfo = poolManager.getPoolInfo(poolType);
-      const stats = poolStats.get(poolType);
+      const stats = statsMap.get(poolType);
       
       poolDetails[poolType] = {
         ...poolInfo,

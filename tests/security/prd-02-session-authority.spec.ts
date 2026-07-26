@@ -23,7 +23,8 @@ import {
 import { extractToken } from '@/lib/auth';
 
 function asNextRequest(url: string, init?: RequestInit): NextRequest {
-  return new NextRequest(url, init);
+  // NextRequest's RequestInit differs slightly from the DOM lib (signal: null).
+  return new NextRequest(url, init as ConstructorParameters<typeof NextRequest>[1]);
 }
 
 describe('PRD-02: cookie-first token extraction', () => {

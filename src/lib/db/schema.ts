@@ -10,12 +10,19 @@
 import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-export type {
+import type {
   EventConfig,
   EventStatus,
   RequestStatus,
   TrackData,
 } from './types';
+
+export type {
+  EventConfig,
+  EventStatus,
+  RequestStatus,
+  TrackData,
+};
 
 // Users table - Multi-tenant user accounts
 export const users = pgTable('users', {
@@ -39,7 +46,7 @@ export const events = pgTable('events', {
   status: text('status', { 
     enum: ['offline', 'standby', 'live'] 
   }).notNull().default('offline'),
-  config: jsonb('config').notNull().default('{}'),
+  config: jsonb('config').$type<EventConfig>().notNull().default({}),
   active_admin_id: uuid('active_admin_id').references(() => admins.id),
   version: integer('version').notNull().default(0),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

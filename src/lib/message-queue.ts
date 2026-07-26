@@ -118,7 +118,8 @@ class MessageQueue {
         WHERE user_id = ${userId}
       `;
 
-      if (result.count === 0) {
+      const maybeCount = (result as unknown as { count?: number }).count;
+      if (maybeCount === 0) {
         throw new Error(`No event found for user ${userId}`);
       }
 

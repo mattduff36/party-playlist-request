@@ -35,6 +35,9 @@ Each SQL file documents Class B reverse notes (drop new columns/indexes only aft
 
 | Path | Status |
 | --- | --- |
-| `npm run db:migrate` / `db:push` / `db:generate` | Disabled — exit 1 |
-| `src/lib/db/_quarantine/drizzle-legacy/*` | Archive only |
+| `npm run db:migrate` / `db:push` / `db:generate` / `db:studio` | Disabled — exit 1 |
+| `npm run db:create-indexes` / `db:create-constraints` / analyze / validate-data | Disabled — exit 1 (spotify_tokens foot-guns; sources under `_quarantine/`) |
+| `src/lib/db/_quarantine/*` | Archive only |
 | `initializeDatabase()` | CLI + `ALLOW_DB_BOOTSTRAP=1` fallback only |
+
+Dry-run (`db:migrate:canonical:dry`) is **write-free**: it only reads `information_schema` / `schema_migrations` and never calls `CREATE TABLE`.

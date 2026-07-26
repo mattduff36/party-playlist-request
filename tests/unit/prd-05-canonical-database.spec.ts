@@ -95,14 +95,44 @@ describe('PRD-05: no request-time DDL in hot paths', () => {
   });
 });
 
-describe('PRD-05: next.config ignore flags documented debt', () => {
-  it('still records ignore flags until QUALITY_GATE_DEBT cleared', () => {
+describe('PRD-05: quality gate flags', () => {
+  it('removes typescript.ignoreBuildErrors; eslint ignore remains until lint debt cleared', () => {
     const config = fs.readFileSync(path.join(ROOT, 'next.config.ts'), 'utf8');
-    // Intentionally still true — see docs/database/QUALITY_GATE_DEBT.md
+    expect(config).not.toMatch(/ignoreBuildErrors:\s*true/);
+    // Lint not green yet — see docs/database/QUALITY_GATE_DEBT.md
     expect(config).toMatch(/ignoreDuringBuilds:\s*true/);
-    expect(config).toMatch(/ignoreBuildErrors:\s*true/);
     expect(
       fs.existsSync(path.join(ROOT, 'docs/database/QUALITY_GATE_DEBT.md'))
+    ).toBe(true);
+  });
+
+  it('dry-run path does not call ensureMigrationsTable / CREATE', () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, 'src/lib/db/migrate/runner.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/schemaMigrationsTableExists/);
+    expect(source).toMatch(/if \(dryRun\)/);
+    // ensureMigrationsTable must only run on the non-dry-run branch
+    const dryBlock = source.slice(
+      source.indexOf('if (dryRun)'),
+      source.indexOf('await ensureMigrationsTable')
+    );
+    expect(dryBlock).toMatch(/schemaMigrationsTableExists/);
+    expect(dryBlock).not.toMatch(/ensureMigrationsTable/);
+  });
+
+  it('disables spotify_tokens foot-gun npm scripts', () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+    ) as { scripts: Record<string, string> };
+    expect(pkg.scripts['db:create-indexes']).toMatch(/exit 1/);
+    expect(pkg.scripts['db:create-constraints']).toMatch(/exit 1/);
+    expect(
+      fs.existsSync(path.join(ROOT, 'src/lib/db/_quarantine/indexes.ts'))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(ROOT, 'src/lib/db/_quarantine/constraints.ts'))
     ).toBe(true);
   });
 });

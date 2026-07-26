@@ -104,7 +104,7 @@ export function getTokenVaultWriteKid(): string {
   return loadKeys().writeKid;
 }
 
-function buildAad(input: EncryptInput): Buffer {
+function buildAad(input: Omit<EncryptInput, 'plaintext'> | EncryptInput): Buffer {
   const parts = [input.userId, input.purpose];
   if (input.aadExtra) parts.push(input.aadExtra);
   return Buffer.from(parts.join('|'), 'utf8');
@@ -143,7 +143,7 @@ export function serializeEnvelope(envelope: TokenEnvelopeV1): string {
 }
 
 export function parseEnvelope(raw: string): TokenEnvelopeV1 {
-  let parsed: unknown;
+  let parsed: any;
   try {
     parsed = JSON.parse(raw);
   } catch {

@@ -71,6 +71,7 @@ export interface PlaybackUpdateEvent {
   is_playing: boolean;
   progress_ms: number;
   timestamp: number;
+  device?: any;
 }
 
 export interface TokenExpiredEvent {
@@ -131,15 +132,15 @@ export const triggerEvent = async (
 
 // Specific event triggers (USER-SPECIFIC + event guest dual-publish)
 export const triggerRequestApproved = async (data: RequestApprovedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_APPROVED, data as unknown as Record<string, unknown>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_APPROVED, data as any as Record<string, any>);
 };
 
 export const triggerRequestRejected = async (data: RequestRejectedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_REJECTED, data as unknown as Record<string, unknown>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_REJECTED, data as any as Record<string, any>);
 };
 
 export const triggerRequestDeleted = async (data: RequestDeletedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_DELETED, data as unknown as Record<string, unknown>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_DELETED, data as any as Record<string, any>);
 };
 
 export const triggerRequestsCleanup = async (userId: string) => {
@@ -156,7 +157,7 @@ export const triggerRequestsCleanup = async (userId: string) => {
 };
 
 export const triggerRequestSubmitted = async (data: RequestSubmittedEvent & { userId: string }) => {
-  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_SUBMITTED, data as unknown as Record<string, unknown>);
+  await dualPublishUserAndGuest(data.userId, EVENTS.REQUEST_SUBMITTED, data as any as Record<string, any>);
 };
 
 export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId: string }) => {
@@ -201,7 +202,7 @@ export const triggerPlaybackUpdate = async (data: PlaybackUpdateEvent & { userId
   await dualPublishUserAndGuest(
     data.userId,
     EVENTS.PLAYBACK_UPDATE,
-    compactData as Record<string, unknown>
+    compactData as Record<string, any>
   );
 };
 
@@ -247,7 +248,7 @@ export const triggerStateUpdate = async (data: StateUpdateEvent) => {
   await dualPublishUserAndGuest(
     data.userId,
     EVENTS.STATE_UPDATE,
-    data as unknown as Record<string, unknown>
+    data as any as Record<string, any>
   );
 };
 
@@ -268,7 +269,7 @@ export const triggerPageControlUpdate = async (data: PageControlUpdateEvent) => 
   await dualPublishUserAndGuest(
     data.userId,
     EVENTS.PAGE_CONTROL_TOGGLE,
-    data as unknown as Record<string, unknown>
+    data as any as Record<string, any>
   );
 };
 
