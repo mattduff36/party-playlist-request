@@ -165,11 +165,14 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented on feature branch (not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-03-spotify-token-security-20260726` |
-| Preview branch | `preview/partyplaylist-prd-program-2026` (base; do not merge yet) |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `fe4d4a9` (source tip `da4197c`) |
 | Database impact | **Class B applied** to Neon production/`main` (YES). Verified columns/indexes present. Backup: `snap-odd-dream-abwtma9w`. **Class C:** 8 candidate rows, AWAITING human approval — not run. **Class D:** deferred. See `PRD-03-MIGRATION-NOTES.md`. |
 | Depends on | PRD-02 integrated into preview |
+| Independent re-review | APPROVE_MERGE @ `da4197c` |
+| Deploy gates (human) | `TOKEN_ENCRYPTION_KEY_V1` must be set in `.env.local` + production before deploy (never commit). Class C backfill awaiting human. Class D deferred. Class B already on Neon. |
 
 ### Outcomes
 
@@ -211,11 +214,27 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - Existing connected users keep working via plaintext dual-read until they reconnect (new writes encrypted) or Class C runs.
 - Full typed error mapping coverage for every Spotify API call path beyond OAuth/refresh/search (partial).
 
-### Validation notes
+### Validation notes (on feature branch before merge)
 
 | Command | Result |
 | --- | --- |
 | `npm run test:unit` | Pass — PRD-03 security + behavioral negatives (cross-user, replay, decrypt leak) |
 | `npm run build` | Pass |
-| Merged into preview | No |
+| Independent re-review | APPROVE_MERGE @ `da4197c` |
+| Merged into preview | Yes — `fe4d4a9` |
 | Pushed | No |
+
+### Preview integration smoke (post-merge `fe4d4a9` + status docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 173 tests |
+| `npm run build` | Pass |
+| Pushed to remote | No (prefer local; production = `main` only) |
+
+### Deploy / human stops (PRD-03)
+
+- **`TOKEN_ENCRYPTION_KEY_V1`:** Required before production deploy; fail-fast via `src/instrumentation.ts`. Not set in committed files.
+- **Class B:** Already applied on Neon (`add_spotify_token_encryption.sql`); columns/indexes verified. Backup `snap-odd-dream-abwtma9w`.
+- **Class C:** 8 candidate plaintext rows — **AWAITING human approval** — do not backfill.
+- **Class D:** Drop plaintext token columns — **deferred**.
