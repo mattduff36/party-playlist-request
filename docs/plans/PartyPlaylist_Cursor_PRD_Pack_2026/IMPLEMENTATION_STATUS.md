@@ -21,8 +21,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented (local commit; not merged/pushed) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-01-production-lockdown` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `83d62e6` |
 | Database impact | None (code-only; no migrations or schema changes) |
 | Depends on | none |
 
@@ -41,8 +43,8 @@
 | Public liveness only for monitoring health | Done — `{ "status": "ok" }` |
 | Metrics / dashboard / database-health → superadmin | Done |
 | Harden `client-error` + `monitoring/errors` | Done — size/allowlist + shared per-IP rate limit; alerting gated behind limiter |
-| Auth-gate `admin/token-expired` | Done — publishes to `getAdminChannel(userId)` (not global `admin-updates`) |
-| Fail-closed Pusher / IP_SALT in production | Done — helpers + `hashIP` / `getIpHash` rethrow in production |
+| Auth-gate `admin/token-expired` | Done — route requires session JWT; publishes to `getAdminChannel(userId)` (not global `admin-updates`). Full Pusher private-channel auth hardening deferred to PRD-04 |
+| Fail-closed Pusher env / IP_SALT in production | Done — missing Pusher/IP_SALT env fails closed in production helpers; `hashIP` / `getIpHash` rethrow in production. Does **not** claim complete private-channel authorization (PRD-04) |
 | Remove unauthenticated DDL via `initializeDefaults` | Done — removed from all `src/app/api/**` handlers; bootstrap gated behind `ALLOW_DB_BOOTSTRAP=1` (CLI only) |
 | Cron fail-closed on `CRON_SECRET` | Done — exact Bearer required always; unset secret → 401; dropped `x-vercel-cron` alone path |
 | Security regression tests | Done — `tests/security/prd-01-production-lockdown.spec.ts` |
@@ -85,5 +87,13 @@
 | Repo-wide `npm run lint` | Pre-existing failures elsewhere; not introduced by PRD-01 |
 | `npm run type-check` | Pre-existing failures across codebase |
 | `npm run test:api` | Not run (needs live server / DB); coverage via unit/security tests |
+
+### Preview integration smoke (post-merge `83d62e6` + docs soften)
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 130 tests |
+| `npm run build` | Pass |
+| Pushed to remote | No (local only; production confirmed = `main` only) |
 
 Database impact: **none** (no migrations, no DB writes from this change set).
