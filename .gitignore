@@ -45,3 +45,6 @@ config/jest/test.env
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Share archives (upload manually; do not commit)
+docs/*.zip
