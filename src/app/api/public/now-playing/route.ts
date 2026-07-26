@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spotifyService } from '@/lib/spotify';
 import { requireGuestAccess } from '@/lib/guest-access';
+import {
+  getManualNowPlaying,
+  getPlaybackMode,
+  resolvePlaybackProvider,
+} from '@/lib/playback';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +23,6 @@ export async function GET(req: NextRequest) {
       return access.response;
     }
 
-    // Get user_id from username
     const { getPool } = await import('@/lib/db');
     const pool = getPool();
     const userResult = await pool.query(
@@ -35,33 +38,56 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = userResult.rows[0].id;
+    const mode = await getPlaybackMode(userId);
 
-    // Get current playback from Spotify (MULTI-TENANT!)
-    const playback = await spotifyService.getCurrentPlayback(userId);
-
-    if (!playback || !playback.item) {
+    if (mode === 'manual') {
+      const manual = await getManualNowPlaying(userId);
+      if (!manual) {
+        return NextResponse.json({
+          nowPlaying: null,
+          playback_mode: 'manual',
+          label: 'Manual mode',
+        });
+      }
       return NextResponse.json({
-        nowPlaying: null
+        nowPlaying: {
+          track_name: manual.title,
+          artist_name: manual.artists,
+          album_name: manual.album || 'Manual request',
+          duration_ms: 0,
+          progress_ms: 0,
+          is_playing: true,
+        },
+        playback_mode: 'manual',
+        label: 'Manual now playing',
       });
+    }
+
+    const { provider } = await resolvePlaybackProvider(userId);
+    if (!provider.getPlaybackState) {
+      return NextResponse.json({ nowPlaying: null, playback_mode: mode });
+    }
+    const snapshot = await provider.getPlaybackState({ userId });
+    if (!snapshot.track) {
+      return NextResponse.json({ nowPlaying: null, playback_mode: mode });
     }
 
     return NextResponse.json({
       nowPlaying: {
-        track_name: playback.item.name,
-        artist_name: playback.item.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown',
-        album_name: playback.item.album?.name || 'Unknown Album',
-        duration_ms: playback.item.duration_ms || 0,
-        progress_ms: playback.progress_ms || 0,
-        is_playing: playback.is_playing || false,
-      }
+        track_name: snapshot.track.title,
+        artist_name: snapshot.track.artists,
+        album_name: snapshot.track.album || 'Unknown Album',
+        duration_ms: snapshot.durationMs || snapshot.track.durationMs || 0,
+        progress_ms: snapshot.progressMs || 0,
+        is_playing: snapshot.isPlaying,
+      },
+      playback_mode: mode,
     });
-
   } catch (error) {
     console.error('Error fetching now playing:', error);
     return NextResponse.json(
       { nowPlaying: null },
-      { status: 200 } // Return null instead of error for graceful degradation
+      { status: 200 }
     );
   }
 }
-

@@ -95,7 +95,7 @@ export interface RequestSubmittedEvent extends BaseEvent {
     trackName: string;
     artistName: string;
     albumName: string;
-    trackUri: string;
+    trackUri?: string;
     requesterNickname: string;
     userSessionId: string;
     submittedAt: string;

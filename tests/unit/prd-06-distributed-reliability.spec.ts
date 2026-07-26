@@ -160,13 +160,15 @@ describe('PRD-06: distributed guest rate limit fail policy', () => {
 });
 
 describe('PRD-06: route guardrails', () => {
-  it('queue reorder returns CAPABILITY_NOT_SUPPORTED (no false success)', () => {
+  it('queue reorder refuses Spotify native reorder (no false Spotify success)', () => {
     const source = fs.readFileSync(
       path.join(ROOT, 'src/app/api/admin/queue/reorder/route.ts'),
       'utf8'
     );
+    // PRD-07: app-owned reorder is supported; Spotify native still CAPABILITY_NOT_SUPPORTED
     expect(source).toMatch(/CAPABILITY_NOT_SUPPORTED/);
-    expect(source).not.toMatch(/success:\s*true/);
+    expect(source).toMatch(/spotify\.queue\.reorder/);
+    expect(source).toMatch(/reorderAppOwnedQueue/);
   });
 
   it('cleanup-requests requires confirmation and only deletes archived rows', () => {

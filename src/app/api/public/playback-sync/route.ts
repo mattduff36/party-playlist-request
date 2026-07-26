@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireGuestAccess } from '@/lib/guest-access';
+import { getPlaybackMode } from '@/lib/playback';
 import { refreshPlaybackState } from '@/lib/reliability/refresh-playback';
 
 /**
  * Access-code gated per-party Spotify sync tick for open display screens.
  * Coalesced server-side so multiple displays/admins share one Spotify poll.
  * Uses PRD-06 refreshPlaybackState (debounce / fetched_at / degraded).
+ * Skipped entirely when the event is in manual mode (no Spotify heartbeat).
  */
 export async function POST(req: NextRequest) {
   if (process.env.SPOTIFY_MOCK === 'true') {
@@ -43,6 +45,17 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = userResult.rows[0].id as string;
+    const mode = await getPlaybackMode(userId);
+    if (mode === 'manual') {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'manual_mode',
+        coalesced: false,
+        playback_mode: 'manual',
+      });
+    }
+
     const force = body.force === true;
 
     const refresh = await refreshPlaybackState(

@@ -23,6 +23,7 @@ import { AlertCircle, Check, X, Zap } from 'lucide-react';
 import {
   TrackSearch,
   RequestSubmitForm,
+  ManualRequestForm,
   type Track,
   type SearchResult,
   type SearchFeedback,
@@ -62,6 +63,10 @@ export default function UserRequestPage() {
   /** Gates themed UI until server mood is applied (avoids default `dj` flash). */
   const [moodConfirmed, setMoodConfirmed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [playbackMode, setPlaybackMode] = useState<'spotify' | 'manual'>('spotify');
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualArtists, setManualArtists] = useState('');
+  const [manualDedication, setManualDedication] = useState('');
   
   // Use global event state
   const { state: globalState, actions: globalActions } = useGlobalEvent();
@@ -300,6 +305,12 @@ export default function UserRequestPage() {
           timeout: 5000,
         });
         if (cancelled) return;
+        if (response.data.config) {
+          const mode = response.data.config.playback_mode;
+          if (mode === 'manual' || mode === 'spotify') {
+            setPlaybackMode(mode);
+          }
+        }
         if (response.data.config && hasConfirmedDisplayMood(response.data.config)) {
           setEventSettings(response.data.config);
           setMoodConfirmed(true);
@@ -376,8 +387,9 @@ export default function UserRequestPage() {
     }
   };
 
-  // Debounced search
+  // Debounced search (Spotify mode only)
   useEffect(() => {
+    if (playbackMode === 'manual') return;
     const timeoutId = setTimeout(() => {
       if (searchQuery && nickname.trim() && isNicknameValid && authenticated) {
         searchTracks(searchQuery);
@@ -388,7 +400,7 @@ export default function UserRequestPage() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, nickname, isNicknameValid, authenticated]);
+  }, [searchQuery, nickname, isNicknameValid, authenticated, playbackMode]);
 
   // Auto-dismiss keyboard when search results load
   useEffect(() => {
@@ -410,8 +422,12 @@ export default function UserRequestPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Submit request
-  const submitRequest = async (track?: Track, url?: string) => {
+  // Submit request (Spotify track / URL or manual text)
+  const submitRequest = async (
+    track?: Track,
+    url?: string,
+    manual?: { title: string; artists: string; dedication?: string }
+  ) => {
     if (!nickname || !nickname.trim()) {
       setRequestStatus('error');
       setStatusMessage('Please enter your name before making a request.');
@@ -445,6 +461,7 @@ export default function UserRequestPage() {
         album_name?: string;
         duration_ms?: number;
         track_url?: string;
+        dedication?: string;
       } = {
         requester_nickname: validation.censoredName,
         user_session_id: userSessionId,
@@ -453,7 +470,11 @@ export default function UserRequestPage() {
         idempotency_key: crypto.randomUUID(),
       };
 
-      if (track) {
+      if (manual) {
+        requestData.track_name = manual.title;
+        requestData.artist_name = manual.artists;
+        if (manual.dedication) requestData.dedication = manual.dedication;
+      } else if (track) {
         requestData.track_uri = track.uri;
         requestData.track_name = track.name;
         requestData.artist_name = track.artists.join(', ');
@@ -482,6 +503,9 @@ export default function UserRequestPage() {
         
         setSearchQuery('');
         setSearchResults([]);
+        setManualTitle('');
+        setManualArtists('');
+        setManualDedication('');
         
         setTimeout(() => setRequestStatus('idle'), 1000);
       }
@@ -601,18 +625,41 @@ export default function UserRequestPage() {
           onMakeAnotherRequest={handleMakeAnotherRequest}
           onImDone={handleImDone}
         >
-          <TrackSearch
-            query={searchQuery}
-            onQueryChange={handleSearchQueryChange}
-            results={searchResults}
-            isSearching={isSearching}
-            searchFeedback={searchFeedback}
-            nickname={nickname}
-            isNicknameValid={isNicknameValid}
-            isSubmitting={isSubmitting}
-            onSelectTrack={(track) => submitRequest(track)}
-            onDismissKeyboard={dismissKeyboard}
-          />
+          {playbackMode === 'manual' ? (
+            <ManualRequestForm
+              title={manualTitle}
+              artists={manualArtists}
+              dedication={manualDedication}
+              nickname={nickname}
+              nicknameError={nicknameError}
+              isNicknameValid={isNicknameValid}
+              isSubmitting={isSubmitting}
+              onTitleChange={setManualTitle}
+              onArtistsChange={setManualArtists}
+              onDedicationChange={setManualDedication}
+              onNicknameChange={handleNicknameChange}
+              onSubmit={() =>
+                submitRequest(undefined, undefined, {
+                  title: manualTitle,
+                  artists: manualArtists,
+                  dedication: manualDedication,
+                })
+              }
+            />
+          ) : (
+            <TrackSearch
+              query={searchQuery}
+              onQueryChange={handleSearchQueryChange}
+              results={searchResults}
+              isSearching={isSearching}
+              searchFeedback={searchFeedback}
+              nickname={nickname}
+              isNicknameValid={isNicknameValid}
+              isSubmitting={isSubmitting}
+              onSelectTrack={(track) => submitRequest(track)}
+              onDismissKeyboard={dismissKeyboard}
+            />
+          )}
         </RequestSubmitForm>
       </div>
       

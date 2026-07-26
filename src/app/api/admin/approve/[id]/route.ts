@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { updateRequest, getSetting, createNotification, getEventSettings } from '@/lib/db';
-import { spotifyService } from '@/lib/spotify';
 import { triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
@@ -15,6 +14,10 @@ import {
   classifySpotifyQueueError,
   shouldAttemptSpotifyQueueAdd,
 } from '@/lib/reliability';
+import {
+  assignNextQueuePosition,
+  resolvePlaybackProvider,
+} from '@/lib/playback';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   let claimedId: string | null = null;
@@ -56,18 +59,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     claimedId = id;
     claimUserId = userId;
 
+    const { mode, provider } = await resolvePlaybackProvider(userId);
+    const capabilities = provider.getCapabilities();
+
     let queueSuccess = false;
     const errors: string[] = [];
     let providerOperationId: string | null = null;
     let errorCategory: string | null = null;
 
-    if (add_to_queue) {
+    // Manual / providers without queueAdd: approve into app-owned queue only
+    if (!capabilities.queueAdd || !add_to_queue) {
+      queueSuccess = true;
+    } else {
       const opKey = `approve-queue:${id}`;
       const op = await createProviderOperation({
         userId,
         eventId: request.event_id ?? null,
         requestId: id,
-        operation: 'spotify.add_to_queue',
+        operation: `${provider.id}.add_to_queue`,
         idempotencyKey: opKey,
       });
       providerOperationId = op.id;
@@ -84,11 +93,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       } else if (shouldAttemptSpotifyQueueAdd(op.status)) {
         try {
           const deviceSetting = await getSetting('target_device_id');
-          await spotifyService.addToQueue(
-            request.track_uri,
-            deviceSetting || undefined,
-            userId
+          if (!provider.addToQueue) {
+            throw new Error('Provider queue add unavailable');
+          }
+          const result = await provider.addToQueue(
+            {
+              providerId: provider.id,
+              providerTrackId: request.provider_track_id ?? null,
+              uri: request.track_uri,
+              title: request.track_name,
+              artists: request.artist_name,
+              album: request.album_name,
+              artworkUrl: request.album_image_url,
+              durationMs: request.duration_ms,
+            },
+            {
+              userId,
+              eventId: request.event_id,
+              deviceId: deviceSetting || undefined,
+            }
           );
+          if (!result.ok) {
+            throw Object.assign(new Error(result.message || 'Queue add failed'), {
+              category: result.category,
+            });
+          }
           queueSuccess = true;
           await completeProviderOperation(op.id, 'succeeded');
         } catch (error) {
@@ -100,15 +129,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             uncertain ? 'uncertain' : 'failed',
             errorCategory
           );
-          errors.push('Failed to add to Spotify queue');
+          errors.push(
+            mode === 'spotify'
+              ? 'Failed to add to Spotify queue'
+              : 'Failed to add to provider queue'
+          );
           queueSuccess = false;
         }
       } else {
         errors.push('Prior provider operation failed');
         errorCategory = op.error_category;
       }
-    } else {
-      queueSuccess = true; // approve without queue
     }
 
     const newStatus = queueSuccess ? 'approved' : 'queue_failed';
@@ -117,7 +148,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: newStatus,
       approved_at: new Date().toISOString(),
       approved_by: auth.user.username,
-      spotify_added_to_queue: queueSuccess && add_to_queue,
+      spotify_added_to_queue:
+        queueSuccess && add_to_queue && capabilities.queueAdd,
       spotify_added_to_playlist: false,
       queue_error_category: errorCategory,
       provider_operation_id: providerOperationId,
@@ -126,6 +158,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     claimedId = null;
 
     if (newStatus === 'approved') {
+      try {
+        await assignNextQueuePosition(userId, id);
+      } catch (queuePosError) {
+        console.error('❌ Failed to assign app queue position:', queuePosError);
+      }
+
       await createNotification({
         type: 'approval',
         message: `Request by ${request.requester_nickname || 'Anonymous'} for ${request.track_name} approved!`,
@@ -139,7 +177,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           track_name: request.track_name,
           artist_name: request.artist_name,
           album_name: request.album_name || 'Unknown Album',
-          track_uri: request.track_uri,
+          track_uri: request.track_uri || undefined,
           requester_nickname: request.requester_nickname || 'Anonymous',
           user_session_id: request.user_session_id || undefined,
           play_next: play_next,
@@ -151,12 +189,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         console.error('❌ Failed to send Pusher event:', pusherError);
       }
 
-      try {
-        await refreshPlaybackState(userId, auth.user.username, 'approve', {
-          force: true,
-        });
-      } catch (refreshError) {
-        console.error('❌ Failed to trigger immediate queue refresh:', refreshError);
+      if (capabilities.nowPlaying && mode === 'spotify') {
+        try {
+          await refreshPlaybackState(userId, auth.user.username, 'approve', {
+            force: true,
+          });
+        } catch (refreshError) {
+          console.error('❌ Failed to trigger immediate queue refresh:', refreshError);
+        }
       }
 
       try {
@@ -177,7 +217,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     reportActivity(req, 'request.approve', `Approved request ${id}`, {
       user: auth.user,
-      meta: { requestId: id, track: request.track_name, queueSuccess, playlistSuccess: false },
+      meta: {
+        requestId: id,
+        track: request.track_name,
+        queueSuccess,
+        playlistSuccess: false,
+        playbackMode: mode,
+      },
     });
 
     return NextResponse.json({
@@ -187,14 +233,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           ? play_next && queueSuccess
             ? 'Request approved and added to queue'
             : 'Request processed'
-          : 'Request claimed but Spotify queue failed',
+          : 'Request claimed but provider queue failed',
       result: {
         status: newStatus,
-        queue_added: queueSuccess && add_to_queue,
+        queue_added: queueSuccess && add_to_queue && capabilities.queueAdd,
         playlist_added: false,
         play_next: play_next && queueSuccess,
         errors: errors.length > 0 ? errors : null,
         error_category: errorCategory,
+        playback_mode: mode,
         // Spotify cannot guarantee queue idempotency beyond this ledger.
         spotify_queue_idempotency: 'best_effort_ledger',
       }

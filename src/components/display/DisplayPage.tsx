@@ -47,6 +47,17 @@ function StatusDots({ isConnected, connectionState, spotifyConnected }: StatusDo
   );
 }
 
+function ModeLabelBanner({ modeLabel }: { modeLabel: string | null }) {
+  if (!modeLabel) return null;
+  return (
+    <div className="fixed top-4 right-4 z-50 max-w-[min(20rem,calc(100vw-6rem))] pointer-events-none">
+      <p className="text-xs sm:text-sm text-[color:var(--mood-muted)] opacity-80 text-right leading-snug">
+        {modeLabel}
+      </p>
+    </div>
+  );
+}
+
 // Main display page component with ALL original animations preserved
 export default function DisplayPage({
   username,
@@ -79,6 +90,7 @@ export default function DisplayPage({
     dynamicDuration,
     messageTextColor,
     spotifyConnected,
+    modeLabel,
   } = useDisplayData({ username, accessCode, eventId, realtimeMode });
 
   // Show loading state while mounting, waiting for global state, or server mood
@@ -251,6 +263,7 @@ export default function DisplayPage({
             connectionState={connectionState}
             spotifyConnected={spotifyConnected}
           />
+          <ModeLabelBanner modeLabel={modeLabel} />
         </div>
       </MoodShell>
     );
@@ -347,6 +360,7 @@ export default function DisplayPage({
               connectionState={connectionState}
               spotifyConnected={spotifyConnected}
             />
+            <ModeLabelBanner modeLabel={modeLabel} />
           </div>
         </MoodShell>
       );
@@ -385,6 +399,7 @@ export default function DisplayPage({
               connectionState={connectionState}
               spotifyConnected={spotifyConnected}
             />
+            <ModeLabelBanner modeLabel={modeLabel} />
           </div>
         </div>
       </MoodShell>
@@ -481,6 +496,7 @@ export default function DisplayPage({
             connectionState={connectionState}
             spotifyConnected={spotifyConnected}
           />
+          <ModeLabelBanner modeLabel={modeLabel} />
         </div>
       </MoodShell>
     );
@@ -520,6 +536,7 @@ export default function DisplayPage({
           connectionState={connectionState}
           spotifyConnected={spotifyConnected}
         />
+        <ModeLabelBanner modeLabel={modeLabel} />
       </div>
     </MoodShell>
   );

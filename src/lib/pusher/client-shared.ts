@@ -50,7 +50,7 @@ export interface RequestApprovedEvent {
   track_name: string;
   artist_name: string;
   album_name: string;
-  track_uri: string;
+  track_uri?: string;
   requester_nickname: string;
   user_session_id?: string;
   play_next?: boolean;
@@ -81,7 +81,7 @@ export interface RequestSubmittedEvent {
   artist_name: string;
   album_name: string;
   album_image_url?: string | null;
-  track_uri: string;
+  track_uri?: string;
   requester_nickname: string;
   submitted_at: string;
 }

@@ -33,6 +33,8 @@ export async function GET(req: NextRequest) {
 
     // Get user-specific event settings
     const settings = await getEventSettings(userId);
+    const { getPlaybackMode } = await import('@/lib/playback');
+    const playbackMode = await getPlaybackMode(userId);
 
     // Get event config including message data (for Notice Board feature)
     // neon() tagged template returns Row[] (not { rows })
@@ -85,6 +87,7 @@ export async function GET(req: NextRequest) {
           display_mood: settings.display_mood ?? null,
           theme_primary_color: settings.theme_primary_color ?? null,
           decline_explicit: settings.decline_explicit ?? false,
+          playback_mode: playbackMode,
         },
         // Notice Board message data (approval messages)
         message_text: messageText,
@@ -111,6 +114,7 @@ export async function GET(req: NextRequest) {
           display_mood: null,
           theme_primary_color: null,
           decline_explicit: false,
+          playback_mode: 'spotify',
         },
         message_text: null,
         message_duration: null,

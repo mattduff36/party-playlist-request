@@ -8,7 +8,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw } from 'lucide-react';
+import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw, Radio, Check } from 'lucide-react';
 import { useAdminData, type Request } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
 import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
@@ -38,6 +38,32 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
   const [isAddingRandomSong, setIsAddingRandomSong] = useState(false);
   const [allRequests, setAllRequests] = useState<Request[]>([]);
   const lastRequestCountRef = useRef(1);
+  const [showPlayAgain, setShowPlayAgain] = useState(true);
+  const [showManualQueueActions, setShowManualQueueActions] = useState(false);
+  const [manualActionBusyId, setManualActionBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authenticatedFetch('/api/admin/playback-mode');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const caps = data.capabilities;
+        const isManual = data.mode === 'manual';
+        setShowPlayAgain(Boolean(caps?.queueAdd));
+        setShowManualQueueActions(
+          isManual && Boolean(caps?.nowPlaying || caps?.markPlaying)
+        );
+      } catch {
+        /* Spotify defaults */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (requests?.length) {
@@ -153,6 +179,47 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
       await handleDelete(id);
     }
     setSelectedRequests(new Set());
+  };
+
+  const handleSetNowPlaying = async (requestId: string) => {
+    if (manualActionBusyId) return;
+    setManualActionBusyId(requestId);
+    try {
+      const res = await authenticatedFetch('/api/admin/manual-now-playing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Set now playing failed:', data.error || res.status);
+      }
+    } catch (error) {
+      console.error('Set now playing error:', error);
+    } finally {
+      setManualActionBusyId(null);
+    }
+  };
+
+  const handleMarkPlayed = async (requestId: string) => {
+    if (manualActionBusyId) return;
+    setManualActionBusyId(requestId);
+    try {
+      const res = await authenticatedFetch(
+        `/api/admin/requests/${requestId}/mark-played`,
+        { method: 'POST' }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Mark played failed:', data.error || res.status);
+        return;
+      }
+      await refreshData();
+    } catch (error) {
+      console.error('Mark played error:', error);
+    } finally {
+      setManualActionBusyId(null);
+    }
   };
 
   const handleResubmit = async (requestId: string) => {
@@ -472,7 +539,28 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       </>
                     )}
                     
-                    {request.status === 'played' && (
+                    {showManualQueueActions && request.status === 'approved' && (
+                      <>
+                        <button
+                          onClick={() => void handleSetNowPlaying(request.id)}
+                          disabled={manualActionBusyId === request.id}
+                          className="flex items-center justify-center p-2 bg-surface hover:bg-elevated border border-white/10 rounded-lg transition-colors min-w-[72px] min-h-[36px] disabled:opacity-50"
+                          title="Set as now playing"
+                        >
+                          <Radio className="w-4 h-4 text-accent" />
+                        </button>
+                        <button
+                          onClick={() => void handleMarkPlayed(request.id)}
+                          disabled={manualActionBusyId === request.id}
+                          className="flex items-center justify-center p-2 bg-info/20 hover:bg-info/30 border border-info/30 rounded-lg transition-colors min-w-[72px] min-h-[36px] disabled:opacity-50"
+                          title="Mark played"
+                        >
+                          <Check className="w-4 h-4 text-info" />
+                        </button>
+                      </>
+                    )}
+
+                    {request.status === 'played' && showPlayAgain && (
                       <>
                         <button
                           onClick={() => handlePlayAgain(request.id)}
