@@ -59,9 +59,9 @@ Song requests belong to an organiser via **`requests.user_id`** (required in app
 
 ## Human stops (Class C/D)
 
-- Do **not** backfill Spotify plaintext → envelopes (PRD-03 Class C).
-- Do **not** drop Spotify plaintext columns (PRD-03 Class D).
-- Do **not** backfill access-code / token hashes (PRD-04 Class C).
+- **PRD-03 Class C:** safer expand-only dual-write **ran** (`npm run db:backfill:class-c -- --confirm`) — envelopes written; plaintext retained. Full plaintext nulling still deferred while `main` is live on shared Neon.
+- Do **not** drop Spotify plaintext columns (PRD-03 Class D) — deferred; would break live `main`.
+- **PRD-04 Class C:** hash/HMAC backfill **ran** (same script; plaintext retained).
 - Do **not** drop plaintext pin/access_code/bypass/token columns (PRD-04 Class D).
 - Do **not** run quarantined `0001_migrate_7_to_4_tables.sql`.
 - Do **not** re-enable destructive 4-digit purge via HTTP; bootstrap-only residual remains behind `ALLOW_DB_BOOTSTRAP=1`.

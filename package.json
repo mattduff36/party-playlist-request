@@ -17,6 +17,7 @@
     "db:migrate:canonical": "tsx scripts/db-migrate.ts",
     "db:migrate:canonical:dry": "tsx scripts/db-migrate.ts --dry-run",
     "db:migrate:canonical:list": "tsx scripts/db-migrate.ts --list",
+    "db:backfill:class-c": "tsx scripts/backfill-prd03-prd04-class-c.ts",
     "db:generate": "echo \"DEPRECATED (PRD-05): drizzle-kit generate quarantined — use db:migrate:canonical\" && exit 1",
     "db:migrate": "echo \"DEPRECATED (PRD-05): use npm run db:migrate:canonical\" && exit 1",
     "db:push": "echo \"DEPRECATED (PRD-05): drizzle-kit push disabled — use db:migrate:canonical\" && exit 1",

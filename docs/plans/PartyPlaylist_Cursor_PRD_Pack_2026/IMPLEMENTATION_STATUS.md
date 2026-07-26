@@ -14,7 +14,7 @@
 | Snapshot expiry | none (no expiry on CLI snapshot) |
 | Primary programme backup identifier | Prefer named CLI snapshot `snap-odd-dream-abwtma9w` / `partyplaylist-pre-prd-program-2026-07-26-2000` for later PRDs |
 | Confirmed by human | yes (manual); CLI snapshot verified via Neon CLI |
-| Gate | Class B+ DB writes now permitted subject to classification/approval rules; Class C/D still require explicit human approval |
+| Gate | Class B applied; PRD-03/04 Class C expand-only backfill ran (plaintext retained); Class D + plaintext-nulling still require explicit human approval |
 | Restore | Neon Console → Backup & restore → restore from snapshot/instant restore per Neon docs; do not execute restore from this doc |
 
 ## PRD-01: Production Lockdown
@@ -169,10 +169,10 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Branch | `dev/prd-03-spotify-token-security-20260726` |
 | Preview branch | `preview/partyplaylist-prd-program-2026` |
 | Merge commit | `fe4d4a9` (source tip `da4197c`) |
-| Database impact | **Class B applied** to Neon production/`main` (YES). Verified columns/indexes present. Backup: `snap-odd-dream-abwtma9w`. **Class C:** 8 candidate rows, AWAITING human approval — not run. **Class D:** deferred. See `PRD-03-MIGRATION-NOTES.md`. |
+| Database impact | **Class B applied** to Neon production/`main` (YES). Backup: `snap-odd-dream-abwtma9w`. **Class C (safer expand-only):** ran — 8 Spotify rows dual-written to envelopes; plaintext retained. **Class D:** deferred (shared Neon / live `main`). See `PRD-03-MIGRATION-NOTES.md`. |
 | Depends on | PRD-02 integrated into preview |
 | Independent re-review | APPROVE_MERGE @ `da4197c` |
-| Deploy gates (human) | `TOKEN_ENCRYPTION_KEY_V1` must be set in `.env.local` + production before deploy (never commit). Class C backfill awaiting human. Class D deferred. Class B already on Neon. |
+| Deploy gates (human) | `TOKEN_ENCRYPTION_KEY_V1` set in `.env.local` + Vercel Preview (never commit). Production Vercel key still human gate before `main` vault deploy. Class D deferred. Class B already on Neon. |
 
 ### Outcomes
 
@@ -195,23 +195,24 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Class B applied | **YES** (`add_spotify_token_encryption.sql`) |
 | Columns / indexes verified present | **YES** |
 | Backup | `snap-odd-dream-abwtma9w` |
-| `TOKEN_ENCRYPTION_KEY_V1` in local `.env.local` | **NOT set** (awaiting human) |
-| Class C backfill | **8 candidate rows**; **AWAITING human approval** — not run |
-| Class D (drop plaintext columns) | **Deferred** |
+| `TOKEN_ENCRYPTION_KEY_V1` in local `.env.local` | **Set** (untracked; also Vercel Preview only) |
+| Class C backfill | **Ran** — safer expand-only dual-write; 8 rows updated; plaintext retained |
+| Class D (drop plaintext columns) | **Deferred** (would break live `main` on shared Neon) |
 
 ### Human stop (Class C/D)
 
-- **Do not run** production plaintext → ciphertext backfill without approval (Class C; 8 candidates).
+- **Class C plaintext nulling:** still deferred while `main` is live (expand-only dual-write already ran).
 - **Do not drop** plaintext token columns (Class D).
 - Impact pack: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-03-MIGRATION-NOTES.md`
+- CLI: `npm run db:backfill:class-c -- --confirm` (`scripts/backfill-prd03-prd04-class-c.ts`)
 
 ### Incomplete / follow-ups
 
 - **Class B:** Applied on Neon (complete; columns/indexes verified).
-- **`TOKEN_ENCRYPTION_KEY_V1`:** Missing locally — must be set in `.env.local` and production before deploy (never commit the value). Production startup fails fast without it.
-- **Class C:** 8 candidate rows — awaiting explicit human approval (not run).
-- Class D column drop deferred after dual-read verification.
-- Existing connected users keep working via plaintext dual-read until they reconnect (new writes encrypted) or Class C runs.
+- **`TOKEN_ENCRYPTION_KEY_V1`:** Set locally + Vercel Preview. Still required on Vercel Production before vault code ships to `main` (never commit the value).
+- **Class C:** Expand-only envelopes done; full plaintext nulling deferred until new code is production.
+- Class D column drop deferred after dual-read verification + production cutover.
+- Existing connected users keep working via plaintext dual-read on `main`; Preview can decrypt envelopes with the shared Preview/local key.
 - Full typed error mapping coverage for every Spotify API call path beyond OAuth/refresh/search (partial).
 
 ### Validation notes (on feature branch before merge)
@@ -234,10 +235,10 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 ### Deploy / human stops (PRD-03)
 
-- **`TOKEN_ENCRYPTION_KEY_V1`:** Required before production deploy; fail-fast via `src/instrumentation.ts`. Not set in committed files.
+- **`TOKEN_ENCRYPTION_KEY_V1`:** Set in `.env.local` + Vercel Preview (not committed). Still required on Vercel Production before vault code on `main`; fail-fast via `src/instrumentation.ts`.
 - **Class B:** Already applied on Neon (`add_spotify_token_encryption.sql`); columns/indexes verified. Backup `snap-odd-dream-abwtma9w`.
-- **Class C:** 8 candidate plaintext rows — **AWAITING human approval** — do not backfill.
-- **Class D:** Drop plaintext token columns — **deferred**.
+- **Class C:** Expand-only dual-write **ran** (8 Spotify rows); plaintext retained. Full nulling deferred.
+- **Class D:** Drop plaintext token columns — **deferred** (shared Neon / live `main`).
 
 ## PRD-04: Tenant / Guest / Display / Realtime Isolation
 
@@ -247,7 +248,7 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Branch | `dev/prd-04-tenant-realtime-isolation-20260726` |
 | Preview branch | `preview/partyplaylist-prd-program-2026` |
 | Merge commit | `04081bf` (source tip `5885dbb`) |
-| Database impact | **Class B applied** to Neon (`add_prd04_token_hash_columns.sql`). Backup: `snap-odd-dream-abwtma9w`. **Class C:** backfill hashes from plaintext — AWAITING human. **Class D:** drop plaintext — deferred. |
+| Database impact | **Class B applied** to Neon (`add_prd04_token_hash_columns.sql`). Backup: `snap-odd-dream-abwtma9w`. **Class C:** hash/HMAC backfill **ran** (plaintext retained). **Class D:** drop plaintext — deferred. |
 | Depends on | PRD-02 + PRD-03 integrated into preview |
 | Independent re-review | APPROVE_MERGE @ `5885dbb` |
 
@@ -276,12 +277,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Class B applied | **YES** (`access_code_hmac`, `bypass_token_hash`, `display_tokens.token_hash`/`token_prefix`, `password_reset_tokens.token_hash`, `users.email_verification_token_hash`) |
 | Columns verified present | **YES** |
 | Backup | `snap-odd-dream-abwtma9w` |
-| Class C backfill | **AWAITING human approval** — not run |
+| Class C backfill | **Ran** — access_code_hmac 11; bypass_token_hash 11; display 0; password_reset 3; email_verify 2 (plaintext retained) |
 | Class D drop plaintext | **Deferred** |
 
 ### Human stops
 
-- **Class C:** Do not backfill existing plaintext codes/tokens into hash columns without approval.
+- **Class C:** Expand-only hash backfill **ran** via `npm run db:backfill:class-c -- --confirm`.
 - **Class D:** Do not drop plaintext `pin` / `access_code` / `bypass_token` / `token` / reset / email-verify columns.
 - Optional env: `ACCESS_CODE_HMAC_SECRET` (falls back to `JWT_SECRET`).
 
@@ -294,15 +295,15 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - Username-only `/api/public/event-config` still returns entry-page config (titles/messages) without guest proof — limited public status; request lists remain guest-gated.
 - `/api/events/public-status` still returns `event.id` for hydration; safe only because public `event-{id}` publish is gone.
 - Concurrent display-token race covered by atomic SQL; no dedicated multi-worker integration race test.
-- **PRD-03 deploy gate still open:** `TOKEN_ENCRYPTION_KEY_V1` must be set before production deploy (never commit). Class C/D human gates remain for both PRD-03 and PRD-04.
+- **PRD-03 deploy gate:** `TOKEN_ENCRYPTION_KEY_V1` set for Preview/local; still required on Vercel Production before vault code on `main` (never commit). Class D + plaintext-nulling remain deferred.
 
-### Human stops (Class C/D — do not run without approval)
+### Human stops (Class C/D)
 
-- **PRD-03 Class C:** 8 candidate plaintext Spotify token rows — AWAITING human approval.
-- **PRD-03 Class D:** Drop plaintext Spotify token columns — deferred.
-- **PRD-04 Class C:** Backfill existing plaintext codes/tokens into hash columns — AWAITING human approval.
+- **PRD-03 Class C:** Expand-only envelopes **ran** (8 rows); **do not null plaintext** while `main` is live.
+- **PRD-03 Class D:** Drop plaintext Spotify token columns — deferred (shared Neon / live `main`).
+- **PRD-04 Class C:** Hash/HMAC backfill **ran**; plaintext retained.
 - **PRD-04 Class D:** Drop plaintext `pin` / `access_code` / `bypass_token` / `token` / reset / email-verify columns — deferred.
-- **Deploy:** `TOKEN_ENCRYPTION_KEY_V1` still required before production deploy (PRD-03).
+- **Deploy:** `TOKEN_ENCRYPTION_KEY_V1` on Vercel Production still required before vault code ships to `main` (PRD-03).
 
 ### Validation notes (feature branch)
 
@@ -359,16 +360,16 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | --- | --- | --- |
 | `001`–`006` canonical SQL (IF NOT EXISTS / ADD COLUMN) | B | **Applied** after dry-run inspect |
 | Stamp `schema_migrations` rows | B | **Applied** (`001`–`006`) |
-| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class C secret backfills (PRD-03/04) | C | **Ran** expand-only (see PRD-03/04); plaintext nulling still STOP |
 | Class D column drops | D | **STOP** — human |
 | Quarantined 7→4 destructive SQL | D/destructive | **DO NOT RUN** |
 
 ### Human stops
 
-- Do not apply Class C/D from prior PRDs.
+- Do not null Spotify plaintext or run Class D while `main` is live on shared Neon.
 - Do not run `_quarantine/drizzle-legacy/0001_migrate_7_to_4_tables.sql`.
 - Inspect before `db:migrate:canonical` against production Neon (prefer dry-run / branch first).
-- `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
+- `TOKEN_ENCRYPTION_KEY_V1` on Vercel Production still open before vault code on `main`.
 
 ### Incomplete / follow-ups
 
@@ -392,11 +393,10 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 ### Human gates (still open — do not run without approval)
 
-- **PRD-03 Class C:** 8 candidate plaintext Spotify token rows — AWAITING human approval.
+- **PRD-03 Class C plaintext nulling:** deferred while `main` is live (expand-only envelopes already ran).
 - **PRD-03 Class D:** Drop plaintext Spotify token columns — deferred.
-- **PRD-04 Class C:** Backfill existing plaintext codes/tokens into hash columns — AWAITING human approval.
 - **PRD-04 Class D:** Drop plaintext pin/access_code/bypass_token/token/reset/email-verify columns — deferred.
-- **Deploy:** `TOKEN_ENCRYPTION_KEY_V1` required before production deploy (never commit).
+- **Deploy:** `TOKEN_ENCRYPTION_KEY_V1` required on Vercel Production before vault code on `main` (never commit).
 - **PRD-05:** No additional Class C/D from this PRD; do not run quarantined 7→4 destructive SQL.
 
 ### Preview integration smoke (post-merge `cae2960` + hygiene)
@@ -445,12 +445,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | --- | --- | --- |
 | `007` ADD COLUMN / CREATE TABLE provider_operations / indexes | B | **Applied** on Neon (`schema_migrations.id=007_prd06_reliability`) |
 | `008` DROP/re-ADD `requests_status_check` (expand: `approving`, `queue_failed`) + `claim_started_at` | B | **Applied** on Neon (`schema_migrations.id=008_prd06_request_status_check` at 2026-07-26T21:44:54.546Z) after write-free dry-run. Prior CHECK: pending\|approved\|rejected\|queued\|failed\|played |
-| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class C secret backfills (PRD-03/04) | C | **Ran** expand-only; plaintext nulling still STOP |
 | Class D column drops | D | **STOP** — human |
 
 ### Human stops
 
-- Do not apply Class C/D from prior PRDs.
+- Do not null Spotify plaintext or run Class D while `main` is live on shared Neon.
 - Class B `007` / `008` applied on Neon after dry-run (backup `snap-odd-dream-abwtma9w`).
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
 - Uncertain Spotify queue reconciliation UI/ops runbook still human (no automatic second enqueue).
@@ -535,12 +535,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Change | Class | Action |
 | --- | --- | --- |
 | `009` ADD COLUMN playback_mode / manual_now_playing / provider fields / queue_* ; `track_uri` DROP NOT NULL | B | **Applied** on Neon after dry-run (`schema_migrations.id=009_prd07_playback_provider`) |
-| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class C secret backfills (PRD-03/04) | C | **Ran** expand-only; plaintext nulling still STOP |
 | Class D column drops | D | **STOP** — human |
 
 ### Human stops
 
-- Do not apply Class C/D from prior PRDs.
+- Do not null Spotify plaintext or run Class D while `main` is live on shared Neon.
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
 
 ### Incomplete / follow-ups
@@ -615,12 +615,12 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | Change | Class | Action |
 | --- | --- | --- |
 | `010` ADD COLUMN lifecycle/readiness/guardrails; CREATE beta_entitlements, legal_pages, observation checklists | B | **Applied** on Neon after dry-run (`schema_migrations.id=010_prd08_paid_beta_readiness`) |
-| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class C secret backfills (PRD-03/04) | C | **Ran** expand-only; plaintext nulling still STOP |
 | Class D column drops | D | **STOP** — human |
 
 ### Human stops
 
-- Do not apply Class C/D from prior PRDs.
+- Do not null Spotify plaintext or run Class D while `main` is live on shared Neon.
 - `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
 - Do not push until explicitly instructed.
 - Production beta activation requires super-admin grant (or `BETA_ENTITLEMENT_BYPASS=1` — do not set in prod).
@@ -713,7 +713,7 @@ Handover artifacts:
 | Change | Class | Action |
 | --- | --- | --- |
 | `011` CREATE payment/entitlement/webhook/audit/funnel tables | B | **Applied** on Neon after dry-run (`schema_migrations.id=011_prd09_party_pass_payments`) |
-| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class C secret backfills (PRD-03/04) | C | **Ran** expand-only; plaintext nulling still STOP |
 | Class D column drops | D | **STOP** — human |
 
 ### Stripe env presence (names only — local `.env.local` at implement time)
@@ -732,7 +732,7 @@ Checklist: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-09-ENV-CHECKLIST.m
 ### Human stops
 
 - **Credentials:** Stripe test keys + webhook secret required before end-to-end Checkout rehearsal (code complete; checkout stays disabled without flag + `sk_test_*`).
-- Do not apply Class C/D from prior PRDs.
+- Do not null Spotify plaintext or run Class D while `main` is live on shared Neon.
 - Do not enable `PARTY_PASS_CHECKOUT_ENABLED=1` on production until Spotify/manual hard gates + reviewed legal copy.
 - Live Stripe keys are refused in this build (test mode only).
 - Do not merge preview → `main` without explicit human approval.
