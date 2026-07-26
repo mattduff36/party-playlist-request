@@ -102,8 +102,10 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 
 | Field | Value |
 | --- | --- |
-| Status | Security review fixes applied on branch (FIX_THEN_MERGE; not merged into preview) |
+| Status | Integrated into preview |
 | Branch | `dev/prd-02-session-authority` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` |
+| Merge commit | `4004dbc` (source tip `5ff2a1e`) |
 | Database impact | None (code-only; uses existing `users.active_session_id` / account columns). No Class C/D migrations. |
 | Depends on | PRD-01 integrated into preview |
 
@@ -135,13 +137,26 @@ Browser organiser/superadmin auth is **cookie-canonical**: HttpOnly `auth_token`
 - Durable audit table not added (Class B optional) — stdout structured logs only for this pass.
 - Distributed Redis rate-limit cross-instance proof deferred to environments with Upstash configured (memory backend covered in unit tests).
 - Email-change / privilege-change session rotation not fully enumerated beyond password reset.
-- `AdminAuthContext` may still mirror tokens in `localStorage` for legacy UI; API calls no longer send that as Bearer.
+- HttpOnly cookie expiry UX: browser cannot read `auth_token` max-age; any client-side "session expires at" UI remains approximate / refresh-driven (not a security gap).
+- Dead `admin_token` localStorage: API path is cookie-first and strips Bearer from stale `admin_token`, but some UI may still write/read the key for legacy display — cleanup of remaining localStorage mirrors deferred (non-blocking).
+- Email-change / privilege-change session rotation not fully enumerated beyond password reset.
 
-### Validation notes
+### Validation notes (on feature branch before merge)
 
 | Command | Result |
 | --- | --- |
 | `npm run test:unit` | Pass — 151 tests (incl. PRD-02 security + CSRF client wiring) |
 | `npm run build` | Pass |
-| Merged into preview | No (orchestrator after security review) |
+| Independent re-review | APPROVE_MERGE @ `5ff2a1e` |
+| Merged into preview | Yes — `4004dbc` |
 | Pushed | No |
+
+### Preview integration smoke (post-merge `4004dbc` + status docs)
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 151 tests |
+| `npm run build` | Pass |
+| Pushed to remote | No (prefer local; production = `main` only) |
+
+Database impact: **none** (no migrations, no DB writes from this change set).
