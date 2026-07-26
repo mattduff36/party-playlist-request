@@ -19,6 +19,9 @@ import {
 
 /** Max wait for display-data / event-config before applying default mood. */
 const MOOD_CONFIRM_TIMEOUT_MS = 8000;
+/** Hard SLA: never allow staleness budget above 5s. */
+const MAX_STALE_MS = 5_000;
+const STALE_CHECK_MS = 1_000;
 import type {
   CurrentTrack,
   DisplayDeviceType,
@@ -66,9 +69,41 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
   const isAnimatingRef = useRef<boolean>(false);
   const [approvedRequests, setApprovedRequests] = useState<RequestItem[]>([]);
   const [recentlyPlayedRequests, setRecentlyPlayedRequests] = useState<RequestItem[]>([]);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const lastPlaybackEventAtRef = useRef<number>(Date.now());
+  const lastSyncAttemptAtRef = useRef(0);
+  const syncInFlightRef = useRef(false);
 
   // Use global event state
   const { state: globalState } = useGlobalEvent();
+
+  const markPlaybackFresh = useCallback(() => {
+    lastPlaybackEventAtRef.current = Date.now();
+  }, []);
+
+  const requestPlaybackSync = useCallback(
+    async (force = false) => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      lastSyncAttemptAtRef.current = Date.now();
+      try {
+        await fetch(
+          withAccessCode('/api/public/playback-sync', accessCode || guestAccessCode),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, force }),
+          }
+        );
+      } catch (error) {
+        console.error('Display playback-sync failed:', error);
+      } finally {
+        syncInFlightRef.current = false;
+      }
+    },
+    [username, accessCode, guestAccessCode]
+  );
 
   // Log state changes for monitoring
   useEffect(() => {
@@ -227,6 +262,9 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         }
         setCurrentTrack(data.current_track);
         setUpcomingSongs(data.upcoming_songs || []);
+        if (data.current_track) {
+          markPlaybackFresh();
+        }
         return;
       }
 
@@ -244,7 +282,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       console.error('Error fetching display data:', error);
       // Mood gate fallback is handled by the initial-load path / timeout
     }
-  }, [username, accessCode, guestAccessCode, applyEventSettings]);
+  }, [username, accessCode, guestAccessCode, applyEventSettings, markPlaybackFresh]);
 
   // 🚀 PUSHER: Real-time updates with animation triggers
   // Note: original page had a duplicate onSettingsUpdate key; the settings-refresh
@@ -296,6 +334,11 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
     },
     onPlaybackUpdate: (data: any) => {
       console.log('🎵 PUSHER: Playback update received!', data);
+      markPlaybackFresh();
+
+      if (typeof data.is_playing === 'boolean') {
+        setIsPlaying(data.is_playing);
+      }
 
       // Update current track
       if (data.current_track) {
@@ -333,6 +376,10 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         // Force state update by creating new object reference
         setCurrentTrack({ ...newTrack });
         console.log('✅ Current track state updated:', newTrack.name);
+      } else if (typeof data.progress_ms === 'number') {
+        setCurrentTrack((prev) =>
+          prev ? { ...prev, progress_ms: data.progress_ms } : prev
+        );
       }
 
       // Update queue - show all songs with hidden scrollbar and fade-out gradient
@@ -396,12 +443,49 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
     ? {
         progress_ms: currentTrack.progress_ms,
         duration_ms: currentTrack.duration_ms,
-        is_playing: true, // Assume playing if we have a current track
+        is_playing: isPlaying,
         spotify_connected: true,
+        timestamp: lastPlaybackEventAtRef.current,
       }
     : null;
 
   const liveProgress = useLiveProgress(playbackState, 1000);
+
+  // Staleness-gated heartbeat: open displays keep server sync alive (coalesced).
+  useEffect(() => {
+    const staleBudgetMs = Math.min(
+      MAX_STALE_MS,
+      Math.max(
+        2_000,
+        ((eventSettings as { display_refresh_interval?: number } | null)
+          ?.display_refresh_interval ?? 5) * 1000
+      )
+    );
+
+    const maybeSync = () => {
+      const now = Date.now();
+      const eventAge = now - lastPlaybackEventAtRef.current;
+      const attemptAge = now - lastSyncAttemptAtRef.current;
+      // Retry at most once per lease window until a Pusher/playback event lands.
+      if (eventAge >= staleBudgetMs && attemptAge >= 4_000) {
+        void requestPlaybackSync(false);
+      }
+    };
+
+    const intervalId = window.setInterval(maybeSync, STALE_CHECK_MS);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void requestPlaybackSync(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [eventSettings, requestPlaybackSync]);
 
   // Callback ref for Now Playing section - sets up ResizeObserver to detect layout changes
   // This is now reactive to isMessageVisible changes (notice board appearing/disappearing)
@@ -523,6 +607,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
               uri: data.current_track.uri || '',
               image_url: data.current_track.image_url,
             });
+            markPlaybackFresh();
           }
 
           // Initialize event settings (must include display_mood for cold-load theme)
@@ -609,7 +694,14 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       cancelled = true;
       clearTimeout(moodFallbackTimer);
     };
-  }, [username, applyEventSettings, applyMoodFallback]);
+  }, [
+    username,
+    accessCode,
+    guestAccessCode,
+    applyEventSettings,
+    applyMoodFallback,
+    markPlaybackFresh,
+  ]);
 
   // Detect device type and re-limit songs when device changes
   useEffect(() => {

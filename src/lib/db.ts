@@ -770,6 +770,23 @@ export async function initializeDatabase() {
       `CREATE INDEX IF NOT EXISTS idx_support_activity_action ON support_activity(action)`
     );
 
+    // Durable Spotify sync coalesce lease + fingerprint (cross-instance)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS spotify_playback_sync (
+        user_id TEXT PRIMARY KEY,
+        lease_until TIMESTAMPTZ,
+        fingerprint TEXT,
+        progress_ms INTEGER,
+        is_playing BOOLEAN DEFAULT FALSE,
+        snapshot_json JSONB,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_spotify_playback_sync_lease
+       ON spotify_playback_sync(lease_until)`
+    );
+
     // Create indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)`);

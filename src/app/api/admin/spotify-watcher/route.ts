@@ -1,333 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { spotifyService } from '@/lib/spotify';
-import { triggerPlaybackUpdate, triggerStatsUpdate } from '@/lib/pusher';
-import { getAllRequests } from '@/lib/db';
+import {
+  PLAYING_QUEUE_MS,
+  tickAllActiveParties,
+  tickUserPlayback,
+} from '@/lib/spotify-sync';
 
-// Store last known state PER USER to detect changes (excluding progress_ms which changes constantly)
-// Process-local only — multi-instance deploys do not share watcher state or coalesce across Vercel instances.
-const lastPlaybackStates = new Map<string, any>(); // userId -> lastPlaybackState
-const lastQueueStates = new Map<string, any>();    // userId -> lastQueueState
-const lastQueueChecks = new Map<string, number>(); // userId -> timestamp
-const lastStatsStates = new Map<string, any>();    // userId -> lastStatsState (for change detection)
-const lastUserCheckAt = new Map<string, number>(); // userId -> last check timestamp (idle backoff)
-let watcherInterval: NodeJS.Timeout | null = null;
-let watcherEnabled = false;
-let watching = false; // coalesce: skip overlapping ticks
-let anyUserPlaying = false;
-let lastStatsUpdate = 0;
+function isSystemOrCronAuth(req: NextRequest): boolean {
+  const authHeader = req.headers.get('Authorization') || '';
+  const cronSecret = process.env.CRON_SECRET;
+  const startupToken = process.env.SYSTEM_STARTUP_TOKEN || 'startup-system-token';
 
-const PLAYING_POLL_MS = 15_000;
-const IDLE_POLL_MS = 45_000;
-const PLAYING_QUEUE_MS = 20_000;
-const IDLE_QUEUE_MS = 60_000;
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    return true;
+  }
+  if (
+    authHeader.includes('startup-system-token') ||
+    (startupToken && authHeader.includes(startupToken))
+  ) {
+    return true;
+  }
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET> when configured
+  const vercelCron = req.headers.get('x-vercel-cron');
+  if (vercelCron === '1' && cronSecret) {
+    return authHeader === `Bearer ${cronSecret}`;
+  }
+  return false;
+}
 
-// Helper function to normalize playback state for comparison (exclude progress_ms)
-const normalizePlaybackForComparison = (playback: any) => {
-  if (!playback) return null;
-  const { progress_ms, ...normalized } = playback;
+async function authorizeWatcher(req: NextRequest): Promise<
+  | { ok: true; userId?: string; username?: string; isSystem: boolean }
+  | { ok: false; response: NextResponse }
+> {
+  if (isSystemOrCronAuth(req)) {
+    return { ok: true, isSystem: true };
+  }
+  const auth = requireAuth(req);
+  if (!auth.authenticated || !auth.user) {
+    return { ok: false, response: auth.response! };
+  }
   return {
-    ...normalized,
-    // Include all important playback state properties
-    is_playing: playback.is_playing,
-    device: playback.device ? {
-      id: playback.device.id,
-      name: playback.device.name,
-      type: playback.device.type,
-      volume_percent: playback.device.volume_percent
-    } : null,
-    item: playback.item ? {
-      // Include all track properties that matter for change detection
-      id: playback.item.id,
-      name: playback.item.name,
-      uri: playback.item.uri,
-      duration_ms: playback.item.duration_ms,
-      artists: playback.item.artists?.map((a: any) => ({
-        id: a.id,
-        name: a.name
-      })) || [],
-      album: playback.item.album ? {
-        id: playback.item.album.id,
-        name: playback.item.album.name,
-        images: playback.item.album.images || []
-      } : null
-    } : null
+    ok: true,
+    isSystem: false,
+    userId: auth.user.user_id,
+    username: auth.user.username,
   };
-};
+}
 
-// Spotify watcher function - now properly multi-tenant
-const watchSpotifyChanges = async (queueInterval: number = PLAYING_QUEUE_MS) => {
-  if (watching) {
-    console.log('🎵 Spotify watcher: previous tick still running — coalescing (skip)');
-    return;
-  }
-  watching = true;
-  try {
-    console.log('🎵 Spotify watcher: Starting multi-tenant check...', new Date().toISOString());
-    
-    // Get all users with valid Spotify connections AND active events (live or standby)
-    const { sql } = await import('@/lib/db/neon-client');
-    const usersWithSpotify = await sql`
-      SELECT u.id as user_id, u.username, e.status as event_status
-      FROM users u
-      INNER JOIN events e ON e.user_id = u.id
-      WHERE EXISTS (
-        SELECT 1 FROM spotify_auth sa 
-        WHERE sa.user_id = u.id 
-        AND sa.access_token IS NOT NULL 
-        AND sa.refresh_token IS NOT NULL
-      )
-      AND e.status IN ('live', 'standby')
-      LIMIT 10
-    `;
-    
-    if (usersWithSpotify.length === 0) {
-      console.log('⏸️ No users with active events and Spotify connections found');
-      anyUserPlaying = false;
-      return;
-    }
-    
-    console.log(`🎵 Checking Spotify for ${usersWithSpotify.length} user(s) with active events`);
-
-    let foundPlaying = false;
-    const now = Date.now();
-
-    // Check each user's Spotify separately (idle users checked less often)
-    for (const { user_id, username } of usersWithSpotify) {
-      const lastPlayback = lastPlaybackStates.get(user_id);
-      const isIdle = !lastPlayback?.is_playing;
-      const minGap = isIdle ? IDLE_POLL_MS : PLAYING_POLL_MS;
-      const lastCheck = lastUserCheckAt.get(user_id) || 0;
-      if (now - lastCheck < minGap && queueInterval !== 0) {
-        if (lastPlayback?.is_playing) foundPlaying = true;
-        continue;
-      }
-
-      const effectiveQueueInterval = isIdle ? IDLE_QUEUE_MS : queueInterval;
-      lastUserCheckAt.set(user_id, now);
-      await watchSingleUserSpotify(user_id, username, effectiveQueueInterval);
-
-      const updated = lastPlaybackStates.get(user_id);
-      if (updated?.is_playing) foundPlaying = true;
-    }
-
-    anyUserPlaying = foundPlaying;
-
-  } catch (error) {
-    console.error('🎵 Spotify watcher error:', error);
-  } finally {
-    watching = false;
-  }
-};
-
-// Watch a single user's Spotify playback
-const watchSingleUserSpotify = async (userId: string, username: string, queueInterval: number) => {
-  try {
-    console.log(`🎵 [${username}] Checking Spotify playback...`);
-    
-    // Check if THIS USER's Spotify is connected (using userId!)
-    const isConnected = await spotifyService.isConnected(userId);
-    
-    if (!isConnected) {
-      console.log(`⏸️ [${username}] Not connected, skipping`);
-      return;
-    }
-    
-    let currentPlayback = null;
-    let queue = null;
-    const now = Date.now();
-    
-    // Get THIS USER's last state (PER-USER STATE TRACKING!)
-    const userLastPlayback = lastPlaybackStates.get(userId);
-    const userLastQueue = lastQueueStates.get(userId);
-    const userLastQueueCheck = lastQueueChecks.get(userId) || 0;
-    
-    const shouldCheckQueue = queueInterval === 0 || now - userLastQueueCheck >= queueInterval;
-    
-    try {
-      // First, always get current playback
-      currentPlayback = await spotifyService.getCurrentPlayback(userId).catch(() => null);
-      
-      // Check if track changed - if so, ALWAYS fetch fresh queue regardless of interval
-      const trackChanged = userLastPlayback?.item?.id !== currentPlayback?.item?.id;
-      
-      if (shouldCheckQueue || trackChanged) {
-        if (trackChanged) {
-          console.log(`🎵 [${username}] Track changed! Fetching fresh queue...`);
-          
-          // Auto-mark the new playing track as "played" if it matches an approved request
-          if (currentPlayback?.item?.uri) {
-            try {
-              const { sql } = await import('@/lib/db/neon-client');
-              
-              // SECURITY: Find the oldest approved request matching this track URI for THIS user only (multi-tenant isolation)
-              const matchingRequest = await sql`
-                UPDATE requests
-                SET status = 'played',
-                    played_at = NOW()
-                WHERE id = (
-                  SELECT id FROM requests
-                  WHERE track_uri = ${currentPlayback.item.uri}
-                    AND status = 'approved'
-                    AND user_id = ${userId}
-                  ORDER BY created_at ASC
-                  LIMIT 1
-                )
-                RETURNING id, track_name, artist_name, track_uri
-              `;
-              
-              if (matchingRequest.length > 0) {
-                const req = matchingRequest[0];
-                console.log(`✅ [${username}] Auto-marked request as played: "${req.track_name}" by ${req.artist_name}`);
-                
-                // Broadcast the status change via Pusher
-                try {
-                  const { triggerEvent, getAdminChannel, EVENTS } = await import('@/lib/pusher');
-                  await triggerEvent(getAdminChannel(userId), EVENTS.STATS_UPDATE, {
-                    message: `Song "${req.track_name}" marked as played`,
-                    userId
-                  });
-                } catch (pusherError) {
-                  console.error(`❌ [${username}] Failed to send auto-mark Pusher event:`, pusherError);
-                }
-              }
-            } catch (markError) {
-              console.error(`❌ [${username}] Error auto-marking song as played:`, markError);
-              // Don't fail the watcher if auto-mark fails
-            }
-          }
-        } else {
-          console.log(`🎵 [${username}] Queue interval reached, checking queue`);
-        }
-        queue = await spotifyService.getQueue(userId).catch(() => null);
-        lastQueueChecks.set(userId, now);
-      } else {
-        console.log(`🎵 [${username}] Checking playback only (reusing queue)`);
-        queue = userLastQueue ? { queue: userLastQueue } : null;
-      }
-    } catch (error) {
-      console.error(`❌ [${username}] Error fetching playback:`, error);
-      return;
-    }
-
-    // Log current playback state for monitoring
-    console.log(`🎵 [${username}] Current playback:`, {
-      is_playing: currentPlayback?.is_playing,
-      track: currentPlayback?.item?.name,
-      device: currentPlayback?.device?.name,
-      hasPlayback: !!currentPlayback
-    });
-
-    // Check if anything meaningful changed (compare to THIS USER's last state!)
-    const normalizedCurrentPlayback = normalizePlaybackForComparison(currentPlayback);
-    const normalizedLastPlayback = normalizePlaybackForComparison(userLastPlayback);
-    
-    const playbackChanged = JSON.stringify(normalizedCurrentPlayback) !== JSON.stringify(normalizedLastPlayback);
-    const queueChanged = JSON.stringify(queue?.queue) !== JSON.stringify(userLastQueue);
-    
-    // Critical state changes
-    const criticalChanges = {
-      isPlayingChanged: userLastPlayback?.is_playing !== currentPlayback?.is_playing,
-      trackChanged: userLastPlayback?.item?.id !== currentPlayback?.item?.id,
-      deviceChanged: userLastPlayback?.device?.id !== currentPlayback?.device?.id,
-      hasNewPlayback: !userLastPlayback && currentPlayback,
-      lostPlayback: userLastPlayback && !currentPlayback
-    };
-    
-    const hasCriticalChanges = Object.values(criticalChanges).some(Boolean);
-
-    if (playbackChanged || queueChanged || hasCriticalChanges) {
-      console.log(`🎵 [${username}] MEANINGFUL changes detected!`);
-      
-      // OPTIMIZED: Get ONLY approved requests with single targeted query
-      const { getRequestsByStatus } = await import('@/lib/db');
-      const userApprovedRequests = await getRequestsByStatus('approved', 100, 0, userId);
-
-      // Enhance queue items with requester information
-      const enhancedQueue = (queue?.queue || []).map((track: any) => {
-        const matchingRequest = userApprovedRequests.find(req => req.track_uri === track.uri);
-        return {
-          ...track,
-          requester_nickname: matchingRequest?.requester_nickname || null
-        };
-      });
-
-      // Format current track data
-      const formattedCurrentTrack = currentPlayback?.item ? {
-        name: currentPlayback.item.name,
-        artists: currentPlayback.item.artists?.map((a: any) => a.name) || [],
-        album: currentPlayback.item.album,
-        duration_ms: currentPlayback.item.duration_ms,
-        uri: currentPlayback.item.uri,
-        id: currentPlayback.item.id
-      } : null;
-
-      // ✅ Trigger Pusher update for THIS USER ONLY
-      try {
-        console.log(`📡 [${username}] Sending playback update to Pusher`);
-        await triggerPlaybackUpdate({
-          current_track: formattedCurrentTrack,
-          queue: enhancedQueue,
-          is_playing: currentPlayback?.is_playing || false,
-          progress_ms: currentPlayback?.progress_ms || 0,
-          device: currentPlayback?.device || null,
-          timestamp: Date.now(),
-          userId: userId
-        });
-      } catch (pusherError) {
-        console.error(`❌ [${username}] Failed to trigger playback update:`, pusherError);
-      }
-
-      // Update stored state FOR THIS USER
-      lastPlaybackStates.set(userId, currentPlayback);
-      lastQueueStates.set(userId, queue?.queue);
-    } else {
-      console.log(`🎵 [${username}] No meaningful changes`);
-    }
-
-    // Update stats only every 30 seconds AND only if values changed
-    if (now - lastStatsUpdate > 30000) {
-      console.log(`📊 [${username}] Calculating stats (30s interval)`);
-      const { getAllRequests: getUserRequests } = await import('@/lib/db');
-      // OPTIMIZED: Get all requests with single query (still needed for stats)
-      const allRequests = await getUserRequests(1000, 0, userId); // Multi-tenant: Pass userId
-      
-      const stats = {
-        total_requests: allRequests.length,
-        pending_requests: allRequests.filter(r => r.status === 'pending').length,
-        approved_requests: allRequests.filter(r => r.status === 'approved').length,
-        rejected_requests: allRequests.filter(r => r.status === 'rejected').length,
-        played_requests: allRequests.filter(r => r.status === 'played').length,
-        unique_requesters: new Set(allRequests.map(r => r.requester_nickname || 'Anonymous')).size,
-        spotify_connected: isConnected
-      };
-
-      // OPTIMIZATION: Only trigger update if stats actually changed
-      const lastStats = lastStatsStates.get(userId);
-      const statsChanged = !lastStats || JSON.stringify(lastStats) !== JSON.stringify(stats);
-      
-      if (statsChanged) {
-        // Trigger stats update for THIS USER
-        try {
-          console.log(`📡 [${username}] Stats changed - sending update to Pusher`);
-          await triggerStatsUpdate({...stats, userId});
-          lastStatsStates.set(userId, stats);
-        } catch (pusherError) {
-          console.error(`❌ [${username}] Failed to trigger stats update:`, pusherError);
-        }
-      } else {
-        console.log(`📊 [${username}] Stats unchanged - skipping Pusher event`);
-      }
-      
-      lastStatsUpdate = now;
-    }
-
-  } catch (error) {
-    console.error('🎵 Spotify watcher error:', error);
-  }
-};
-
-// Start watcher endpoint
+/**
+ * Request-driven Spotify sync.
+ * Durable ticks are driven by display/admin heartbeats + cron — not process-local setTimeout.
+ */
 export async function POST(req: NextRequest) {
   if (process.env.SPOTIFY_MOCK === 'true') {
     return NextResponse.json({
@@ -336,122 +59,110 @@ export async function POST(req: NextRequest) {
       message: 'Spotify watcher skipped under SPOTIFY_MOCK',
     });
   }
+
   try {
-    // Allow system startup token for automatic watcher initialization
-    const authHeader = req.headers.get('Authorization');
-    const isSystemStartup = authHeader?.includes('startup-system-token') || 
-                           authHeader?.includes(process.env.SYSTEM_STARTUP_TOKEN || '');
-    
-    if (!isSystemStartup) {
-      // Authenticate and get user info
-      const auth = requireAuth(req);
-      if (!auth.authenticated || !auth.user) {
-        return auth.response!;
+    const gate = await authorizeWatcher(req);
+    if (!gate.ok) return gate.response;
+
+    const body = await req.json().catch(() => ({}));
+    const {
+      action = 'check',
+      queueInterval = PLAYING_QUEUE_MS,
+      userId,
+      force = false,
+    } = body;
+
+    if (action === 'start' || action === 'check' || action === 'tick') {
+      // One-shot durable tick. No process-local setTimeout chain (Vercel-safe).
+      // Admin sessions tick their own party; system/cron may tick all or a given userId.
+      const targetUserId = userId || (!gate.isSystem ? gate.userId : undefined);
+      let result;
+      if (targetUserId) {
+        let username = gate.username || 'unknown';
+        if (!gate.username || userId) {
+          const { sql } = await import('@/lib/db/neon-client');
+          const userResult =
+            await sql`SELECT username FROM users WHERE id = ${targetUserId}`;
+          username = userResult[0]?.username || username;
+        }
+        const tickResult = await tickUserPlayback(targetUserId, username, {
+          force: Boolean(force),
+          queueInterval,
+        });
+        result = {
+          results: [tickResult],
+          checked: tickResult.skipped ? 0 : 1,
+          broadcastCount: tickResult.broadcast ? 1 : 0,
+        };
+      } else {
+        result = await tickAllActiveParties({
+          force: Boolean(force),
+          queueInterval,
+        });
       }
-    } else {
-      console.log('🔧 System startup: Starting Spotify watcher automatically');
-    }
-    
-    const body = await req.json();
-    // Defaults softened: base tick 15s; idle users skipped via per-user backoff inside watchSpotifyChanges
-    const { action, interval = PLAYING_POLL_MS, queueInterval = PLAYING_QUEUE_MS } = body;
-
-    if (action === 'start') {
-      if (watcherInterval) {
-        clearTimeout(watcherInterval);
-        watcherInterval = null;
-      }
-      watcherEnabled = true;
-
-      console.log(`🎵 Starting Spotify watcher with ${interval}ms playing / ${IDLE_POLL_MS}ms idle ticks (queue ${queueInterval}ms)`);
-
-      const scheduleNextTick = () => {
-        if (!watcherEnabled) return;
-        const delay = anyUserPlaying ? interval : IDLE_POLL_MS;
-        watcherInterval = setTimeout(async () => {
-          await watchSpotifyChanges(queueInterval);
-          scheduleNextTick();
-        }, delay);
-      };
-
-      await watchSpotifyChanges(queueInterval);
-      scheduleNextTick();
 
       return NextResponse.json({
         success: true,
-        message: 'Spotify watcher started',
-        interval,
-        queueInterval,
-        idlePollMs: IDLE_POLL_MS,
+        message: 'Spotify sync tick completed',
+        action,
+        checked: result.checked,
+        broadcastCount: result.broadcastCount,
+        results: result.results,
       });
     }
 
     if (action === 'stop') {
-      watcherEnabled = false;
-      if (watcherInterval) {
-        clearTimeout(watcherInterval);
-        watcherInterval = null;
-        console.log('🎵 Spotify watcher stopped');
-      }
-
+      // Non-destructive: client unmount must not freeze displays / other parties.
       return NextResponse.json({
         success: true,
-        message: 'Spotify watcher stopped'
+        message: 'Spotify sync stop acknowledged (no-op; ticks are request-driven)',
       });
     }
 
     if (action === 'status') {
       return NextResponse.json({
-        running: !!watcherInterval,
-        lastUpdate: Date.now()
-      });
-    }
-
-    if (action === 'check') {
-      // Trigger an immediate check for changes
-      console.log('🔄 Manual Spotify watcher check triggered');
-      await watchSpotifyChanges();
-      return NextResponse.json({
-        success: true,
-        message: 'Manual check completed'
+        running: true,
+        mode: 'request-driven',
+        lastUpdate: Date.now(),
       });
     }
 
     if (action === 'refresh-queue') {
-      // Trigger immediate queue refresh for specific user after approval
-      const { userId } = body;
       if (!userId) {
-        return NextResponse.json({ error: 'userId required for queue refresh' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'userId required for queue refresh' },
+          { status: 400 }
+        );
       }
-      
-      console.log(`🔄 Immediate queue refresh triggered for user ${userId}`);
-      
-      // Get user info for logging
+
       const { sql } = await import('@/lib/db/neon-client');
       const userResult = await sql`SELECT username FROM users WHERE id = ${userId}`;
       const username = userResult[0]?.username || 'unknown';
-      
-      // Force immediate queue check for this specific user
-      await watchSingleUserSpotify(userId, username, 0); // 0 = force queue check
-      
+
+      const tickResult = await tickUserPlayback(userId, username, {
+        force: true,
+        queueInterval: 0,
+      });
+
       return NextResponse.json({
         success: true,
         message: `Queue refresh completed for user ${username}`,
-        userId
+        userId,
+        broadcast: tickResult.broadcast,
+        skipped: tickResult.skipped,
       });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-
   } catch (error) {
     console.error('Spotify watcher endpoint error:', error);
-    return NextResponse.json({ 
-      error: 'Failed to manage Spotify watcher' 
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to manage Spotify watcher' },
+      { status: 500 }
+    );
   }
 }
 
-// Get watcher status
 export async function GET(req: NextRequest) {
   if (process.env.SPOTIFY_MOCK === 'true') {
     return NextResponse.json({
@@ -460,22 +171,33 @@ export async function GET(req: NextRequest) {
       message: 'Spotify watcher skipped under SPOTIFY_MOCK',
     });
   }
-  try {
-    // Authenticate and get user info
-    const auth = requireAuth(req);
-    if (!auth.authenticated || !auth.user) {
-      return auth.response!;
-    }
-    
-      return NextResponse.json({
-        running: !!watcherInterval,
-        lastUpdate: Date.now(),
-        interval: watcherInterval ? 2000 : null
-      });
 
-  } catch (error) {
-    return NextResponse.json({ 
-      error: 'Failed to get watcher status' 
-    }, { status: 500 });
+  try {
+    const gate = await authorizeWatcher(req);
+    if (!gate.ok) return gate.response;
+
+    // Cron / health: run a multi-tenant tick
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get('tick') === '1' || isSystemOrCronAuth(req)) {
+      const result = await tickAllActiveParties();
+      return NextResponse.json({
+        success: true,
+        mode: 'request-driven',
+        checked: result.checked,
+        broadcastCount: result.broadcastCount,
+        lastUpdate: Date.now(),
+      });
+    }
+
+    return NextResponse.json({
+      running: true,
+      mode: 'request-driven',
+      lastUpdate: Date.now(),
+    });
+  } catch {
+    return NextResponse.json(
+      { error: 'Failed to get watcher status' },
+      { status: 500 }
+    );
   }
 }

@@ -4,6 +4,12 @@
       "maxDuration": 30
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/spotify-sync",
+      "schedule": "*/1 * * * *"
+    }
+  ],
   "regions": ["iad1"],
   "framework": "nextjs"
 }

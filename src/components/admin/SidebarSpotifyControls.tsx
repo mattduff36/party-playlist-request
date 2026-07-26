@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useSpotifyControls } from '@/contexts/SpotifyControlsContext';
+import { useLiveProgress } from '@/hooks/useLiveProgress';
 import { formatArtists } from '@/lib/format-artists';
 import { getSpotifyDeviceIcon } from '@/lib/spotify-device-icon';
 import {
@@ -27,14 +28,6 @@ interface SidebarSpotifyControlsProps {
   /** sidebar = compact left-rail; page = single combined card for /spotify */
   variant?: 'sidebar' | 'page';
   onConnectionChange?: (connected: boolean) => void;
-}
-
-function formatTrackTime(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return '0:00';
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export default function SidebarSpotifyControls({
@@ -70,26 +63,29 @@ export default function SidebarSpotifyControls({
   const [isBusy, setIsBusy] = useState(false);
   const [isStartingOAuth, setIsStartingOAuth] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
-  const [displayProgressMs, setDisplayProgressMs] = useState(0);
 
   useEffect(() => {
     return registerConnectionListener(onConnectionChange);
   }, [onConnectionChange, registerConnectionListener]);
 
   const durationMs = playbackState?.duration_ms ?? 0;
-  const trackKey = `${playbackState?.track_name ?? ''}|${durationMs}`;
-
-  useEffect(() => {
-    setDisplayProgressMs(playbackState?.progress_ms ?? 0);
-  }, [playbackState?.progress_ms, trackKey]);
-
-  useEffect(() => {
-    if (!playbackState?.is_playing || durationMs <= 0) return;
-    const id = setInterval(() => {
-      setDisplayProgressMs((prev) => Math.min(prev + 1000, durationMs));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [playbackState?.is_playing, durationMs, trackKey]);
+  const {
+    currentProgress: displayProgressMs,
+    currentTime,
+    totalTime,
+    progressPercentage,
+  } = useLiveProgress(
+    playbackState
+      ? {
+          progress_ms: playbackState.progress_ms ?? 0,
+          duration_ms: durationMs,
+          is_playing: Boolean(playbackState.is_playing),
+          spotify_connected: spotifyConnected,
+          timestamp: playbackState.timestamp,
+        }
+      : null,
+    1000
+  );
 
   const connectToSpotify = () => {
     markSpotifyOAuthPending();
@@ -203,10 +199,7 @@ export default function SidebarSpotifyControls({
   const trackName = playbackState?.track_name;
   const artistName = formatArtists(playbackState?.artist_name ?? null);
   const isPlaying = Boolean(playbackState?.is_playing);
-  const progressPercent =
-    durationMs > 0
-      ? Math.min(100, Math.max(0, (displayProgressMs / durationMs) * 100))
-      : 0;
+  const progressPercent = progressPercentage;
 
   const shellClass = isPage
     ? 'bg-elevated rounded-lg border border-white/10 p-5 space-y-5'
@@ -499,8 +492,8 @@ export default function SidebarSpotifyControls({
         />
       </div>
       <div className="flex justify-between text-[11px] tabular-nums text-muted">
-        <span>{formatTrackTime(displayProgressMs)}</span>
-        <span>{formatTrackTime(durationMs)}</span>
+        <span>{currentTime}</span>
+        <span>{totalTime}</span>
       </div>
     </div>
   );

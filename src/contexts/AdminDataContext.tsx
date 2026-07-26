@@ -57,6 +57,8 @@ export interface PlaybackState {
   device_name?: string;
   volume_percent?: number;
   queue?: QueueTrack[];
+  /** Server/Pusher timestamp for progress anchoring */
+  timestamp?: number;
 }
 
 export interface EventSettings {
@@ -130,6 +132,9 @@ const CONNECTED_FALSE_STREAK = 2;
 const QUEUE_REORDER_LOCK_MS = 4000;
 const PLAYBACK_POLL_UNTIL_TRACK_MS = 12000;
 const HYDRATE_RETRY_DELAYS_MS = [500, 1500, 3000];
+/** Staleness budget for request-driven Spotify sync (meets ~5s SLA). */
+const PLAYBACK_STALE_MS = 5_000;
+const PLAYBACK_STALE_CHECK_MS = 1_000;
 
 export function AdminDataProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -152,6 +157,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const hasConfirmedTrackRef = useRef(false);
   const hydrateRetryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const playbackPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastPlaybackEventAtRef = useRef<number>(Date.now());
+  const lastSyncAttemptAtRef = useRef(0);
+  const syncInFlightRef = useRef(false);
 
   const clearDisconnectedDebounce = useCallback(() => {
     disconnectedStreakRef.current = 0;
@@ -301,7 +309,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         data = { ...data, queue: undefined };
       }
 
-      if (data.current_track || data.queue || data.is_playing !== undefined) {
+      if (
+        data.current_track ||
+        data.queue ||
+        data.is_playing !== undefined ||
+        data.progress_ms !== undefined
+      ) {
         setPlaybackState((prev) => {
           const next: PlaybackState = {
             ...(prev || {
@@ -309,6 +322,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               is_playing: false,
             }),
             spotify_connected: true,
+            timestamp:
+              typeof data.timestamp === 'number' ? data.timestamp : Date.now(),
           };
 
           if (data.progress_ms !== undefined) {
@@ -328,8 +343,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               next.is_playing = Boolean(data.is_playing);
             }
             hasConfirmedTrackRef.current = true;
-          } else if (data.is_playing === true) {
-            next.is_playing = true;
+          } else if (data.is_playing !== undefined) {
+            next.is_playing = Boolean(data.is_playing);
           }
           if (data.device?.name) {
             next.device_name = data.device.name;
@@ -346,6 +361,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           return JSON.stringify(prev) !== JSON.stringify(next) ? next : prev;
         });
         setSpotifyConnected(true);
+        lastPlaybackEventAtRef.current = Date.now();
       }
     },
     onTokenExpired: () => {
@@ -534,6 +550,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             device_name: data.device?.name ?? prev?.device_name,
             volume_percent: data.device?.volume_percent ?? prev?.volume_percent,
             queue: nextQueue,
+            timestamp: Date.now(),
           };
 
           if (incomingTrack?.name) {
@@ -544,6 +561,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             ? newPlaybackState
             : prev;
         });
+
+        if (connected && incomingTrack) {
+          lastPlaybackEventAtRef.current = Date.now();
+        }
 
         if (connected && !incomingTrack && !hasConfirmedTrackRef.current) {
           scheduleHydrateRetries();
@@ -742,13 +763,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            action: 'start',
-            interval: 5000,
-            queueInterval: 20000,
+            action: 'tick',
+            force: true,
           }),
         });
+        lastPlaybackEventAtRef.current = Date.now();
       } catch (error) {
-        console.error('Failed to start Spotify watcher:', error);
+        console.error('Failed to run Spotify sync tick:', error);
       }
     };
 
@@ -761,40 +782,55 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       if (disconnectedDebounceRef.current) {
         clearTimeout(disconnectedDebounceRef.current);
       }
-      fetch('/api/admin/spotify-watcher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ action: 'stop' }),
-      }).catch(() => {});
+      // Do not stop global sync — ticks are request-driven and shared with displays.
     };
   }, []);
 
-  // Light poll until first confirmed track (then Pusher owns updates)
+  const requestAdminPlaybackSync = useCallback(async (force = false) => {
+    if (syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
+    lastSyncAttemptAtRef.current = Date.now();
+    try {
+      await fetch('/api/admin/spotify-watcher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'tick',
+          force,
+        }),
+      });
+    } catch (error) {
+      console.error('Admin playback sync tick failed:', error);
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, []);
+
+  // Light poll until first confirmed track, then staleness-gated ticks (Pusher + coalesce).
   useEffect(() => {
     if (playbackPollRef.current) {
       clearInterval(playbackPollRef.current);
       playbackPollRef.current = null;
     }
-    if (hasConfirmedTrackRef.current || confirmedDisconnectedRef.current) {
-      return;
-    }
+
     playbackPollRef.current = setInterval(() => {
-      if (
-        typeof document !== 'undefined' &&
-        document.visibilityState !== 'visible'
-      ) {
+      if (confirmedDisconnectedRef.current) {
         return;
       }
-      if (hasConfirmedTrackRef.current || confirmedDisconnectedRef.current) {
-        if (playbackPollRef.current) {
-          clearInterval(playbackPollRef.current);
-          playbackPollRef.current = null;
-        }
+
+      if (!hasConfirmedTrackRef.current) {
+        void refreshPlaybackState();
         return;
       }
-      void refreshPlaybackState();
-    }, PLAYBACK_POLL_UNTIL_TRACK_MS);
+
+      const now = Date.now();
+      const eventAge = now - lastPlaybackEventAtRef.current;
+      const attemptAge = now - lastSyncAttemptAtRef.current;
+      if (eventAge >= PLAYBACK_STALE_MS && attemptAge >= 4_000) {
+        void requestAdminPlaybackSync(false);
+      }
+    }, hasConfirmedTrackRef.current ? PLAYBACK_STALE_CHECK_MS : PLAYBACK_POLL_UNTIL_TRACK_MS);
 
     return () => {
       if (playbackPollRef.current) {
@@ -802,7 +838,18 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         playbackPollRef.current = null;
       }
     };
-  }, [playbackState?.track_name, spotifyConnected, refreshPlaybackState]);
+  }, [playbackState?.track_name, spotifyConnected, refreshPlaybackState, requestAdminPlaybackSync]);
+
+  // Resume reconcile when admin tab becomes visible again
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshPlaybackState();
+      void requestAdminPlaybackSync(true);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [refreshPlaybackState, requestAdminPlaybackSync]);
 
   const handleApprove = useCallback(
     async (id: string, playNext?: boolean) => {
