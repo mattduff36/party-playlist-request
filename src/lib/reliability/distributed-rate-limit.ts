@@ -117,26 +117,14 @@ export async function enforceGuestRateLimit(
     const secondaryKey = `${input.bucket}:ip:${input.secondaryKey}`;
     let secondary = await redisCheck(secondaryKey, secondaryMax, cfg.windowMs);
     if (!secondary) {
+      // Memory fallback must use the secondary ceiling — not the tiny primary max —
+      // so many guests behind one NAT stay fair when Redis is down.
       const mem = checkRateLimit(
         input.bucket,
-        `mem-ip:${input.secondaryKey}:${secondaryMax}`
+        `mem-ip:${input.bucket}:${input.secondaryKey}`,
+        { maxRequests: secondaryMax, cooldownMs: 0 }
       );
-      // Memory songRequest has cooldown; for secondary IP we only care about window.
-      // Re-use memory bucket with a distinct id — count still applies.
-      secondary = {
-        ...mem,
-        backend: 'memory',
-        // Soften: if memory cooldown blocked secondary unfairly, allow when primary ok
-        allowed: mem.allowed || mem.message?.includes('5 seconds') === true,
-      };
-      if (!secondary.allowed && mem.message?.includes('5 seconds')) {
-        secondary = {
-          allowed: true,
-          remaining: secondaryMax,
-          resetTime: Date.now() + cfg.windowMs,
-          backend: 'memory',
-        };
-      }
+      secondary = { ...mem, backend: 'memory' };
     }
     if (!secondary.allowed) {
       return {

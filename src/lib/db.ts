@@ -33,6 +33,7 @@ export interface Request {
   archived_at?: string | null;
   queue_error_category?: string | null;
   provider_operation_id?: string | null;
+  claim_started_at?: string | null;
 }
 
 export interface Settings {
@@ -963,6 +964,7 @@ const REQUEST_UPDATE_ALLOWLIST = new Set([
   'provider_operation_id',
   'archived_at',
   'event_id',
+  'claim_started_at',
 ]);
 
 // Helper: Verify request ownership

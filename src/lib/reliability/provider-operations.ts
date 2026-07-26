@@ -101,6 +101,14 @@ export async function completeProviderOperation(
   );
 }
 
+/**
+ * Whether a ledger row may safely call Spotify add-to-queue again.
+ * `uncertain` must never re-enqueue (response may have succeeded).
+ */
+export function shouldAttemptSpotifyQueueAdd(status: ProviderOpStatus): boolean {
+  return status === 'pending' || status === 'failed';
+}
+
 export function classifySpotifyQueueError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();

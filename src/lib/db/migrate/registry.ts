@@ -65,4 +65,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     description:
       'PRD-06 event archive stamps, request event_id/idempotency, provider_operations ledger, playback freshness',
   },
+  {
+    id: '008_prd06_request_status_check',
+    file: '008_prd06_request_status_check.sql',
+    classification: 'B',
+    description:
+      'PRD-06 widen requests.status CHECK for approving/queue_failed + claim_started_at',
+  },
 ];

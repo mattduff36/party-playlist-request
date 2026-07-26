@@ -9,12 +9,17 @@ import { refreshPlaybackState } from '@/lib/reliability/refresh-playback';
 import {
   claimRequestForApproval,
   getRequestCurrentStatus,
+  releaseApprovalClaim,
   createProviderOperation,
   completeProviderOperation,
   classifySpotifyQueueError,
+  shouldAttemptSpotifyQueueAdd,
 } from '@/lib/reliability';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let claimedId: string | null = null;
+  let claimUserId: string | null = null;
+
   try {
     const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
@@ -48,6 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 409 }
       );
     }
+    claimedId = id;
+    claimUserId = userId;
 
     let queueSuccess = false;
     const errors: string[] = [];
@@ -67,7 +74,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       if (op.status === 'succeeded') {
         queueSuccess = true;
-      } else if (op.status === 'pending' || op.status === 'uncertain') {
+      } else if (op.status === 'uncertain') {
+        // PRD-06: response was lost — never enqueue a second copy; reconcile only.
+        queueSuccess = false;
+        errorCategory = op.error_category ?? 'uncertain_timeout';
+        errors.push(
+          'Prior Spotify queue result is uncertain; reconcile before retrying'
+        );
+      } else if (shouldAttemptSpotifyQueueAdd(op.status)) {
         try {
           const deviceSetting = await getSetting('target_device_id');
           await spotifyService.addToQueue(
@@ -87,10 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             errorCategory
           );
           errors.push('Failed to add to Spotify queue');
-          // Uncertain: do not re-queue on retry without reconciliation
-          if (uncertain) {
-            queueSuccess = false;
-          }
+          queueSuccess = false;
         }
       } else {
         errors.push('Prior provider operation failed');
@@ -110,7 +121,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       spotify_added_to_playlist: false,
       queue_error_category: errorCategory,
       provider_operation_id: providerOperationId,
+      claim_started_at: null,
     }, userId);
+    claimedId = null;
 
     if (newStatus === 'approved') {
       await createNotification({
@@ -188,6 +201,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
   } catch (error) {
+    if (claimedId && claimUserId) {
+      try {
+        await releaseApprovalClaim(claimedId, claimUserId, 'queue_failed');
+      } catch (releaseError) {
+        console.error('Failed to release approval claim:', releaseError);
+      }
+    }
+
     if (error instanceof Error && error.message.includes('token')) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }

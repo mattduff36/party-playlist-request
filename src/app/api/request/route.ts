@@ -246,43 +246,28 @@ export async function POST(req: NextRequest) {
     if (shouldAutoApprove) {
       const {
         claimRequestForApproval,
+        releaseApprovalClaim,
         createProviderOperation,
         completeProviderOperation,
         classifySpotifyQueueError,
+        shouldAttemptSpotifyQueueAdd,
       } = await import('@/lib/reliability');
-      const claimed = await claimRequestForApproval(newRequest.id, userId);
-      if (claimed) {
-        const opKey = `auto-queue:${newRequest.id}`;
-        const op = await createProviderOperation({
-          userId,
-          eventId,
-          requestId: newRequest.id,
-          operation: 'spotify.add_to_queue',
-          idempotencyKey: opKey,
-        });
-        if (op.status === 'succeeded') {
-          queueSuccess = true;
-          autoApprovedAt = new Date().toISOString();
-          await updateRequest(
-            newRequest.id,
-            {
-              status: 'approved',
-              approved_at: autoApprovedAt,
-              approved_by: 'Auto-Approval System',
-              spotify_added_to_queue: true,
-              provider_operation_id: op.id,
-            },
-            userId
-          );
-        } else {
-          try {
-            console.log(
-              `🎵 [${requestId}] Auto-approved request - adding to Spotify queue for user ${userId}...`
-            );
-            await spotifyService.addToQueue(trackInfo.uri, undefined, userId);
+      let autoClaimHeld = false;
+      try {
+        const claimed = await claimRequestForApproval(newRequest.id, userId);
+        if (claimed) {
+          autoClaimHeld = true;
+          const opKey = `auto-queue:${newRequest.id}`;
+          const op = await createProviderOperation({
+            userId,
+            eventId,
+            requestId: newRequest.id,
+            operation: 'spotify.add_to_queue',
+            idempotencyKey: opKey,
+          });
+          if (op.status === 'succeeded') {
             queueSuccess = true;
             autoApprovedAt = new Date().toISOString();
-            await completeProviderOperation(op.id, 'succeeded');
             await updateRequest(
               newRequest.id,
               {
@@ -291,34 +276,90 @@ export async function POST(req: NextRequest) {
                 approved_by: 'Auto-Approval System',
                 spotify_added_to_queue: true,
                 provider_operation_id: op.id,
+                claim_started_at: null,
               },
               userId
             );
-            console.log(
-              `✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`
-            );
-          } catch (error) {
-            const category = classifySpotifyQueueError(error);
-            const uncertain = category === 'uncertain_timeout';
-            await completeProviderOperation(
-              op.id,
-              uncertain ? 'uncertain' : 'failed',
-              category
-            );
+            autoClaimHeld = false;
+          } else if (!shouldAttemptSpotifyQueueAdd(op.status)) {
+            // PRD-06: uncertain (or other non-retryable) — no second Spotify copy.
             await updateRequest(
               newRequest.id,
               {
                 status: 'queue_failed',
-                queue_error_category: category,
+                queue_error_category:
+                  op.error_category ??
+                  (op.status === 'uncertain' ? 'uncertain_timeout' : op.status),
                 provider_operation_id: op.id,
+                claim_started_at: null,
               },
               userId
             );
-            console.error(
-              `❌ [${requestId}] Auto-approve queue failed (${category}):`,
-              error
-            );
+            autoClaimHeld = false;
+          } else {
+            try {
+              console.log(
+                `🎵 [${requestId}] Auto-approved request - adding to Spotify queue for user ${userId}...`
+              );
+              await spotifyService.addToQueue(trackInfo.uri, undefined, userId);
+              queueSuccess = true;
+              autoApprovedAt = new Date().toISOString();
+              await completeProviderOperation(op.id, 'succeeded');
+              await updateRequest(
+                newRequest.id,
+                {
+                  status: 'approved',
+                  approved_at: autoApprovedAt,
+                  approved_by: 'Auto-Approval System',
+                  spotify_added_to_queue: true,
+                  provider_operation_id: op.id,
+                  claim_started_at: null,
+                },
+                userId
+              );
+              autoClaimHeld = false;
+              console.log(
+                `✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`
+              );
+            } catch (error) {
+              const category = classifySpotifyQueueError(error);
+              const uncertain = category === 'uncertain_timeout';
+              await completeProviderOperation(
+                op.id,
+                uncertain ? 'uncertain' : 'failed',
+                category
+              );
+              await updateRequest(
+                newRequest.id,
+                {
+                  status: 'queue_failed',
+                  queue_error_category: category,
+                  provider_operation_id: op.id,
+                  claim_started_at: null,
+                },
+                userId
+              );
+              autoClaimHeld = false;
+              console.error(
+                `❌ [${requestId}] Auto-approve queue failed (${category}):`,
+                error
+              );
+            }
           }
+        }
+      } catch (autoApproveError) {
+        console.error(
+          `❌ [${requestId}] Auto-approve crashed; releasing claim:`,
+          autoApproveError
+        );
+        if (autoClaimHeld) {
+          await releaseApprovalClaim(
+            newRequest.id,
+            userId,
+            'queue_failed'
+          ).catch((releaseError) => {
+            console.error('Failed to release auto-approve claim:', releaseError);
+          });
         }
       }
     }
