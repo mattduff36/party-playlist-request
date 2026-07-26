@@ -321,3 +321,64 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run test:unit` | Pass — 204 tests |
 | `npm run build` | Pass |
 | Pushed to remote | No (prefer local; production = `main` only) |
+
+## PRD-05: Canonical Database Architecture, Migrations and Quality Gates
+
+| Field | Value |
+| --- | --- |
+| Status | In progress on feature branch (not merged into preview) |
+| Branch | `dev/prd-05-canonical-database-ci-20260726` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Database impact | **Class B applied** — `001`–`006` via `db:migrate:canonical` (idempotent; stamped in `schema_migrations`). No Class C/D. Backup: `snap-odd-dream-abwtma9w`. |
+| Depends on | PRD-01…04 integrated into preview |
+
+### Outcomes (this pass)
+
+| Requirement | Result |
+| --- | --- |
+| Canonical schema documented | Done — `docs/database/canonical-schema.md` (live multi-tenant; keep `events` + `user_events`) |
+| Versioned SQL migration runner | Done — `npm run db:migrate:canonical` (`src/lib/db/migrate/*`) |
+| Reconcile migration history | Done — ordered `001`–`006` including PRD-03/04 Class B copies |
+| Stop request-time DDL | Done — `ensurePlaybackSyncTable` + `initializeCacheTable` verify-only; API still has no `initializeDatabase` |
+| Quarantine conflicting Drizzle 7→4 | Done — `src/lib/db/_quarantine/drizzle-legacy/`; drizzle npm scripts disabled |
+| Fix poll route to live schema | Done — `getPool` + flat `requests` / `spotify_auth` |
+| Centralise pools (partial) | Done — login + superadmin routes use `getPool()`; multi-pool manager deprecated |
+| CI workflow | Done — `.github/workflows/ci.yml` (unit+build hard-fail; type-check/lint visible with continue-on-error) |
+| Remove next.config ignore flags | **Deferred** — documented in `docs/database/QUALITY_GATE_DEBT.md` (~114 TS / ~267 lint errors) |
+| Full repository split | **Deferred** — compatibility `db.ts` + residual `database-service` drizzle event helpers remain |
+| Neon HTTP client consolidation | **Deferred** — `neon-client.ts` still used by some auth routes |
+| Playwright smoke / test:api in CI | **Deferred** |
+
+### DB classification (this branch)
+
+| Change | Class | Action |
+| --- | --- | --- |
+| `001`–`006` canonical SQL (IF NOT EXISTS / ADD COLUMN) | B | **Applied** after dry-run inspect |
+| Stamp `schema_migrations` rows | B | **Applied** (`001`–`006`) |
+| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class D column drops | D | **STOP** — human |
+| Quarantined 7→4 destructive SQL | D/destructive | **DO NOT RUN** |
+
+### Human stops
+
+- Do not apply Class C/D from prior PRDs.
+- Do not run `_quarantine/drizzle-legacy/0001_migrate_7_to_4_tables.sql`.
+- Inspect before `db:migrate:canonical` against production Neon (prefer dry-run / branch first).
+- `TOKEN_ENCRYPTION_KEY_V1` deploy gate from PRD-03 still open.
+
+### Incomplete / follow-ups
+
+- Clear type-check + lint debt; remove `continue-on-error` and next.config ignore flags.
+- Rewrite `database-service` off drizzle multi-pool onto `getPool`.
+- Consolidate `neon-client` call sites onto singleton pool (or document exceptional edge use).
+- Fresh-DB integration test in CI with ephemeral Postgres.
+- README architecture rewrite / MIT licence cleanup (PRD stretch).
+
+### Validation notes (feature branch)
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — 211 tests (incl. PRD-05 migration/DDL guards) |
+| `npm run build` | Pass |
+| Merged into preview | No |
+| Pushed | No |

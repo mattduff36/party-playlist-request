@@ -9,6 +9,12 @@
  * - Graceful shutdown and cleanup
  */
 
+/**
+ * @deprecated PRD-05 — multi-pool manager multiplies serverless connections.
+ * Prefer `getPool()` from `@/lib/db`. Scheduled for removal after database-service
+ * event helpers are rewritten to raw SQL on the singleton pool.
+ */
+
 import { Pool, PoolClient, PoolConfig } from 'pg';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { hashPassword } from '@/lib/auth';
 import { SEED_USERNAMES } from '@/lib/seed-users';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = getPool();
 
 /**
  * GET /api/superadmin/users

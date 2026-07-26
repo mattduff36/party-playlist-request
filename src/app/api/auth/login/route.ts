@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { generateToken, comparePassword, getCookieOptions, verifyToken } from '@/lib/auth';
 import { decideAdminSessionLogin } from '@/lib/admin-session';
 import { reportActivity, reportApiError, getIpHash } from '@/lib/support/withApiLogging';
@@ -10,8 +10,6 @@ import {
   genericAuthRateLimitResponse,
 } from '@/lib/auth/auth-rate-limit';
 import { emitSecurityAudit, newCorrelationId } from '@/lib/auth/security-audit';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 function readCookieSessionId(req: NextRequest): string | null {
   const cookieToken = req.cookies.get('auth_token')?.value;
@@ -119,6 +117,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find user and check for existing session
+    const pool = getPool();
     const result = await pool.query(
       'SELECT id, username, email, password_hash, role, active_session_id, active_session_created_at FROM users WHERE username = $1',
       [username]

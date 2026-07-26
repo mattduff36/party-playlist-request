@@ -114,14 +114,19 @@ export interface EventSettings {
 }
 
 // Database connection
-let pool: Pool;
+let pool: Pool | null = null;
 
+/**
+ * Singleton server-only pg pool (PRD-05 canonical connection strategy).
+ * Prefer this over route-local `new Pool()` or the multi-pool drizzle manager.
+ */
 export function getPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 20,
+      // Conservative serverless default (Neon + Vercel). Override via PG_POOL_MAX.
+      max: Number(process.env.PG_POOL_MAX || 10),
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     });
@@ -129,11 +134,20 @@ export function getPool() {
   return pool;
 }
 
+/** Close the singleton pool (scripts / tests). */
+export async function closePool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
+}
+
 // Initialize database tables
 /**
+ * @deprecated PRD-05 — prefer `npm run db:migrate:canonical`.
  * Schema bootstrap via DDL. Must NOT be called from HTTP request handlers (PRD-01).
- * Schema belongs in migrations (PRD-05). Local/CLI only: set ALLOW_DB_BOOTSTRAP=1
- * and never expose this through an API route.
+ * Local/CLI only: set ALLOW_DB_BOOTSTRAP=1 and never expose this through an API route.
+ * Residual DDL here is a legacy fallback; new schema changes go in migrations/canonical.
  */
 function assertDbBootstrapAllowed(): void {
   if (process.env.ALLOW_DB_BOOTSTRAP === '1') {

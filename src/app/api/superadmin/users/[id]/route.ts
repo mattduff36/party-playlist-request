@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { hashPassword } from '@/lib/auth';
 import {
@@ -7,7 +7,7 @@ import {
   sendAccountRejectedEmail,
 } from '@/lib/email/email-service';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = getPool();
 
 /**
  * GET /api/superadmin/users/[id]
