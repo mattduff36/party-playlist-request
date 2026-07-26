@@ -238,3 +238,67 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 - **Class B:** Already applied on Neon (`add_spotify_token_encryption.sql`); columns/indexes verified. Backup `snap-odd-dream-abwtma9w`.
 - **Class C:** 8 candidate plaintext rows — **AWAITING human approval** — do not backfill.
 - **Class D:** Drop plaintext token columns — **deferred**.
+
+## PRD-04: Tenant / Guest / Display / Realtime Isolation
+
+| Field | Value |
+| --- | --- |
+| Status | Implemented on feature branch (not merged into preview) |
+| Branch | `dev/prd-04-tenant-realtime-isolation-20260726` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (base; do not merge yet) |
+| Database impact | **Class B applied** to Neon (`add_prd04_token_hash_columns.sql`). Backup: `snap-odd-dream-abwtma9w`. **Class C:** backfill hashes from plaintext — AWAITING human. **Class D:** drop plaintext — deferred. |
+| Depends on | PRD-02 + PRD-03 integrated into preview |
+
+### Outcomes
+
+| Requirement | Result |
+| --- | --- |
+| Explicit channel allowlist + ownership auth | Done — `channel-contract.ts` + hardened `/api/pusher/auth` |
+| Guest cannot auth admin/display channels | Done — guest proof only for guest/legacy party channels |
+| Display channel requires display session | Done — `pp_display_access` cookie after atomic token consume |
+| Migrate off public `event-{id}` with dual-publish | Done — **public dual-publish removed**; publish to `private-event-{id}-guest` + `private-event-{id}-display` only |
+| Presence channels default-deny | Done — `/api/pusher/auth` returns 403 for `presence-*` (no anonymous authorize) |
+| Display token client path (`?dt=`) | Done — `DisplayAuthGate` → `verify-display-token` → `pp_display_access` → `display-session` → private display channel |
+| Gate `/api/users/lookup` UUID disclosure | Done — `410 USER_LOOKUP_RETIRED`; clients use `/api/events/guest-session` |
+| Event-access policy service | Done — `event-access-policy.ts` (+ guest-session / display-session / pusher proofs) |
+| Atomic display-token use | Done — `UPDATE … WHERE uses_remaining > 0 … RETURNING` |
+| Hash/HMAC access codes & tokens (expand-and-contract) | Done — dual-verify; plaintext only when hash null/empty (no fallthrough if hash present; matches display-token SQL incl. reset-password / verify-email); `verifyAccessCode` fails closed (no plaintext SQL catch fallback); plaintext columns retained (no Class D drop) |
+| Tenant-scoped request repos | Done — required `userId`; allowlisted `updateRequest` fields; hardened deprecated `getRequestsByStatusOld` / `database-service.updateRequestStatus` |
+| Negative cross-tenant tests | Done — `tests/security/prd-04-tenant-realtime-isolation.spec.ts` |
+| Legacy display 410 | Already from PRD-01 (unchanged) |
+
+### Migration status (Neon)
+
+| Field | Value |
+| --- | --- |
+| Class B applied | **YES** (`access_code_hmac`, `bypass_token_hash`, `display_tokens.token_hash`/`token_prefix`, `password_reset_tokens.token_hash`, `users.email_verification_token_hash`) |
+| Columns verified present | **YES** |
+| Backup | `snap-odd-dream-abwtma9w` |
+| Class C backfill | **AWAITING human approval** — not run |
+| Class D drop plaintext | **Deferred** |
+
+### Human stops
+
+- **Class C:** Do not backfill existing plaintext codes/tokens into hash columns without approval.
+- **Class D:** Do not drop plaintext `pin` / `access_code` / `bypass_token` / `token` / reset / email-verify columns.
+- Optional env: `ACCESS_CODE_HMAC_SECRET` (falls back to `JWT_SECRET`).
+
+### Incomplete / follow-ups
+
+- Legacy `private-party-playlist-{userId}` still authorised for guest+owner during migration.
+- Canonical `private-user-{userId}-admin` parsed/allowed but clients still use `private-admin-updates-{userId}`.
+- Guest cookie still embeds access code (httpOnly JWT) for dual-verify until opaque guest sessions.
+- Access-code display path still uses guest private channel (not display channel); display-token `?dt=` path uses display channel.
+- Username-only `/api/public/event-config` still returns entry-page config (titles/messages) without guest proof — limited public status; request lists remain guest-gated.
+- `/api/events/public-status` still returns `event.id` for hydration; safe only because public `event-{id}` publish is gone.
+- Concurrent display-token race covered by atomic SQL; no dedicated multi-worker integration race test.
+- Not merged into preview yet.
+
+### Validation notes (feature branch)
+
+| Command | Result |
+| --- | --- |
+| `npm run test:unit` | Pass — reset/email-verify hash-present deny + verifyAccessCode fail-closed |
+| `npm run build` | Pass |
+| Merged into preview | No |
+| Pushed | No |

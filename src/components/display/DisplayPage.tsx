@@ -10,10 +10,13 @@ import QrPanel from './QrPanel';
 import ScrollingBar from './ScrollingBar';
 import MessageOverlay from './MessageOverlay';
 import { useDisplayData } from './useDisplayData';
+import type { DisplayRealtimeMode } from './DisplayAuthGate';
 
 interface DisplayPageProps {
   username: string;
   accessCode?: string;
+  eventId?: string;
+  realtimeMode?: DisplayRealtimeMode;
 }
 
 interface StatusDotsProps {
@@ -45,7 +48,12 @@ function StatusDots({ isConnected, connectionState, spotifyConnected }: StatusDo
 }
 
 // Main display page component with ALL original animations preserved
-export default function DisplayPage({ username, accessCode }: DisplayPageProps) {
+export default function DisplayPage({
+  username,
+  accessCode,
+  eventId,
+  realtimeMode = 'guest',
+}: DisplayPageProps) {
   const {
     currentTrack,
     upcomingSongs,
@@ -71,7 +79,7 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
     dynamicDuration,
     messageTextColor,
     spotifyConnected,
-  } = useDisplayData({ username, accessCode });
+  } = useDisplayData({ username, accessCode, eventId, realtimeMode });
 
   // Show loading state while mounting, waiting for global state, or server mood
   const isLoadingEssentialData = !mounted || globalState.isLoading || !moodConfirmed;

@@ -40,6 +40,7 @@ const config: Config = {
       transform: sharedTransform,
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
+        '^server-only$': '<rootDir>/config/jest/server-only-mock.js',
       },
       setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
     },
@@ -51,6 +52,7 @@ const config: Config = {
       transform: sharedTransform,
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
+        '^server-only$': '<rootDir>/config/jest/server-only-mock.js',
         '\\.(css|less|scss|sass)$': '<rootDir>/config/jest/style-mock.js',
       },
       setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],

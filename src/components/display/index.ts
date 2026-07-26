@@ -13,6 +13,10 @@ export type {
 } from './types';
 
 export { default as DisplayAuthGate } from './DisplayAuthGate';
+export type {
+  DisplayAuthContext,
+  DisplayRealtimeMode,
+} from './DisplayAuthGate';
 export { default as DisplayPage } from './DisplayPage';
 export { default as NowPlayingPanel } from './NowPlayingPanel';
 export { default as QueuePanel } from './QueuePanel';

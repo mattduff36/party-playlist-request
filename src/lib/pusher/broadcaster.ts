@@ -10,8 +10,8 @@ import {
   PusherEvent, 
   generateEventId, 
   generateEventVersion,
-  getEventChannel 
 } from './events';
+import { getEventRealtimePublishChannels } from './channel-contract';
 import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 
 function createBroadcasterPusher(): Pusher {
@@ -152,11 +152,11 @@ class EventBroadcaster {
   // Process a batch of events
   private async processBatch(batch: QueuedEvent[], eventId: string): Promise<void> {
     try {
-      const channelName = getEventChannel(eventId);
-      
-      // Send events individually for better error handling
-      const promises = batch.map(queuedEvent => 
-        this.sendEvent(queuedEvent.event, channelName, queuedEvent)
+      // Private guest + display only — public event-{id} dual-publish removed (PRD-04)
+      const channels = getEventRealtimePublishChannels(eventId);
+
+      const promises = batch.map((queuedEvent) =>
+        this.sendEventToPrivateChannels(queuedEvent.event, channels, queuedEvent)
       );
 
       await Promise.allSettled(promises);
@@ -176,29 +176,29 @@ class EventBroadcaster {
     }
   }
 
-  // Send individual event
-  private async sendEvent(event: PusherEvent, channelName: string, queuedEvent: QueuedEvent): Promise<void> {
+  // Publish to private guest + display channels only
+  private async sendEventToPrivateChannels(
+    event: PusherEvent,
+    channelNames: string[],
+    queuedEvent: QueuedEvent
+  ): Promise<void> {
     try {
-      // Compress large events
       const payload = this.compressEvent(event);
-      
-      await getBroadcasterPusher().trigger(channelName, 'event', payload);
-      
+      await Promise.all(
+        channelNames.map((channelName) =>
+          getBroadcasterPusher().trigger(channelName, 'event', payload)
+        )
+      );
       console.log(`📡 Event broadcasted: ${event.action}`, event.id);
       queuedEvent.resolve(event);
     } catch (error) {
       console.error(`❌ Failed to broadcast event ${event.action}:`, error);
-      
-      // Retry logic
       if (queuedEvent.retries < this.config.maxRetries) {
         queuedEvent.retries++;
-        console.log(`🔄 Retrying event ${event.action} (attempt ${queuedEvent.retries})`);
-        
         setTimeout(() => {
-          this.sendEvent(event, channelName, queuedEvent);
+          void this.sendEventToPrivateChannels(event, channelNames, queuedEvent);
         }, this.config.retryDelay * queuedEvent.retries);
       } else {
-        console.error(`💥 Max retries reached for event ${event.action}`);
         queuedEvent.reject(error);
       }
     }

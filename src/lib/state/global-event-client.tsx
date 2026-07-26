@@ -636,50 +636,82 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
       try {
         let userId: string | null = null;
 
-        // Public display/request: ALWAYS resolve owner from URL username
-        // (same as usePusher) so a logged-in admin cookie cannot bind the wrong channel.
+        let channelName: string | null = null;
+
+        // Public display/request: private event channels only (no public event-{id})
         if (publicUsername) {
-          console.log(
-            `🌐 [GlobalEventProvider] Public page — lookup userId for: ${publicUsername}`
-          );
-          const userLookupResponse = await fetch(
-            `/api/users/lookup?username=${encodeURIComponent(publicUsername)}`
-          );
-          if (userLookupResponse.ok) {
-            const lookupData = await userLookupResponse.json();
-            userId = lookupData.userId;
+          const isDisplayPath = pathname.includes('/display');
+          if (isDisplayPath) {
+            console.log(
+              `🌐 [GlobalEventProvider] Display page — display-session for: ${publicUsername}`
+            );
+            const displayResponse = await fetch('/api/events/display-session', {
+              credentials: 'include',
+            });
+            if (displayResponse.ok) {
+              const displayData = await displayResponse.json();
+              if (displayData.eventId) {
+                const { getDisplayEventChannel } = await import(
+                  '@/lib/pusher/channel-contract'
+                );
+                channelName = getDisplayEventChannel(displayData.eventId);
+              }
+            }
+          }
+
+          if (!channelName) {
+            console.log(
+              `🌐 [GlobalEventProvider] Public page — guest-session for: ${publicUsername}`
+            );
+            const guestResponse = await fetch('/api/events/guest-session', {
+              credentials: 'include',
+            });
+            if (guestResponse.ok) {
+              const guestData = await guestResponse.json();
+              if (guestData.eventId) {
+                const { getGuestEventChannel } = await import(
+                  '@/lib/pusher/channel-contract'
+                );
+                channelName = getGuestEventChannel(guestData.eventId);
+              }
+            }
           }
         }
 
-        // Admin / non-public: use authenticated session
-        if (!userId) {
+        // Admin / non-public: authenticated session → legacy user channel
+        if (!channelName) {
           const authResponse = await fetch('/api/auth/me', {
             credentials: 'include',
           });
           if (authResponse.ok) {
             const authData = await authResponse.json();
             userId = authData.user?.id;
+            if (userId) {
+              const { getUserChannel } = await import(
+                '@/lib/pusher/client-shared'
+              );
+              channelName = getUserChannel(userId);
+            }
           }
         }
 
         if (cancelled) return;
 
-        if (!userId) {
-          console.warn('⚠️ [GlobalEventProvider] No userId found, skipping Pusher setup');
+        if (!channelName) {
+          console.warn(
+            '⚠️ [GlobalEventProvider] No Pusher channel resolved, skipping setup'
+          );
           return;
         }
 
-        console.log(`📡 [GlobalEventProvider] Setting up Pusher for user ${userId}`);
+        console.log(`📡 [GlobalEventProvider] Setting up Pusher on ${channelName}`);
 
-        // Same client/cluster defaults as usePusher (us2), not a divergent 'eu' fallback
-        const { createPusherClient, getUserChannel } = await import('@/lib/pusher');
+        const { createPusherClient } = await import(
+          '@/lib/pusher/client-shared'
+        );
         pusherInstance = createPusherClient();
 
-        const userChannel = getUserChannel(userId);
-        console.log(
-          `📡 [GlobalEventProvider] Subscribing to user-specific channel: ${userChannel}`
-        );
-        channelInstance = pusherInstance.subscribe(userChannel);
+        channelInstance = pusherInstance.subscribe(channelName);
 
         channelInstance.bind('state-update', (data: Record<string, unknown>) => {
           console.log(

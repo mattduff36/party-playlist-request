@@ -15,7 +15,7 @@ import {
   RequestRejectedEvent,
   RequestSubmittedEvent,
   RequestDeletedEvent,
-} from '@/lib/pusher';
+} from '@/lib/pusher/client-shared';
 import { formatArtists } from '@/lib/format-artists';
 import type { DisplayMood } from '@/styles/theme';
 import {

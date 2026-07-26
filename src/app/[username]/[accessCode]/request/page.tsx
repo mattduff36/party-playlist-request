@@ -173,9 +173,9 @@ export default function UserRequestPage() {
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
-  // Listen for request updates via Pusher
+  // Listen for request updates via Pusher (event-scoped guest channel after cookie)
   usePusher({
-    username: username, // Pass username for userId lookup on public pages
+    username: username,
     onPageControlToggle: (data: {
       pagesEnabled?: { requests?: boolean; display?: boolean };
       page?: 'requests' | 'display';

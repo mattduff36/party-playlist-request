@@ -9,6 +9,7 @@ import {
   hashLimiterId,
   genericAuthRateLimitResponse,
 } from '@/lib/auth/auth-rate-limit';
+import { hashOpaqueToken } from '@/lib/crypto/secret-hashes';
 
 /**
  * POST /api/auth/register
@@ -110,34 +111,63 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Generate email verification token (32 bytes = 64 hex characters)
+    // Generate email verification token; dual-write hash (Class B)
     const verificationToken = randomBytes(32).toString('hex');
+    const verificationTokenHash = hashOpaqueToken(verificationToken);
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Create user
-    const result = await sql`
-      INSERT INTO users (
-        username, 
-        email, 
-        password_hash, 
-        account_status, 
-        email_verified,
-        email_verification_token,
-        email_verification_expires,
-        role
-      )
-      VALUES (
-        ${username.toLowerCase()}, 
-        ${email.toLowerCase()}, 
-        ${passwordHash}, 
-        'pending',
-        false,
-        ${verificationToken},
-        ${verificationExpires.toISOString()},
-        'user'
-      )
-      RETURNING id, username, email, created_at
-    `;
+    let result;
+    try {
+      result = await sql`
+        INSERT INTO users (
+          username, 
+          email, 
+          password_hash, 
+          account_status, 
+          email_verified,
+          email_verification_token,
+          email_verification_token_hash,
+          email_verification_expires,
+          role
+        )
+        VALUES (
+          ${username.toLowerCase()}, 
+          ${email.toLowerCase()}, 
+          ${passwordHash}, 
+          'pending',
+          false,
+          ${verificationToken},
+          ${verificationTokenHash},
+          ${verificationExpires.toISOString()},
+          'user'
+        )
+        RETURNING id, username, email, created_at
+      `;
+    } catch {
+      result = await sql`
+        INSERT INTO users (
+          username, 
+          email, 
+          password_hash, 
+          account_status, 
+          email_verified,
+          email_verification_token,
+          email_verification_expires,
+          role
+        )
+        VALUES (
+          ${username.toLowerCase()}, 
+          ${email.toLowerCase()}, 
+          ${passwordHash}, 
+          'pending',
+          false,
+          ${verificationToken},
+          ${verificationExpires.toISOString()},
+          'user'
+        )
+        RETURNING id, username, email, created_at
+      `;
+    }
 
     const newUser = result[0];
 

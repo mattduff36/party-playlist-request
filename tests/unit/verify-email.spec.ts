@@ -2,6 +2,8 @@
  * Email verification API — pin-required event create + idempotent verify
  */
 
+import { hashOpaqueToken } from '@/lib/crypto/secret-hashes';
+
 const sendWelcomeEmail = jest.fn().mockResolvedValue({ success: true });
 const generateAccessCode = jest.fn().mockReturnValue('482913');
 
@@ -155,5 +157,45 @@ describe('POST /api/auth/verify-email', () => {
     expect(data.success).toBe(true);
     expect(data.alreadyVerified).toBe(true);
     expect(sendWelcomeEmail).not.toHaveBeenCalled();
+  });
+
+  it('hash present ⇒ diverged plaintext denied', async () => {
+    const realToken = 'e'.repeat(64);
+    const divergedPlain = 'x'.repeat(64);
+    const storedHash = hashOpaqueToken(realToken);
+
+    const { sql, calls } = createSqlMock([
+      (call) => {
+        const sqlText = call.strings.join(' ');
+        expect(sqlText).toMatch(/email_verification_token_hash IS NULL/i);
+        const presentedHash = String(call.values[0]);
+        // Row has hash; plaintext column diverged — only hash may authenticate
+        if (presentedHash === storedHash) {
+          return [
+            {
+              id: '44444444-4444-4444-4444-444444444444',
+              username: 'hashdj',
+              email: 'hash@example.com',
+              account_status: 'pending',
+              email_verified: false,
+              email_verification_expires: new Date(
+                Date.now() + 60_000
+              ).toISOString(),
+            },
+          ];
+        }
+        return [];
+      },
+    ]);
+
+    const POST = await loadPost(sql);
+    const response = await POST(postRequest(divergedPlain));
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toMatch(/invalid verification token/i);
+    expect(calls).toHaveLength(1);
+    expect(String(calls[0].values[0])).toBe(hashOpaqueToken(divergedPlain));
+    expect(String(calls[0].values[0])).not.toBe(storedHash);
   });
 });
