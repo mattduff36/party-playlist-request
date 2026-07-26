@@ -6,6 +6,7 @@ import { useAdminData } from '@/contexts/AdminDataContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import Checkbox from '@/components/ui/Checkbox';
+import PartyPassPanel from '@/components/payments/PartyPassPanel';
 
 export default function SettingsPage() {
   const { eventSettings, loading, updateEventSettings } = useAdminData();
@@ -213,6 +214,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-elevated rounded-lg p-6">
+        <PartyPassPanel compact />
+      </div>
+
       <div className="bg-elevated rounded-lg p-6">
         <h2 className="text-2xl font-bold text-bone mb-6">Event Settings</h2>
         

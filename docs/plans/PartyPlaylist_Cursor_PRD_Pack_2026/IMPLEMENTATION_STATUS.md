@@ -657,3 +657,79 @@ Database impact: **none** (no migrations, no DB writes from this change set).
 | `npm run test:unit` | Pass |
 | `npm run build` | Pass |
 | Pushed to remote | No (prefer local; production = `main` only) |
+
+## PRD-09: £19.99 Party Pass Payments, Entitlements and Commercial Launch Controls
+
+| Field | Value |
+| --- | --- |
+| Status | Implemented on feature branch (not merged into preview) |
+| Branch | `dev/prd-09-party-pass-payments` |
+| Preview branch | `preview/partyplaylist-prd-program-2026` (do not merge yet) |
+| Database impact | **Class B applied** — `011_prd09_party_pass_payments` after write-free dry-run. Adds `stripe_customers`, `party_pass_purchases`, `party_pass_entitlements`, `stripe_webhook_events`, `party_pass_audit`, `party_pass_funnel_events`. **No Class C/D.** Backup: `snap-odd-dream-abwtma9w`. |
+| Depends on | PRD-08 integrated into preview (`5f65b49`) |
+
+### Outcomes (this pass)
+
+| Requirement | Result |
+| --- | --- |
+| Server-side Stripe Checkout (£19.99 GBP) | Done — price via server `price_data` / optional `STRIPE_PARTY_PASS_PRICE_ID`; client price/user/duration ignored |
+| Webhook signature + idempotency | Done — raw body verify; unique `stripe_event_id` ledger; failed rows retryable |
+| Webhook amount/currency gate | Done — `checkout.session.completed` requires `currency=gbp` and `amount_total` = catalogue (`partyPassAmountPence`) or stored purchase amount; rejects `no_payment_required`; binds/verifies `stripe_checkout_session_id`; mismatches logged as `ignored` (no entitlement, no Stripe retry storm) |
+| Purchase ≠ activated; activate starts 30d | Done — entitlement `purchased` until explicit `/api/payments/activate` with `confirm: true` |
+| Feature flag / production disable | Done — requires `PARTY_PASS_CHECKOUT_ENABLED=1` + `sk_test_*`; live keys refused |
+| Refund / dispute safe handling | Done — webhook marks purchase + entitlement `refunded` / `disputed` |
+| Expiry enforcement | Done — opportunistic expire + activation gate via `assertCanActivatePaidEvent` |
+| Activation + purchase UI | Done — `/pricing`, `/account/party-pass`, admin settings card + nav |
+| Payment security tests | Done — `tests/unit/prd-09-*.spec.ts` + `tests/security/prd-09-*.spec.ts` (incl. duplicate `stripe_event_id` no-op, amount mismatch reject, signature required) |
+| Unified gate with beta grants | Done — event start uses Party Pass **or** PRD-08 beta entitlement |
+
+### DB classification
+
+| Change | Class | Action |
+| --- | --- | --- |
+| `011` CREATE payment/entitlement/webhook/audit/funnel tables | B | **Applied** on Neon after dry-run (`schema_migrations.id=011_prd09_party_pass_payments`) |
+| Class C secret backfills (PRD-03/04) | C | **STOP** — human |
+| Class D column drops | D | **STOP** — human |
+
+### Stripe env presence (names only — local `.env.local` at implement time)
+
+| Variable | Present |
+| --- | --- |
+| `STRIPE_SECRET_KEY` | NO |
+| `STRIPE_WEBHOOK_SECRET` | NO |
+| `STRIPE_PUBLISHABLE_KEY` | NO |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | NO |
+| `STRIPE_PARTY_PASS_PRICE_ID` / `STRIPE_PRICE_ID` | NO |
+| `PARTY_PASS_CHECKOUT_ENABLED` | NO |
+
+Checklist: `docs/plans/PartyPlaylist_Cursor_PRD_Pack_2026/PRD-09-ENV-CHECKLIST.md`
+
+### Human stops
+
+- **Credentials:** Stripe test keys + webhook secret required before end-to-end Checkout rehearsal (code complete; checkout stays disabled without flag + `sk_test_*`).
+- Do not apply Class C/D from prior PRDs.
+- Do not merge PRD-09 into preview until programme asks.
+- Do not push until explicitly instructed.
+- Do not enable `PARTY_PASS_CHECKOUT_ENABLED=1` on production until Spotify/manual hard gates + reviewed legal copy.
+- Live Stripe keys are refused in this build (test mode only).
+
+### Incomplete / follow-ups
+
+- End-to-end Stripe test-mode checkout rehearsal blocked on human credentials.
+- Stripe Customer Portal requires portal configuration in Stripe Dashboard.
+- Full Playwright purchase→activate→event flow deferred.
+- VAT/tax determination out of scope (non-goal).
+- Subscription / Party Plus tiers out of scope (non-goal).
+
+### Validation notes (feature branch)
+
+| Command | Result |
+| --- | --- |
+| `npm run db:migrate:canonical:dry` | Pending `011` reported |
+| `npm run db:migrate:canonical` | Applied `011` |
+| `npm run type-check` | Pass |
+| `npm run lint` | Pass (0 errors; warnings remain) |
+| `npm run test:unit` | Pass — 296 tests (incl. PRD-09 amount/currency gate + idempotency) |
+| `npm run build` | Pass |
+| Merged into preview | No |
+| Pushed | No |

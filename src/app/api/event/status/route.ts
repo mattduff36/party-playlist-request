@@ -192,20 +192,27 @@ export async function POST(req: NextRequest) {
       currentEvent.status === 'offline' &&
       (status === 'standby' || status === 'live');
 
-    // PRD-08: beta entitlement gates activation (not history reads / offline).
+    // PRD-08/09: Party Pass or beta entitlement gates activation (not history / offline).
     if (startingNewEvent) {
-      const { assertCanActivateEvent } = await import('@/lib/beta/entitlement');
-      const entitlement = await assertCanActivateEvent({
+      const { assertCanActivatePaidEvent } = await import(
+        '@/lib/payments/entitlement'
+      );
+      const entitlement = await assertCanActivatePaidEvent({
         userId,
         isSuperAdmin: auth.user.role === 'superadmin',
       });
       if (!entitlement.allowed) {
+        const needsActivation = entitlement.reason === 'unactivated';
         return NextResponse.json(
           {
-            error:
-              'Beta entitlement required to activate an event. Ask a super-admin for a time-limited beta grant.',
-            code: 'BETA_ENTITLEMENT_REQUIRED',
+            error: needsActivation
+              ? 'Activate your Party Pass before starting an event. Purchase alone does not start the 30-day window.'
+              : 'A Party Pass or beta entitlement is required to activate an event.',
+            code: needsActivation
+              ? 'PARTY_PASS_ACTIVATION_REQUIRED'
+              : 'ENTITLEMENT_REQUIRED',
             reason: entitlement.reason,
+            source: entitlement.source,
           },
           { status: 403 }
         );

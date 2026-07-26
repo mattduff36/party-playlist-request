@@ -86,4 +86,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     description:
       'PRD-08 lifecycle/readiness fields, guardrail settings, beta entitlements, legal_pages, observation checklists',
   },
+  {
+    id: '011_prd09_party_pass_payments',
+    file: '011_prd09_party_pass_payments.sql',
+    classification: 'B',
+    description:
+      'PRD-09 Party Pass purchases, entitlements, Stripe customer/webhook ledger, audit + funnel (no card data)',
+  },
 ];
