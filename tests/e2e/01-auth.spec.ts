@@ -31,7 +31,8 @@ test.describe('Authentication', () => {
   });
 
   test('logs out', async ({ page }) => {
-    await loginAs(page, TEST_USERS.testuser1.username, TEST_USERS.testuser1.password);
+    // Use testuser2 so logout's event-offline side effect does not break later admin e2e for testuser1
+    await loginAs(page, TEST_USERS.testuser2.username, TEST_USERS.testuser2.password);
     // Prefer the visible header control (desktop/mobile both use title="Logout").
     await page.locator('button[title="Logout"]').locator('visible=true').first().click();
     const confirm = page.getByRole('button', { name: /^Logout$/i }).last();

@@ -40,23 +40,29 @@ export default function NowPlayingPanel({
     return (
       <div
         ref={nowPlayingRef}
-        className="mood-panel p-6 flex flex-col justify-center min-w-0"
+        className="mood-panel p-6 flex flex-col justify-center min-h-0 min-w-0 h-full overflow-hidden"
         style={style}
       >
-        <NowPlayingHeading className="text-2xl mb-6" iconClassName="h-6 w-6" />
+        <NowPlayingHeading className="text-2xl mb-6 flex-shrink-0" iconClassName="h-6 w-6" />
         {currentTrack ? (
           useHorizontalLayout ? (
             // Horizontal layout: Album art left, details right (centered)
-            <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto">
+            <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto min-h-0 max-h-full overflow-hidden">
               {currentTrack.image_url && (
                 <img
                   src={currentTrack.image_url}
                   alt="Album Art"
-                  className="rounded-lg shadow-lg"
-                  style={{ width: '300px', height: '300px', objectFit: 'cover' }}
+                  className="rounded-lg shadow-lg shrink-0"
+                  style={{
+                    width: 'min(300px, 40%)',
+                    height: 'auto',
+                    maxHeight: '100%',
+                    aspectRatio: '1/1',
+                    objectFit: 'cover',
+                  }}
                 />
               )}
-              <div className="text-left" style={{ width: '300px' }}>
+              <div className="text-left min-w-0" style={{ width: 'min(300px, 45%)' }}>
                 <h3 className="text-4xl font-bold mb-4 leading-tight">{currentTrack.name}</h3>
                 <p className="text-2xl text-[color:var(--mood-muted)] mb-3">
                   {currentTrack.artists && currentTrack.artists.length > 0
@@ -68,12 +74,12 @@ export default function NowPlayingPanel({
             </div>
           ) : (
             // Vertical layout: Centered
-            <div className="text-center">
+            <div className="text-center min-h-0 overflow-hidden">
               {currentTrack.image_url && (
                 <img
                   src={currentTrack.image_url}
                   alt="Album Art"
-                  className="w-40 h-40 mx-auto rounded-lg shadow-lg mb-6"
+                  className="w-40 h-40 max-h-[40%] mx-auto rounded-lg shadow-lg mb-6 object-cover"
                 />
               )}
               <h3 className="text-2xl font-bold mb-3 leading-tight">{currentTrack.name}</h3>
@@ -95,7 +101,7 @@ export default function NowPlayingPanel({
   if (variant === 'tablet-landscape') {
     return (
       <div
-        className="mood-panel p-4 flex flex-col justify-center min-w-0"
+        className="mood-panel p-4 flex flex-col justify-center min-h-0 min-w-0 h-full overflow-hidden"
         style={style}
       >
         <NowPlayingHeading className="text-lg mb-3" iconClassName="h-4 w-4" />
@@ -153,7 +159,7 @@ export default function NowPlayingPanel({
   if (variant === 'mobile-landscape') {
     return (
       <div
-        className="mood-panel p-2 flex flex-col justify-center min-w-0"
+        className="mood-panel p-2 flex flex-col justify-center min-h-0 min-w-0 h-full overflow-hidden"
         style={style}
       >
         <NowPlayingHeading className="text-xs mb-2" iconClassName="h-3 w-3" />

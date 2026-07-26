@@ -108,12 +108,12 @@ export default function QueuePanel({
 
   if (variant === 'tv') {
     return (
-      <div className="flex flex-col min-h-0 min-w-0" style={style}>
+      <div className="flex flex-col min-h-0 min-w-0 overflow-hidden h-full" style={style}>
         {upcomingSongs.length > 0 ? (
-          <div className="mood-panel p-6 flex flex-col h-full min-h-0 relative">
+          <div className="mood-panel p-6 flex flex-col h-full min-h-0 overflow-hidden relative">
             <UpNextHeading className="text-3xl mb-6 flex-shrink-0" iconClassName="h-7 w-7" />
             <div
-              className="space-y-3 overflow-y-auto flex-1 min-h-0 scrollbar-hide relative"
+              className="space-y-3 overflow-y-auto overflow-x-hidden flex-1 min-h-0 scrollbar-hide relative"
               data-up-next-container
             >
               {upcomingSongs.map((song, index) => {
@@ -140,7 +140,7 @@ export default function QueuePanel({
             </div>
           </div>
         ) : (
-          <div className="mood-panel p-6 flex flex-col h-full min-h-0 items-center justify-center">
+          <div className="mood-panel p-6 flex flex-col h-full min-h-0 overflow-hidden items-center justify-center">
             <div className="text-center text-[color:var(--mood-muted)] text-xl">No upcoming songs in queue</div>
           </div>
         )}
@@ -150,12 +150,12 @@ export default function QueuePanel({
 
   if (variant === 'tablet-landscape') {
     return (
-      <div className="flex flex-col min-h-0 min-w-0" style={style}>
+      <div className="flex flex-col min-h-0 min-w-0 overflow-hidden h-full" style={style}>
         {upcomingSongs.length > 0 ? (
-          <div className="mood-panel p-4 flex flex-col h-full min-h-0 relative">
+          <div className="mood-panel p-4 flex flex-col h-full min-h-0 overflow-hidden relative">
             <UpNextHeading className="text-xl mb-4 flex-shrink-0" iconClassName="h-5 w-5" />
             <div
-              className="space-y-2 overflow-y-auto flex-1 min-h-0 scrollbar-hide"
+              className="space-y-2 overflow-y-auto overflow-x-hidden flex-1 min-h-0 scrollbar-hide"
               data-up-next-container
             >
               {upcomingSongs.map((song, index) => (
@@ -176,7 +176,7 @@ export default function QueuePanel({
             </div>
           </div>
         ) : (
-          <div className="mood-panel p-4 flex flex-col h-full min-h-0 items-center justify-center">
+          <div className="mood-panel p-4 flex flex-col h-full min-h-0 overflow-hidden items-center justify-center">
             <p className="text-[color:var(--mood-muted)] text-center text-base">No upcoming songs in queue</p>
           </div>
         )}
@@ -186,10 +186,10 @@ export default function QueuePanel({
 
   if (variant === 'tablet-portrait') {
     return (
-      <div className="mood-panel p-4 flex-1 min-h-0 overflow-hidden mb-4 relative">
-        <UpNextHeading className="text-xl mb-3 justify-start" iconClassName="h-5 w-5" />
+      <div className="mood-panel p-4 flex-1 min-h-0 overflow-hidden relative flex flex-col">
+        <UpNextHeading className="text-xl mb-3 justify-start flex-shrink-0" iconClassName="h-5 w-5" />
         {upcomingSongs.length > 0 ? (
-          <div className="space-y-2 overflow-y-auto h-full scrollbar-hide">
+          <div className="space-y-2 overflow-y-auto flex-1 min-h-0 scrollbar-hide">
             {upcomingSongs.map((song, index) => (
               <QueueSongRow
                 key={`${song.uri || 'unknown'}-${index}`}
@@ -216,11 +216,11 @@ export default function QueuePanel({
 
   if (variant === 'mobile-landscape') {
     return (
-      <div className="flex flex-col min-h-0 min-w-0" style={style}>
+      <div className="flex flex-col min-h-0 min-w-0 overflow-hidden h-full" style={style}>
         {upcomingSongs.length > 0 ? (
-          <div className="mood-panel p-2 h-full relative">
-            <UpNextHeading className="text-sm mb-2" iconClassName="h-3.5 w-3.5" />
-            <div className="space-y-1 overflow-y-auto h-full scrollbar-hide">
+          <div className="mood-panel p-2 h-full min-h-0 overflow-hidden relative flex flex-col">
+            <UpNextHeading className="text-sm mb-2 flex-shrink-0" iconClassName="h-3.5 w-3.5" />
+            <div className="space-y-1 overflow-y-auto flex-1 min-h-0 scrollbar-hide">
               {upcomingSongs.map((song, index) => (
                 <QueueSongRow
                   key={`${song.uri || 'unknown'}-${index}`}
@@ -239,7 +239,7 @@ export default function QueuePanel({
             </div>
           </div>
         ) : (
-          <div className="mood-panel p-2 h-full flex items-center justify-center">
+          <div className="mood-panel p-2 h-full min-h-0 overflow-hidden flex items-center justify-center">
             <p className="text-[color:var(--mood-muted)] text-center text-xs">No upcoming songs in queue</p>
           </div>
         )}
@@ -249,10 +249,10 @@ export default function QueuePanel({
 
   // mobile-portrait
   return (
-    <div className="mood-panel p-3 flex-1 min-h-0 overflow-hidden mb-3 relative">
-      <UpNextHeading className="text-base mb-2 justify-start" iconClassName="h-4 w-4" />
+    <div className="mood-panel p-3 flex-1 min-h-0 overflow-hidden relative flex flex-col">
+      <UpNextHeading className="text-base mb-2 justify-start flex-shrink-0" iconClassName="h-4 w-4" />
       {upcomingSongs.length > 0 ? (
-        <div className="space-y-2 overflow-y-auto h-full scrollbar-hide">
+        <div className="space-y-2 overflow-y-auto flex-1 min-h-0 scrollbar-hide">
           {upcomingSongs.map((song, index) => (
             <QueueSongRow
               key={`${song.uri || 'unknown'}-${index}`}

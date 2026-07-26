@@ -7,6 +7,7 @@ import { validateRequesterName } from '@/lib/profanity-filter';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { requireGuestAccess } from '@/lib/guest-access';
+import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
 
 export async function POST(req: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -159,12 +160,15 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    const albumImageUrl = getTrackAlbumImageUrl(trackInfo) || null;
+
     console.log(`💾 [${requestId}] Creating database request with status: ${initialStatus}...`);
     const newRequest = await createRequest({
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
       artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
       album_name: trackInfo.album?.name || 'Unknown Album',
+      album_image_url: albumImageUrl,
       duration_ms: trackInfo.duration_ms,
       requester_ip_hash: ipHash,
       requester_nickname: validatedNickname,
@@ -205,6 +209,7 @@ export async function POST(req: NextRequest) {
           track_name: trackInfo.name,
           artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
+          album_image_url: albumImageUrl,
           track_uri: trackInfo.uri,
           requester_nickname: validatedNickname || 'Anonymous',
           submitted_at: new Date().toISOString(),

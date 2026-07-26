@@ -12,6 +12,7 @@ import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw } from 
 import { useAdminData } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
 import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
+import QueueTrackCover from '@/components/shared/QueueTrackCover';
 
 interface RequestManagementPanelProps {
   className?: string;
@@ -404,7 +405,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                   request.status === 'rejected' ? 'bg-red-400/5 border-red-400/20' :
                   'bg-info/5 border-info/20'
                 }`}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-start sm:items-center gap-3">
                   {/* Checkbox */}
                   <Checkbox
                     checked={selectedRequests.has(request.id)}
@@ -412,10 +413,13 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                     aria-label={`Select ${request.track_name}`}
                   />
 
-                  {/* Album Art */}
-                  <div className="w-12 h-12 bg-ink border border-white/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Music className="w-6 h-6 text-accent" />
-                  </div>
+                  {/* Album Art (~40px, matches admin Queue sidebar) */}
+                  <QueueTrackCover
+                    imageUrl={request.album_image_url}
+                    size="md"
+                    className="bg-ink border border-white/10"
+                    iconClassName="w-4 h-4 text-accent"
+                  />
                   
                   {/* Track Info */}
                   <div className="flex-1 min-w-0">
@@ -438,7 +442,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2 flex-shrink-0">
+                  <div className="flex flex-wrap gap-2 flex-shrink-0 justify-end">
                     {request.status === 'pending' && (
                       <>
                         <button

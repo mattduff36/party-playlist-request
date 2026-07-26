@@ -243,6 +243,7 @@ export default function EventStateDropdown() {
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2.5 hover:bg-surface rounded-lg transition-colors"
         title={`Event Status: ${state.status}`}
+        aria-label={`Event Status: ${state.status}`}
       >
         <StateIcon className={`w-6 h-6 ${getStateColor()}`} />
         

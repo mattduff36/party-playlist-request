@@ -133,12 +133,21 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
     legacyPrimaryColor: eventSettings.theme_primary_color,
   };
 
+  // `1fr` alone is minmax(auto, 1fr) — content min-size can blow past the viewport and
+  // paint over the scrolling bar. Force tracks to shrink so panels scroll/clip instead.
+  const mainGridRows = isVerticalExpanded
+    ? 'minmax(0, 4fr) minmax(0, 2fr)'
+    : 'minmax(0, 3fr) minmax(0, 3fr)';
+  const mainGridColumns = isMessageVisible
+    ? 'minmax(0, 0.5fr) minmax(0, 0.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.5fr) minmax(0, 0.5fr)'
+    : 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0fr) minmax(0, 0fr)';
+
   // TV Layout (Large screens)
   if (deviceType === 'tv') {
     return (
       <MoodShell {...moodProps}>
         <div className="h-screen p-6 overflow-hidden" style={gradientStyle}>
-          <div className="w-full h-full flex flex-col">
+          <div className="w-full h-full flex flex-col gap-4">
             {/* Header - Fixed Height */}
             <div className="text-center py-4 flex-shrink-0">
               <h1 className="text-5xl font-bold mb-2">{eventSettings.event_title}</h1>
@@ -150,15 +159,13 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
               )}
             </div>
 
-            {/* Main Content Area - Dynamic Height */}
+            {/* Main Content Area - Dynamic Height (reserved space above scrolling bar) */}
             <div
-              className="flex-1 min-h-0"
+              className="flex-1 min-h-0 overflow-hidden"
               style={{
                 display: 'grid',
-                gridTemplateColumns: isMessageVisible
-                  ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr'
-                  : '1fr 1fr 1fr 1fr 0fr 0fr',
-                gridTemplateRows: isVerticalExpanded ? '4fr 2fr' : '3fr 3fr',
+                gridTemplateColumns: mainGridColumns,
+                gridTemplateRows: mainGridRows,
                 gap: '1.5rem',
                 marginRight: isMessageVisible ? '0' : '-3rem',
                 transition:
@@ -251,7 +258,7 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
       return (
         <MoodShell {...moodProps}>
           <div className="h-screen p-3 overflow-hidden" style={gradientStyle}>
-            <div className="w-full h-full flex flex-col">
+            <div className="w-full h-full flex flex-col gap-3">
               {/* Header - Fixed Height */}
               <div className="text-center py-2 flex-shrink-0">
                 <h1 className="text-3xl font-bold mb-1">{eventSettings.event_title}</h1>
@@ -263,15 +270,13 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
                 )}
               </div>
 
-              {/* Main Content Area - Dynamic Height */}
+              {/* Main Content Area - Dynamic Height (reserved space above scrolling bar) */}
               <div
-                className="flex-1 min-h-0"
+                className="flex-1 min-h-0 overflow-hidden"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: isMessageVisible
-                    ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr'
-                    : '1fr 1fr 1fr 1fr 0fr 0fr',
-                  gridTemplateRows: isVerticalExpanded ? '4fr 2fr' : '3fr 3fr',
+                  gridTemplateColumns: mainGridColumns,
+                  gridTemplateRows: mainGridRows,
                   gap: '1rem',
                   marginRight: isMessageVisible ? '0' : '-2rem',
                   transition:
@@ -344,7 +349,7 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
     return (
       <MoodShell {...moodProps}>
         <div className="h-screen p-4 overflow-hidden" style={gradientStyle}>
-          <div className="max-w-2xl mx-auto h-full flex flex-col">
+          <div className="max-w-2xl mx-auto h-full flex flex-col gap-4 min-h-0">
             <div className="text-center py-3 flex-shrink-0">
               <h1 className="text-2xl font-bold mb-1">{eventSettings.event_title}</h1>
               {eventSettings.dj_name && (
@@ -387,7 +392,7 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
     return (
       <MoodShell {...moodProps}>
         <div className="h-screen p-2 overflow-hidden" style={gradientStyle}>
-          <div className="max-w-5xl mx-auto h-full flex flex-col">
+          <div className="max-w-5xl mx-auto h-full flex flex-col gap-2">
             {/* Header - Fixed Height */}
             <div className="text-center py-1 flex-shrink-0">
               <h1 className="text-lg font-bold mb-1">{eventSettings.event_title}</h1>
@@ -399,15 +404,13 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
               )}
             </div>
 
-            {/* Main Content Area - Dynamic Height */}
+            {/* Main Content Area - Dynamic Height (reserved space above scrolling bar) */}
             <div
-              className="flex-1 min-h-0 mb-2"
+              className="flex-1 min-h-0 overflow-hidden"
               style={{
                 display: 'grid',
-                gridTemplateColumns: isMessageVisible
-                  ? '0.5fr 0.5fr 1fr 1fr 0.5fr 0.5fr'
-                  : '1fr 1fr 1fr 1fr 0fr 0fr',
-                gridTemplateRows: isVerticalExpanded ? '4fr 2fr' : '3fr 3fr',
+                gridTemplateColumns: mainGridColumns,
+                gridTemplateRows: mainGridRows,
                 gap: '0.5rem',
                 marginRight: isMessageVisible ? '0' : '-1rem',
                 transition:
@@ -478,10 +481,10 @@ export default function DisplayPage({ username, accessCode }: DisplayPageProps) 
 
   // Mobile Portrait - Simplified layout
   return (
-    <MoodShell {...moodProps}>
+      <MoodShell {...moodProps}>
       <div className="h-screen p-3 overflow-hidden" style={gradientStyle}>
-        <div className="max-w-sm mx-auto h-full flex flex-col">
-          <div className="text-center flex-shrink-0 mb-3">
+        <div className="max-w-sm mx-auto h-full flex flex-col gap-3 min-h-0">
+          <div className="text-center flex-shrink-0">
             <h1 className="text-xl font-bold mb-1">{eventSettings.event_title}</h1>
             {eventSettings.dj_name && (
               <p className="text-xs mood-accent-text">DJ {eventSettings.dj_name}</p>

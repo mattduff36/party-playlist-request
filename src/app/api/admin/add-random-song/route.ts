@@ -3,6 +3,7 @@ import { createRequest, initializeDefaults } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted } from '@/lib/pusher';
 import { requireAuth } from '@/middleware/auth';
+import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
 
 // Predefined list of popular songs for random selection
 const POPULAR_SONGS = [
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
 
     // Select the first track (usually the most relevant)
     const selectedTrack = tracks[0];
+    const albumImageUrl = getTrackAlbumImageUrl(selectedTrack) || null;
     console.log(`🎵 [${requestId}] Selected track: "${selectedTrack.name}" by ${selectedTrack.artists?.map((a: any) => a.name).join(', ')}`);
 
     // Create the request in the database
@@ -123,6 +125,7 @@ export async function POST(req: NextRequest) {
       track_name: selectedTrack.name,
       artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
       album_name: selectedTrack.album?.name || 'Unknown Album',
+      album_image_url: albumImageUrl,
       duration_ms: selectedTrack.duration_ms || 0,
       requester_ip_hash: 'admin_random', // Special identifier for admin-generated requests
       requester_nickname: 'PartyPlaylist Suggestion',
@@ -139,10 +142,12 @@ export async function POST(req: NextRequest) {
         track_name: selectedTrack.name,
         artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
         album_name: selectedTrack.album?.name || 'Unknown Album',
+        album_image_url: albumImageUrl,
         track_uri: selectedTrack.uri,
         requester_nickname: 'PartyPlaylist Suggestion',
-        submitted_at: new Date().toISOString()
-      }, userId); // Pass userId for multi-tenant Pusher channel
+        submitted_at: new Date().toISOString(),
+        userId,
+      });
       console.log(`🎉 [${requestId}] Pusher event sent for random request: ${selectedTrack.name}`);
     } catch (pusherError) {
       console.error(`❌ [${requestId}] Failed to send Pusher event:`, pusherError);

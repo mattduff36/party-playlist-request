@@ -37,7 +37,7 @@ export default function ScrollingBar({
 
   if (variant === 'tv') {
     return (
-      <div className="mood-panel p-3 overflow-hidden flex-shrink-0 h-16 mt-4">
+      <div className="mood-panel relative z-10 p-3 overflow-hidden flex-shrink-0 h-16">
         <div className="flex items-center h-full">
           <ScrollingBarIcon className="w-5 h-5 mr-3" />
           <div className="flex-1 overflow-hidden">
@@ -59,7 +59,7 @@ export default function ScrollingBar({
 
   if (variant === 'tablet-landscape') {
     return (
-      <div className="mood-panel p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
+      <div className="mood-panel relative z-10 p-2 overflow-hidden flex-shrink-0 h-12">
         <div className="flex items-center h-full">
           <ScrollingBarIcon className="w-4 h-4 mr-2" />
           <div className="flex-1 overflow-hidden">
@@ -81,7 +81,7 @@ export default function ScrollingBar({
 
   if (variant === 'tablet-portrait') {
     return (
-      <div className="mood-panel p-3 overflow-hidden flex-shrink-0 h-14 mt-4">
+      <div className="mood-panel relative z-10 p-3 overflow-hidden flex-shrink-0 h-14">
         <div className="flex items-center h-full">
           <ScrollingBarIcon className="w-5 h-5 mr-3" />
           <div className="flex-1 overflow-hidden">
@@ -103,7 +103,7 @@ export default function ScrollingBar({
 
   if (variant === 'mobile-landscape') {
     return (
-      <div className="mood-panel p-1 overflow-hidden flex-shrink-0 h-8 mt-2">
+      <div className="mood-panel relative z-10 p-1 overflow-hidden flex-shrink-0 h-8">
         <div className="flex items-center h-full">
           <ScrollingBarIcon className="w-3 h-3 mr-1" />
           <div className="flex-1 overflow-hidden">
@@ -120,7 +120,7 @@ export default function ScrollingBar({
 
   // mobile-portrait
   return (
-    <div className="mood-panel p-2 overflow-hidden flex-shrink-0 h-12 mt-3">
+    <div className="mood-panel relative z-10 p-2 overflow-hidden flex-shrink-0 h-12">
       <div className="flex items-center h-full">
         <ScrollingBarIcon className="w-4 h-4 mr-2" />
         <div className="flex-1 overflow-hidden">

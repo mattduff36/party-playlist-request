@@ -59,6 +59,7 @@ export interface RequestSubmittedEvent {
   track_name: string;
   artist_name: string;
   album_name: string;
+  album_image_url?: string | null;
   track_uri: string;
   requester_nickname: string;
   submitted_at: string;

@@ -8,6 +8,7 @@ export interface Request {
   track_name: string;
   artist_name: string;
   album_name: string;
+  album_image_url?: string | null;
   duration_ms: number;
   requester_ip_hash: string;
   requester_nickname?: string;
@@ -123,6 +124,7 @@ export async function initializeDatabase() {
         track_name TEXT NOT NULL,
         artist_name TEXT NOT NULL,
         album_name TEXT,
+        album_image_url TEXT,
         duration_ms INTEGER NOT NULL,
         requester_ip_hash TEXT NOT NULL,
         requester_nickname TEXT,
@@ -411,6 +413,13 @@ export async function initializeDatabase() {
         ADD COLUMN IF NOT EXISTS spotify_added_to_playlist BOOLEAN DEFAULT FALSE;
       `);
       console.log('✅ spotify_added_to_playlist column added/verified');
+
+      // Album art URL from Spotify track (no extra API calls at list time)
+      await client.query(`
+        ALTER TABLE requests 
+        ADD COLUMN IF NOT EXISTS album_image_url TEXT DEFAULT NULL;
+      `);
+      console.log('✅ album_image_url column added/verified');
       
       console.log('✅ Requests table schema migration completed successfully');
     } catch (migrationError) {
@@ -800,14 +809,15 @@ export async function createRequest(
   // Production database includes user_id for proper multi-tenant isolation
   const result = await client.query(`
     INSERT INTO requests (
-      id, track_uri, track_name, artist_name, album_name, duration_ms,
+      id, track_uri, track_name, artist_name, album_name, album_image_url, duration_ms,
       requester_ip_hash, requester_nickname, user_session_id, status, 
       spotify_added_to_queue, spotify_added_to_playlist, user_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     RETURNING *
   `, [
     id, request.track_uri, request.track_name, request.artist_name, 
-    request.album_name, request.duration_ms || 0, request.requester_ip_hash || '',
+    request.album_name, request.album_image_url || null, request.duration_ms || 0,
+    request.requester_ip_hash || '',
     request.requester_nickname, request.user_session_id, request.status, 
     request.spotify_added_to_queue || false, request.spotify_added_to_playlist || false, userId
   ]);

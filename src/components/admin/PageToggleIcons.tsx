@@ -57,6 +57,11 @@ export default function PageToggleIcons() {
             ? 'Enable event first' 
             : `Requests Page: ${requestsEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
         }
+        aria-label={
+          !canControlPages
+            ? 'Requests Page: Enable event first'
+            : `Requests Page: ${requestsEnabled ? 'Enabled' : 'Disabled'}`
+        }
       >
         <Smartphone className="w-6 h-6" />
       </button>
@@ -78,6 +83,11 @@ export default function PageToggleIcons() {
           !canControlPages 
             ? 'Enable event first' 
             : `Display Page: ${displayEnabled ? 'Enabled' : 'Disabled'} (Click to toggle)`
+        }
+        aria-label={
+          !canControlPages
+            ? 'Display Page: Enable event first'
+            : `Display Page: ${displayEnabled ? 'Enabled' : 'Disabled'}`
         }
       >
         <Monitor className="w-6 h-6" />

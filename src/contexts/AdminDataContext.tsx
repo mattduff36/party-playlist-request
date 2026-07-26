@@ -24,7 +24,9 @@ export interface Request {
   track_name: string;
   artist_name: string;
   album_name: string;
+  album_image_url?: string | null;
   track_uri: string;
+  duration_ms?: number;
   requester_nickname?: string;
   status: 'pending' | 'approved' | 'rejected' | 'played';
   created_at: string;

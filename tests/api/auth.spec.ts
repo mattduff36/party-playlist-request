@@ -37,7 +37,11 @@ describe('Authentication API', () => {
   });
 
   it('logs out successfully', async () => {
-    const { cookie } = await loginAs();
+    // Use testuser2 so logout's event-offline cleanup does not leave testuser1 offline for e2e
+    const { cookie } = await loginAs(
+      TEST_USERS.testuser2.username,
+      TEST_USERS.testuser2.password
+    );
     const logout = await apiFetch('/api/auth/logout', {
       method: 'POST',
       cookie,

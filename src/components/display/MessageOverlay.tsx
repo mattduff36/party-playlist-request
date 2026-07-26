@@ -31,7 +31,7 @@ export default function MessageOverlay({
 
   return (
     <div
-      className="min-w-0"
+      className="min-h-0 min-w-0 overflow-hidden"
       style={{
         ...style,
         width: isMessageVisible ? 'auto' : '0',
