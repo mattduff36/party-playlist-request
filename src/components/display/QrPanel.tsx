@@ -16,19 +16,32 @@ interface QrPanelProps {
 
 interface QrImageProps {
   qrCodeUrl: string;
-  className?: string;
-  style?: CSSProperties;
 }
 
-function QrImage({ qrCodeUrl, className, style }: QrImageProps) {
+/**
+ * Renders the largest square QR that fits the parent box.
+ * Parent must provide a definite size (e.g. h-full + min-h-0 in a flex/grid slot).
+ * Uses container query units so the square is limited by both width and height.
+ */
+function QrImage({ qrCodeUrl }: QrImageProps) {
   return (
-    <div className="inline-flex min-h-0 max-h-full rounded-md bg-[color:var(--mood-qr-pad,#ffffff)] p-1.5">
-      <img
-        src={qrCodeUrl}
-        alt="QR Code"
-        className={`max-h-full object-contain ${className ?? ''}`}
-        style={style}
-      />
+    <div
+      className="flex h-full w-full min-h-0 min-w-0 items-center justify-center"
+      style={{ containerType: 'size' }}
+    >
+      <div
+        className="box-border max-h-full max-w-full rounded-md bg-[color:var(--mood-qr-pad,#ffffff)] p-1.5"
+        style={{
+          width: 'min(100cqw, 100cqh)',
+          aspectRatio: '1 / 1',
+        }}
+      >
+        <img
+          src={qrCodeUrl}
+          alt="QR Code"
+          className="h-full w-full object-contain"
+        />
+      </div>
     </div>
   );
 }
@@ -46,44 +59,40 @@ export default function QrPanel({
   if (variant === 'tv') {
     return (
       <div
-        className="mood-panel p-6 flex flex-col items-center justify-center min-h-0 min-w-0 h-full overflow-hidden"
+        className="mood-panel flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center overflow-hidden p-6"
         style={style}
       >
         {useHorizontalLayout ? (
-          // Horizontal layout: QR code left, text right (centered)
-          <div className="flex items-center gap-8 justify-center max-w-4xl mx-auto min-h-0 h-full max-h-full overflow-hidden">
-            <QrImage
-              qrCodeUrl={qrCodeUrl}
-              className="max-h-full w-auto"
-              style={{ width: 'min(300px, 40%)', maxHeight: '100%', aspectRatio: '1/1' }}
-            />
-            <div className="text-left min-w-0 overflow-hidden" style={{ width: 'min(300px, 45%)' }}>
-              <p className="text-[color:var(--mood-text)] text-xl font-semibold mb-4 leading-relaxed">
+          // Horizontal: QR grows in left column; URL/access code stay readable on the right
+          <div className="flex h-full min-h-0 w-full items-stretch gap-6 overflow-hidden lg:gap-8">
+            <div className="min-h-0 min-w-0 flex-1">
+              <QrImage qrCodeUrl={qrCodeUrl} />
+            </div>
+            <div className="flex w-[min(22rem,42%)] max-w-[50%] flex-shrink-0 flex-col justify-center overflow-hidden text-left">
+              <p className="mb-4 text-xl font-semibold leading-relaxed text-[color:var(--mood-text)]">
                 Scan the QR code to make a request, or visit:
               </p>
-              <p className="text-[color:var(--mood-text)] text-lg font-bold mb-1">partyplaylist.co.uk/</p>
-              <p className="text-[color:var(--mood-text)] text-lg font-bold mb-4">
+              <p className="mb-1 text-lg font-bold text-[color:var(--mood-text)]">
+                partyplaylist.co.uk/
+              </p>
+              <p className="mb-4 break-all text-lg font-bold text-[color:var(--mood-text)]">
                 {code ? `${username}/${code}/request` : `${username}/request`}
               </p>
               {code && (
-                <p className="text-[color:var(--mood-text)] text-xl font-semibold">
+                <p className="text-xl font-semibold text-[color:var(--mood-text)]">
                   Access code{' '}
-                  <span className="font-mono font-bold text-2xl">{code}</span>
+                  <span className="font-mono text-2xl font-bold">{code}</span>
                 </p>
               )}
             </div>
           </div>
         ) : (
-          // Vertical layout: flex-1 QR slot gets a definite height so the image can scale down
-          <div className="text-center flex flex-col items-center justify-center gap-3 min-h-0 h-full w-full overflow-hidden">
-            <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-              <QrImage
-                qrCodeUrl={qrCodeUrl}
-                className="w-auto h-auto max-w-xs max-h-full"
-                style={{ aspectRatio: '1/1', maxHeight: '100%', width: 'auto' }}
-              />
+          // Vertical: flex-1 QR slot fills leftover height above the caption
+          <div className="flex h-full min-h-0 w-full flex-col items-stretch justify-center gap-3 overflow-hidden text-center">
+            <div className="min-h-0 w-full flex-1">
+              <QrImage qrCodeUrl={qrCodeUrl} />
             </div>
-            <p className="text-[color:var(--mood-text)] text-lg font-semibold flex-shrink-0">
+            <p className="flex-shrink-0 text-lg font-semibold text-[color:var(--mood-text)]">
               Request your song now!
             </p>
           </div>
@@ -95,17 +104,13 @@ export default function QrPanel({
   if (variant === 'tablet-landscape') {
     return (
       <div
-        className="mood-panel p-3 text-center flex flex-col justify-center items-center gap-2 min-h-0 min-w-0 h-full overflow-hidden"
+        className="mood-panel flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center gap-2 overflow-hidden p-3 text-center"
         style={style}
       >
-        <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-          <QrImage
-            qrCodeUrl={qrCodeUrl}
-            className="w-auto h-auto max-w-[200px] max-h-full"
-            style={{ aspectRatio: '1/1', maxHeight: '100%' }}
-          />
+        <div className="min-h-0 w-full flex-1">
+          <QrImage qrCodeUrl={qrCodeUrl} />
         </div>
-        <p className="text-[color:var(--mood-text)] text-sm font-semibold flex-shrink-0">
+        <p className="flex-shrink-0 text-sm font-semibold text-[color:var(--mood-text)]">
           Request your song now!
         </p>
       </div>
@@ -115,17 +120,15 @@ export default function QrPanel({
   // mobile-landscape
   return (
     <div
-      className="mood-panel p-2 text-center flex flex-col justify-center items-center gap-1 min-h-0 min-w-0 h-full overflow-hidden"
+      className="mood-panel flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center gap-1 overflow-hidden p-2 text-center"
       style={style}
     >
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-        <QrImage
-          qrCodeUrl={qrCodeUrl}
-          className="w-auto h-auto max-w-[120px] max-h-full"
-          style={{ aspectRatio: '1/1', maxHeight: '100%' }}
-        />
+      <div className="min-h-0 w-full flex-1">
+        <QrImage qrCodeUrl={qrCodeUrl} />
       </div>
-      <p className="text-[color:var(--mood-text)] text-xs font-semibold flex-shrink-0">Request now!</p>
+      <p className="flex-shrink-0 text-xs font-semibold text-[color:var(--mood-text)]">
+        Request now!
+      </p>
     </div>
   );
 }

@@ -801,7 +801,8 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         const qrColors = qrModuleColors(mood);
 
         const url = await QRCode.toDataURL(requestUrl, {
-          width: 200,
+          // Higher resolution so CSS upscale on TV stays crisp
+          width: 512,
           margin: 2,
           color: {
             dark: qrColors.dark,
