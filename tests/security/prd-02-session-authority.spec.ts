@@ -180,6 +180,29 @@ describe('PRD-02: auth rate limit', () => {
     expect(blocked.allowed).toBe(false);
     expect(blocked.retryAfterSec).toBeGreaterThan(0);
   });
+
+  it('does not throttle when SPOTIFY_MOCK is active (finalise api→e2e)', async () => {
+    const prev = process.env.SPOTIFY_MOCK;
+    process.env.SPOTIFY_MOCK = 'true';
+    try {
+      const ipHash = hashLimiterId('ip', 'mock-ip');
+      for (let i = 0; i < 20; i++) {
+        const r = await enforceAuthRateLimit({
+          action: 'transfer',
+          ipHash,
+          accountHash: hashLimiterId('username', 'testuser1'),
+          maxPerIp: 2,
+          maxPerAccount: 2,
+          windowMs: 60_000,
+        });
+        expect(r.allowed).toBe(true);
+      }
+    } finally {
+      if (prev === undefined) delete process.env.SPOTIFY_MOCK;
+      else process.env.SPOTIFY_MOCK = prev;
+      resetAuthRateLimitForTests();
+    }
+  });
 });
 
 describe('PRD-02: requireAuth session revocation', () => {

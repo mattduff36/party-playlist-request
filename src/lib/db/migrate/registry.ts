@@ -100,4 +100,11 @@ export const CANONICAL_MIGRATIONS: MigrationDefinition[] = [
     description:
       'Add user_events.updated_at (live Neon gap vs baseline / setPlaybackMode)',
   },
+  {
+    id: '013_repair_requests_status_check',
+    file: '013_repair_requests_status_check.sql',
+    classification: 'B',
+    description:
+      'Repair drifted requests.status CHECK so approving/queue_failed remain valid (008 drift)',
+  },
 ];

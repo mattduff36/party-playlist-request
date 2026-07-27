@@ -311,7 +311,8 @@ export async function initializeDatabase() {
       )
     `);
 
-    // Migration: Update status constraint to include 'played'
+    // Migration: keep status CHECK aligned with PRD-06 (approving / queue_failed).
+    // Must not narrow back to the pre-008 set — that breaks atomic approval claims.
     try {
       await client.query(`
         ALTER TABLE requests 
@@ -321,10 +322,19 @@ export async function initializeDatabase() {
       await client.query(`
         ALTER TABLE requests 
         ADD CONSTRAINT requests_status_check 
-        CHECK (status IN ('pending', 'approved', 'rejected', 'queued', 'failed', 'played'));
+        CHECK (status IN (
+          'pending',
+          'approving',
+          'approved',
+          'rejected',
+          'played',
+          'queue_failed',
+          'failed',
+          'queued'
+        ));
       `);
       
-      console.log('✅ Database constraint updated to include "played" status');
+      console.log('✅ Database constraint updated for approving/queue_failed statuses');
     } catch (migrationError) {
       console.log('ℹ️ Status constraint migration already applied or not needed');
     }

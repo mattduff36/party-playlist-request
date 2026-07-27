@@ -173,6 +173,40 @@ describe('PRD-08: readiness wizard gates', () => {
     expect(isReadinessLifecycleComplete('ended')).toBe(false);
     expect(isReadinessLifecycleComplete('archived')).toBe(false);
   });
+
+  it('step 9 completed UI hides Mark Ready when phase is ready/live', () => {
+    const wizard = fs.readFileSync(
+      path.join(ROOT, 'src/components/admin/ReadinessWizard.tsx'),
+      'utf8'
+    );
+    expect(wizard).toMatch(/isReadinessLifecycleComplete\(lifecyclePhase\)/);
+    expect(wizard).toMatch(/Event is Ready/);
+    expect(wizard).toMatch(/Mark event Ready/);
+
+    const completeStart = wizard.indexOf(
+      'isReadinessLifecycleComplete(lifecyclePhase) ? ('
+    );
+    expect(completeStart).toBeGreaterThanOrEqual(0);
+    const elseStart = wizard.indexOf(') : (', completeStart);
+    expect(elseStart).toBeGreaterThan(completeStart);
+    const completedBranch = wizard.slice(completeStart, elseStart);
+
+    expect(completedBranch).toMatch(/Event is Ready/);
+    expect(completedBranch).toMatch(/Open recovery centre/);
+    expect(completedBranch).not.toMatch(/void markReady/);
+    expect(completedBranch).not.toMatch(/Ready with warning override/);
+  });
+
+  it('Mark Ready persists ready_confirm and allows ended→ready restart', () => {
+    const route = fs.readFileSync(
+      path.join(ROOT, 'src/app/api/admin/readiness/route.ts'),
+      'utf8'
+    );
+    expect(route).toMatch(/ready_confirm/);
+    expect(route).toMatch(/lifecycle_phase = 'ready'/);
+    expect(route).toMatch(/restartedFromEnded:\s*currentPhase === 'ended'/);
+    expect(route).toMatch(/resolveActiveSpotifyDevice/);
+  });
 });
 
 describe('PRD-08: signage QR URLs', () => {
@@ -418,6 +452,16 @@ describe('PRD-08: templates, guardrails, demo, recovery, legal', () => {
       displayStale: false,
     });
     expect(manual.some((i) => i.id === 'manual_fallback')).toBe(true);
+  });
+
+  it('recovery route aligns active-device truth with resolveActiveSpotifyDevice', () => {
+    const recoveryRoute = fs.readFileSync(
+      path.join(ROOT, 'src/app/api/admin/recovery/route.ts'),
+      'utf8'
+    );
+    expect(recoveryRoute).toMatch(/resolveActiveSpotifyDevice/);
+    expect(recoveryRoute).toMatch(/probeLive:\s*mode !== 'manual'/);
+    expect(recoveryRoute).toMatch(/hasActiveDevice:\s*activeDevice\.hasActiveDevice/);
   });
 
   it('legal defaults mark draft/unreviewed status', () => {

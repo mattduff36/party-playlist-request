@@ -47,6 +47,22 @@ describe('PRD-06: migration Class B only', () => {
     expect(sql).not.toMatch(/^\s*DROP COLUMN\b/im);
     expect(sql).not.toMatch(/^\s*DELETE FROM\b/im);
   });
+
+  it('registers 013 repair for drifted requests.status CHECK', () => {
+    const migration = CANONICAL_MIGRATIONS.find(
+      (m) => m.id === '013_repair_requests_status_check'
+    );
+    expect(migration).toBeDefined();
+    expect(migration!.classification).toBe('B');
+    const sql = fs.readFileSync(
+      path.join(ROOT, 'src/lib/db/migrations/canonical', migration!.file),
+      'utf8'
+    );
+    expect(sql).toMatch(/approving/);
+    expect(sql).toMatch(/queue_failed/);
+    expect(sql).toMatch(/DROP CONSTRAINT IF EXISTS requests_status_check/);
+    expect(sql).not.toMatch(/^\s*DROP COLUMN\b/im);
+  });
 });
 
 describe('PRD-06: helpers', () => {

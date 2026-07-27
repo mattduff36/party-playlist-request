@@ -42,8 +42,28 @@ export async function loginAs(
 
         if (await transferButton.isVisible().catch(() => false)) {
           await transferButton.click({ timeout: 5_000 });
-          await page.waitForURL(adminPattern, { timeout: timeoutMs });
-          return;
+          // Transfer can fail (stale lock / prior suite); surface that instead of spinning.
+          const transferFailed = page.getByText(
+            /Failed to transfer session|Session no longer active|Too many attempts/i
+          );
+          const transferOutcome = await Promise.race([
+            page
+              .waitForURL(adminPattern, { timeout: timeoutMs })
+              .then(() => 'ok' as const),
+            transferFailed
+              .waitFor({ state: 'visible', timeout: timeoutMs })
+              .then(() => 'failed' as const),
+          ]).catch(() => 'timeout' as const);
+
+          if (transferOutcome === 'ok') {
+            return;
+          }
+
+          throw new Error(
+            transferOutcome === 'failed'
+              ? `Session transfer failed for ${username}`
+              : `loginAs timed out waiting for admin after transfer for ${username}`
+          );
         }
 
         await page.waitForTimeout(200);

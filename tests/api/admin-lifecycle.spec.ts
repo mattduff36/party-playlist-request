@@ -58,7 +58,9 @@ describe('Admin request lifecycle', () => {
         track_uri: 'spotify:track:3PfIrDoz19wz7qK7tYeu62',
         requester_nickname: `Apr${Date.now().toString().slice(-4)}`,
         username: TEST_USERS.testuser1.username,
+        accessCode: TEST_USERS.testuser1.pin,
         user_session_id: `approve-${Date.now()}`,
+        idempotency_key: crypto.randomUUID(),
       }),
     });
 
@@ -81,6 +83,10 @@ describe('Admin request lifecycle', () => {
       cookie,
       body: JSON.stringify({}),
     });
+    if (![200, 201].includes(approve.status)) {
+      const body = await approve.text();
+      throw new Error(`approve failed: ${approve.status} ${body}`);
+    }
     expect([200, 201]).toContain(approve.status);
   });
 });

@@ -84,7 +84,22 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        setError('Failed to transfer session');
+        let message = 'Failed to transfer session';
+        try {
+          const body = (await response.json()) as {
+            error?: string;
+            code?: string;
+          };
+          if (body.error) {
+            message =
+              body.code === 'RATE_LIMITED'
+                ? body.error
+                : `${body.error}${body.code ? ` (${body.code})` : ''}`;
+          }
+        } catch {
+          // keep generic message
+        }
+        setError(message);
         setLoading(false);
         setShowTransferModal(false);
         return;

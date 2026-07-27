@@ -889,6 +889,12 @@ async function main(): Promise<void> {
         }
 
         if (e2eScript) {
+          // API suite leaves single-session locks on seed users; re-seed clears
+          // active_session_id so Playwright login is not stuck on transfer failures.
+          if (hasNpmScript('test:seed-db')) {
+            console.log('Re-seeding before e2e (clear seed session locks)...');
+            runCommand('npm', ['run', 'test:seed-db'], { allowFailure: true });
+          }
           console.log(`Running ${e2eScript}...`);
           runCommand('npm', ['run', e2eScript]);
         }

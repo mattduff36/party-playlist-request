@@ -75,4 +75,30 @@ describe('resolveActiveSpotifyDevice', () => {
     expect(result.hasActiveDevice).toBe(false);
     expect(result.source).toBe('none');
   });
+
+  it('uses sync snapshot when live probe is skipped and events.device_id empty', async () => {
+    const result = await resolveActiveSpotifyDevice('user-1', {
+      eventDeviceId: null,
+      syncDeviceId: 'sync-device',
+      probeLive: false,
+    });
+
+    expect(result.hasActiveDevice).toBe(true);
+    expect(result.activeDeviceId).toBe('sync-device');
+    expect(result.source).toBe('sync');
+    expect(getCurrentPlayback).not.toHaveBeenCalled();
+    expect(getAvailableDevices).not.toHaveBeenCalled();
+  });
+
+  it('prefers events.device_id over sync when both persisted', async () => {
+    const result = await resolveActiveSpotifyDevice('user-1', {
+      eventDeviceId: 'event-device',
+      syncDeviceId: 'sync-device',
+      probeLive: false,
+    });
+
+    expect(result.hasActiveDevice).toBe(true);
+    expect(result.activeDeviceId).toBe('event-device');
+    expect(result.source).toBe('events');
+  });
 });

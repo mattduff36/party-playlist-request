@@ -135,6 +135,41 @@ describe('PRD-09: feature flag / production disable', () => {
     expect(isPartyPassStripeMockActive()).toBe(false);
     expect(isPartyPassCheckoutEnabled()).toBe(true);
   });
+
+  it('enables checkout via prod-gated mock path with dummy sk_test_*', () => {
+    delete process.env.VERCEL_ENV;
+    process.env.PARTY_PASS_CHECKOUT_ENABLED = '1';
+    process.env.PARTY_PASS_STRIPE_MOCK = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    expect(isPartyPassStripeMockActive()).toBe(true);
+    expect(isPartyPassCheckoutEnabled()).toBe(true);
+  });
+});
+
+describe('PRD-09: Stripe mock checkout source contracts', () => {
+  it('uses type-safe Stripe.Event cast (not as any) for mock webhook grant', () => {
+    const src = fs.readFileSync(
+      path.join(ROOT, 'src/lib/payments/checkout.ts'),
+      'utf8'
+    );
+    expect(src).toMatch(/as unknown as Stripe\.Event/);
+    expect(src).not.toMatch(/as any as Stripe\.Event|as Stripe\.Event as any/);
+    expect(src).toMatch(/isPartyPassStripeMockActive\(\)/);
+    expect(src).toMatch(/createPartyPassMockCheckoutSession/);
+    expect(src).toMatch(/processStripeWebhookEvent\(mockEvent\)/);
+    expect(src).toMatch(/cs_mock_/);
+    expect(src).toMatch(/evt_mock_/);
+  });
+
+  it('documents mock never runs on Vercel production / live keys', () => {
+    const configSrc = fs.readFileSync(
+      path.join(ROOT, 'src/lib/payments/config.ts'),
+      'utf8'
+    );
+    expect(configSrc).toMatch(/VERCEL_ENV === 'production'/);
+    expect(configSrc).toMatch(/sk_live_/);
+    expect(configSrc).toMatch(/PARTY_PASS_STRIPE_MOCK/);
+  });
 });
 
 describe('PRD-09: activation window math', () => {

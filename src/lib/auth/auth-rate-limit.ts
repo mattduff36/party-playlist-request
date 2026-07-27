@@ -125,6 +125,13 @@ export interface AuthThrottleConfig {
 export async function enforceAuthRateLimit(
   config: AuthThrottleConfig
 ): Promise<AuthRateLimitResult> {
+  // Local finalise / Playwright / API suites share one production-like server.
+  // SPOTIFY_MOCK is never used for real customer traffic — do not burn Redis
+  // transfer/login budgets across api→e2e in the same process.
+  if (process.env.SPOTIFY_MOCK === 'true') {
+    return { allowed: true, remaining: 999, backend: 'memory' };
+  }
+
   const windowMs = config.windowMs ?? 15 * 60 * 1000;
   const maxPerIp = config.maxPerIp ?? 30;
   const maxPerAccount = config.maxPerAccount ?? 10;
