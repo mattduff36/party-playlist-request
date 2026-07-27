@@ -16,6 +16,7 @@ interface Evaluation {
   canMarkReady: boolean;
   blockingFailures: ReadinessCheckId[];
   warningFailures: ReadinessCheckId[];
+  readyConfirmPending?: boolean;
 }
 
 interface ReadinessWizardProps {
@@ -177,18 +178,23 @@ export default function ReadinessWizard({ username }: ReadinessWizardProps) {
       )}
 
       <ol className="grid gap-2 sm:grid-cols-2 text-xs text-zinc-400">
-        {READINESS_CHECKS.map((c) => (
-          <li key={c.id} className="flex items-center gap-2">
-            {evaluation?.blockingFailures?.includes(c.id) ? (
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-            ) : (
-              <CheckCircle2 className="w-3.5 h-3.5 text-zinc-600" />
-            )}
-            <span>
-              {c.step}. {c.label}
-            </span>
-          </li>
-        ))}
+        {READINESS_CHECKS.map((c) => {
+          const pendingConfirm =
+            c.id === 'ready_confirm' && Boolean(evaluation?.readyConfirmPending);
+          const blocked = evaluation?.blockingFailures?.includes(c.id);
+          return (
+            <li key={c.id} className="flex items-center gap-2">
+              {blocked || pendingConfirm ? (
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-600" />
+              )}
+              <span>
+                {c.step}. {c.label}
+              </span>
+            </li>
+          );
+        })}
       </ol>
 
       <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 space-y-4">
@@ -413,9 +419,21 @@ export default function ReadinessWizard({ username }: ReadinessWizardProps) {
           <>
             <h2 className="text-lg text-zinc-100">9. Recovery + Ready</h2>
             <p className="text-sm text-zinc-400">
-              Review the recovery centre, then confirm Ready. Required checks must
-              pass; warnings need an explicit override reason.
+              Review the recovery centre, then click Mark event Ready. That click
+              is the final confirmation. Warnings need an explicit override reason.
             </p>
+            {lifecyclePhase === 'ended' && (
+              <p className="text-sm text-amber-200">
+                This event has ended. Mark event Ready to restart the lifecycle
+                for another run.
+              </p>
+            )}
+            {lifecyclePhase === 'archived' && (
+              <p className="text-sm text-amber-200">
+                This event is archived and cannot be marked Ready. Start a new
+                event first.
+              </p>
+            )}
             <a
               href={`/${username}/admin/recovery`}
               className="inline-block rounded border border-zinc-600 px-4 py-2 text-sm"
@@ -446,7 +464,7 @@ export default function ReadinessWizard({ username }: ReadinessWizardProps) {
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || lifecyclePhase === 'archived'}
                 onClick={() => void markReady(false)}
                 className="rounded bg-emerald-600 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
@@ -455,7 +473,11 @@ export default function ReadinessWizard({ username }: ReadinessWizardProps) {
               {evaluation && evaluation.warningFailures.length > 0 && (
                 <button
                   type="button"
-                  disabled={saving || !overrideReason.trim()}
+                  disabled={
+                    saving ||
+                    !overrideReason.trim() ||
+                    lifecyclePhase === 'archived'
+                  }
                   onClick={() => void markReady(true)}
                   className="rounded border border-amber-500 px-4 py-2 text-sm text-amber-100 disabled:opacity-50"
                 >
@@ -467,6 +489,11 @@ export default function ReadinessWizard({ username }: ReadinessWizardProps) {
               <p className="text-xs text-amber-300">
                 Blocking: {evaluation.blockingFailures.join(', ') || 'none'}.
                 Warnings: {evaluation.warningFailures.join(', ') || 'none'}.
+              </p>
+            )}
+            {evaluation?.canMarkReady && evaluation.readyConfirmPending && (
+              <p className="text-xs text-zinc-400">
+                All required checks passed. Click Mark event Ready to confirm.
               </p>
             )}
           </>

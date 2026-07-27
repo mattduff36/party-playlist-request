@@ -123,6 +123,8 @@ export interface EvaluateReadinessResult {
   canMarkReady: boolean;
   blockingFailures: ReadinessCheckId[];
   warningFailures: ReadinessCheckId[];
+  /** True until Mark Ready persists ready_confirm / markedReadyAt */
+  readyConfirmPending: boolean;
   lifecyclePhase: LifecyclePhase;
 }
 
@@ -151,6 +153,11 @@ export function evaluateReadiness(
   const warningFailures: ReadinessCheckId[] = [];
 
   for (const check of applicable) {
+    // Mark Ready itself is the final confirmation — never chicken-and-egg gate on it.
+    if (check.id === 'ready_confirm') {
+      continue;
+    }
+
     // Live-derived requirements (not only wizard ticks)
     if (check.id === 'basics' && !input.eventTitle?.trim()) {
       blockingFailures.push('basics');
@@ -182,7 +189,12 @@ export function evaluateReadiness(
     }
   }
 
+  const readyConfirmDone =
+    isCheckDone(input.state, 'ready_confirm') ||
+    Boolean(input.state.markedReadyAt);
+
   const completedCount = applicable.filter((c) => {
+    if (c.id === 'ready_confirm') return readyConfirmDone;
     if (blockingFailures.includes(c.id) || warningFailures.includes(c.id)) {
       return false;
     }
@@ -197,6 +209,7 @@ export function evaluateReadiness(
     (Boolean(input.allowWarningOverride) &&
       Boolean(input.overrideReason?.trim()));
 
+  // ready_confirm is applied by the Mark Ready action; it must not block canMarkReady.
   const canMarkReady = blockingFailures.length === 0 && warningsOk;
 
   return {
@@ -205,6 +218,7 @@ export function evaluateReadiness(
     canMarkReady,
     blockingFailures,
     warningFailures,
+    readyConfirmPending: !readyConfirmDone,
     lifecyclePhase: canMarkReady && input.state.markedReadyAt ? 'ready' : 'draft',
   };
 }
