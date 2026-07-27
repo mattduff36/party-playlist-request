@@ -239,3 +239,10 @@ export function mergeCheckUpdate(
     },
   };
 }
+
+/** Lifecycle phases where Mark Ready / recovery confirm CTAs should collapse. */
+export function isReadinessLifecycleComplete(
+  phase: LifecyclePhase | string
+): boolean {
+  return phase === 'ready' || phase === 'live';
+}

@@ -8,6 +8,7 @@ import QRCode from 'qrcode';
 import {
   evaluateReadiness,
   emptyReadinessState,
+  isReadinessLifecycleComplete,
   mergeCheckUpdate,
   READINESS_CHECKS,
 } from '@/lib/beta/readiness';
@@ -163,6 +164,14 @@ describe('PRD-08: readiness wizard gates', () => {
       overrideReason: 'Display theme fine for house party',
     });
     expect(allowed.canMarkReady).toBe(true);
+  });
+
+  it('collapses Mark Ready confirm CTAs once lifecycle is ready or live', () => {
+    expect(isReadinessLifecycleComplete('ready')).toBe(true);
+    expect(isReadinessLifecycleComplete('live')).toBe(true);
+    expect(isReadinessLifecycleComplete('draft')).toBe(false);
+    expect(isReadinessLifecycleComplete('ended')).toBe(false);
+    expect(isReadinessLifecycleComplete('archived')).toBe(false);
   });
 });
 

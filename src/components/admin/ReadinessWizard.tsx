@@ -9,7 +9,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
-import { READINESS_CHECKS, type ReadinessCheckId } from '@/lib/beta/readiness';
+import {
+  READINESS_CHECKS,
+  isReadinessLifecycleComplete,
+  type ReadinessCheckId,
+} from '@/lib/beta/readiness';
 
 interface Evaluation {
   score: number;
@@ -418,83 +422,112 @@ export default function ReadinessWizard({ username }: ReadinessWizardProps) {
         {step >= 9 && (
           <>
             <h2 className="text-lg text-zinc-100">9. Recovery + Ready</h2>
-            <p className="text-sm text-zinc-400">
-              Review the recovery centre, then click Mark event Ready. That click
-              is the final confirmation. Warnings need an explicit override reason.
-            </p>
-            {lifecyclePhase === 'ended' && (
-              <p className="text-sm text-amber-200">
-                This event has ended. Mark event Ready to restart the lifecycle
-                for another run.
-              </p>
-            )}
-            {lifecyclePhase === 'archived' && (
-              <p className="text-sm text-amber-200">
-                This event is archived and cannot be marked Ready. Start a new
-                event first.
-              </p>
-            )}
-            <a
-              href={`/${username}/admin/recovery`}
-              className="inline-block rounded border border-zinc-600 px-4 py-2 text-sm"
-            >
-              Open recovery centre
-            </a>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void completeStep('recovery', 9)}
-              className="ml-3 rounded border border-zinc-600 px-4 py-2 text-sm"
-            >
-              Recovery reviewed
-            </button>
-
-            {evaluation && evaluation.warningFailures.length > 0 && (
-              <label className="block text-sm text-amber-200">
-                Override reason for warnings
-                <input
-                  className="mt-1 w-full rounded border border-amber-700/50 bg-zinc-950 px-3 py-2 text-zinc-100"
-                  value={overrideReason}
-                  onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="Why warnings are acceptable"
-                />
-              </label>
-            )}
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <button
-                type="button"
-                disabled={saving || lifecyclePhase === 'archived'}
-                onClick={() => void markReady(false)}
-                className="rounded bg-emerald-600 px-4 py-2 text-sm text-white disabled:opacity-50"
-              >
-                Mark event Ready
-              </button>
-              {evaluation && evaluation.warningFailures.length > 0 && (
+            {isReadinessLifecycleComplete(lifecyclePhase) ? (
+              <>
+                <div className="flex items-start gap-3 rounded border border-emerald-500/40 bg-emerald-950/30 px-3 py-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-emerald-100">
+                      Event is Ready
+                    </p>
+                    <p className="text-sm text-zinc-400">
+                      Final confirmation is complete
+                      {lifecyclePhase === 'live' ? ' and the event is live' : ''}.
+                      You can reopen the recovery centre anytime.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={`/${username}/admin/recovery`}
+                  className="inline-block rounded border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500"
+                >
+                  Open recovery centre
+                </a>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-zinc-400">
+                  Review the recovery centre, then click Mark event Ready. That
+                  click is the final confirmation. Warnings need an explicit
+                  override reason.
+                </p>
+                {lifecyclePhase === 'ended' && (
+                  <p className="text-sm text-amber-200">
+                    This event has ended. Mark event Ready to restart the
+                    lifecycle for another run.
+                  </p>
+                )}
+                {lifecyclePhase === 'archived' && (
+                  <p className="text-sm text-amber-200">
+                    This event is archived and cannot be marked Ready. Start a
+                    new event first.
+                  </p>
+                )}
+                <a
+                  href={`/${username}/admin/recovery`}
+                  className="inline-block rounded border border-zinc-600 px-4 py-2 text-sm"
+                >
+                  Open recovery centre
+                </a>
                 <button
                   type="button"
-                  disabled={
-                    saving ||
-                    !overrideReason.trim() ||
-                    lifecyclePhase === 'archived'
-                  }
-                  onClick={() => void markReady(true)}
-                  className="rounded border border-amber-500 px-4 py-2 text-sm text-amber-100 disabled:opacity-50"
+                  disabled={saving}
+                  onClick={() => void completeStep('recovery', 9)}
+                  className="ml-3 rounded border border-zinc-600 px-4 py-2 text-sm"
                 >
-                  Ready with warning override
+                  Recovery reviewed
                 </button>
-              )}
-            </div>
-            {evaluation && !evaluation.canMarkReady && (
-              <p className="text-xs text-amber-300">
-                Blocking: {evaluation.blockingFailures.join(', ') || 'none'}.
-                Warnings: {evaluation.warningFailures.join(', ') || 'none'}.
-              </p>
-            )}
-            {evaluation?.canMarkReady && evaluation.readyConfirmPending && (
-              <p className="text-xs text-zinc-400">
-                All required checks passed. Click Mark event Ready to confirm.
-              </p>
+
+                {evaluation && evaluation.warningFailures.length > 0 && (
+                  <label className="block text-sm text-amber-200">
+                    Override reason for warnings
+                    <input
+                      className="mt-1 w-full rounded border border-amber-700/50 bg-zinc-950 px-3 py-2 text-zinc-100"
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      placeholder="Why warnings are acceptable"
+                    />
+                  </label>
+                )}
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={saving || lifecyclePhase === 'archived'}
+                    onClick={() => void markReady(false)}
+                    className="rounded bg-emerald-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                  >
+                    Mark event Ready
+                  </button>
+                  {evaluation && evaluation.warningFailures.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={
+                        saving ||
+                        !overrideReason.trim() ||
+                        lifecyclePhase === 'archived'
+                      }
+                      onClick={() => void markReady(true)}
+                      className="rounded border border-amber-500 px-4 py-2 text-sm text-amber-100 disabled:opacity-50"
+                    >
+                      Ready with warning override
+                    </button>
+                  )}
+                </div>
+                {evaluation && !evaluation.canMarkReady && (
+                  <p className="text-xs text-amber-300">
+                    Blocking:{' '}
+                    {evaluation.blockingFailures.join(', ') || 'none'}.
+                    Warnings: {evaluation.warningFailures.join(', ') || 'none'}.
+                  </p>
+                )}
+                {evaluation?.canMarkReady && evaluation.readyConfirmPending && (
+                  <p className="text-xs text-zinc-400">
+                    All required checks passed. Click Mark event Ready to
+                    confirm.
+                  </p>
+                )}
+              </>
             )}
           </>
         )}
