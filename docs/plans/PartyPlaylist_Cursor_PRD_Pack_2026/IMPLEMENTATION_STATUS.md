@@ -796,3 +796,5 @@ See `MANUAL_ACCEPTANCE_TEST_PLAN.md` § Human sign-off. **Class D not run.** No 
 ### Preview Stripe mock (2026-07-27)
 
 Preview-safe Party Pass mock: `PARTY_PASS_STRIPE_MOCK=1` + dummy `sk_test_*` placeholder → checkout button grants paid/unactivated entitlement via the same `processStripeWebhookEvent` path as a real `checkout.session.completed`. Hard gates: never on `VERCEL_ENV=production`, never with `sk_live_*`, never with real-length `sk_test_*` (real Stripe path retained). Documented in `PRD-09-ENV-CHECKLIST.md` / `PREVIEW_ENV_CHECKLIST.md`.
+
+**Hotfix (Preview build):** mock `checkout.session.completed` in `checkout.ts` used `as Stripe.Event` on a partial Session; Vercel `tsc` rejected missing Session fields. Fixed with `as unknown as Stripe.Event` (mock-only; production webhook typing unchanged).

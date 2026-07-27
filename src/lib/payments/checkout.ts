@@ -131,6 +131,8 @@ async function createPartyPassMockCheckoutSession(input: {
     purchaseId = String(purchaseInsert.rows[0].id);
   }
 
+  // Partial Session fields only — webhook path reads id/payment_status/amount/etc.
+  // Double assertion required: Stripe.Event.Session is a large interface.
   const mockEvent = {
     id: `evt_mock_${randomBytes(12).toString('hex')}`,
     object: 'event',
@@ -158,7 +160,7 @@ async function createPartyPassMockCheckoutSession(input: {
         },
       },
     },
-  } as Stripe.Event;
+  } as unknown as Stripe.Event;
 
   const result = await processStripeWebhookEvent(mockEvent);
   if (result.rejected || !result.handled) {
