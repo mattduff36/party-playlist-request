@@ -6,6 +6,11 @@ interface CardProps {
   as?: 'div' | 'section' | 'article';
 }
 
+interface CardSectionProps {
+  children: ReactNode;
+  className?: string;
+}
+
 /** Interaction / grouping surface — use only when it aids understanding */
 export default function Card({ children, className = '', as: Tag = 'div' }: CardProps) {
   return (
@@ -16,3 +21,17 @@ export default function Card({ children, className = '', as: Tag = 'div' }: Card
     </Tag>
   );
 }
+
+export function CardHeader({ children, className = '' }: CardSectionProps) {
+  return <div className={`flex flex-col gap-1.5 ${className}`}>{children}</div>;
+}
+
+export function CardTitle({ children, className = '' }: CardSectionProps) {
+  return <h3 className={`font-semibold leading-none tracking-tight ${className}`}>{children}</h3>;
+}
+
+export function CardContent({ children, className = '' }: CardSectionProps) {
+  return <div className={className}>{children}</div>;
+}
+
+export { Card };

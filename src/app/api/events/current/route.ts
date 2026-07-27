@@ -14,7 +14,7 @@ function hasModernAccessCode(code: string): boolean {
 
 export async function GET(req: NextRequest) {
   // Require authentication
-  const authResult = requireAuth(req);
+  const authResult = await requireAuth(req);
   if (!authResult.authenticated || !authResult.user) {
     return authResult.response;
   }
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   // Require authentication
-  const authResult = requireAuth(req);
+  const authResult = await requireAuth(req);
   if (!authResult.authenticated || !authResult.user) {
     return authResult.response;
   }

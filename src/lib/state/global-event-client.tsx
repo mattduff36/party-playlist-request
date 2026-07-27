@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { useOptionalAdminAuth } from '@/contexts/AdminAuthContext';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 /**
  * Client-side Global Event State Management
@@ -13,12 +13,23 @@ import { useOptionalAdminAuth } from '@/contexts/AdminAuthContext';
  * 
  * AUTHENTICATION:
  * - Public pages (home, display) use this WITHOUT admin auth - read-only GET requests
- * - Admin pages use this WITH admin auth - authenticated POST/PUT requests
- * - Auth token is provided via AdminAuthContext (optional)
+ * - Admin pages use cookie + CSRF via authenticatedFetch for mutations (PRD-02)
  */
 
 // Event State Machine Types
 export type EventState = 'offline' | 'standby' | 'live';
+
+export interface EventConfig {
+  pages_enabled: {
+    requests: boolean;
+    display: boolean;
+  };
+  event_title: string;
+  dj_name: string;
+  max_requests: number;
+  request_limit: number;
+  auto_approve: boolean;
+}
 
 export interface GlobalEventState {
   // Core state
@@ -37,17 +48,7 @@ export interface GlobalEventState {
   };
   
   // Event configuration
-  config: {
-    pages_enabled: {
-      requests: boolean;
-      display: boolean;
-    };
-    event_title: string;
-    dj_name: string;
-    max_requests: number;
-    request_limit: number;
-    auto_approve: boolean;
-  };
+  config: EventConfig;
   
   // Connection state
   isConnected: boolean;
@@ -64,7 +65,7 @@ export type GlobalEventAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_CONNECTION'; payload: boolean }
   | { type: 'SET_EVENT_STATE'; payload: Partial<GlobalEventState> }
-  | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: any; adminId?: string; adminName?: string; pin?: string; bypassToken?: string } }
+  | { type: 'UPDATE_EVENT'; payload: { status: EventState; version: number; config: EventConfig; adminId?: string; adminName?: string; pin?: string; bypassToken?: string } }
   | { type: 'RESET_STATE' };
 
 // Get or create default event ID
@@ -225,7 +226,7 @@ export interface GlobalEventActions {
   // Event management
   updateEventStatus: (status: EventState) => Promise<void>;
   setEventStatus: (status: EventState) => Promise<void>; // Alias for updateEventStatus
-  updateEventConfig: (config: Partial<any>) => Promise<void>;
+  updateEventConfig: (config: Partial<EventConfig>) => Promise<void>;
   enablePages: (pages: { requests?: boolean; display?: boolean }) => Promise<void>;
   disablePages: () => Promise<void>;
   setPageEnabled: (page: 'requests' | 'display', enabled: boolean) => Promise<void>;
@@ -266,10 +267,9 @@ function getPublicPageUsernameFromPath(pathname: string): string | null {
 // Actions implementation
 function createActions(
   dispatch: React.Dispatch<GlobalEventAction>, 
-  getState: () => GlobalEventState,
-  getToken: () => string | null
+  getState: () => GlobalEventState
 ): GlobalEventActions {
-  return {
+  const actions: GlobalEventActions = {
     setLoading: (loading: boolean) => {
       dispatch({ type: 'SET_LOADING', payload: loading });
     },
@@ -285,6 +285,10 @@ function createActions(
     setConnection: (connected: boolean) => {
       dispatch({ type: 'SET_CONNECTION', payload: connected });
     },
+
+    setEventStatus: async (status: EventState) => {
+      await actions.updateEventStatus(status);
+    },
     
     updateEventStatus: async (status: EventState) => {
       try {
@@ -294,24 +298,9 @@ function createActions(
         // Get current event ID
         const eventId = getState().eventId || getDefaultEventId();
         
-        // Get auth token (if available - only for admin pages)
-        const token = getToken();
-        
-        // Build headers
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        
-        // Add Authorization header if token is available (admin context)
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
         // Bound so Event Control "Updating..." cannot stick if the API stalls
-        const response = await fetch('/api/event/status', {
+        const response = await authenticatedFetch('/api/event/status', {
           method: 'POST',
-          headers,
-          credentials: 'include',
           body: JSON.stringify({
             status,
             eventId,
@@ -344,7 +333,7 @@ function createActions(
     },
     
     
-    updateEventConfig: async (config: Partial<any>) => {
+    updateEventConfig: async (config: Partial<EventConfig>) => {
       try {
         dispatch({ type: 'SET_UPDATING', payload: true });
         dispatch({ type: 'SET_ERROR', payload: null });
@@ -435,27 +424,11 @@ function createActions(
         const eventId = getState().eventId || getDefaultEventId();
         console.log('🔄 [setPageEnabled] eventId:', eventId);
         
-        // Get auth token (if available - only for admin pages)
-        const token = getToken();
-        console.log('🔄 [setPageEnabled] token present:', !!token);
-        
-        // Build headers
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        
-        // Add Authorization header if token is available (admin context)
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
         const requestBody = { page, enabled, eventId };
         console.log('🔄 [setPageEnabled] Making API request to /api/event/pages:', requestBody);
         
-        const response = await fetch('/api/event/pages', {
+        const response = await authenticatedFetch('/api/event/pages', {
           method: 'POST',
-          headers,
-          credentials: 'include',
           body: JSON.stringify(requestBody),
         });
 
@@ -613,6 +586,7 @@ function createActions(
       }
     },
   };
+  return actions;
 }
 
 // Provider component
@@ -622,24 +596,12 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
   const pathname = usePathname() || '';
   
-  // Try to get admin auth context (will be null on public pages, which is fine)
-  const adminAuth = useOptionalAdminAuth();
-  
   const actions = useMemo(() => {
-    const getToken = () => {
-      if (adminAuth?.token) return adminAuth.token;
-      if (typeof window === 'undefined') return null;
-      try {
-        return localStorage.getItem('admin_token');
-      } catch {
-        return null;
-      }
-    };
-    const nextActions = createActions(dispatch, () => stateRef.current, getToken);
+    const nextActions = createActions(dispatch, () => stateRef.current);
     // Add alias for backward compatibility
     nextActions.setEventStatus = nextActions.updateEventStatus;
     return nextActions;
-  }, [dispatch, adminAuth?.token]);
+  }, [dispatch]);
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
 
@@ -681,50 +643,82 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
       try {
         let userId: string | null = null;
 
-        // Public display/request: ALWAYS resolve owner from URL username
-        // (same as usePusher) so a logged-in admin cookie cannot bind the wrong channel.
+        let channelName: string | null = null;
+
+        // Public display/request: private event channels only (no public event-{id})
         if (publicUsername) {
-          console.log(
-            `🌐 [GlobalEventProvider] Public page — lookup userId for: ${publicUsername}`
-          );
-          const userLookupResponse = await fetch(
-            `/api/users/lookup?username=${encodeURIComponent(publicUsername)}`
-          );
-          if (userLookupResponse.ok) {
-            const lookupData = await userLookupResponse.json();
-            userId = lookupData.userId;
+          const isDisplayPath = pathname.includes('/display');
+          if (isDisplayPath) {
+            console.log(
+              `🌐 [GlobalEventProvider] Display page — display-session for: ${publicUsername}`
+            );
+            const displayResponse = await fetch('/api/events/display-session', {
+              credentials: 'include',
+            });
+            if (displayResponse.ok) {
+              const displayData = await displayResponse.json();
+              if (displayData.eventId) {
+                const { getDisplayEventChannel } = await import(
+                  '@/lib/pusher/channel-contract'
+                );
+                channelName = getDisplayEventChannel(displayData.eventId);
+              }
+            }
+          }
+
+          if (!channelName) {
+            console.log(
+              `🌐 [GlobalEventProvider] Public page — guest-session for: ${publicUsername}`
+            );
+            const guestResponse = await fetch('/api/events/guest-session', {
+              credentials: 'include',
+            });
+            if (guestResponse.ok) {
+              const guestData = await guestResponse.json();
+              if (guestData.eventId) {
+                const { getGuestEventChannel } = await import(
+                  '@/lib/pusher/channel-contract'
+                );
+                channelName = getGuestEventChannel(guestData.eventId);
+              }
+            }
           }
         }
 
-        // Admin / non-public: use authenticated session
-        if (!userId) {
+        // Admin / non-public: authenticated session → legacy user channel
+        if (!channelName) {
           const authResponse = await fetch('/api/auth/me', {
             credentials: 'include',
           });
           if (authResponse.ok) {
             const authData = await authResponse.json();
             userId = authData.user?.id;
+            if (userId) {
+              const { getUserChannel } = await import(
+                '@/lib/pusher/client-shared'
+              );
+              channelName = getUserChannel(userId);
+            }
           }
         }
 
         if (cancelled) return;
 
-        if (!userId) {
-          console.warn('⚠️ [GlobalEventProvider] No userId found, skipping Pusher setup');
+        if (!channelName) {
+          console.warn(
+            '⚠️ [GlobalEventProvider] No Pusher channel resolved, skipping setup'
+          );
           return;
         }
 
-        console.log(`📡 [GlobalEventProvider] Setting up Pusher for user ${userId}`);
+        console.log(`📡 [GlobalEventProvider] Setting up Pusher on ${channelName}`);
 
-        // Same client/cluster defaults as usePusher (us2), not a divergent 'eu' fallback
-        const { createPusherClient, getUserChannel } = await import('@/lib/pusher');
+        const { createPusherClient } = await import(
+          '@/lib/pusher/client-shared'
+        );
         pusherInstance = createPusherClient();
 
-        const userChannel = getUserChannel(userId);
-        console.log(
-          `📡 [GlobalEventProvider] Subscribing to user-specific channel: ${userChannel}`
-        );
-        channelInstance = pusherInstance.subscribe(userChannel);
+        channelInstance = pusherInstance.subscribe(channelName);
 
         channelInstance.bind('state-update', (data: Record<string, unknown>) => {
           console.log(
@@ -740,10 +734,12 @@ export function GlobalEventProvider({ children }: { children: ReactNode }) {
               config: {
                 ...stateRef.current.config,
                 ...dataConfig,
-                pages_enabled:
-                  data.pagesEnabled ||
+                pages_enabled: (data.pagesEnabled ||
                   dataConfig.pages_enabled ||
-                  stateRef.current.pagesEnabled,
+                  stateRef.current.pagesEnabled) as {
+                  requests: boolean;
+                  display: boolean;
+                },
               },
             },
           });
@@ -831,7 +827,7 @@ export function getGlobalEventActions() {
       // This would be implemented on the server side
       console.log('Server-side updateEventStatus called with:', status);
     },
-    updateEventConfig: async (config: Partial<any>) => {
+    updateEventConfig: async (config: Partial<EventConfig>) => {
       // This would be implemented on the server side
       console.log('Server-side updateEventConfig called with:', config);
     },

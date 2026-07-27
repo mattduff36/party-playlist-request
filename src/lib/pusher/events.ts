@@ -95,7 +95,7 @@ export interface RequestSubmittedEvent extends BaseEvent {
     trackName: string;
     artistName: string;
     albumName: string;
-    trackUri: string;
+    trackUri?: string;
     requesterNickname: string;
     userSessionId: string;
     submittedAt: string;
@@ -205,7 +205,7 @@ export interface ErrorOccurredEvent extends BaseEvent {
     message: string;
     severity: 'low' | 'medium' | 'high' | 'critical';
     service: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -255,9 +255,9 @@ export interface EventHandlers {
   heartbeat?: EventHandler<HeartbeatEvent>;
 }
 
-// Channel naming convention
+// Channel naming — private guest channel only (public event-{id} retired)
 export const getEventChannel = (eventId: string): string => {
-  return `event-${eventId}`;
+  return `private-event-${eventId}-guest`;
 };
 
 // Event ID generation
@@ -271,15 +271,16 @@ export const generateEventVersion = (): EventVersion => {
 };
 
 // Event validation
-export const isValidEvent = (event: any): event is PusherEvent => {
+export const isValidEvent = (event: unknown): event is PusherEvent => {
+  if (!event || typeof event !== 'object') return false;
+  const e = event as Record<string, unknown>;
   return (
-    event &&
-    typeof event.id === 'string' &&
-    typeof event.timestamp === 'number' &&
-    typeof event.version === 'number' &&
-    typeof event.eventId === 'string' &&
-    typeof event.action === 'string' &&
-    event.data !== undefined
+    typeof e.id === 'string' &&
+    typeof e.timestamp === 'number' &&
+    typeof e.version === 'number' &&
+    typeof e.eventId === 'string' &&
+    typeof e.action === 'string' &&
+    e.data !== undefined
   );
 };
 

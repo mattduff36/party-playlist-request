@@ -246,7 +246,7 @@ export default function SetupModal({ isOpen, onClose, username }: SetupModalProp
                   <div className="w-20 h-20 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Check className="w-10 h-10 text-accent" />
                   </div>
-                  <h3 className="text-2xl font-bold text-bone mb-2">You're all set!</h3>
+                  <h3 className="text-2xl font-bold text-bone mb-2">You&apos;re all set!</h3>
                   <p className="text-muted mb-6">
                     Your Spotify account is connected and settings are configured.
                   </p>

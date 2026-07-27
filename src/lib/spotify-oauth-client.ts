@@ -1,6 +1,6 @@
 /**
  * Client-side Spotify OAuth helpers.
- * Used when returning from Spotify authorization and while connection is pending.
+ * OAuth token exchange is server-owned (PRD-03); the browser only handles result codes.
  */
 
 export const SPOTIFY_OAUTH_PENDING_KEY = 'spotify_oauth_pending';
@@ -9,6 +9,26 @@ export interface SpotifyOAuthResult {
   success: boolean;
   error?: string;
 }
+
+const RESULT_MESSAGES: Record<string, string> = {
+  access_denied: 'Spotify authorization was denied.',
+  session_required: 'Please sign in again, then reconnect Spotify.',
+  missing_code: 'Spotify did not return an authorization code. Please try again.',
+  bind_mismatch:
+    'Spotify authorization could not be verified for this browser session. Please try again.',
+  oauth_replay:
+    'This Spotify authorization link was already used or expired. Please try again.',
+  user_mismatch:
+    'Spotify authorization does not match the signed-in account. Please try again.',
+  expired_authorization: 'Spotify authorization expired. Please reconnect.',
+  development_mode_denial:
+    'Spotify app is in development mode and this account is not allowlisted.',
+  rate_limit: 'Spotify is rate limiting requests. Please try again shortly.',
+  provider_outage: 'Spotify is temporarily unavailable. Please try again later.',
+  oauth_invalid: 'Spotify authorization failed. Please try connecting again.',
+  provider_error: 'Spotify authorization failed. Please try again.',
+  callback_failed: 'Failed to complete Spotify connection. Please try again.',
+};
 
 export function markSpotifyOAuthPending(): void {
   try {
@@ -34,79 +54,30 @@ export function isSpotifyOAuthPending(): boolean {
   }
 }
 
+/** Map server redirect error codes to user-safe messages. */
+export function messageForSpotifyOAuthError(code: string | null): string {
+  if (!code) {
+    return 'Failed to complete Spotify connection. Please try again.';
+  }
+  return (
+    RESULT_MESSAGES[code] ||
+    'Failed to complete Spotify connection. Please try again.'
+  );
+}
+
+/**
+ * Legacy client exchange removed. Kept as a stub so accidental callers fail closed
+ * without contacting /oauth-session or posting a verifier.
+ */
 export async function completeSpotifyOAuthCallback(
-  code: string,
-  oauthState: string
+  _code: string,
+  _oauthState: string
 ): Promise<SpotifyOAuthResult> {
-  let codeVerifier: string | null = null;
-
-  try {
-    const sessionResponse = await fetch(
-      `/api/spotify/oauth-session?state=${encodeURIComponent(oauthState)}`,
-      { credentials: 'include' }
-    );
-
-    if (sessionResponse.ok) {
-      const sessionData = await sessionResponse.json();
-      codeVerifier = sessionData.code_verifier ?? null;
-    }
-  } catch {
-    // Fall back to localStorage
-  }
-
-  if (!codeVerifier) {
-    const storedState = localStorage.getItem('spotify_state');
-    codeVerifier = localStorage.getItem('spotify_code_verifier');
-
-    if (!storedState || oauthState !== storedState) {
-      localStorage.removeItem('spotify_state');
-      localStorage.removeItem('spotify_code_verifier');
-      return {
-        success: false,
-        error: 'Authorization session expired or was invalid. Please try connecting again.',
-      };
-    }
-  }
-
-  if (!codeVerifier) {
-    return {
-      success: false,
-      error: 'Authorization session not found. Please try connecting again.',
-    };
-  }
-
-  try {
-    const response = await fetch('/api/spotify/callback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        code,
-        state: oauthState,
-        code_verifier: codeVerifier,
-      }),
-    });
-
-    localStorage.removeItem('spotify_state');
-    localStorage.removeItem('spotify_code_verifier');
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return {
-        success: false,
-        error:
-          (errorData as { error?: string }).error ||
-          'Failed to complete Spotify connection',
-      };
-    }
-
-    return { success: true };
-  } catch {
-    return {
-      success: false,
-      error: 'Network error while connecting to Spotify. Please try again.',
-    };
-  }
+  return {
+    success: false,
+    error:
+      'Client Spotify token exchange is no longer supported. Reload and reconnect Spotify.',
+  };
 }
 
 export async function waitForSpotifyConnected(options?: {

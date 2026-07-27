@@ -6,7 +6,7 @@ import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       approved_at: new Date().toISOString(),
       approved_by: auth.user.username,
       rejection_reason: reason || 'No reason provided'
-    });
+    }, userId);
 
     reportActivity(req, 'request.reject', `Rejected request ${id}`, {
       user: auth.user,

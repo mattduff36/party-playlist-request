@@ -1,0 +1,146 @@
+import fs from 'fs';
+import path from 'path';
+import { CANONICAL_MIGRATIONS } from '@/lib/db/migrate/registry';
+
+const ROOT = path.join(__dirname, '..', '..');
+
+describe('PRD-05: canonical migrations', () => {
+  it('registry is ordered Class A/B only with on-disk SQL files', () => {
+    expect(CANONICAL_MIGRATIONS.length).toBeGreaterThanOrEqual(6);
+    const ids = CANONICAL_MIGRATIONS.map((m) => m.id);
+    expect(ids).toEqual([...ids].sort());
+
+    for (const migration of CANONICAL_MIGRATIONS) {
+      expect(['A', 'B']).toContain(migration.classification);
+      const filePath = path.join(
+        ROOT,
+        'src/lib/db/migrations/canonical',
+        migration.file
+      );
+      expect(fs.existsSync(filePath)).toBe(true);
+      const sql = fs.readFileSync(filePath, 'utf8');
+      expect(sql.length).toBeGreaterThan(20);
+      // Guardrails: no Class D drops of credential plaintext in auto migrations
+      expect(sql).not.toMatch(/DROP COLUMN\s+access_token\b/i);
+      expect(sql).not.toMatch(/DROP COLUMN\s+refresh_token\b/i);
+      expect(sql).not.toMatch(/DROP COLUMN\s+pin\b/i);
+    }
+  });
+
+  it('quarantines conflicting Drizzle 7→4 migrator away from active migrations/', () => {
+    const active = path.join(ROOT, 'src/lib/db/migrations/0001_migrate_7_to_4_tables.sql');
+    const quarantined = path.join(
+      ROOT,
+      'src/lib/db/_quarantine/drizzle-legacy/0001_migrate_7_to_4_tables.sql'
+    );
+    expect(fs.existsSync(active)).toBe(false);
+    expect(fs.existsSync(quarantined)).toBe(true);
+  });
+});
+
+describe('PRD-05: no request-time DDL in hot paths', () => {
+  it('spotify-sync lease no longer CREATE TABLE at runtime', () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, 'src/lib/spotify-sync/lease.ts'),
+      'utf8'
+    );
+    expect(source).not.toMatch(/CREATE TABLE IF NOT EXISTS\s+spotify_playback_sync/i);
+    expect(source).toMatch(/information_schema\.tables/);
+  });
+
+  it('database-cache no longer CREATE TABLE at runtime', () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, 'src/lib/cache/database-cache.ts'),
+      'utf8'
+    );
+    expect(source).not.toMatch(/CREATE TABLE IF NOT EXISTS\s+cache_entries/i);
+  });
+
+  it('poll route uses getPool not drizzle spotify_tokens table', () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, 'src/app/api/events/poll/route.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/getPool/);
+    expect(source).toMatch(/FROM spotify_auth/);
+    expect(source).not.toMatch(/FROM spotify_tokens/);
+    expect(source).not.toMatch(/@\/lib\/db\/index/);
+    expect(source).not.toMatch(/from ['\"]drizzle-orm['\"]/);
+  });
+
+  it('API routes do not call initializeDefaults / initializeDatabase', () => {
+    const apiRoot = path.join(ROOT, 'src/app/api');
+    const offenders: string[] = [];
+
+    function walk(dir: string): void {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!entry.name.endsWith('.ts')) continue;
+        const text = fs.readFileSync(full, 'utf8');
+        if (
+          /\binitializeDefaults\s*\(/.test(text) ||
+          /\binitializeDatabase\s*\(/.test(text)
+        ) {
+          offenders.push(path.relative(ROOT, full));
+        }
+      }
+    }
+
+    walk(apiRoot);
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe('PRD-05: quality gate flags', () => {
+  it('removes typescript.ignoreBuildErrors and eslint.ignoreDuringBuilds', () => {
+    const config = fs.readFileSync(path.join(ROOT, 'next.config.ts'), 'utf8');
+    expect(config).not.toMatch(/ignoreBuildErrors:\s*true/);
+    expect(config).not.toMatch(/ignoreDuringBuilds:\s*true/);
+    const ci = fs.readFileSync(
+      path.join(ROOT, '.github/workflows/ci.yml'),
+      'utf8'
+    );
+    // Lint step must hard-fail (no continue-on-error on the lint job step)
+    expect(ci).toMatch(/name:\s*Lint[\s\S]*?run:\s*npm run lint/);
+    expect(ci).not.toMatch(
+      /name:\s*Lint[\s\S]*?continue-on-error:\s*true/
+    );
+    expect(
+      fs.existsSync(path.join(ROOT, 'docs/database/QUALITY_GATE_DEBT.md'))
+    ).toBe(true);
+  });
+
+  it('dry-run path does not call ensureMigrationsTable / CREATE', () => {
+    const source = fs.readFileSync(
+      path.join(ROOT, 'src/lib/db/migrate/runner.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/schemaMigrationsTableExists/);
+    expect(source).toMatch(/if \(dryRun\)/);
+    // ensureMigrationsTable must only run on the non-dry-run branch
+    const dryBlock = source.slice(
+      source.indexOf('if (dryRun)'),
+      source.indexOf('await ensureMigrationsTable')
+    );
+    expect(dryBlock).toMatch(/schemaMigrationsTableExists/);
+    expect(dryBlock).not.toMatch(/ensureMigrationsTable/);
+  });
+
+  it('disables spotify_tokens foot-gun npm scripts', () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+    ) as { scripts: Record<string, string> };
+    expect(pkg.scripts['db:create-indexes']).toMatch(/exit 1/);
+    expect(pkg.scripts['db:create-constraints']).toMatch(/exit 1/);
+    expect(
+      fs.existsSync(path.join(ROOT, 'src/lib/db/_quarantine/indexes.ts'))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(ROOT, 'src/lib/db/_quarantine/constraints.ts'))
+    ).toBe(true);
+  });
+});

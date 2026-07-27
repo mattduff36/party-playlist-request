@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, type CSSProperties } from 're
 import QRCode from 'qrcode';
 import { usePusher } from '@/hooks/usePusher';
 import { useLiveProgress } from '@/hooks/useLiveProgress';
-import { RequestApprovedEvent } from '@/lib/pusher';
+import { RequestApprovedEvent } from '@/lib/pusher/client-shared';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { EventConfig } from '@/lib/db/schema';
 import { sanitizeRequesterNameForDisplay } from '@/lib/profanity-filter';
@@ -17,11 +17,6 @@ import {
   resolveDisplayMood,
 } from '@/styles/theme';
 
-/** Max wait for display-data / event-config before applying default mood. */
-const MOOD_CONFIRM_TIMEOUT_MS = 8000;
-/** Hard SLA: never allow staleness budget above 5s. */
-const MAX_STALE_MS = 5_000;
-const STALE_CHECK_MS = 1_000;
 import type {
   CurrentTrack,
   DisplayDeviceType,
@@ -30,11 +25,22 @@ import type {
   QueueItem,
   RequestItem,
 } from './types';
+import type { DisplayRealtimeMode } from './DisplayAuthGate';
+
+/** Max wait for display-data / event-config before applying default mood. */
+const MOOD_CONFIRM_TIMEOUT_MS = 8000;
+/** Hard SLA: never allow staleness budget above 5s. */
+const MAX_STALE_MS = 5_000;
+const STALE_CHECK_MS = 1_000;
 
 interface UseDisplayDataOptions {
   username: string;
   /** Guest access code from URL — required for gated public APIs */
   accessCode?: string;
+  /** Event id from display-token or guest verify (for private channel subscribe) */
+  eventId?: string;
+  /** guest | display | owner — controls which Pusher channel is used */
+  realtimeMode?: DisplayRealtimeMode;
 }
 
 function withAccessCode(url: string, accessCode?: string): string {
@@ -43,11 +49,18 @@ function withAccessCode(url: string, accessCode?: string): string {
   return `${url}${sep}accessCode=${encodeURIComponent(accessCode)}`;
 }
 
-export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) {
+export function useDisplayData({
+  username,
+  accessCode,
+  eventId,
+  realtimeMode = 'guest',
+}: UseDisplayDataOptions) {
   const [guestAccessCode, setGuestAccessCode] = useState<string | undefined>(accessCode);
   const [currentTrack, setCurrentTrack] = useState<CurrentTrack | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<QueueItem[]>([]);
   const [eventSettings, setEventSettings] = useState<EventConfig | null>(null);
+  const [playbackMode, setPlaybackMode] = useState<'spotify' | 'manual'>('spotify');
+  const [modeLabel, setModeLabel] = useState<string | null>(null);
   /** Gates themed UI until server mood is applied (avoids default `dj` flash). */
   const [moodConfirmed, setMoodConfirmed] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
@@ -88,6 +101,8 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
     async (force = false) => {
       // No Spotify heartbeat while the DJ has disabled this display
       if (!displayPageEnabled && !force) return;
+      // Manual mode has no Spotify telemetry — skip heartbeat entirely
+      if (playbackMode === 'manual') return;
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
       lastSyncAttemptAtRef.current = Date.now();
@@ -107,7 +122,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         syncInFlightRef.current = false;
       }
     },
-    [username, accessCode, guestAccessCode, displayPageEnabled]
+    [username, accessCode, guestAccessCode, displayPageEnabled, playbackMode]
   );
 
   // Cleanup ResizeObserver on component unmount
@@ -259,6 +274,20 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         }
         setCurrentTrack(data.current_track);
         setUpcomingSongs(data.upcoming_songs || []);
+        if (data.playback_mode === 'manual' || data.playback_mode === 'spotify') {
+          setPlaybackMode(data.playback_mode);
+        } else if (data.event_settings?.playback_mode === 'manual') {
+          setPlaybackMode('manual');
+        }
+        if (typeof data.mode_label === 'string' && data.mode_label.trim()) {
+          setModeLabel(data.mode_label);
+        } else if (data.playback_mode === 'manual') {
+          setModeLabel(
+            'Manual request mode — PartyPlaylist does not control Spotify'
+          );
+        } else {
+          setModeLabel(null);
+        }
         if (data.current_track) {
           markPlaybackFresh();
         }
@@ -285,7 +314,10 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
   // Note: original page had a duplicate onSettingsUpdate key; the settings-refresh
   // handler below is the one that actually applies (object-literal last-write-wins).
   const { isConnected, connectionState } = usePusher({
-    username: username, // Pass username for userId lookup on public pages
+    // Owner preview uses admin channels; display token uses private display channel
+    username: realtimeMode === 'owner' ? undefined : username,
+    eventId: realtimeMode === 'owner' ? undefined : eventId,
+    channelMode: realtimeMode === 'display' ? 'display' : 'guest',
     onPageControlToggle: (data: {
       pagesEnabled?: { requests?: boolean; display?: boolean };
       page?: 'requests' | 'display';
@@ -315,15 +347,16 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       };
       setApprovedRequests((prev) => [newRequest, ...prev].slice(0, 10)); // Keep only latest 10
 
-      // Trigger animation immediately
-      setAnimatingCards((prev) => new Set([...prev, data.track_uri]));
+      // Trigger animation immediately (manual mode may omit track_uri)
+      const animationKey = data.track_uri || data.id;
+      setAnimatingCards((prev) => new Set([...prev, animationKey]));
       console.log(`🎉 ANIMATION TRIGGERED! New song: ${data.track_name} by ${data.requester_nickname}`);
 
       // Remove animation after 1 second
       setTimeout(() => {
         setAnimatingCards((prev) => {
           const updated = new Set(prev);
-          updated.delete(data.track_uri);
+          updated.delete(animationKey);
           console.log('✅ Animation completed for:', data.track_name);
           return updated;
         });
@@ -333,7 +366,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       // This callback only handles the "Requests on the way" animation
       console.log('✅ Request approved animation completed, queue updates handled by onPlaybackUpdate');
     },
-    onPlaybackUpdate: (data: any) => {
+    onPlaybackUpdate: (data) => {
       // Avoid re-render storms on the "Display Disabled" screen
       if (!displayPageEnabledRef.current) {
         markPlaybackFresh();
@@ -348,10 +381,12 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
 
       // Update current track
       if (data.current_track) {
-        const newTrack = {
+        const newTrack: CurrentTrack = {
           name: data.current_track.name || '',
           artists: Array.isArray(data.current_track.artists)
-            ? data.current_track.artists.map((a: any) => (typeof a === 'string' ? a : a.name))
+            ? data.current_track.artists
+                .map((a) => (typeof a === 'string' ? a : a.name || ''))
+                .filter(Boolean)
             : [],
           album: data.current_track.album?.name || '',
           duration_ms: data.current_track.duration_ms || 0,
@@ -384,7 +419,9 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         console.log('✅ Current track state updated:', newTrack.name);
       } else if (typeof data.progress_ms === 'number') {
         setCurrentTrack((prev) =>
-          prev ? { ...prev, progress_ms: data.progress_ms } : prev
+          prev && typeof data.progress_ms === 'number'
+            ? { ...prev, progress_ms: data.progress_ms }
+            : prev
         );
       }
 
@@ -392,15 +429,17 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       if (data.queue) {
         console.log('🎵 PUSHER: Updating queue with', data.queue.length, 'tracks');
 
-        const processedQueue = data.queue.map((track: any) => ({
+        const processedQueue: QueueItem[] = data.queue.map((track) => ({
           name: track.name || '',
           artists: Array.isArray(track.artists)
-            ? track.artists.map((a: any) => (typeof a === 'string' ? a : a.name))
+            ? track.artists
+                .map((a) => (typeof a === 'string' ? a : a.name || ''))
+                .filter(Boolean)
             : [],
-          album: track.album?.name || track.album || '',
+          album: track.album?.name || '',
           uri: track.uri || '',
           image_url: track.image_url || undefined,
-          requester_nickname: track.requester_nickname,
+          requester_nickname: track.requester_nickname || undefined,
         }));
 
         // Force state update by creating new array reference
@@ -408,7 +447,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         console.log('✅ Queue state updated with', processedQueue.length, 'tracks');
       }
     },
-    onMessageUpdate: (data: any) => {
+    onMessageUpdate: (data) => {
       console.log('💬 PUSHER: Message updated!', data);
 
       // Validate message data
@@ -417,10 +456,11 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
         return;
       }
 
-      const messageData = {
-        text: data.message_text,
-        duration: data.message_duration,
-        created_at: data.message_created_at,
+      const messageData: DisplayMessage = {
+        text: String(data.message_text),
+        duration:
+          typeof data.message_duration === 'number' ? data.message_duration : null,
+        created_at: String(data.message_created_at),
       };
 
       console.log('✅ Setting current message:', {
@@ -431,11 +471,11 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
 
       setCurrentMessage(messageData);
     },
-    onMessageCleared: (data: any) => {
+    onMessageCleared: (data) => {
       console.log('💬 PUSHER: Message cleared!', data);
       setCurrentMessage(null);
     },
-    onSettingsUpdate: (data: any) => {
+    onSettingsUpdate: (data) => {
       console.log('⚙️ PUSHER: Settings updated!', data);
       if (data.settings) {
         applyEventSettings(data.settings);
@@ -459,8 +499,9 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
   const liveProgress = useLiveProgress(playbackState, 1000);
 
   // Staleness-gated heartbeat: open displays keep server sync alive (coalesced).
+  // Manual mode skips Spotify playback-sync entirely.
   useEffect(() => {
-    if (!displayPageEnabled) return;
+    if (!displayPageEnabled || playbackMode === 'manual') return;
 
     const staleBudgetMs = Math.min(
       MAX_STALE_MS,
@@ -494,7 +535,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [eventSettings, requestPlaybackSync, displayPageEnabled]);
+  }, [eventSettings, requestPlaybackSync, displayPageEnabled, playbackMode]);
 
   // Callback ref for Now Playing section - sets up ResizeObserver to detect layout changes
   // This is now reactive to isMessageVisible changes (notice board appearing/disappearing)
@@ -635,6 +676,21 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
             console.log('📱 Initial load: Loading', data.upcoming_songs.length, 'upcoming songs');
             setUpcomingSongs(data.upcoming_songs);
           }
+
+          if (data.playback_mode === 'manual' || data.playback_mode === 'spotify') {
+            setPlaybackMode(data.playback_mode);
+          } else if (data.event_settings?.playback_mode === 'manual') {
+            setPlaybackMode('manual');
+          }
+          if (typeof data.mode_label === 'string' && data.mode_label.trim()) {
+            setModeLabel(data.mode_label);
+          } else if (data.playback_mode === 'manual') {
+            setModeLabel(
+              'Manual request mode — PartyPlaylist does not control Spotify'
+            );
+          } else {
+            setModeLabel(null);
+          }
         }
 
         // Fetch requests for "Requests on the way" section
@@ -651,7 +707,7 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
           const requestsData = await requestsResponse.json();
           // Use the requests directly - they're already approved/pending
           setApprovedRequests(
-            (requestsData.requests || []).filter((r: any) => r.status === 'approved')
+            (requestsData.requests || []).filter((r: { status?: string }) => r.status === 'approved')
           );
         }
 
@@ -914,6 +970,8 @@ export function useDisplayData({ username, accessCode }: UseDisplayDataOptions) 
     dynamicDuration,
     messageTextColor,
     spotifyConnected,
+    playbackMode,
+    modeLabel,
     fetchDisplayData,
   };
 }

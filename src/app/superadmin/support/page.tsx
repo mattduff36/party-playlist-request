@@ -15,6 +15,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import SupportConsoleFeed from '@/components/support/SupportConsoleFeed';
 import type { SupportActivityRow, SupportErrorRow } from '@/lib/support/types';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 type Panel = 'errors' | 'activity' | 'health' | 'drilldown' | 'console';
 
@@ -125,10 +126,8 @@ export default function SuperAdminSupportPage() {
   }, [panel, loadErrors, loadActivity, loadHealth]);
 
   const markResolved = async (id: string) => {
-    const res = await fetch('/api/superadmin/support/errors', {
+    const res = await authenticatedFetch('/api/superadmin/support/errors', {
       method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
     if (res.ok) {

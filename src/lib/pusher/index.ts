@@ -11,11 +11,22 @@ export * from './events';
 // Export client
 export * from './client';
 
-// Export broadcaster
+// Export broadcaster (canonical broadcastEvent / broadcastEvents)
 export * from './broadcaster';
 
-// Export event manager
-export * from './event-manager';
+// Export event manager without colliding broadcast helpers
+export {
+  EventManager,
+  getEventManager,
+  cleanupEventManager,
+  initializeEventManager,
+  addEventHandler,
+  removeEventHandler,
+  broadcastManagedEvent,
+  broadcastManagedEvents,
+  getConnectionStatus,
+  getStatistics,
+} from './event-manager';
 
 // Export deduplication
 export * from './deduplication';

@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spotifyService } from '@/lib/spotify';
-import { hashIP, initializeDefaults } from '@/lib/db';
+import { hashIP } from '@/lib/db';
 import {
   isSpotifySearchBusyError,
   SPOTIFY_SEARCH_BUSY_CODE,
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getClientIp } from '@/lib/rate-limit';
 import {
   buildSearchCacheKey,
   getCachedSearch,
   setCachedSearch,
 } from '@/lib/search-cache';
 import { requireGuestAccess } from '@/lib/guest-access';
+import {
+  enforceGuestRateLimit,
+  ensureGuestDeviceCookie,
+  resolveGuestDeviceId,
+} from '@/lib/reliability';
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,26 +40,28 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    await initializeDefaults();
-
     const access = await requireGuestAccess(req, username);
     if (!access.ok) {
       return access.response;
     }
 
     const clientIP = getClientIp(req);
-    const rateLimitCheck = checkRateLimit(
-      'guestSearch',
-      `${hashIP(clientIP)}:${username || 'anon'}`
-    );
+    const { deviceId, minted } = resolveGuestDeviceId(req);
+    const rateLimitCheck = await enforceGuestRateLimit({
+      bucket: 'guestSearch',
+      primaryKey: `${access.event.id}:${deviceId}`,
+      secondaryKey: hashIP(clientIP),
+      secondaryMaxMultiplier: 20,
+    });
     if (!rateLimitCheck.allowed) {
       const response = NextResponse.json(
-        { error: rateLimitCheck.message },
+        { error: rateLimitCheck.message, code: 'RATE_LIMITED' },
         { status: 429 }
       );
       if (rateLimitCheck.retryAfter) {
         response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
       }
+      if (minted) ensureGuestDeviceCookie(response, deviceId);
       return response;
     }
     

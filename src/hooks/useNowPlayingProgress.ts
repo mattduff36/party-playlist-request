@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface PlaybackState {
   is_playing: boolean;
@@ -13,7 +14,7 @@ interface PlaybackState {
   device_name?: string;
   volume_percent?: number;
   spotify_connected: boolean;
-  queue?: any[];
+  queue?: Array<Record<string, unknown>>;
   timestamp: number;
 }
 
@@ -65,15 +66,8 @@ export const useNowPlayingProgress = (
     }
 
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
-      const response = await fetch('/api/admin/queue/details', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // Cookie session is canonical — do not gate on stale localStorage Bearer.
+      const response = await authenticatedFetch('/api/admin/queue/details');
 
       if (response.ok) {
         const data = await response.json();

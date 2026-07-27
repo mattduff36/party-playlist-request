@@ -1,14 +1,23 @@
 'use client';
 
+import { Suspense } from 'react';
 import { DisplayAuthGate, DisplayPage } from '@/components/display';
+import PageLoader from '@/components/ui/PageLoader';
 
-/** Owner preview or session-restored display (no access code in path). */
+/** Owner preview, ?dt= display token, or session-restored display. */
 export default function UserDisplayPage() {
   return (
-    <DisplayAuthGate>
-      {(username, accessCode) => (
-        <DisplayPage username={username} accessCode={accessCode} />
-      )}
-    </DisplayAuthGate>
+    <Suspense fallback={<PageLoader label="Loading display..." />}>
+      <DisplayAuthGate>
+        {(ctx) => (
+          <DisplayPage
+            username={ctx.username}
+            accessCode={ctx.accessCode}
+            eventId={ctx.eventId}
+            realtimeMode={ctx.realtimeMode}
+          />
+        )}
+      </DisplayAuthGate>
+    </Suspense>
   );
 }

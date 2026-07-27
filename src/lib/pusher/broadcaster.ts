@@ -10,17 +10,37 @@ import {
   PusherEvent, 
   generateEventId, 
   generateEventVersion,
-  getEventChannel 
 } from './events';
+import { getEventRealtimePublishChannels } from './channel-contract';
+import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
 
-// Server-side Pusher instance
-const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID || 'fallback-app-id',
-  key: process.env.PUSHER_KEY || 'fallback-key',
-  secret: process.env.PUSHER_SECRET || 'fallback-secret',
-  cluster: process.env.PUSHER_CLUSTER || 'us2',
-  useTLS: true,
-});
+function createBroadcasterPusher(): Pusher {
+  return new Pusher({
+    appId: resolveSecretEnv('PUSHER_APP_ID', {
+      insecureFallbacks: ['fallback-app-id'],
+      devFallback: 'fallback-app-id',
+    }),
+    key: resolveSecretEnv('PUSHER_KEY', {
+      insecureFallbacks: ['fallback-key'],
+      devFallback: 'fallback-key',
+    }),
+    secret: resolveSecretEnv('PUSHER_SECRET', {
+      insecureFallbacks: ['fallback-secret'],
+      devFallback: 'fallback-secret',
+    }),
+    cluster: process.env.PUSHER_CLUSTER?.trim() || 'us2',
+    useTLS: true,
+  });
+}
+
+let pusherServerInstance: Pusher | null = null;
+
+function getBroadcasterPusher(): Pusher {
+  if (!pusherServerInstance) {
+    pusherServerInstance = createBroadcasterPusher();
+  }
+  return pusherServerInstance;
+}
 
 // Broadcasting configuration
 interface BroadcastConfig {
@@ -42,12 +62,12 @@ const DEFAULT_BROADCAST_CONFIG: BroadcastConfig = {
 // Event queue for batching
 interface QueuedEvent {
   event: PusherEvent;
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
+  resolve: () => void;
+  reject: (error: unknown) => void;
   retries: number;
 }
 
-class EventBroadcaster {
+export class EventBroadcaster {
   private config: BroadcastConfig;
   private eventQueue: QueuedEvent[] = [];
   private processingQueue = false;
@@ -132,11 +152,11 @@ class EventBroadcaster {
   // Process a batch of events
   private async processBatch(batch: QueuedEvent[], eventId: string): Promise<void> {
     try {
-      const channelName = getEventChannel(eventId);
-      
-      // Send events individually for better error handling
-      const promises = batch.map(queuedEvent => 
-        this.sendEvent(queuedEvent.event, channelName, queuedEvent)
+      // Private guest + display only — public event-{id} dual-publish removed (PRD-04)
+      const channels = getEventRealtimePublishChannels(eventId);
+
+      const promises = batch.map((queuedEvent) =>
+        this.sendEventToPrivateChannels(queuedEvent.event, channels, queuedEvent)
       );
 
       await Promise.allSettled(promises);
@@ -156,29 +176,29 @@ class EventBroadcaster {
     }
   }
 
-  // Send individual event
-  private async sendEvent(event: PusherEvent, channelName: string, queuedEvent: QueuedEvent): Promise<void> {
+  // Publish to private guest + display channels only
+  private async sendEventToPrivateChannels(
+    event: PusherEvent,
+    channelNames: string[],
+    queuedEvent: QueuedEvent
+  ): Promise<void> {
     try {
-      // Compress large events
       const payload = this.compressEvent(event);
-      
-      await pusherServer.trigger(channelName, 'event', payload);
-      
+      await Promise.all(
+        channelNames.map((channelName) =>
+          getBroadcasterPusher().trigger(channelName, 'event', payload)
+        )
+      );
       console.log(`📡 Event broadcasted: ${event.action}`, event.id);
-      queuedEvent.resolve(event);
+      queuedEvent.resolve();
     } catch (error) {
       console.error(`❌ Failed to broadcast event ${event.action}:`, error);
-      
-      // Retry logic
       if (queuedEvent.retries < this.config.maxRetries) {
         queuedEvent.retries++;
-        console.log(`🔄 Retrying event ${event.action} (attempt ${queuedEvent.retries})`);
-        
         setTimeout(() => {
-          this.sendEvent(event, channelName, queuedEvent);
+          void this.sendEventToPrivateChannels(event, channelNames, queuedEvent);
         }, this.config.retryDelay * queuedEvent.retries);
       } else {
-        console.error(`💥 Max retries reached for event ${event.action}`);
         queuedEvent.reject(error);
       }
     }
@@ -192,12 +212,15 @@ class EventBroadcaster {
       return event;
     }
 
-    // Compress large data fields
-    const compressedEvent = { ...event };
-    
-    if (event.action === 'playback_update' && event.data.currentTrack) {
-      const track = event.data.currentTrack;
-      compressedEvent.data.currentTrack = {
+    if (event.action !== 'playback_update') {
+      return event;
+    }
+
+    const data = { ...event.data };
+
+    if (data.currentTrack) {
+      const track = data.currentTrack;
+      data.currentTrack = {
         ...track,
         name: track.name?.substring(0, 100) || '',
         artists: track.artists?.slice(0, 2).map(a => ({ name: a.name?.substring(0, 50) || '' })) || [],
@@ -209,8 +232,8 @@ class EventBroadcaster {
       };
     }
 
-    if (event.action === 'playback_update' && event.data.queue) {
-      compressedEvent.data.queue = event.data.queue.slice(0, 10).map((track) => {
+    if (data.queue) {
+      data.queue = data.queue.slice(0, 10).map((track) => {
         const trackWithArt = track as typeof track & {
           image_url?: string | null;
           album?: { images?: Array<{ url?: string }> };
@@ -234,7 +257,7 @@ class EventBroadcaster {
       });
     }
 
-    return compressedEvent;
+    return { ...event, data };
   }
 
   // Get queue statistics
@@ -278,107 +301,107 @@ export const broadcastEvents = async (
 export const getBroadcasterStats = () => eventBroadcaster.getQueueStats();
 export const clearBroadcastQueue = () => eventBroadcaster.clearQueue();
 
-// Specific event broadcasting functions
-export const broadcastStateUpdate = async (eventId: string, data: any) => {
+// Specific event broadcasting functions (payload validated at publish sites)
+export const broadcastStateUpdate = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'state_update',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastRequestApproved = async (eventId: string, data: any) => {
+export const broadcastRequestApproved = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'request_approved',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastRequestRejected = async (eventId: string, data: any) => {
+export const broadcastRequestRejected = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'request_rejected',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastRequestSubmitted = async (eventId: string, data: any) => {
+export const broadcastRequestSubmitted = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'request_submitted',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastRequestDeleted = async (eventId: string, data: any) => {
+export const broadcastRequestDeleted = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'request_deleted',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastPlaybackUpdate = async (eventId: string, data: any) => {
+export const broadcastPlaybackUpdate = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'playback_update',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastPageControlToggle = async (eventId: string, data: any) => {
+export const broadcastPageControlToggle = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'page_control_toggle',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastAdminLogin = async (eventId: string, data: any) => {
+export const broadcastAdminLogin = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'admin_login',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastAdminLogout = async (eventId: string, data: any) => {
+export const broadcastAdminLogout = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'admin_logout',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastTokenExpired = async (eventId: string, data: any) => {
+export const broadcastTokenExpired = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'token_expired',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastStatsUpdate = async (eventId: string, data: any) => {
+export const broadcastStatsUpdate = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'stats_update',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastErrorOccurred = async (eventId: string, data: any) => {
+export const broadcastErrorOccurred = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'error_occurred',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };
 
-export const broadcastHeartbeat = async (eventId: string, data: any) => {
+export const broadcastHeartbeat = async (eventId: string, data: Record<string, unknown>) => {
   return broadcastEvent({
     action: 'heartbeat',
     eventId,
-    data
-  }, eventId);
+    data,
+  } as Omit<PusherEvent, 'id' | 'timestamp' | 'version'>, eventId);
 };

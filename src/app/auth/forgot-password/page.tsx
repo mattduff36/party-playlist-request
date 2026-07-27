@@ -50,10 +50,10 @@ export default function ForgotPasswordPage() {
       setStatus('success');
       setMessage(data.message || 'Password reset email sent!');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Forgot password error:', error);
       setStatus('error');
-      setMessage(error.message || 'Failed to send reset email. Please try again.');
+      setMessage((error instanceof Error ? error.message : String(error)) || 'Failed to send reset email. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
             <Music2 className="w-12 h-12 text-accent" />
           </Link>
           <h1 className="text-3xl font-bold text-bone mb-2">Reset Your Password</h1>
-          <p className="text-muted">Enter your email and we'll send you a reset link</p>
+          <p className="text-muted">Enter your email and we&apos;ll send you a reset link</p>
         </div>
 
         {/* Form Card */}
@@ -103,7 +103,7 @@ export default function ForgotPasswordPage() {
 
               <p className="text-muted text-sm mb-6">
                 The reset link will expire in <strong className="text-bone">1 hour</strong>. 
-                Check your spam folder if you don't see the email.
+                Check your spam folder if you don&apos;t see the email.
               </p>
 
               <Link
@@ -178,7 +178,7 @@ export default function ForgotPasswordPage() {
                 href="/register"
                 className="block text-muted hover:text-yellow-400 transition-colors text-sm"
               >
-                Don't have an account? <span className="font-medium">Sign up</span>
+                Don&apos;t have an account? <span className="font-medium">Sign up</span>
               </Link>
             </div>
           )}

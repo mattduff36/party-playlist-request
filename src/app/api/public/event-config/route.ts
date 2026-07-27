@@ -33,6 +33,8 @@ export async function GET(req: NextRequest) {
 
     // Get user-specific event settings
     const settings = await getEventSettings(userId);
+    const { getPlaybackMode } = await import('@/lib/playback');
+    const playbackMode = await getPlaybackMode(userId);
 
     // Get event config including message data (for Notice Board feature)
     // neon() tagged template returns Row[] (not { rows })
@@ -49,7 +51,12 @@ export async function GET(req: NextRequest) {
     let isExpired = false;
 
     if (eventRows.length > 0) {
-      const config = eventRows[0].config as any;
+      const config = eventRows[0].config as {
+      message_text?: string | null;
+      message_duration?: number | null;
+      message_created_at?: string | null;
+      [key: string]: unknown;
+    };
       messageText = config?.message_text || null;
       messageDuration = config?.message_duration || null;
       messageCreatedAt = config?.message_created_at || null;
@@ -80,6 +87,7 @@ export async function GET(req: NextRequest) {
           display_mood: settings.display_mood ?? null,
           theme_primary_color: settings.theme_primary_color ?? null,
           decline_explicit: settings.decline_explicit ?? false,
+          playback_mode: playbackMode,
         },
         // Notice Board message data (approval messages)
         message_text: messageText,
@@ -106,6 +114,7 @@ export async function GET(req: NextRequest) {
           display_mood: null,
           theme_primary_color: null,
           decline_explicit: false,
+          playback_mode: 'spotify',
         },
         message_text: null,
         message_duration: null,

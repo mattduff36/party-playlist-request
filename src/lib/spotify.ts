@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getSpotifyAuth, setSpotifyAuth } from './db';
+import { getSpotifyAuth, setSpotifyAuth, setSpotifyAuthCas } from './db';
 import { logErrorAsync } from '@/lib/support/logger';
 import {
   getMockSearchResults,
@@ -9,12 +9,46 @@ import {
   SPOTIFY_MOCK_PLAYBACK,
   SPOTIFY_MOCK_QUEUE,
 } from './spotify-mock';
-
+import { generateOAuthState } from '@/lib/spotify/oauth-state';
+import {
+  classifySpotifyHttpError,
+  SpotifyServiceError,
+} from '@/lib/spotify/token-errors';
 /** Verbose Spotify client logs — on in non-production, or when SPOTIFY_DEBUG=true */
 function spotifyDebug(...args: unknown[]): void {
   if (process.env.SPOTIFY_DEBUG === 'true' || process.env.NODE_ENV !== 'production') {
-    console.log(...args);
+    // console.log accepts a broad rest type; keep args typed as unknown at the boundary
+    console.log(...(args as Parameters<typeof console.log>));
   }
+}
+
+interface SpotifyTokenResponse {
+  access_token: string;
+  token_type?: string;
+  scope?: string;
+  expires_in: number;
+  refresh_token?: string;
+}
+
+function parseSpotifyTokenResponse(data: unknown): SpotifyTokenResponse {
+  if (!data || typeof data !== 'object') {
+    throw new SpotifyServiceError('oauth_invalid', 'Invalid Spotify token response');
+  }
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.access_token !== 'string' || !obj.access_token) {
+    throw new SpotifyServiceError('oauth_invalid', 'Spotify token response missing access_token');
+  }
+  if (typeof obj.expires_in !== 'number' || !Number.isFinite(obj.expires_in)) {
+    throw new SpotifyServiceError('oauth_invalid', 'Spotify token response missing expires_in');
+  }
+  return {
+    access_token: obj.access_token,
+    token_type: typeof obj.token_type === 'string' ? obj.token_type : 'Bearer',
+    scope: typeof obj.scope === 'string' ? obj.scope : '',
+    expires_in: obj.expires_in,
+    refresh_token:
+      typeof obj.refresh_token === 'string' ? obj.refresh_token : undefined,
+  };
 }
 
 export interface SpotifyTrack {
@@ -26,7 +60,7 @@ export interface SpotifyTrack {
   duration_ms: number;
   explicit: boolean;
   preview_url?: string;
-  external_urls: any;
+  external_urls: Record<string, string>;
   image?: string;
 }
 
@@ -219,7 +253,7 @@ class SpotifyService {
 
   getAuthorizationURL() {
     const { codeVerifier, codeChallenge } = this.generatePKCE();
-    const state = crypto.randomBytes(16).toString('hex');
+    const state = generateOAuthState();
     
     const params = new URLSearchParams({
       response_type: 'code',
@@ -242,20 +276,14 @@ class SpotifyService {
   }
 
   async exchangeCodeForToken(code: string, codeVerifier: string, userId: string) {
-    spotifyDebug('Spotify token exchange:', { 
-      hasCode: !!code, 
-      hasCodeVerifier: !!codeVerifier,
-      userId,
-      clientId: this.clientId ? 'SET' : 'MISSING',
-      redirectUri: this.redirectUri,
-      codeLength: code?.length,
-      codeVerifierLength: codeVerifier?.length,
+    spotifyDebug('Spotify token exchange starting (secrets redacted)', {
+      hasCode: Boolean(code),
+      hasCodeVerifier: Boolean(codeVerifier),
+      hasClientId: Boolean(this.clientId),
+      redirectConfigured: Boolean(this.redirectUri),
     });
 
-    // Always use real Spotify endpoint
     const tokenUrl = `${this.authURL}/api/token`;
-
-    spotifyDebug('🎯 Using token URL:', tokenUrl);
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -275,55 +303,58 @@ class SpotifyService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Spotify token exchange failed:', {
+      const category = classifySpotifyHttpError(response.status, errorText);
+      console.error('Spotify token exchange failed (redacted)', {
         status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-        requestDetails: {
-          clientId: this.clientId,
-          redirectUri: this.redirectUri,
-          codeLength: code?.length,
-          codeVerifierLength: codeVerifier?.length
-        }
+        category,
       });
-      throw new Error(`Failed to exchange code for token: ${response.status} ${errorText}`);
+      throw new SpotifyServiceError(
+        category,
+        'Failed to exchange Spotify authorization code',
+        response.status
+      );
     }
 
-    const tokenData = await response.json();
+    const tokenData = parseSpotifyTokenResponse(await response.json());
+    if (!tokenData.refresh_token) {
+      throw new SpotifyServiceError(
+        'oauth_invalid',
+        'Spotify token response missing refresh_token'
+      );
+    }
     await this.saveTokens(tokenData, userId);
     return tokenData;
   }
 
-  private async saveTokens(tokenData: any, userId: string) {
+  private async saveTokens(tokenData: SpotifyTokenResponse, userId: string) {
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
     
     const authData = {
       access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt,
-      scope: tokenData.scope,
-      token_type: tokenData.token_type || 'Bearer'
+      refresh_token: tokenData.refresh_token as string,
+      expires_at: expiresAt.toISOString(),
+      scope: tokenData.scope || '',
+      token_type: tokenData.token_type || 'Bearer',
+      updated_at: new Date().toISOString(),
     };
 
     await setSpotifyAuth(authData, userId);
-    spotifyDebug(`✅ Spotify tokens saved to database for user ${userId}`);
+    spotifyDebug('Spotify tokens saved (encrypted envelopes)');
   }
 
   async getAccessToken(userId?: string): Promise<string> {
     const scopedUserId = this.requireUserId(userId, 'getAccessToken');
-    spotifyDebug(`🔑 Getting Spotify access token for user ${scopedUserId}...`);
-    const startTime = Date.now();
+    spotifyDebug('Getting Spotify access token (user redacted)');
     
     const auth = await getSpotifyAuth(scopedUserId);
-    spotifyDebug(`🔑 Auth data retrieved (${Date.now() - startTime}ms)`);
     
     if (!auth || !auth.access_token) {
-      throw new Error(`No Spotify authentication found for user ${scopedUserId}`);
+      throw new Error('No Spotify authentication found for user');
     }
 
     // Check if token is expired
     if (auth.expires_at && new Date(auth.expires_at) <= new Date()) {
-      spotifyDebug('🔄 Access token expired, refreshing...');
+      spotifyDebug('Access token expired, refreshing...');
       return await this.refreshAccessToken(scopedUserId);
     }
 
@@ -334,8 +365,10 @@ class SpotifyService {
     const scopedUserId = this.requireUserId(userId, 'refreshAccessToken');
     const auth = await getSpotifyAuth(scopedUserId);
     if (!auth || !auth.refresh_token) {
-      throw new Error(`No refresh token available for user ${scopedUserId}`);
+      throw new Error('No refresh token available for user');
     }
+
+    const expectedLock = auth.refresh_lock_version ?? 0;
 
     try {
       const response = await fetch(`${this.authURL}/api/token`, {
@@ -353,35 +386,47 @@ class SpotifyService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        
-        // Determine if this is a permanent failure (invalid credentials) or temporary
+        const category = classifySpotifyHttpError(response.status, errorText);
         const isPermanentError = response.status === 400 || response.status === 401;
         
         if (isPermanentError) {
-          console.warn('⚠️ Spotify token refresh failed with permanent error:', {
+          console.warn('Spotify token refresh permanent failure (redacted)', {
             status: response.status,
-            error: errorText
+            category,
           });
         }
         
-        throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
+        throw new SpotifyServiceError(
+          category,
+          'Failed to refresh Spotify token',
+          response.status
+        );
       }
 
-      const tokenData = await response.json();
+      const tokenData = parseSpotifyTokenResponse(await response.json());
       
-      // Update tokens in database
       const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
       const updatedAuth = {
         ...auth,
         access_token: tokenData.access_token,
-        expires_at: expiresAt,
+        expires_at: expiresAt.toISOString(),
         // Keep existing refresh_token if not provided in response
-        refresh_token: tokenData.refresh_token || auth.refresh_token
+        refresh_token: tokenData.refresh_token || auth.refresh_token,
+        scope: tokenData.scope || auth.scope,
+        token_type: tokenData.token_type || auth.token_type,
       };
 
-      await setSpotifyAuth(updatedAuth, scopedUserId);
+      const won = await setSpotifyAuthCas(updatedAuth, scopedUserId, expectedLock);
+      if (!won) {
+        // Another refresh won the CAS race — return the latest stored access token.
+        const latest = await getSpotifyAuth(scopedUserId);
+        if (latest?.access_token) {
+          spotifyDebug('Refresh CAS lost; using winner token');
+          return latest.access_token;
+        }
+      }
       
-      spotifyDebug(`✅ Access token refreshed for user ${scopedUserId}`);
+      spotifyDebug('Access token refreshed');
       
       return tokenData.access_token;
     } catch (error) {
@@ -434,7 +479,16 @@ class SpotifyService {
     return waitMs;
   }
 
-  async makeAuthenticatedRequest(method: string, endpoint: string, data?: any, userId?: string, retries = 1): Promise<any> {
+  // Spotify REST payloads vary widely by endpoint; callers narrow at use sites.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- open Spotify JSON
+  async makeAuthenticatedRequest(
+    method: string,
+    endpoint: string,
+    data?: unknown,
+    userId?: string,
+    retries = 1
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- open Spotify JSON
+  ): Promise<any> {
     const requestId = Math.random().toString(36).substr(2, 6);
     const scopedUserId = this.requireUserId(userId, `Spotify ${method} ${endpoint}`);
     userId = scopedUserId;
@@ -673,7 +727,7 @@ class SpotifyService {
     if (isSpotifyMockEnabled()) {
       return null;
     }
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     if (contextUri) data.context_uri = contextUri;
     if (trackUris) data.uris = trackUris;
     
@@ -796,6 +850,9 @@ class SpotifyService {
     this.appTokenExpiry = new Date(Date.now() + (data.expires_in * 1000));
     
     spotifyDebug('✅ App access token obtained');
+    if (!this.appAccessToken) {
+      throw new Error('App access token missing after successful token response');
+    }
     return this.appAccessToken;
   }
 

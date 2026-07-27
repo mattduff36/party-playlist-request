@@ -22,6 +22,7 @@ import {
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useGlobalEvent } from '@/lib/state/global-event-client';
 import { markSpotifyOAuthPending } from '@/lib/spotify-oauth-client';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 export default function SpotifyStatusDropdown() {
   const { state: eventState } = useGlobalEvent();
@@ -82,9 +83,8 @@ export default function SpotifyStatusDropdown() {
 
   const handleResetState = async () => {
     try {
-      await fetch('/api/spotify/reset-connection-state', {
+      await authenticatedFetch('/api/spotify/reset-connection-state', {
         method: 'POST',
-        credentials: 'include',
       });
       await fetchExtras();
     } catch (error) {

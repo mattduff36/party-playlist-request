@@ -49,7 +49,7 @@ function withNoStore(response: NextResponse): NextResponse {
 /** List Spotify playlists for browse + queue (read-only). */
 export async function GET(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return withNoStore(auth.response!);
     }

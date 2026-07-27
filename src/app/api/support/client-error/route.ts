@@ -1,61 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/support/logger';
 import { getIpHash } from '@/lib/support/withApiLogging';
-
-/** Simple in-memory rate limit for client error reports */
-const buckets = new Map<string, { count: number; resetAt: number }>();
-const MAX_PER_HOUR = 30;
-
-function isRateLimited(ipHash: string): boolean {
-  const now = Date.now();
-  const bucket = buckets.get(ipHash) || { count: 0, resetAt: now + 60 * 60 * 1000 };
-  if (now > bucket.resetAt) {
-    bucket.count = 0;
-    bucket.resetAt = now + 60 * 60 * 1000;
-  }
-  if (bucket.count >= MAX_PER_HOUR) {
-    buckets.set(ipHash, bucket);
-    return true;
-  }
-  bucket.count += 1;
-  buckets.set(ipHash, bucket);
-  return false;
-}
+import {
+  CLIENT_ERROR_MAX_BODY_BYTES,
+  isClientErrorRateLimited,
+  parseClientErrorIntake,
+} from '@/lib/support/client-error-intake';
 
 export async function POST(req: NextRequest) {
   try {
-    const ipHash = getIpHash(req);
-    if (isRateLimited(ipHash)) {
+    let ipHash: string;
+    try {
+      ipHash = getIpHash(req);
+    } catch {
+      // Production fail-closed when IP_SALT is missing
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 });
+    }
+
+    if (isClientErrorRateLimited(ipHash)) {
       return NextResponse.json({ error: 'Too many error reports' }, { status: 429 });
     }
 
-    const body = await req.json();
-    const message = typeof body.message === 'string' ? body.message : 'Client error';
-    const stack = typeof body.stack === 'string' ? body.stack : null;
-    const route = typeof body.url === 'string' ? body.url : req.headers.get('referer');
-    const level = body.level === 'fatal' || body.level === 'page' || body.level === 'critical'
-      ? 'fatal'
-      : 'error';
+    const contentLength = Number(req.headers.get('content-length') || '0');
+    if (contentLength > CLIENT_ERROR_MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 400 });
+    }
 
-    const classification =
-      body.classification === 'handled' ? 'handled' : 'unhandled';
+    const rawBody = await req.text();
+    const parsed = parseClientErrorIntake(
+      rawBody,
+      req.headers.get('referer')
+    );
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    }
 
+    const { data } = parsed;
     const id = await logError({
-      level,
+      level: data.level,
       source: 'client',
-      classification,
-      message,
-      stack: stack || (typeof body.componentStack === 'string' ? body.componentStack : null),
-      route,
+      classification: data.classification,
+      message: data.message,
+      stack: data.stack,
+      route: data.route,
       method: 'CLIENT',
-      username: typeof body.username === 'string' ? body.username : null,
-      userId: typeof body.userId === 'string' ? body.userId : null,
+      username: data.username,
+      userId: data.userId,
       ipHash,
-      userAgent: req.headers.get('user-agent') || body.userAgent,
+      userAgent: req.headers.get('user-agent') || data.userAgent,
       meta: {
-        errorId: body.errorId,
-        clientLevel: body.level,
-        handled: classification === 'handled',
+        errorId: data.errorId,
+        clientLevel: data.level,
+        handled: data.classification === 'handled',
       },
     });
 

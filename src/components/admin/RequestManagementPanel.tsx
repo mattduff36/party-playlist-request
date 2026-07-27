@@ -8,11 +8,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw } from 'lucide-react';
-import { useAdminData } from '@/contexts/AdminDataContext';
+import { Music, CheckCircle, XCircle, Trash2, Shuffle, Search, RotateCcw, Radio, Check } from 'lucide-react';
+import { useAdminData, type Request } from '@/contexts/AdminDataContext';
 import Checkbox from '@/components/ui/Checkbox';
 import RequestManagementControlPanel from '@/components/admin/RequestManagementControlPanel';
 import QueueTrackCover from '@/components/shared/QueueTrackCover';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface RequestManagementPanelProps {
   className?: string;
@@ -35,8 +36,34 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [isAddingRandomSong, setIsAddingRandomSong] = useState(false);
-  const [allRequests, setAllRequests] = useState<any[]>([]);
+  const [allRequests, setAllRequests] = useState<Request[]>([]);
   const lastRequestCountRef = useRef(1);
+  const [showPlayAgain, setShowPlayAgain] = useState(true);
+  const [showManualQueueActions, setShowManualQueueActions] = useState(false);
+  const [manualActionBusyId, setManualActionBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authenticatedFetch('/api/admin/playback-mode');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const caps = data.capabilities;
+        const isManual = data.mode === 'manual';
+        setShowPlayAgain(Boolean(caps?.queueAdd));
+        setShowManualQueueActions(
+          isManual && Boolean(caps?.nowPlaying || caps?.markPlaying)
+        );
+      } catch {
+        /* Spotify defaults */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (requests?.length) {
@@ -69,7 +96,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     // Sort requests
     if (filterStatus === 'all') {
       const statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3, 'played': 4 };
-      filteredRequests = filteredRequests.sort((a: any, b: any) => {
+      filteredRequests = filteredRequests.sort((a, b) => {
         const aOrder = statusOrder[a.status as keyof typeof statusOrder] || 5;
         const bOrder = statusOrder[b.status as keyof typeof statusOrder] || 5;
         if (aOrder !== bOrder) return aOrder - bOrder;
@@ -83,7 +110,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
         }
       });
     } else if (filterStatus === 'approved') {
-      filteredRequests = filteredRequests.sort((a: any, b: any) => {
+      filteredRequests = filteredRequests.sort((a, b) => {
         return new Date(a.approved_at || a.created_at).getTime() - new Date(b.approved_at || b.created_at).getTime();
       });
     }
@@ -154,6 +181,47 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     setSelectedRequests(new Set());
   };
 
+  const handleSetNowPlaying = async (requestId: string) => {
+    if (manualActionBusyId) return;
+    setManualActionBusyId(requestId);
+    try {
+      const res = await authenticatedFetch('/api/admin/manual-now-playing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Set now playing failed:', data.error || res.status);
+      }
+    } catch (error) {
+      console.error('Set now playing error:', error);
+    } finally {
+      setManualActionBusyId(null);
+    }
+  };
+
+  const handleMarkPlayed = async (requestId: string) => {
+    if (manualActionBusyId) return;
+    setManualActionBusyId(requestId);
+    try {
+      const res = await authenticatedFetch(
+        `/api/admin/requests/${requestId}/mark-played`,
+        { method: 'POST' }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Mark played failed:', data.error || res.status);
+        return;
+      }
+      await refreshData();
+    } catch (error) {
+      console.error('Mark played error:', error);
+    } finally {
+      setManualActionBusyId(null);
+    }
+  };
+
   const handleResubmit = async (requestId: string) => {
     try {
       console.log('🔄 Re-submitting request:', requestId);
@@ -213,12 +281,9 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
     
     setIsAddingRandomSong(true);
     try {
-      const response = await fetch('/api/admin/add-random-song', {
+      const response = await authenticatedFetch('/api/admin/add-random-song', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // JWT auth via cookies
+        body: JSON.stringify({}),
       });
 
       if (response.ok) {
@@ -304,7 +369,7 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
               className="px-4 py-2 bg-surface border border-white/10 rounded-lg text-bone focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="all">All ({requests?.length || 0})</option>
@@ -474,7 +539,28 @@ export default function RequestManagementPanel({ className = '', showHeader = tr
                       </>
                     )}
                     
-                    {request.status === 'played' && (
+                    {showManualQueueActions && request.status === 'approved' && (
+                      <>
+                        <button
+                          onClick={() => void handleSetNowPlaying(request.id)}
+                          disabled={manualActionBusyId === request.id}
+                          className="flex items-center justify-center p-2 bg-surface hover:bg-elevated border border-white/10 rounded-lg transition-colors min-w-[72px] min-h-[36px] disabled:opacity-50"
+                          title="Set as now playing"
+                        >
+                          <Radio className="w-4 h-4 text-accent" />
+                        </button>
+                        <button
+                          onClick={() => void handleMarkPlayed(request.id)}
+                          disabled={manualActionBusyId === request.id}
+                          className="flex items-center justify-center p-2 bg-info/20 hover:bg-info/30 border border-info/30 rounded-lg transition-colors min-w-[72px] min-h-[36px] disabled:opacity-50"
+                          title="Mark played"
+                        >
+                          <Check className="w-4 h-4 text-info" />
+                        </button>
+                      </>
+                    )}
+
+                    {request.status === 'played' && showPlayAgain && (
                       <>
                         <button
                           onClick={() => handlePlayAgain(request.id)}

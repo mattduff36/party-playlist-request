@@ -16,10 +16,21 @@ export function getClientIp(req: NextRequest): string {
   );
 }
 
-export function getIpHash(req: NextRequest): string {
+/**
+ * Hash client IP for rate limits / support logs.
+ * In production, IP_SALT failures propagate (fail-closed) — do not collapse to 'unknown'
+ * on rate-limit paths. Outside production, missing salt falls back to 'unknown'.
+ */
+export function getIpHash(
+  req: NextRequest,
+  nodeEnv: string | undefined = process.env.NODE_ENV
+): string {
   try {
-    return hashIP(getClientIp(req));
-  } catch {
+    return hashIP(getClientIp(req), nodeEnv);
+  } catch (error) {
+    if (nodeEnv === 'production') {
+      throw error;
+    }
     return 'unknown';
   }
 }
@@ -80,6 +91,8 @@ export function reportActivity(
     user?: JWTPayload | null;
     actorRole?: SupportActorRole;
     eventId?: string | null;
+    userId?: string | null;
+    username?: string | null;
     meta?: Record<string, unknown>;
   }
 ): void {
@@ -87,8 +100,8 @@ export function reportActivity(
     action,
     actorRole: options?.actorRole || actorRoleFromUser(options?.user),
     summary,
-    userId: options?.user?.user_id,
-    username: options?.user?.username,
+    userId: options?.userId ?? options?.user?.user_id,
+    username: options?.username ?? options?.user?.username,
     eventId: options?.eventId,
     route: req.nextUrl?.pathname || req.url,
     ipHash: getIpHash(req),

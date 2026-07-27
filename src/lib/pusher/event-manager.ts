@@ -11,9 +11,9 @@ import {
   cleanupPusherClient 
 } from './client';
 import { 
-  EventBroadcaster, 
-  broadcastEvent, 
-  broadcastEvents 
+  EventBroadcaster,
+  broadcastEvent as broadcastEventToPusher, 
+  broadcastEvents as broadcastEventsToPusher 
 } from './broadcaster';
 import { 
   PusherEvent, 
@@ -211,7 +211,7 @@ export class EventManager {
         version: generateEventVersion()
       } as PusherEvent;
 
-      await broadcastEvent(fullEvent, this.state.eventId);
+      await broadcastEventToPusher(fullEvent, this.state.eventId);
       console.log(`📡 Event broadcasted: ${event.action}`, fullEvent.id);
     } catch (error) {
       console.error('❌ Failed to broadcast event:', error);
@@ -235,7 +235,7 @@ export class EventManager {
         version: generateEventVersion()
       } as PusherEvent));
 
-      await broadcastEvents(fullEvents, this.state.eventId);
+      await broadcastEventsToPusher(fullEvents, this.state.eventId);
       console.log(`📡 Events broadcasted: ${events.length} events`);
     } catch (error) {
       console.error('❌ Failed to broadcast events:', error);
@@ -372,15 +372,20 @@ export const removeEventHandler = <T extends PusherEvent>(action: T['action'], h
   manager.removeEventHandler(action, handler);
 };
 
-export const broadcastEvent = async (event: Omit<PusherEvent, 'id' | 'timestamp' | 'version'>): Promise<void> => {
+export const broadcastManagedEvent = async (event: Omit<PusherEvent, 'id' | 'timestamp' | 'version'>): Promise<void> => {
   const manager = getEventManager();
   await manager.broadcastEvent(event);
 };
 
-export const broadcastEvents = async (events: Array<Omit<PusherEvent, 'id' | 'timestamp' | 'version'>>): Promise<void> => {
+export const broadcastManagedEvents = async (events: Array<Omit<PusherEvent, 'id' | 'timestamp' | 'version'>>): Promise<void> => {
   const manager = getEventManager();
   await manager.broadcastEvents(events);
 };
+
+/** @deprecated Prefer broadcastManagedEvent — kept for callers that imported the old name */
+export const broadcastEvent = broadcastManagedEvent;
+/** @deprecated Prefer broadcastManagedEvents */
+export const broadcastEvents = broadcastManagedEvents;
 
 export const getConnectionStatus = () => {
   const manager = getEventManager();

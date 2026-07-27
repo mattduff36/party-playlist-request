@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/neon-client';
 import bcrypt from 'bcryptjs';
+import { getIpHash } from '@/lib/support/withApiLogging';
+import {
+  enforceAuthRateLimit,
+  hashLimiterId,
+  genericAuthRateLimitResponse,
+} from '@/lib/auth/auth-rate-limit';
+import { emitSecurityAudit } from '@/lib/auth/security-audit';
+import { hashOpaqueToken } from '@/lib/crypto/secret-hashes';
 
 /**
  * POST /api/auth/reset-password
@@ -10,6 +18,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { token, password } = body;
+
+    const throttle = await enforceAuthRateLimit({
+      action: 'reset',
+      ipHash: hashLimiterId('ip', getIpHash(request)),
+      maxPerIp: 20,
+    });
+    if (!throttle.allowed) {
+      return NextResponse.json(genericAuthRateLimitResponse(throttle.retryAfterSec), {
+        status: 429,
+      });
+    }
 
     if (!token || typeof token !== 'string') {
       return NextResponse.json(
@@ -33,7 +52,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find valid reset token
+    // Dual-verify (display-token rule): hash when present; plaintext only if hash null
+    const tokenHash = hashOpaqueToken(token);
     const tokens = await sql`
       SELECT 
         prt.id as token_id,
@@ -45,7 +65,10 @@ export async function POST(request: NextRequest) {
         u.account_status
       FROM password_reset_tokens prt
       JOIN users u ON u.id = prt.user_id
-      WHERE prt.token = ${token}
+      WHERE (
+        prt.token_hash = ${tokenHash}
+        OR (prt.token_hash IS NULL AND prt.token = ${token})
+      )
       ORDER BY prt.created_at DESC
       LIMIT 1
     `;
@@ -89,11 +112,13 @@ export async function POST(request: NextRequest) {
     // Hash new password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Update password
+    // Update password and rotate/revoke active admin session (old JWTs fail authority check)
     await sql`
       UPDATE users
       SET 
         password_hash = ${passwordHash},
+        active_session_id = NULL,
+        active_session_created_at = NULL,
         updated_at = NOW()
       WHERE id = ${tokenData.user_id}
     `;
@@ -106,6 +131,10 @@ export async function POST(request: NextRequest) {
         used_at = NOW()
       WHERE id = ${tokenData.token_id}
     `;
+
+    emitSecurityAudit('auth.password_reset_complete', {
+      userId: tokenData.user_id,
+    });
 
     console.log('✅ Password reset successful for user:', tokenData.username);
 

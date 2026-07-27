@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { spotifyService } from '@/lib/spotify';
+import {
+  refuseIfCapabilityUnsupported,
+  runProviderControl,
+} from '@/lib/playback/gate-capability';
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
 
     const userId = auth.user.user_id;
+    const refused = await refuseIfCapabilityUnsupported(
+      userId,
+      'volume',
+      'playback.volume'
+    );
+    if (refused) return refused;
+
     const body = await req.json().catch(() => ({}));
     const volume = body.volume;
     const deviceId =
@@ -24,19 +34,29 @@ export async function POST(req: NextRequest) {
 
     const volumePercent = Math.max(0, Math.min(100, Math.round(Number(volume))));
 
-    await spotifyService.setVolume(volumePercent, deviceId, userId);
+    const result = await runProviderControl(
+      userId,
+      'setVolume',
+      { userId, deviceId },
+      volumePercent
+    );
+
+    if (!result.ok) {
+      const status = result.code === 'CAPABILITY_NOT_SUPPORTED' ? 501 : 500;
+      return NextResponse.json(
+        { error: result.message || 'Failed to set volume', code: result.code },
+        { status }
+      );
+    }
 
     return NextResponse.json({ success: true, volume: volumePercent });
   } catch (error) {
     console.error('Failed to set volume:', error);
-    let errorMessage = 'Failed to set volume';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      if (error.message.includes('NO_ACTIVE_DEVICE')) {
-        errorMessage =
-          'No active Spotify device found. Open Spotify on a device first.';
-      }
-    }
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to set volume',
+      },
+      { status: 500 }
+    );
   }
 }

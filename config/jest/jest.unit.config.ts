@@ -2,7 +2,7 @@ import type { Config } from 'jest';
 
 // Component tests need React's development build (`React.act`).
 // Finalise may inherit NODE_ENV=production from .env.local.
-process.env.NODE_ENV = 'test';
+(process.env as { NODE_ENV?: string }).NODE_ENV = 'test';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
@@ -34,10 +34,13 @@ const config: Config = {
       testMatch: [
         '<rootDir>/tests/unit/**/*.spec.ts',
         '<rootDir>/tests/unit/**/*.test.ts',
+        '<rootDir>/tests/security/**/*.spec.ts',
+        '<rootDir>/tests/security/**/*.test.ts',
       ],
       transform: sharedTransform,
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
+        '^server-only$': '<rootDir>/config/jest/server-only-mock.js',
       },
       setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],
     },
@@ -49,6 +52,7 @@ const config: Config = {
       transform: sharedTransform,
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
+        '^server-only$': '<rootDir>/config/jest/server-only-mock.js',
         '\\.(css|less|scss|sass)$': '<rootDir>/config/jest/style-mock.js',
       },
       setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.ts'],

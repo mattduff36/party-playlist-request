@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { generateToken, comparePassword, getCookieOptions, verifyToken } from '@/lib/auth';
 import { decideAdminSessionLogin } from '@/lib/admin-session';
-import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+import { reportActivity, reportApiError, getIpHash } from '@/lib/support/withApiLogging';
+import { setCsrfCookie } from '@/lib/auth/csrf';
+import {
+  enforceAuthRateLimit,
+  hashLimiterId,
+  genericAuthRateLimitResponse,
+} from '@/lib/auth/auth-rate-limit';
+import { emitSecurityAudit, newCorrelationId } from '@/lib/auth/security-audit';
 
 function readCookieSessionId(req: NextRequest): string | null {
   const cookieToken = req.cookies.get('auth_token')?.value;
@@ -52,12 +57,18 @@ function completeLogin(params: {
 
   const isProduction = process.env.NODE_ENV === 'production';
   response.cookies.set('auth_token', token, getCookieOptions(isProduction));
+  setCsrfCookie(response);
 
   console.log(
     resumed
       ? `✅ User resumed same admin session: ${user.username}`
       : `✅ User logged in: ${user.username}`
   );
+
+  emitSecurityAudit('auth.login_success', {
+    userId: user.id,
+    meta: resumed ? { resumed: true } : { resumed: false },
+  });
 
   reportActivity(req, 'auth.login', `User ${user.username} logged in`, {
     actorRole: role === 'superadmin' ? 'superadmin' : 'admin',
@@ -75,6 +86,7 @@ function completeLogin(params: {
 }
 
 export async function POST(req: NextRequest) {
+  const correlationId = newCorrelationId();
   try {
     const { username, password } = await req.json();
 
@@ -86,13 +98,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ipHash = hashLimiterId('ip', getIpHash(req));
+    const accountHash = hashLimiterId('username', String(username));
+    const throttle = await enforceAuthRateLimit({
+      action: 'login',
+      ipHash,
+      accountHash,
+      maxPerIp: 40,
+      maxPerAccount: 15,
+    });
+    if (!throttle.allowed) {
+      return NextResponse.json(genericAuthRateLimitResponse(throttle.retryAfterSec), {
+        status: 429,
+        headers: throttle.retryAfterSec
+          ? { 'Retry-After': String(throttle.retryAfterSec) }
+          : undefined,
+      });
+    }
+
     // Find user and check for existing session
+    const pool = getPool();
     const result = await pool.query(
       'SELECT id, username, email, password_hash, role, active_session_id, active_session_created_at FROM users WHERE username = $1',
       [username]
     );
 
     if (result.rows.length === 0) {
+      emitSecurityAudit('auth.login_failure', {
+        correlationId,
+        meta: { reason: 'unknown_user' },
+      });
       reportActivity(req, 'auth.login_failed', `Failed login for ${username}`, {
         actorRole: 'guest',
         meta: { reason: 'unknown_user' },

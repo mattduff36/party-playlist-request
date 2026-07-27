@@ -1,31 +1,44 @@
 /**
- * Polling API endpoint for Pusher fallback
+ * Polling API endpoint for Pusher fallback (PRD-05).
  *
- * Returns events that occurred after a specified timestamp when Pusher
- * connections fail. Uses the drizzle client from `@/lib/db/index`
- * (not `@/lib/db`, which resolves to the legacy pg helper module).
+ * Uses the live multi-tenant pg schema (flat `requests`, `spotify_auth`)
+ * via getPool — not the quarantined Drizzle JSONB / spotify_tokens model.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { db } from '@/lib/db/index';
-import {
-  events,
-  requests,
-  spotify_tokens,
-  type EventConfig,
-  type TrackData,
-} from '@/lib/db/schema';
-import { eq, and, gt, desc } from 'drizzle-orm';
+import { getPool } from '@/lib/db';
+import type { EventConfig } from '@/lib/db/types';
 import {
   type PusherEvent,
   generateEventId,
   generateEventVersion,
 } from '@/lib/pusher/events';
 
+interface EventRow {
+  id: string;
+  user_id: string;
+  status: string;
+  config: EventConfig | null;
+  active_admin_id: string | null;
+  updated_at: Date;
+}
+
+interface RequestRow {
+  id: string;
+  track_uri: string;
+  track_name: string;
+  artist_name: string;
+  album_name: string | null;
+  requester_nickname: string | null;
+  user_session_id: string | null;
+  created_at: Date;
+  status: string;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const auth = requireAuth(request);
+    const auth = await requireAuth(request);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -39,31 +52,38 @@ export async function GET(request: NextRequest) {
     }
 
     const sinceTimestamp = since ? parseInt(since, 10) : 0;
+    const sinceDate = new Date(sinceTimestamp);
+    const pool = getPool();
+    const userId = auth.user.user_id;
 
-    const eventData = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+    const eventResult = await pool.query<EventRow>(
+      `SELECT id, user_id, status, config, active_admin_id, updated_at
+       FROM events
+       WHERE id = $1 AND user_id = $2
+       LIMIT 1`,
+      [eventId, userId]
+    );
 
-    if (eventData.length === 0) {
+    if (eventResult.rows.length === 0) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    const event = eventData[0];
+    const event = eventResult.rows[0];
 
-    const recentRequests = await db
-      .select()
-      .from(requests)
-      .where(
-        and(
-          eq(requests.event_id, eventId),
-          gt(requests.created_at, new Date(sinceTimestamp))
-        )
-      )
-      .orderBy(desc(requests.created_at))
-      .limit(50);
+    const requestsResult = await pool.query<RequestRow>(
+      `SELECT id, track_uri, track_name, artist_name, album_name,
+              requester_nickname, user_session_id, created_at, status
+       FROM requests
+       WHERE user_id = $1
+         AND created_at > $2
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [userId, sinceDate]
+    );
 
     const pusherEvents: PusherEvent[] = [];
 
-    for (const songRequest of recentRequests) {
-      const track = songRequest.track_data as TrackData;
+    for (const songRequest of requestsResult.rows) {
       pusherEvents.push({
         id: generateEventId(),
         action: 'request_submitted',
@@ -72,41 +92,44 @@ export async function GET(request: NextRequest) {
         eventId,
         data: {
           requestId: songRequest.id,
-          trackName: track?.name ?? 'Unknown',
-          artistName: track?.artists?.[0]?.name ?? 'Unknown',
-          albumName: track?.album?.name ?? '',
-          trackUri: track?.uri ?? `spotify:track:${songRequest.track_id}`,
-          requesterNickname: songRequest.submitted_by ?? 'Guest',
-          userSessionId: '',
+          trackName: songRequest.track_name ?? 'Unknown',
+          artistName: songRequest.artist_name ?? 'Unknown',
+          albumName: songRequest.album_name ?? '',
+          trackUri: songRequest.track_uri,
+          requesterNickname: songRequest.requester_nickname ?? 'Guest',
+          userSessionId: songRequest.user_session_id ?? '',
           submittedAt: songRequest.created_at.toISOString(),
         },
       });
     }
 
-    if (event.active_admin_id) {
-      const spotifyData = await db
-        .select()
-        .from(spotify_tokens)
-        .where(eq(spotify_tokens.admin_id, event.active_admin_id))
-        .limit(1);
+    const spotifyResult = await pool.query<{
+      expires_at: Date | null;
+      updated_at: Date | null;
+    }>(
+      `SELECT expires_at, updated_at
+       FROM spotify_auth
+       WHERE user_id = $1
+       LIMIT 1`,
+      [userId]
+    );
 
-      if (spotifyData.length > 0) {
-        const token = spotifyData[0];
-        const expiresAt = token.expires_at?.getTime() ?? 0;
-        if (expiresAt > 0 && expiresAt <= Date.now()) {
-          pusherEvents.push({
-            id: generateEventId(),
-            action: 'token_expired',
-            timestamp: token.updated_at.getTime(),
-            version: generateEventVersion(),
-            eventId,
-            data: {
-              reason: 'expired',
-              message: 'Spotify access token has expired',
-              affectedService: 'spotify',
-            },
-          });
-        }
+    if (spotifyResult.rows.length > 0) {
+      const token = spotifyResult.rows[0];
+      const expiresAt = token.expires_at?.getTime() ?? 0;
+      if (expiresAt > 0 && expiresAt <= Date.now()) {
+        pusherEvents.push({
+          id: generateEventId(),
+          action: 'token_expired',
+          timestamp: token.updated_at?.getTime() ?? Date.now(),
+          version: generateEventVersion(),
+          eventId,
+          data: {
+            reason: 'expired',
+            message: 'Spotify access token has expired',
+            affectedService: 'spotify',
+          },
+        });
       }
     }
 

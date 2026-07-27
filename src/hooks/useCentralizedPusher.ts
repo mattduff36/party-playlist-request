@@ -225,7 +225,7 @@ export const useCentralizedPusher = (options: UseCentralizedPusherOptions = {}):
 export const usePusherEvent = <T extends PusherEvent>(
   action: T['action'],
   handler: EventHandler<T>,
-  deps: any[] = []
+  deps: unknown[] = []
 ) => {
   const { addEventHandler, removeEventHandler } = useCentralizedPusher();
 

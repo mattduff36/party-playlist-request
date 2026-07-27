@@ -82,19 +82,23 @@ export async function comparePassword(plaintext: string, hash: string): Promise<
 }
 
 /**
- * Extract token from Authorization header or cookie
+ * Extract token from cookie or Authorization header.
+ *
+ * PRD-02 decision: cookie-first. HttpOnly `auth_token` is canonical for browser
+ * organiser/superadmin sessions. Preferring Bearer first let stale
+ * `localStorage.admin_token` override a valid cookie and skip the intended
+ * cookie+CSRF path while credentials still attached the cookie.
+ * Bearer remains supported when no auth cookie is present (API/tests).
  */
 export function extractToken(authHeader?: string | null, cookieValue?: string | null): string | null {
-  // Try Authorization header first (Bearer token)
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
-  
-  // Try cookie
   if (cookieValue) {
     return cookieValue;
   }
-  
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+
   return null;
 }
 
@@ -112,41 +116,17 @@ export function getCookieOptions(isProduction: boolean) {
 }
 
 /**
- * Middleware to require superadmin authentication
- * Returns { authorized: true, user } on success, or { authorized: false, error } on failure
+ * @deprecated PRD-02: Does NOT enforce active-session authority or CSRF.
+ * Use `requireAuth` + `requireSuperAdmin` from `@/middleware/auth` instead.
+ * Throws if called — kept only so accidental imports fail loudly.
  */
-export async function requireSuperAdmin(req: Request): Promise<{ authorized: boolean; user?: JWTPayload; error?: string }> {
-  try {
-    // Extract token from cookies
-    const cookieHeader = req.headers.get('cookie');
-    let token: string | null = null;
-
-    if (cookieHeader) {
-      const cookies = cookieHeader.split(';').map(c => c.trim());
-      const authCookie = cookies.find(c => c.startsWith('auth_token='));
-      if (authCookie) {
-        token = authCookie.split('=')[1];
-      }
-    }
-
-    if (!token) {
-      return { authorized: false, error: 'Not authenticated' };
-    }
-
-    // Verify token
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return { authorized: false, error: 'Invalid or expired token' };
-    }
-
-    // Check if user is superadmin
-    if (decoded.role !== 'superadmin') {
-      return { authorized: false, error: 'Insufficient permissions - superadmin required' };
-    }
-
-    return { authorized: true, user: decoded };
-  } catch (error) {
-    console.error('❌ requireSuperAdmin error:', error);
-    return { authorized: false, error: 'Authentication failed' };
-  }
+export async function requireSuperAdmin(_req: Request): Promise<{
+  authorized: boolean;
+  user?: JWTPayload;
+  error?: string;
+}> {
+  throw new Error(
+    'DEPRECATED: @/lib/auth requireSuperAdmin is unsafe (no session authority). ' +
+      'Use requireAuth + requireSuperAdmin from @/middleware/auth.'
+  );
 }

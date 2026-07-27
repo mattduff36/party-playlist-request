@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import Checkbox from '@/components/ui/Checkbox';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 interface User {
   id: string;
@@ -84,10 +85,8 @@ export default function SuperAdminPage() {
     setFormLoading(true);
 
     try {
-      const response = await fetch('/api/superadmin/users', {
+      const response = await authenticatedFetch('/api/superadmin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -117,7 +116,7 @@ export default function SuperAdminPage() {
     setFormLoading(true);
 
     try {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         email: formData.email,
         is_super_admin: formData.is_super_admin
       };
@@ -127,10 +126,8 @@ export default function SuperAdminPage() {
         updateData.password = formData.password;
       }
 
-      const response = await fetch(`/api/superadmin/users/${selectedUser.id}`, {
+      const response = await authenticatedFetch(`/api/superadmin/users/${selectedUser.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(updateData)
       });
 
@@ -159,9 +156,8 @@ export default function SuperAdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/superadmin/users/${user.id}`, {
+      const response = await authenticatedFetch(`/api/superadmin/users/${user.id}`, {
         method: 'DELETE',
-        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -186,10 +182,8 @@ export default function SuperAdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/superadmin/users/${user.id}`, {
+      const response = await authenticatedFetch(`/api/superadmin/users/${user.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ account_status }),
       });
 
@@ -230,6 +224,24 @@ export default function SuperAdminPage() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const grantBeta = async (userId: string) => {
+    try {
+      const response = await authenticatedFetch('/api/superadmin/beta-entitlements', {
+        method: 'POST',
+        body: JSON.stringify({ userId, days: 30, notes: 'Paid beta grant' }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Failed to grant beta entitlement');
+        return;
+      }
+      alert(`Beta entitlement granted until ${data.entitlement?.ends_at || 'n/a'}`);
+    } catch (error) {
+      console.error(error);
+      alert('Failed to grant beta entitlement');
+    }
   };
 
   return (
@@ -373,6 +385,13 @@ export default function SuperAdminPage() {
                             </button>
                           </>
                         )}
+                        <button
+                          onClick={() => void grantBeta(user.id)}
+                          className="p-2 text-amber-300 hover:bg-amber-400/20 rounded-lg transition-colors"
+                          title="Grant 30-day beta entitlement"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => openEditModal(user)}
                           className="p-2 text-accent hover:bg-accent/20 rounded-lg transition-colors"

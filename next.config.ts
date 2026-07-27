@@ -3,12 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: [],
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // typescript.ignoreBuildErrors and eslint.ignoreDuringBuilds removed (PRD-05).
   async redirects() {
     return [
       {

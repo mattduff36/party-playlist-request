@@ -165,7 +165,7 @@ export async function requireGuestAccess(
   }
 
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (auth.authenticated && auth.user?.username === username) {
       const { getPool } = await import('@/lib/db');
       const pool = getPool();

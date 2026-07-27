@@ -6,17 +6,31 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/middleware/auth';
-import { getDatabaseService } from '@/lib/db/database-service';
-import { getConnectionPoolManager } from '@/lib/db/connection-pool';
-import { PoolType } from '@/lib/db/connection-pool';
+import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
+import { getDatabaseService, type DatabaseStats } from '@/lib/db/database-service';
+import {
+  getConnectionPoolManager,
+  PoolType,
+  type PoolStats,
+} from '@/lib/db/connection-pool';
+
+interface PoolDetail {
+  totalConnections: number;
+  idleConnections: number;
+  waitingClients: number;
+  health: string;
+  stats: PoolStats | null;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
-    const auth = requireAuth(request);
+    const auth = await requireAuth(request);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
+    }
+    const sa = requireSuperAdmin(auth.user);
+    if (!sa.authorized) {
+      return sa.response!;
     }
 
     // Get comprehensive health information
@@ -27,10 +41,14 @@ export async function GET(request: NextRequest) {
     const serviceStats = dbService.getStats();
 
     // Get detailed pool information
-    const poolDetails: Record<string, any> = {};
+    const poolDetails: Record<string, PoolDetail> = {};
+    const statsMap =
+      poolStats instanceof Map
+        ? poolStats
+        : new Map([[PoolType.READ_WRITE, poolStats]]);
     for (const poolType of Object.values(PoolType)) {
       const poolInfo = poolManager.getPoolInfo(poolType);
-      const stats = poolStats.get(poolType);
+      const stats = statsMap.get(poolType);
       
       poolDetails[poolType] = {
         ...poolInfo,
@@ -65,9 +83,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('❌ Database health check error:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Health check failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
       },
       { status: 500 }
@@ -75,7 +92,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function generateRecommendations(poolDetails: Record<string, any>, serviceStats: any): string[] {
+function generateRecommendations(poolDetails: Record<string, PoolDetail>, serviceStats: DatabaseStats): string[] {
   const recommendations: string[] = [];
 
   // Check pool health

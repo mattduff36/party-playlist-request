@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, hashIP, checkRecentDuplicate, initializeDefaults, getEventSettings, updateRequest } from '@/lib/db';
+import { hashIP, getEventSettings, updateRequest } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted, triggerRequestApproved } from '@/lib/pusher';
 import { messageQueue } from '@/lib/message-queue';
 import { validateRequesterName } from '@/lib/profanity-filter';
 import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getClientIp } from '@/lib/rate-limit';
 import { requireGuestAccess } from '@/lib/guest-access';
 import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
+import {
+  createIdempotentRequest,
+  ensureGuestDeviceCookie,
+  enforceGuestRateLimit,
+  isValidIdempotencyKey,
+  resolveGuestDeviceId,
+} from '@/lib/reliability';
+import {
+  assignNextQueuePosition,
+  getPlaybackMode,
+  validateManualTrackInput,
+} from '@/lib/playback';
 
 export async function POST(req: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -15,12 +27,18 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
   try {
-    console.log(`⏱️ [${requestId}] Initializing defaults...`);
-    await initializeDefaults();
-    console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
-
     const body = await req.json();
-    const { track_uri, track_url, requester_nickname, user_session_id, username } = body;
+    const {
+      track_uri,
+      track_url,
+      track_name: bodyTrackName,
+      artist_name: bodyArtistName,
+      dedication,
+      requester_nickname,
+      user_session_id,
+      username,
+      idempotency_key: rawIdempotencyKey,
+    } = body;
 
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
@@ -30,6 +48,227 @@ export async function POST(req: NextRequest) {
     if (!access.ok) {
       return access.response;
     }
+
+    if (!isValidIdempotencyKey(rawIdempotencyKey)) {
+      return NextResponse.json(
+        {
+          error: 'idempotency_key (UUID) is required',
+          code: 'IDEMPOTENCY_KEY_REQUIRED',
+        },
+        { status: 400 }
+      );
+    }
+    const idempotencyKey = rawIdempotencyKey as string;
+
+    // Resolve organiser user id early for playback mode
+    const { getPool } = await import('@/lib/db');
+    const poolEarly = getPool();
+    const userEarly = await poolEarly.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+    if (userEarly.rows.length === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const organiserUserId: string = userEarly.rows[0].id;
+    const playbackMode = await getPlaybackMode(organiserUserId);
+
+    // Manual mode: artist + title text (no Spotify URI)
+    if (playbackMode === 'manual') {
+      const manual = validateManualTrackInput({
+        title: typeof bodyTrackName === 'string' ? bodyTrackName : '',
+        artists: typeof bodyArtistName === 'string' ? bodyArtistName : '',
+        dedication: typeof dedication === 'string' ? dedication : null,
+      });
+      if (!manual.ok) {
+        return NextResponse.json({ error: manual.error }, { status: 400 });
+      }
+
+      const { deviceId, minted: mintedDevice } = resolveGuestDeviceId(req);
+      const clientIP = getClientIp(req);
+      const ipHash = hashIP(clientIP);
+      const eventScope = access.event?.id || 'unknown-event';
+      const rateLimitCheck = await enforceGuestRateLimit({
+        bucket: 'songRequest',
+        primaryKey: `${eventScope}:${deviceId}`,
+        secondaryKey: ipHash,
+        secondaryMaxMultiplier: 15,
+      });
+      if (!rateLimitCheck.allowed) {
+        const response = NextResponse.json(
+          { error: rateLimitCheck.message, code: 'RATE_LIMITED' },
+          { status: 429 }
+        );
+        if (rateLimitCheck.retryAfter) {
+          response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
+        }
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+
+      let validatedNickname = requester_nickname || undefined;
+      if (requester_nickname) {
+        const validation = validateRequesterName(requester_nickname, true);
+        if (!validation.isValid) {
+          return NextResponse.json(
+            {
+              error:
+                validation.reason ||
+                'Nickname contains inappropriate language. Please choose a different name.',
+            },
+            { status: 400 }
+          );
+        }
+        validatedNickname = validation.censoredName;
+      }
+
+      const eventSettings = await getEventSettings(organiserUserId);
+      const shouldAutoApprove = eventSettings.auto_approve;
+      const eventId = access.event?.id ?? null;
+
+      {
+        const { evaluateSubmissionGuardrails } = await import('@/lib/beta/guardrails');
+        const violation = await evaluateSubmissionGuardrails({
+          userId: organiserUserId,
+          eventId,
+          track: {
+            track_name: manual.value.title,
+            artist_name: manual.value.artists,
+            normalized_key: manual.value.normalizedKey,
+          },
+          guestSessionId: user_session_id || deviceId,
+        });
+        if (violation) {
+          const response = NextResponse.json(
+            { error: violation.message, code: violation.code },
+            { status: 403 }
+          );
+          if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+          return response;
+        }
+      }
+
+      const createResult = await createIdempotentRequest({
+        userId: organiserUserId,
+        eventId,
+        idempotencyKey,
+        track_uri: null,
+        track_name: manual.value.title,
+        artist_name: manual.value.artists,
+        album_name: 'Manual request',
+        album_image_url: null,
+        duration_ms: 0,
+        requester_ip_hash: ipHash,
+        requester_nickname: validatedNickname,
+        user_session_id: user_session_id || deviceId,
+        status: 'pending',
+        provider_id: 'manual',
+        dedication: manual.value.dedication,
+        normalized_track_key: manual.value.normalizedKey,
+      });
+
+      if (createResult.kind === 'duplicate_track') {
+        const response = NextResponse.json(
+          {
+            error:
+              'This track has already been requested recently. Please choose a different song.',
+            code: 'DUPLICATE_TRACK',
+          },
+          { status: 409 }
+        );
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+
+      const newRequest = createResult.request;
+      if (createResult.kind === 'replay') {
+        const response = NextResponse.json(
+          {
+            success: true,
+            message: 'Your request has been submitted successfully!',
+            replayed: true,
+            request: {
+              id: newRequest.id,
+              track: {
+                name: manual.value.title,
+                artists: manual.value.artists,
+              },
+              status: newRequest.status,
+              playback_mode: 'manual',
+            },
+          },
+          { status: 200 }
+        );
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+
+      if (shouldAutoApprove) {
+        const {
+          claimRequestForApproval,
+          releaseApprovalClaim,
+        } = await import('@/lib/reliability');
+        try {
+          const claimed = await claimRequestForApproval(newRequest.id, organiserUserId);
+          if (claimed) {
+            const approvedAt = new Date().toISOString();
+            await updateRequest(
+              newRequest.id,
+              {
+                status: 'approved',
+                approved_at: approvedAt,
+                approved_by: 'Auto-Approval System',
+                spotify_added_to_queue: false,
+                claim_started_at: null,
+              },
+              organiserUserId
+            );
+            await assignNextQueuePosition(organiserUserId, newRequest.id);
+          }
+        } catch (autoErr) {
+          console.error('Manual auto-approve failed:', autoErr);
+          await releaseApprovalClaim(newRequest.id, organiserUserId, 'pending').catch(
+            () => null
+          );
+        }
+      }
+
+      try {
+        await triggerRequestSubmitted({
+          id: newRequest.id,
+          track_name: manual.value.title,
+          artist_name: manual.value.artists,
+          album_name: 'Manual request',
+          album_image_url: null,
+          track_uri: undefined,
+          requester_nickname: validatedNickname || 'Anonymous',
+          submitted_at: new Date().toISOString(),
+          userId: organiserUserId,
+        });
+      } catch (pusherError) {
+        console.error('Pusher submit failed:', pusherError);
+      }
+
+      reportActivity(req, 'request.submit', `Manual request ${newRequest.id}`, {
+        meta: { playbackMode: 'manual', track: manual.value.title },
+      });
+
+      const response = NextResponse.json({
+        success: true,
+        message: 'Your request has been submitted successfully!',
+        request: {
+          id: newRequest.id,
+          track: {
+            name: manual.value.title,
+            artists: manual.value.artists,
+          },
+          status: shouldAutoApprove ? 'approved' : 'pending',
+          playback_mode: 'manual',
+        },
+      });
+      if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+      return response;
+    }
     
     if (!track_uri && !track_url) {
       return NextResponse.json({ 
@@ -37,34 +276,29 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    const { deviceId, minted: mintedDevice } = resolveGuestDeviceId(req);
     const clientIP = getClientIp(req);
-    const rateLimitCheck = checkRateLimit('songRequest', hashIP(clientIP));
+    const ipHash = hashIP(clientIP);
+    const eventScope = access.event?.id || 'unknown-event';
+    const rateLimitCheck = await enforceGuestRateLimit({
+      bucket: 'songRequest',
+      primaryKey: `${eventScope}:${deviceId}`,
+      secondaryKey: ipHash,
+      secondaryMaxMultiplier: 15,
+    });
     if (!rateLimitCheck.allowed) {
       const response = NextResponse.json(
-        { error: rateLimitCheck.message },
+        { error: rateLimitCheck.message, code: 'RATE_LIMITED' },
         { status: 429 }
       );
       if (rateLimitCheck.retryAfter) {
         response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
       }
+      if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
       return response;
     }
 
-    // Multi-tenant: Get user_id from username
-    const { getPool } = await import('@/lib/db');
-    const pool = getPool();
-    const userResult = await pool.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
-    );
-
-    if (userResult.rows.length === 0) {
-      return NextResponse.json({ 
-        error: 'User not found' 
-      }, { status: 404 });
-    }
-
-    const userId: string = userResult.rows[0].id;
+    const userId: string = organiserUserId;
     console.log(`👤 [${requestId}] Request for user: ${username} (${userId})`);
 
     let trackUri = track_uri;
@@ -103,25 +337,11 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check for recent duplicates using efficient database query (MULTI-TENANT!)
-    console.log(`🔍 [${requestId}] Checking for recent duplicates for user ${userId}...`);
-    const recentDuplicate = await checkRecentDuplicate(trackUri, 30, userId);
-    console.log(`✅ [${requestId}] Duplicate check completed for user ${userId} (${Date.now() - startTime}ms)`);
-
-    if (recentDuplicate) {
-      console.log(`⚠️ [${requestId}] Duplicate found, rejecting request`);
-      return NextResponse.json({ 
-        error: 'This track has already been requested recently. Please choose a different song.' 
-      }, { status: 409 });
-    }
-
-    const ipHash = hashIP(clientIP);
-
     // Check user-specific event settings
     console.log(`⚙️ [${requestId}] Checking event settings for user ${userId}...`);
     const eventSettings = await getEventSettings(userId);
     const shouldAutoApprove = eventSettings.auto_approve;
-    const shouldDeclineExplicit = (eventSettings as any).decline_explicit || false;
+    const shouldDeclineExplicit = Boolean(eventSettings.decline_explicit);
     console.log(`🔧 [${requestId}] Auto-approve: ${shouldAutoApprove}, Decline explicit: ${shouldDeclineExplicit}`);
 
     // Check if track is explicit and should be auto-declined
@@ -149,9 +369,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Determine initial status based on auto-approval setting
-    const initialStatus = shouldAutoApprove ? 'approved' : 'pending';
-    const approvedAt = shouldAutoApprove ? new Date().toISOString() : undefined;
+    // Auto-approve inserts as pending then claims+queues; avoids false approved without provider success.
+    const initialStatus = 'pending';
+    const approvedAt = undefined;
 
     // SECURITY: Ensure user_id is present (multi-tenant isolation)
     if (!userId) {
@@ -161,42 +381,222 @@ export async function POST(req: NextRequest) {
     }
 
     const albumImageUrl = getTrackAlbumImageUrl(trackInfo) || null;
+    const eventId = access.event?.id ?? null;
+    const artistName =
+      trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') ||
+      'Unknown Artist';
 
-    console.log(`💾 [${requestId}] Creating database request with status: ${initialStatus}...`);
-    const newRequest = await createRequest({
+    // PRD-08 guardrails (do-not-play, artist cooldown, per-guest active cap)
+    {
+      const { evaluateSubmissionGuardrails } = await import('@/lib/beta/guardrails');
+      const violation = await evaluateSubmissionGuardrails({
+        userId,
+        eventId,
+        track: {
+          track_name: trackInfo.name,
+          artist_name: artistName,
+          track_uri: trackInfo.uri,
+        },
+        guestSessionId: user_session_id || deviceId,
+      });
+      if (violation) {
+        const response = NextResponse.json(
+          { error: violation.message, code: violation.code },
+          { status: 403 }
+        );
+        if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+        return response;
+      }
+    }
+
+    console.log(`💾 [${requestId}] Creating idempotent database request...`);
+    const createResult = await createIdempotentRequest({
+      userId,
+      eventId,
+      idempotencyKey,
       track_uri: trackInfo.uri,
       track_name: trackInfo.name,
-      artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+      artist_name: artistName,
       album_name: trackInfo.album?.name || 'Unknown Album',
       album_image_url: albumImageUrl,
       duration_ms: trackInfo.duration_ms,
       requester_ip_hash: ipHash,
       requester_nickname: validatedNickname,
-      user_session_id: user_session_id || undefined,
+      user_session_id: user_session_id || deviceId,
       status: initialStatus,
       approved_at: approvedAt,
-      approved_by: shouldAutoApprove ? 'Auto-Approval System' : undefined,
-      spotify_added_to_queue: false,
-      spotify_added_to_playlist: false,
-    }, userId); // SECURITY: Pass userId as second parameter for multi-tenant isolation
-    console.log(`✅ [${requestId}] Request created successfully with status: ${initialStatus} (${Date.now() - startTime}ms total)`);
+      duplicateCooldownMinutes: 30,
+      provider_id: 'spotify',
+      provider_track_id: trackInfo.id ?? null,
+    });
 
-    // 🎵 AUTO-QUEUE: If auto-approved, try to add to Spotify queue (MULTI-TENANT!)
+    if (createResult.kind === 'duplicate_track') {
+      const response = NextResponse.json(
+        {
+          error:
+            'This track has already been requested recently. Please choose a different song.',
+          code: 'DUPLICATE_TRACK',
+        },
+        { status: 409 }
+      );
+      if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+      return response;
+    }
+
+    const newRequest = createResult.request;
+    const isReplay = createResult.kind === 'replay';
+    console.log(
+      `✅ [${requestId}] Request ${isReplay ? 'replayed' : 'created'}: ${newRequest.id} (${Date.now() - startTime}ms total)`
+    );
+
+    if (isReplay) {
+      const response = NextResponse.json(
+        {
+          success: true,
+          message: 'Your request has been submitted successfully!',
+          replayed: true,
+          request: {
+            id: newRequest.id,
+            track: {
+              name: trackInfo.name,
+              artists: trackInfo.artists,
+              album: trackInfo.album,
+              duration_ms: trackInfo.duration_ms,
+            },
+            status: 'pending',
+          },
+        },
+        { status: 200 }
+      );
+      if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+      return response;
+    }
+
+    // 🎵 AUTO-APPROVE: claim → provider ledger → queue (concurrency-safe)
     let queueSuccess = false;
+    let autoApprovedAt: string | undefined;
     if (shouldAutoApprove) {
+      const {
+        claimRequestForApproval,
+        releaseApprovalClaim,
+        createProviderOperation,
+        completeProviderOperation,
+        classifySpotifyQueueError,
+        shouldAttemptSpotifyQueueAdd,
+      } = await import('@/lib/reliability');
+      let autoClaimHeld = false;
       try {
-        console.log(`🎵 [${requestId}] Auto-approved request - adding to Spotify queue for user ${userId}...`);
-        await spotifyService.addToQueue(trackInfo.uri, undefined, userId);
-        queueSuccess = true;
-        console.log(`✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`);
-        
-        // Update the request to mark it as added to queue
-        await updateRequest(newRequest.id, {
-          spotify_added_to_queue: true
-        });
-      } catch (error) {
-        console.error(`❌ [${requestId}] Failed to add auto-approved request to Spotify queue:`, error);
-        // Don't fail the request if Spotify queue fails - the request is still approved
+        const claimed = await claimRequestForApproval(newRequest.id, userId);
+        if (claimed) {
+          autoClaimHeld = true;
+          const opKey = `auto-queue:${newRequest.id}`;
+          const op = await createProviderOperation({
+            userId,
+            eventId,
+            requestId: newRequest.id,
+            operation: 'spotify.add_to_queue',
+            idempotencyKey: opKey,
+          });
+          if (op.status === 'succeeded') {
+            queueSuccess = true;
+            autoApprovedAt = new Date().toISOString();
+            await updateRequest(
+              newRequest.id,
+              {
+                status: 'approved',
+                approved_at: autoApprovedAt,
+                approved_by: 'Auto-Approval System',
+                spotify_added_to_queue: true,
+                provider_operation_id: op.id,
+                claim_started_at: null,
+              },
+              userId
+            );
+            await assignNextQueuePosition(userId, newRequest.id).catch(() => null);
+            autoClaimHeld = false;
+          } else if (!shouldAttemptSpotifyQueueAdd(op.status)) {
+            // PRD-06: uncertain (or other non-retryable) — no second Spotify copy.
+            await updateRequest(
+              newRequest.id,
+              {
+                status: 'queue_failed',
+                queue_error_category:
+                  op.error_category ??
+                  (op.status === 'uncertain' ? 'uncertain_timeout' : op.status),
+                provider_operation_id: op.id,
+                claim_started_at: null,
+              },
+              userId
+            );
+            autoClaimHeld = false;
+          } else {
+            try {
+              console.log(
+                `🎵 [${requestId}] Auto-approved request - adding to Spotify queue for user ${userId}...`
+              );
+              await spotifyService.addToQueue(trackInfo.uri, undefined, userId);
+              queueSuccess = true;
+              autoApprovedAt = new Date().toISOString();
+              await completeProviderOperation(op.id, 'succeeded');
+              await updateRequest(
+                newRequest.id,
+                {
+                  status: 'approved',
+                  approved_at: autoApprovedAt,
+                  approved_by: 'Auto-Approval System',
+                  spotify_added_to_queue: true,
+                  provider_operation_id: op.id,
+                  claim_started_at: null,
+                },
+                userId
+              );
+              await assignNextQueuePosition(userId, newRequest.id).catch((err) => {
+                console.error('Failed to assign app queue position:', err);
+              });
+              autoClaimHeld = false;
+              console.log(
+                `✅ [${requestId}] Successfully added to Spotify queue for user ${userId}`
+              );
+            } catch (error) {
+              const category = classifySpotifyQueueError(error);
+              const uncertain = category === 'uncertain_timeout';
+              await completeProviderOperation(
+                op.id,
+                uncertain ? 'uncertain' : 'failed',
+                category
+              );
+              await updateRequest(
+                newRequest.id,
+                {
+                  status: 'queue_failed',
+                  queue_error_category: category,
+                  provider_operation_id: op.id,
+                  claim_started_at: null,
+                },
+                userId
+              );
+              autoClaimHeld = false;
+              console.error(
+                `❌ [${requestId}] Auto-approve queue failed (${category}):`,
+                error
+              );
+            }
+          }
+        }
+      } catch (autoApproveError) {
+        console.error(
+          `❌ [${requestId}] Auto-approve crashed; releasing claim:`,
+          autoApproveError
+        );
+        if (autoClaimHeld) {
+          await releaseApprovalClaim(
+            newRequest.id,
+            userId,
+            'queue_failed'
+          ).catch((releaseError) => {
+            console.error('Failed to release auto-approve claim:', releaseError);
+          });
+        }
       }
     }
 
@@ -207,7 +607,7 @@ export async function POST(req: NextRequest) {
         await triggerRequestSubmitted({
           id: newRequest.id,
           track_name: trackInfo.name,
-          artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          artist_name: trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
           album_image_url: albumImageUrl,
           track_uri: trackInfo.uri,
@@ -218,20 +618,20 @@ export async function POST(req: NextRequest) {
       }
       console.log(`🎉 Pusher event sent for new request: ${trackInfo.name}`);
 
-      // If auto-approved, also trigger approval event
-      if (shouldAutoApprove && userId) {
+      // If auto-approved and queued, also trigger approval event
+      if (shouldAutoApprove && queueSuccess && userId && autoApprovedAt) {
         await triggerRequestApproved({
           id: newRequest.id,
           track_name: trackInfo.name,
-          artist_name: trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          artist_name: trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
           album_name: trackInfo.album?.name || 'Unknown Album',
           track_uri: trackInfo.uri,
           requester_nickname: validatedNickname || 'Anonymous',
-          user_session_id: user_session_id || undefined,
-          play_next: false, // Default to false for auto-approved requests
-          approved_at: approvedAt!,
+          user_session_id: user_session_id || deviceId,
+          play_next: false,
+          approved_at: autoApprovedAt,
           approved_by: 'Auto-Approval System',
-          userId: userId // ✅ USER-SPECIFIC CHANNEL
+          userId: userId
         });
         console.log(`🎉 Auto-approval Pusher event sent for: ${trackInfo.name}`);
       }
@@ -241,13 +641,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 📢 AUTO-MESSAGE: Queue Notice Board message if auto-approved and enabled
-    if (shouldAutoApprove && userId) {
+    if (shouldAutoApprove && queueSuccess && userId) {
       try {
         const eventSettings = await getEventSettings(userId);
         
         if (eventSettings.show_approval_messages) {
           const requesterName = validatedNickname || 'Anonymous';
-          const artistName = trackInfo.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist';
+          const artistName = trackInfo.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist';
           const trackName = trackInfo.name;
           
           const messageText = `${requesterName}\n\nhas requested\n\n${trackName}\nby\n${artistName}\n\nAdded to the\nParty Playlist!`;
@@ -279,7 +679,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: responseMessage,
       request: {
@@ -293,6 +693,8 @@ export async function POST(req: NextRequest) {
         status: 'pending' // Always show as pending to users, regardless of auto-approval
       }
     }, { status: 201 });
+    if (mintedDevice) ensureGuestDeviceCookie(response, deviceId);
+    return response;
 
   } catch (error) {
     console.error(`❌ [${requestId}] Error submitting request (${Date.now() - startTime}ms):`, error);

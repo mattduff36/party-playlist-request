@@ -4,7 +4,8 @@ import type { DisplayMood } from '@/styles/theme';
 
 export interface Request {
   id: string;
-  track_uri: string;
+  /** Nullable for manual/request-only mode (PRD-07); Spotify rows keep URIs. */
+  track_uri: string | null;
   track_name: string;
   artist_name: string;
   album_name: string;
@@ -13,13 +14,34 @@ export interface Request {
   requester_ip_hash: string;
   requester_nickname?: string;
   user_session_id?: string; // For tracking user notifications
-  status: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
+  status:
+    | 'pending'
+    | 'approving'
+    | 'approved'
+    | 'rejected'
+    | 'queued'
+    | 'failed'
+    | 'queue_failed'
+    | 'played';
   created_at: string;
   approved_at?: string;
   approved_by?: string;
   rejection_reason?: string;
   spotify_added_to_queue: boolean;
   spotify_added_to_playlist: boolean;
+  event_id?: string | null;
+  idempotency_key?: string | null;
+  archived_at?: string | null;
+  queue_error_category?: string | null;
+  provider_operation_id?: string | null;
+  claim_started_at?: string | null;
+  /** PRD-07 provider-neutral fields */
+  provider_id?: string | null;
+  provider_track_id?: string | null;
+  queue_position?: number | null;
+  queue_version?: number | null;
+  dedication?: string | null;
+  normalized_track_key?: string | null;
 }
 
 export interface Settings {
@@ -42,6 +64,24 @@ export interface SpotifyAuth {
   scope: string;
   token_type: string;
   updated_at: string;
+  /** CAS / concurrent refresh version (PRD-03). */
+  refresh_lock_version?: number;
+  /** Present when credentials are vault-encrypted. */
+  token_key_version?: string | null;
+  access_token_envelope?: string | null;
+  refresh_token_envelope?: string | null;
+}
+
+export interface OAuthTransactionRow {
+  state: string;
+  code_verifier: string | null;
+  code_verifier_encrypted: string | null;
+  user_id: string | null;
+  username: string | null;
+  redirect_id: string | null;
+  created_at: string;
+  expires_at: string;
+  consumed_at: string | null;
 }
 
 export interface Notification {
@@ -92,18 +132,34 @@ export interface EventSettings {
   show_approval_messages: boolean;
   /** When true, guest URLs use an 8-char secure code instead of 6 digits */
   secure_url_access: boolean;
+  /** PRD-08: include access code on printable signage when true */
+  print_access_code_on_signage?: boolean;
+  /** PRD-08: interactive demo mode (mock tracks; no Spotify credentials) */
+  demo_mode?: boolean;
+  pre_event_requests_enabled?: boolean;
+  must_play_list?: unknown;
+  do_not_play_list?: unknown;
+  artist_cooldown_minutes?: number;
+  max_active_requests_per_guest?: number | null;
+  /** PRD-07/08 playback mode mirror on settings */
+  playback_mode?: string;
   updated_at: string;
 }
 
 // Database connection
-let pool: Pool;
+let pool: Pool | null = null;
 
+/**
+ * Singleton server-only pg pool (PRD-05 canonical connection strategy).
+ * Prefer this over route-local `new Pool()` or the multi-pool drizzle manager.
+ */
 export function getPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 20,
+      // Conservative serverless default (Neon + Vercel). Override via PG_POOL_MAX.
+      max: Number(process.env.PG_POOL_MAX || 10),
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     });
@@ -111,8 +167,37 @@ export function getPool() {
   return pool;
 }
 
+/** Close the singleton pool (scripts / tests). */
+export async function closePool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
+}
+
 // Initialize database tables
+/**
+ * @deprecated PRD-05 — prefer `npm run db:migrate:canonical`.
+ * Schema bootstrap via DDL. Must NOT be called from HTTP request handlers (PRD-01).
+ * Local/CLI only: set ALLOW_DB_BOOTSTRAP=1 and never expose this through an API route.
+ * Residual DDL here is a legacy fallback; new schema changes go in migrations/canonical.
+ */
+function assertDbBootstrapAllowed(): void {
+  if (process.env.ALLOW_DB_BOOTSTRAP === '1') {
+    return;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'initializeDatabase is disabled in production without ALLOW_DB_BOOTSTRAP=1 (use migrations)'
+    );
+  }
+  throw new Error(
+    'initializeDatabase requires ALLOW_DB_BOOTSTRAP=1 (CLI/dev only; not HTTP request handlers)'
+  );
+}
+
 export async function initializeDatabase() {
+  assertDbBootstrapAllowed();
   const client = getPool();
   
   try {
@@ -641,11 +726,41 @@ export async function initializeDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS oauth_sessions (
         state TEXT PRIMARY KEY,
-        code_verifier TEXT NOT NULL,
+        code_verifier TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '10 minutes')
       )
     `);
+
+    // PRD-03 Class B additive columns (safe IF NOT EXISTS / DROP NOT NULL)
+    try {
+      await client.query(`
+        ALTER TABLE spotify_auth
+          ADD COLUMN IF NOT EXISTS access_token_envelope TEXT,
+          ADD COLUMN IF NOT EXISTS refresh_token_envelope TEXT,
+          ADD COLUMN IF NOT EXISTS token_key_version TEXT,
+          ADD COLUMN IF NOT EXISTS refresh_lock_version BIGINT NOT NULL DEFAULT 0;
+      `);
+      await client.query(`
+        ALTER TABLE spotify_auth
+          ALTER COLUMN access_token DROP NOT NULL,
+          ALTER COLUMN refresh_token DROP NOT NULL;
+      `);
+      await client.query(`
+        ALTER TABLE oauth_sessions
+          ADD COLUMN IF NOT EXISTS user_id UUID,
+          ADD COLUMN IF NOT EXISTS username TEXT,
+          ADD COLUMN IF NOT EXISTS code_verifier_encrypted TEXT,
+          ADD COLUMN IF NOT EXISTS redirect_id TEXT DEFAULT 'admin_spotify',
+          ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ;
+      `);
+      await client.query(`
+        ALTER TABLE oauth_sessions
+          ALTER COLUMN code_verifier DROP NOT NULL;
+      `);
+    } catch (prd03MigrationError) {
+      console.error('PRD-03 encryption column ensure failed:', prd03MigrationError);
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS notifications (
@@ -842,19 +957,44 @@ export async function createRequest(
   return result.rows[0];
 }
 
-export async function getRequest(id: string, userId?: string): Promise<Request | null> {
+export async function getRequest(id: string, userId: string): Promise<Request | null> {
   const client = getPool();
-  
-  // If userId provided, ensure ownership (multi-tenant isolation)
-  if (userId) {
-    const result = await client.query('SELECT * FROM requests WHERE id = $1 AND user_id = $2', [id, userId]);
-    return result.rows[0] || null;
+
+  if (!userId) {
+    throw new Error('userId is required for tenant-scoped getRequest');
   }
-  
-  // Legacy: return any (for backward compatibility during migration)
-  const result = await client.query('SELECT * FROM requests WHERE id = $1', [id]);
+
+  const result = await client.query(
+    'SELECT * FROM requests WHERE id = $1 AND user_id = $2',
+    [id, userId]
+  );
   return result.rows[0] || null;
 }
+
+/** Allowlisted columns for organiser request updates (PRD-04 / PRD-07). */
+const REQUEST_UPDATE_ALLOWLIST = new Set([
+  'status',
+  'approved_at',
+  'spotify_added_to_queue',
+  'spotify_added_to_playlist',
+  'approved_by',
+  'rejection_reason',
+  'queue_error_category',
+  'provider_operation_id',
+  'archived_at',
+  'event_id',
+  'claim_started_at',
+  'track_name',
+  'artist_name',
+  'album_name',
+  'album_image_url',
+  'dedication',
+  'queue_position',
+  'queue_version',
+  'provider_id',
+  'provider_track_id',
+  'normalized_track_key',
+]);
 
 // Helper: Verify request ownership
 export async function verifyRequestOwnership(requestId: string, userId: string): Promise<boolean> {
@@ -863,36 +1003,57 @@ export async function verifyRequestOwnership(requestId: string, userId: string):
   return result.rows.length > 0;
 }
 
-export async function updateRequest(id: string, updates: Partial<Request>, userId?: string): Promise<Request | null> {
+export async function updateRequest(
+  id: string,
+  updates: Partial<Request>,
+  userId: string
+): Promise<Request | null> {
   const client = getPool();
-  
-  const setClause = Object.keys(updates)
+
+  if (!userId) {
+    throw new Error('userId is required for tenant-scoped updateRequest');
+  }
+
+  const keys = Object.keys(updates).filter((key) =>
+    REQUEST_UPDATE_ALLOWLIST.has(key)
+  );
+  if (keys.length === 0) {
+    throw new Error('No allowlisted update fields provided');
+  }
+  if (Object.keys(updates).some((key) => !REQUEST_UPDATE_ALLOWLIST.has(key))) {
+    throw new Error('Arbitrary update columns are not permitted');
+  }
+
+  const setClause = keys
     .map((key, index) => `${key} = $${index + 2}`)
     .join(', ');
-  
-  const values = [id, ...Object.values(updates)];
-  
-  // If userId provided, ensure ownership (multi-tenant isolation)
-  if (userId) {
-    values.push(userId);
-    const result = await client.query(`
-      UPDATE requests SET ${setClause} WHERE id = $1 AND user_id = $${values.length} RETURNING *
-    `, values);
-    return result.rows[0] || null;
-  }
-  
-  // Legacy: update any (for backward compatibility during migration)
-  const result = await client.query(`
-    UPDATE requests SET ${setClause} WHERE id = $1 RETURNING *
-  `, values);
-  
+  const values: unknown[] = [id, ...keys.map((key) => (updates as Record<string, unknown>)[key]), userId];
+
+  const result = await client.query(
+    `UPDATE requests SET ${setClause}
+     WHERE id = $1 AND user_id = $${values.length}
+     RETURNING *`,
+    values
+  );
   return result.rows[0] || null;
 }
 
-// DEPRECATED: Use new getRequestsByStatus below
-export async function getRequestsByStatusOld(status: string, limit = 50, offset = 0, userId?: string): Promise<Request[]> {
+/**
+ * @deprecated Use getRequestsByUserId / getRequestsByStatus instead.
+ * Tenant-scoped: userId is required (unscoped status listing removed for PRD-04).
+ */
+export async function getRequestsByStatusOld(
+  status: string,
+  limit = 50,
+  offset = 0,
+  userId?: string
+): Promise<Request[]> {
+  if (!userId) {
+    throw new Error('user_id is required for multi-tenant data isolation');
+  }
+
   const client = getPool();
-  
+
   // For approved requests, order by approved_at ASC (oldest approved first - play order)
   // For other statuses, order by created_at DESC (newest first)
   let orderBy = 'created_at DESC';
@@ -901,11 +1062,10 @@ export async function getRequestsByStatusOld(status: string, limit = 50, offset 
   } else if (status === 'played') {
     orderBy = 'approved_at DESC'; // Most recently played first
   }
-  
-  // Single-tenant: ignore userId (not in schema)
+
   const result = await client.query(
-    `SELECT * FROM requests WHERE status = $1 ORDER BY ${orderBy} LIMIT $2 OFFSET $3`,
-    [status, limit, offset]
+    `SELECT * FROM requests WHERE status = $1 AND user_id = $2 ORDER BY ${orderBy} LIMIT $3 OFFSET $4`,
+    [status, userId, limit, offset]
   );
   return result.rows;
 }
@@ -928,7 +1088,7 @@ export async function getAllRequests(limit = 50, offset = 0, userId?: string): P
 
 // OPTIMIZED: Get requests filtered by user ID and optionally by status
 export async function getRequestsByUserId(
-  userId: string, 
+  userId: string,
   options?: {
     status?: 'pending' | 'approved' | 'rejected' | 'queued' | 'failed' | 'played';
     limit?: number;
@@ -936,21 +1096,22 @@ export async function getRequestsByUserId(
   }
 ): Promise<Request[]> {
   const client = getPool();
+  if (!userId) {
+    throw new Error('userId is required for tenant-scoped getRequestsByUserId');
+  }
   const { status, limit = 50, offset = 0 } = options || {};
-  
-  // For single-tenant systems (current schema), userId is not in requests table
-  // Instead, all requests belong to the single user
+
   if (status) {
     const result = await client.query(
-      'SELECT * FROM requests WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
-      [status, limit, offset]
+      'SELECT * FROM requests WHERE user_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4',
+      [userId, status, limit, offset]
     );
     return result.rows;
   }
-  
+
   const result = await client.query(
-    'SELECT * FROM requests ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-    [limit, offset]
+    'SELECT * FROM requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+    [userId, limit, offset]
   );
   return result.rows;
 }
@@ -1087,100 +1248,368 @@ export async function updateAdminLastLogin(username: string): Promise<void> {
   );
 }
 
-// Spotify auth operations
+// Spotify auth operations (PRD-03: dual-read plaintext+envelope; write encrypted only)
+async function decryptSpotifyRow(
+  row: SpotifyAuth,
+  userId: string
+): Promise<SpotifyAuth | null> {
+  const { decryptToken } = await import('@/lib/crypto/token-vault');
+
+  let access = row.access_token || '';
+  let refresh = row.refresh_token || '';
+
+  if (row.access_token_envelope) {
+    access = decryptToken(row.access_token_envelope, {
+      userId,
+      purpose: 'spotify.access',
+    });
+  }
+  if (row.refresh_token_envelope) {
+    refresh = decryptToken(row.refresh_token_envelope, {
+      userId,
+      purpose: 'spotify.refresh',
+    });
+  }
+
+  if (!access && !refresh) {
+    return null;
+  }
+
+  return {
+    ...row,
+    access_token: access,
+    refresh_token: refresh,
+  };
+}
+
 export async function getSpotifyAuth(userId: string): Promise<SpotifyAuth | null> {
   if (!userId || !userId.trim()) {
     // Never fall back to another tenant's tokens (previously: SELECT … LIMIT 1).
     throw new Error('userId is required for multi-tenant Spotify auth isolation');
   }
 
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId.trim(), 'spotify_token_read');
+
   const client = getPool();
   const result = await client.query('SELECT * FROM spotify_auth WHERE user_id = $1', [
     userId.trim(),
   ]);
-  return result.rows[0] || null;
+  const row = result.rows[0] as SpotifyAuth | undefined;
+  if (!row) return null;
+
+  try {
+    return await decryptSpotifyRow(row, userId.trim());
+  } catch {
+    console.error('Failed to decrypt Spotify credentials for user (redacted)');
+    throw new Error('Failed to decrypt Spotify credentials');
+  }
 }
 
+/**
+ * Persist Spotify tokens. New writes encrypt envelopes and clear plaintext columns.
+ * Does not backfill existing rows (Class C — requires human approval).
+ */
 export async function setSpotifyAuth(auth: SpotifyAuth, userId: string): Promise<void> {
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_token_write');
+
+  const {
+    encryptToken,
+    serializeEnvelope,
+    getTokenVaultWriteKid,
+  } = await import('@/lib/crypto/token-vault');
+
+  const accessEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.access_token,
+      userId,
+      purpose: 'spotify.access',
+    })
+  );
+  const refreshEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.refresh_token,
+      userId,
+      purpose: 'spotify.refresh',
+    })
+  );
+  const kid = getTokenVaultWriteKid();
   const client = getPool();
-  await client.query(`
-    INSERT INTO spotify_auth (user_id, access_token, refresh_token, expires_at, scope, token_type, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-    ON CONFLICT (user_id) DO UPDATE SET 
-      access_token = $2, refresh_token = $3, expires_at = $4, 
-      scope = $5, token_type = $6, updated_at = CURRENT_TIMESTAMP
-  `, [userId, auth.access_token, auth.refresh_token, auth.expires_at, auth.scope, auth.token_type]);
+
+  await client.query(
+    `
+    INSERT INTO spotify_auth (
+      user_id, access_token, refresh_token,
+      access_token_envelope, refresh_token_envelope, token_key_version,
+      expires_at, scope, token_type, refresh_lock_version, updated_at
+    )
+    VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, $7, 0, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id) DO UPDATE SET
+      access_token = NULL,
+      refresh_token = NULL,
+      access_token_envelope = $2,
+      refresh_token_envelope = $3,
+      token_key_version = $4,
+      expires_at = $5,
+      scope = $6,
+      token_type = $7,
+      updated_at = CURRENT_TIMESTAMP
+  `,
+    [
+      userId,
+      accessEnvelope,
+      refreshEnvelope,
+      kid,
+      auth.expires_at,
+      auth.scope,
+      auth.token_type,
+    ]
+  );
+}
+
+/**
+ * Compare-and-swap token refresh write. Returns true if this writer won.
+ */
+export async function setSpotifyAuthCas(
+  auth: SpotifyAuth,
+  userId: string,
+  expectedLockVersion: number
+): Promise<boolean> {
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  // Refresh path writes new vault envelopes — blocked in demo mode.
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_refresh');
+
+  const {
+    encryptToken,
+    serializeEnvelope,
+    getTokenVaultWriteKid,
+  } = await import('@/lib/crypto/token-vault');
+
+  const accessEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.access_token,
+      userId,
+      purpose: 'spotify.access',
+    })
+  );
+  const refreshEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: auth.refresh_token,
+      userId,
+      purpose: 'spotify.refresh',
+    })
+  );
+  const kid = getTokenVaultWriteKid();
+  const client = getPool();
+
+  const result = await client.query(
+    `
+    UPDATE spotify_auth SET
+      access_token = NULL,
+      refresh_token = NULL,
+      access_token_envelope = $1,
+      refresh_token_envelope = $2,
+      token_key_version = $3,
+      expires_at = $4,
+      scope = $5,
+      token_type = $6,
+      refresh_lock_version = refresh_lock_version + 1,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = $7 AND refresh_lock_version = $8
+  `,
+    [
+      accessEnvelope,
+      refreshEnvelope,
+      kid,
+      auth.expires_at,
+      auth.scope,
+      auth.token_type,
+      userId,
+      expectedLockVersion,
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function clearSpotifyAuth(userId: string): Promise<void> {
   if (!userId) {
     throw new Error('userId is required for multi-tenant data isolation');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_disconnect');
   
   const client = getPool();
   await client.query('DELETE FROM spotify_auth WHERE user_id = $1', [userId]);
 }
 
-// OAuth session management
-export async function storeOAuthSession(state: string, codeVerifier: string, userId?: string, username?: string): Promise<void> {
-  const client = getPool();
-  
-  // Check if user_id and username columns exist
-  try {
-    await client.query(`
-      INSERT INTO oauth_sessions (state, code_verifier, user_id, username)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (state) DO UPDATE SET 
-        code_verifier = $2,
-        user_id = $3,
-        username = $4,
-        created_at = CURRENT_TIMESTAMP,
-        expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
-    `, [state, codeVerifier, userId || null, username || null]);
-  } catch (error) {
-    // Fallback for old schema without user_id/username columns
-    await client.query(`
-      INSERT INTO oauth_sessions (state, code_verifier)
-      VALUES ($1, $2)
-      ON CONFLICT (state) DO UPDATE SET 
-        code_verifier = $2, 
-        created_at = CURRENT_TIMESTAMP,
-        expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes'
-    `, [state, codeVerifier]);
+export async function clearOAuthSessionsForUser(userId: string): Promise<void> {
+  if (!userId) {
+    throw new Error('userId is required for multi-tenant data isolation');
   }
+  const client = getPool();
+  await client.query('DELETE FROM oauth_sessions WHERE user_id = $1', [userId]);
 }
 
-export async function getOAuthSession(state: string): Promise<{ code_verifier: string; username?: string } | null> {
-  const client = getPool();
-  
-  // Try to get username if column exists
-  try {
-    const result = await client.query(`
-      SELECT code_verifier, username FROM oauth_sessions
-      WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
-    `, [state]);
-    
-    if (result.rows.length === 0) return null;
-    return result.rows[0];
-  } catch (error) {
-    // Fallback for old schema
-    const result = await client.query(`
-      SELECT code_verifier FROM oauth_sessions 
-      WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
-    `, [state]);
-    
-    return result.rows[0] || null;
+// OAuth transaction management (PRD-03: hashed state, encrypted verifier, single-use)
+export async function storeOAuthSession(
+  rawState: string,
+  codeVerifier: string,
+  userId?: string,
+  username?: string,
+  redirectId: string = 'admin_spotify'
+): Promise<void> {
+  if (!userId) {
+    throw new Error('userId is required to store Spotify OAuth transaction');
   }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
+
+  const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
+  const {
+    encryptToken,
+    serializeEnvelope,
+  } = await import('@/lib/crypto/token-vault');
+
+  const stateHash = hashOAuthState(rawState);
+  const verifierEnvelope = serializeEnvelope(
+    encryptToken({
+      plaintext: codeVerifier,
+      userId,
+      purpose: 'spotify.pkce',
+      aadExtra: stateHash,
+    })
+  );
+
+  const client = getPool();
+
+  // Invalidate prior unconsumed transactions for this user
+  await client.query(
+    `
+    UPDATE oauth_sessions
+    SET consumed_at = CURRENT_TIMESTAMP
+    WHERE user_id = $1 AND consumed_at IS NULL
+  `,
+    [userId]
+  );
+
+  await client.query(
+    `
+    INSERT INTO oauth_sessions (
+      state, code_verifier, code_verifier_encrypted,
+      user_id, username, redirect_id, created_at, expires_at, consumed_at
+    )
+    VALUES ($1, NULL, $2, $3, $4, $5, CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP + INTERVAL '10 minutes', NULL)
+    ON CONFLICT (state) DO UPDATE SET
+      code_verifier = NULL,
+      code_verifier_encrypted = $2,
+      user_id = $3,
+      username = $4,
+      redirect_id = $5,
+      created_at = CURRENT_TIMESTAMP,
+      expires_at = CURRENT_TIMESTAMP + INTERVAL '10 minutes',
+      consumed_at = NULL
+  `,
+    [stateHash, verifierEnvelope, userId, username || null, redirectId]
+  );
 }
 
-export async function clearOAuthSession(state: string): Promise<void> {
+/**
+ * Atomically consume a single-use OAuth transaction bound to userId.
+ */
+export async function consumeOAuthTransaction(
+  rawState: string,
+  userId: string
+): Promise<{
+  codeVerifier: string;
+  username: string | null;
+  userId: string | null;
+  redirectId: string;
+} | null> {
+  if (!userId) {
+    throw new Error('userId is required to consume OAuth transaction');
+  }
+
+  const { assertUserDemoDoesNotTouchSpotify } = await import(
+    '@/lib/beta/demo-mode'
+  );
+  await assertUserDemoDoesNotTouchSpotify(userId, 'spotify_oauth');
+
+  const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
+  const { decryptToken } = await import('@/lib/crypto/token-vault');
+  const stateHash = hashOAuthState(rawState);
   const client = getPool();
-  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [state]);
+
+  const result = await client.query(
+    `
+    UPDATE oauth_sessions
+    SET consumed_at = CURRENT_TIMESTAMP
+    WHERE state = $1
+      AND user_id = $2
+      AND expires_at > CURRENT_TIMESTAMP
+      AND consumed_at IS NULL
+    RETURNING *
+  `,
+    [stateHash, userId]
+  );
+  const row = result.rows[0] as OAuthTransactionRow | undefined;
+  if (!row) return null;
+
+  let codeVerifier = '';
+  if (row.code_verifier_encrypted) {
+    if (!row.user_id) return null;
+    codeVerifier = decryptToken(row.code_verifier_encrypted, {
+      userId: row.user_id,
+      purpose: 'spotify.pkce',
+      aadExtra: stateHash,
+    });
+  } else if (row.code_verifier) {
+    // Legacy plaintext verifier dual-read (short-lived rows only)
+    codeVerifier = row.code_verifier;
+  }
+
+  if (!codeVerifier) return null;
+
+  return {
+    codeVerifier,
+    username: row.username,
+    userId: row.user_id,
+    redirectId: row.redirect_id || 'admin_spotify',
+  };
+}
+
+export async function clearOAuthSession(rawState: string): Promise<void> {
+  const { hashOAuthState } = await import('@/lib/spotify/oauth-state');
+  const client = getPool();
+  const stateHash = hashOAuthState(rawState);
+  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [stateHash]);
+  // Also delete legacy rows that stored raw state as PK
+  await client.query('DELETE FROM oauth_sessions WHERE state = $1', [rawState]);
 }
 
 export async function cleanupExpiredOAuthSessions(): Promise<void> {
   const client = getPool();
-  await client.query('DELETE FROM oauth_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
+  await client.query(
+    `
+    DELETE FROM oauth_sessions
+    WHERE expires_at <= CURRENT_TIMESTAMP
+       OR (consumed_at IS NOT NULL AND consumed_at < CURRENT_TIMESTAMP - INTERVAL '1 day')
+  `
+  );
 }
 
 // Event Settings functions (MULTI-TENANT!)
@@ -1251,6 +1680,12 @@ const EVENT_SETTINGS_UPDATABLE_FIELDS = new Set([
   'karaoke_mode',
   'show_approval_messages',
   'secure_url_access',
+  'print_access_code_on_signage',
+  'demo_mode',
+  'pre_event_requests_enabled',
+  'artist_cooldown_minutes',
+  'max_active_requests_per_guest',
+  'playback_mode',
 ]);
 
 export async function updateEventSettings(settings: Partial<Omit<EventSettings, 'id' | 'updated_at'>>, userId?: string): Promise<EventSettings> {
@@ -1346,8 +1781,19 @@ export async function updateEventSettings(settings: Partial<Omit<EventSettings, 
 }
 
 // Utility functions
-export function hashIP(ip: string): string {
-  return crypto.createHash('sha256').update(ip + (process.env.IP_SALT || 'default-salt')).digest('hex');
+export function hashIP(
+  ip: string,
+  nodeEnv: string | undefined = process.env.NODE_ENV
+): string {
+  const salt = process.env.IP_SALT?.trim();
+  if (!salt) {
+    if (nodeEnv === 'production') {
+      throw new Error('IP_SALT must be configured in production (fail-closed)');
+    }
+    // Dev/test-only fallback — never used in production
+    return crypto.createHash('sha256').update(ip + 'default-salt').digest('hex');
+  }
+  return crypto.createHash('sha256').update(ip + salt).digest('hex');
 }
 
 export function generateUUID(): string {
@@ -1356,7 +1802,7 @@ export function generateUUID(): string {
 
 // Notification functions
 export async function createNotification(notification: Omit<Notification, 'id' | 'created_at' | 'shown'>): Promise<string> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const id = generateUUID();
     const created_at = new Date().toISOString();
@@ -1374,7 +1820,7 @@ export async function createNotification(notification: Omit<Notification, 'id' |
 }
 
 export async function getNotifications(): Promise<Notification[]> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const result = await client.query(
       'SELECT * FROM notifications WHERE shown = false ORDER BY created_at ASC LIMIT 5'
@@ -1386,7 +1832,7 @@ export async function getNotifications(): Promise<Notification[]> {
 }
 
 export async function markNotificationAsShown(id: string): Promise<void> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query(
       'UPDATE notifications SET shown = true WHERE id = $1',
@@ -1397,7 +1843,10 @@ export async function markNotificationAsShown(id: string): Promise<void> {
   }
 }
 
-// Initialize default data
+/**
+ * Local/CLI bootstrap only. Never call from HTTP request handlers (PRD-01).
+ * Requires ALLOW_DB_BOOTSTRAP=1 (enforced by initializeDatabase).
+ */
 export async function initializeDefaults(): Promise<void> {
   await initializeDatabase();
 

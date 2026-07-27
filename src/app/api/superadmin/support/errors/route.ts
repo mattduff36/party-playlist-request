@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, requireSuperAdmin } from '@/middleware/auth';
 import { listSupportErrors, resolveSupportError } from '@/lib/support/queries';
-import { initializeDefaults } from '@/lib/db';
 import { pruneSupportLogsOlderThan } from '@/lib/support/logger';
 
 export async function GET(req: NextRequest) {
   try {
-    await initializeDefaults();
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) return auth.response!;
     const sa = requireSuperAdmin(auth.user);
     if (!sa.authorized) return sa.response!;
@@ -42,8 +40,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    await initializeDefaults();
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) return auth.response!;
     const sa = requireSuperAdmin(auth.user);
     if (!sa.authorized) return sa.response!;

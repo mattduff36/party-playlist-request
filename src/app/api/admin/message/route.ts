@@ -6,7 +6,7 @@ import { triggerEvent, getUserChannel } from '@/lib/pusher';
 export async function POST(req: NextRequest) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -176,7 +176,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const config = rows[0].config as any;
+    const config = rows[0].config as {
+      message_text?: string | null;
+      message_duration?: number | null;
+      message_created_at?: string | null;
+    };
     const messageText = config?.message_text || null;
     const messageDuration = config?.message_duration || null;
     const messageCreatedAt = config?.message_created_at || null;

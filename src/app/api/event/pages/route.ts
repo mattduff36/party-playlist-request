@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     console.log('🌐 [API /event/pages POST] Request received');
     
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -53,12 +53,14 @@ export async function POST(req: NextRequest) {
     });
 
     // Update page enabled status
+    const pagesEnabled = {
+      requests: currentEvent.config.pages_enabled?.requests ?? false,
+      display: currentEvent.config.pages_enabled?.display ?? false,
+      [page]: enabled,
+    } as { requests: boolean; display: boolean };
     const newConfig = {
       ...currentEvent.config,
-      pages_enabled: {
-        ...currentEvent.config.pages_enabled,
-        [page]: enabled,
-      },
+      pages_enabled: pagesEnabled,
     };
     
     console.log('🌐 [API /event/pages POST] New config:', newConfig);
@@ -73,7 +75,8 @@ export async function POST(req: NextRequest) {
         const pusherPayload = {
           page,
           enabled,
-          pagesEnabled: updatedEvent.config.pages_enabled,
+          pagesEnabled:
+            updatedEvent.config.pages_enabled ?? pagesEnabled,
           adminId: userId,
           adminName: auth.user.username,
           userId: userId, // ✅ USER-SPECIFIC CHANNEL - only this user receives the event
@@ -108,7 +111,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     // Authenticate user
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

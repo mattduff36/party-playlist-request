@@ -10,7 +10,7 @@ import { requireAuth } from '@/middleware/auth';
 export async function POST(req: NextRequest) {
   try {
     // Verify admin authentication
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }

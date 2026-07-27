@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
+import { refuseIfCapabilityUnsupported } from '@/lib/playback/gate-capability';
 import { spotifyService } from '@/lib/spotify';
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
 
     const userId = auth.user.user_id;
+    const refused = await refuseIfCapabilityUnsupported(
+      userId,
+      'playbackControls',
+      'playback.previous'
+    );
+    if (refused) return refused;
 
     let device_id: string | undefined;
     try {

@@ -6,7 +6,7 @@ import { getRequestsByStatus, updateRequest } from '@/lib/db';
 export async function POST(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -36,14 +36,14 @@ export async function POST(req: NextRequest) {
       const isMatch = 
         request.track_uri === currentTrack.uri ||
         (request.track_name.toLowerCase() === currentTrack.name.toLowerCase() &&
-         request.artist_name.toLowerCase() === currentTrack.artists.map((a: any) => a.name).join(', ').toLowerCase());
+         request.artist_name.toLowerCase() === currentTrack.artists.map((a: { name: string }) => a.name).join(', ').toLowerCase());
       
       if (isMatch) {
         // Mark as played
         await updateRequest(request.id, {
           status: 'played',
           approved_at: new Date().toISOString()
-        });
+        }, userId);
         markedCount++;
         console.log(`✅ Marked request ${request.id} as played: ${request.track_name} by ${request.artist_name}`);
       }
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       marked_played: markedCount,
       current_track: {
         name: currentTrack.name,
-        artists: currentTrack.artists.map((a: any) => a.name),
+        artists: currentTrack.artists.map((a: { name: string }) => a.name),
         uri: currentTrack.uri
       }
     });

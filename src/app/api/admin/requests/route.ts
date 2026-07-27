@@ -5,7 +5,7 @@ import { getRequestsByStatus, getAllRequests, getRequestsCount } from '@/lib/db'
 export async function GET(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -27,11 +27,24 @@ export async function GET(req: NextRequest) {
       const counts = await getRequestsCount(userId);
       total = counts.total;
     } else {
-      requests = await getRequestsByStatus(status, limit, offset, userId);
+      const allowedStatuses = [
+        'pending',
+        'approved',
+        'rejected',
+        'queued',
+        'failed',
+        'played',
+      ] as const;
+      type RequestStatus = (typeof allowedStatuses)[number];
+      if (!(allowedStatuses as readonly string[]).includes(status)) {
+        return NextResponse.json({ error: 'Invalid status filter' }, { status: 400 });
+      }
+      const typedStatus = status as RequestStatus;
+      requests = await getRequestsByStatus(typedStatus, limit, offset, userId);
       const counts = await getRequestsCount(userId);
-      total = status === 'pending' ? counts.pending : 
-             status === 'approved' ? counts.approved : 
-             status === 'rejected' ? counts.rejected : 0;
+      total = typedStatus === 'pending' ? counts.pending : 
+             typedStatus === 'approved' ? counts.approved : 
+             typedStatus === 'rejected' ? counts.rejected : 0;
     }
 
     const response = NextResponse.json({

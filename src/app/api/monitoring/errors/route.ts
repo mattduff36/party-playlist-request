@@ -1,8 +1,9 @@
 /**
- * Error Reporting API
- * 
- * This endpoint handles error reports from the error boundary system
- * and integrates with the monitoring system.
+ * Error Reporting API (bounded public intake — PRD-01)
+ *
+ * Accepts validated client error reports from ErrorBoundary.
+ * Does not expose operational history; durable history is superadmin-only.
+ * Shares per-IP rate limit with /api/support/client-error.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,82 +11,88 @@ import { metricsCollector } from '@/lib/monitoring/metrics';
 import { alertingSystem } from '@/lib/monitoring/alerts';
 import { logError } from '@/lib/support/logger';
 import { getIpHash } from '@/lib/support/withApiLogging';
+import {
+  CLIENT_ERROR_MAX_BODY_BYTES,
+  isClientErrorRateLimited,
+  parseClientErrorIntake,
+} from '@/lib/support/client-error-intake';
 
 export async function POST(request: NextRequest) {
   try {
-    const errorData = await request.json();
-    
-    // Validate error data
-    if (!errorData.errorId || !errorData.message) {
+    let ipHash: string;
+    try {
+      ipHash = getIpHash(request);
+    } catch {
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 });
+    }
+
+    if (isClientErrorRateLimited(ipHash)) {
+      return NextResponse.json({ error: 'Too many error reports' }, { status: 429 });
+    }
+
+    const contentLength = Number(request.headers.get('content-length') || '0');
+    if (contentLength > CLIENT_ERROR_MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 400 });
+    }
+
+    const rawBody = await request.text();
+    const parsed = parseClientErrorIntake(rawBody, request.headers.get('referer'));
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    }
+
+    const { data } = parsed;
+    if (!data.errorId || !data.message) {
       return NextResponse.json(
         { error: 'Missing required error data' },
         { status: 400 }
       );
     }
 
-    // Persist to support system (durable)
     await logError({
-      level:
-        errorData.level === 'critical' || errorData.level === 'page'
-          ? 'fatal'
-          : 'error',
+      level: data.level,
       source: 'client',
-      classification: 'unhandled',
-      message: String(errorData.message),
-      stack: errorData.stack || errorData.componentStack || null,
-      route: errorData.url || null,
+      classification: data.classification,
+      message: data.message,
+      stack: data.stack,
+      route: data.route,
       method: 'CLIENT',
-      ipHash: getIpHash(request),
-      userAgent: errorData.userAgent || request.headers.get('user-agent'),
-      meta: { errorId: errorData.errorId, clientLevel: errorData.level },
+      ipHash,
+      userAgent: data.userAgent || request.headers.get('user-agent'),
+      meta: { errorId: data.errorId, clientLevel: data.level },
     });
 
-    // Record error metrics
     metricsCollector.recordMetric({
       name: 'error_count',
       value: 1,
       timestamp: Date.now(),
       tags: {
-        level: errorData.level || 'component',
+        level: data.level,
         type: 'error_boundary',
       },
       metadata: {
-        errorId: errorData.errorId,
-        message: errorData.message,
-        componentStack: errorData.componentStack,
-        userAgent: errorData.userAgent,
-        url: errorData.url,
+        errorId: data.errorId,
+        message: data.message,
       },
     });
 
-    // Create alert for critical errors
-    if (errorData.level === 'critical' || errorData.level === 'page') {
-      const alert = {
-        id: errorData.errorId,
-        severity: 'high' as const,
-        message: `Critical Error: ${errorData.message}`,
+    if (data.level === 'fatal') {
+      await alertingSystem.sendAlert({
+        id: data.errorId,
+        ruleId: 'monitoring_errors',
+        resolved: false,
+        severity: 'high',
+        message: `Critical Error: ${data.message}`,
         metric: 'error_count',
         value: 1,
         threshold: 0,
         timestamp: Date.now(),
-      };
-
-      await alertingSystem.sendAlert(alert);
+      });
     }
 
-    // Log error for debugging
-    console.error('🚨 Error Boundary Report:', {
-      errorId: errorData.errorId,
-      message: errorData.message,
-      level: errorData.level,
-      timestamp: new Date(errorData.timestamp).toISOString(),
-      url: errorData.url,
-      userAgent: errorData.userAgent,
-    });
-
-    return NextResponse.json({ 
-      success: true, 
-      errorId: errorData.errorId 
+    return NextResponse.json({
+      success: true,
+      errorId: data.errorId,
     });
   } catch (error) {
     console.error('❌ Error reporting failed:', error);
@@ -95,4 +102,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

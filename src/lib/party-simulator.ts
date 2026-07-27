@@ -404,10 +404,10 @@ class PartySimulator {
       const sessionId = randomUUID();
 
       // Prepare request body
-      const requestBody: any = {
+      const requestBody: Record<string, unknown> = {
         track_uri: track.uri,
         trackName: track.name,
-        artistName: track.artists.map((a: any) => a.name).join(', '),
+        artistName: track.artists.map((a: { name: string }) => a.name).join(', '),
         albumName: track.album?.name || '',
         requester_nickname: requesterName,
         user_session_id: sessionId,
@@ -440,7 +440,7 @@ class PartySimulator {
         timestamp: new Date().toISOString(),
         requester: requesterName,
         song: track.name,
-        artist: track.artists.map((a: any) => a.name).join(', '),
+        artist: track.artists.map((a: { name: string }) => a.name).join(', '),
         status: 'success'
       });
       

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, initializeDefaults } from '@/lib/db';
+import { createRequest } from '@/lib/db';
 import { spotifyService } from '@/lib/spotify';
 import { triggerRequestSubmitted } from '@/lib/pusher';
 import { requireAuth } from '@/middleware/auth';
@@ -75,17 +75,13 @@ export async function POST(req: NextRequest) {
   
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
     
     const userId = auth.user.user_id;
     console.log(`✅ [${requestId}] User ${auth.user.username} (${userId}) adding random song`);
-
-    console.log(`⏱️ [${requestId}] Initializing defaults...`);
-    await initializeDefaults();
-    console.log(`✅ [${requestId}] Defaults initialized (${Date.now() - startTime}ms)`);
 
     // Select a random song from our list
     const randomQuery = POPULAR_SONGS[Math.floor(Math.random() * POPULAR_SONGS.length)];
@@ -116,14 +112,14 @@ export async function POST(req: NextRequest) {
     // Select the first track (usually the most relevant)
     const selectedTrack = tracks[0];
     const albumImageUrl = getTrackAlbumImageUrl(selectedTrack) || null;
-    console.log(`🎵 [${requestId}] Selected track: "${selectedTrack.name}" by ${selectedTrack.artists?.map((a: any) => a.name).join(', ')}`);
+    console.log(`🎵 [${requestId}] Selected track: "${selectedTrack.name}" by ${selectedTrack.artists?.map((a: { name: string }) => a.name).join(', ')}`);
 
     // Create the request in the database
     console.log(`💾 [${requestId}] Creating database request...`);
     const newRequest = await createRequest({
       track_uri: selectedTrack.uri,
       track_name: selectedTrack.name,
-      artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+      artist_name: selectedTrack.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
       album_name: selectedTrack.album?.name || 'Unknown Album',
       album_image_url: albumImageUrl,
       duration_ms: selectedTrack.duration_ms || 0,
@@ -140,7 +136,7 @@ export async function POST(req: NextRequest) {
       await triggerRequestSubmitted({
         id: newRequest.id,
         track_name: selectedTrack.name,
-        artist_name: selectedTrack.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+        artist_name: selectedTrack.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown Artist',
         album_name: selectedTrack.album?.name || 'Unknown Album',
         album_image_url: albumImageUrl,
         track_uri: selectedTrack.uri,

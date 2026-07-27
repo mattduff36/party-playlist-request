@@ -1,21 +1,41 @@
 /**
- * Pusher Authentication Endpoint
- * 
- * Authenticates Pusher private channels
- * Required for private-* channel subscriptions
+ * Pusher private/presence channel authentication (PRD-04).
+ * Allowlisted channel patterns only; organiser / guest / display proof required.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import Pusher from 'pusher';
+import { resolveSecretEnv } from '@/lib/security/fail-closed-env';
+import { requireAuth } from '@/middleware/auth';
+import { parseChannelName } from '@/lib/pusher/channel-contract';
+import {
+  proveDisplayForEvent,
+  proveGuestForEvent,
+  proveGuestForUserChannel,
+} from '@/lib/event-access-policy';
 
-// Initialize Pusher server
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.PUSHER_CLUSTER || 'eu',
-  useTLS: true,
-});
+function getPusherAuthServer(): Pusher {
+  return new Pusher({
+    appId: resolveSecretEnv('PUSHER_APP_ID', {
+      insecureFallbacks: ['fallback-app-id', ''],
+      devFallback: '',
+    }),
+    key: resolveSecretEnv('PUSHER_KEY', {
+      insecureFallbacks: ['fallback-key', ''],
+      devFallback: '',
+    }),
+    secret: resolveSecretEnv('PUSHER_SECRET', {
+      insecureFallbacks: ['fallback-secret', ''],
+      devFallback: '',
+    }),
+    cluster: process.env.PUSHER_CLUSTER?.trim() || 'eu',
+    useTLS: true,
+  });
+}
+
+function deny(message: string, status = 403): NextResponse {
+  return NextResponse.json({ error: message }, { status });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,39 +51,77 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`🔐 [Pusher Auth] Authenticating channel: ${channelName} for socket: ${socketId}`);
+    const parsed = parseChannelName(channelName);
+    if (parsed.kind === 'unknown') {
+      return deny('Invalid channel name');
+    }
 
-    // For private channels, authenticate without user data
-    if (channelName.startsWith('private-')) {
+    const pusher = getPusherAuthServer();
+
+    if (parsed.kind === 'admin') {
+      const auth = await requireAuth(req);
+      if (!auth.authenticated || !auth.user?.user_id) {
+        return auth.response || deny('Authentication required', 401);
+      }
+      const sessionUserId = auth.user.user_id;
+      if (sessionUserId !== parsed.userId) {
+        // Super-admin support override is deliberately not opened here without audit.
+        return deny('Channel ownership mismatch');
+      }
       const authResponse = pusher.authorizeChannel(socketId, channelName);
-      console.log(`✅ [Pusher Auth] Authorized private channel: ${channelName}`);
       return NextResponse.json(authResponse);
     }
 
-    // For presence channels (future use)
-    if (channelName.startsWith('presence-')) {
-      // Get user from auth token if needed
-      const authResponse = pusher.authorizeChannel(socketId, channelName, {
-        user_id: 'default-user',
-        user_info: {
-          name: 'Guest'
-        }
-      });
-      console.log(`✅ [Pusher Auth] Authorized presence channel: ${channelName}`);
+    if (parsed.kind === 'guest_event') {
+      const event = await proveGuestForEvent(req, parsed.eventId!);
+      if (!event) {
+        return deny('Guest access required', 401);
+      }
+      const authResponse = pusher.authorizeChannel(socketId, channelName);
       return NextResponse.json(authResponse);
     }
 
-    return NextResponse.json(
-      { error: 'Invalid channel name' },
-      { status: 403 }
-    );
+    if (parsed.kind === 'guest_legacy_user') {
+      // Organiser may also subscribe to their legacy party channel
+      const auth = await requireAuth(req);
+      if (
+        auth.authenticated &&
+        auth.user?.user_id &&
+        auth.user.user_id === parsed.userId
+      ) {
+        const authResponse = pusher.authorizeChannel(socketId, channelName);
+        return NextResponse.json(authResponse);
+      }
 
+      const event = await proveGuestForUserChannel(req, parsed.userId!);
+      if (!event) {
+        return deny('Guest access required', 401);
+      }
+      const authResponse = pusher.authorizeChannel(socketId, channelName);
+      return NextResponse.json(authResponse);
+    }
+
+    if (parsed.kind === 'display_event') {
+      // Guest cookie must NOT authorise display channels
+      const event = await proveDisplayForEvent(req, parsed.eventId!);
+      if (!event) {
+        return deny('Display access required', 401);
+      }
+      const authResponse = pusher.authorizeChannel(socketId, channelName);
+      return NextResponse.json(authResponse);
+    }
+
+    if (parsed.kind === 'presence') {
+      // Reject unauthorized presence by default — no wildcard anonymous authorize
+      return deny('Presence channels are not authorised', 403);
+    }
+
+    return deny('Invalid channel name');
   } catch (error) {
-    console.error('❌ [Pusher Auth] Error:', error);
+    console.error('[Pusher Auth] Error:', error);
     return NextResponse.json(
       { error: 'Authentication failed' },
       { status: 500 }
     );
   }
 }
-

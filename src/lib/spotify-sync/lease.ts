@@ -103,18 +103,21 @@ export async function persistSyncState(
   `;
 }
 
-/** Ensure table exists (idempotent; also created in initializeDatabase). */
+/**
+ * Verify playback-sync table exists (PRD-05: no request-time DDL).
+ * Table is created by canonical migration `004_spotify_playback_sync`.
+ */
 export async function ensurePlaybackSyncTable(): Promise<void> {
-  const { sql } = await import('@/lib/db/neon-client');
-  await sql`
-    CREATE TABLE IF NOT EXISTS spotify_playback_sync (
-      user_id TEXT PRIMARY KEY,
-      lease_until TIMESTAMPTZ,
-      fingerprint TEXT,
-      progress_ms INTEGER,
-      is_playing BOOLEAN DEFAULT FALSE,
-      snapshot_json JSONB,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
+  const { getPool } = await import('@/lib/db');
+  const result = await getPool().query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name = 'spotify_playback_sync'
+     ) AS exists`
+  );
+  if (!result.rows[0]?.exists) {
+    throw new Error(
+      'spotify_playback_sync missing — run npm run db:migrate:canonical (no request-time DDL)'
+    );
+  }
 }

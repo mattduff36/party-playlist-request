@@ -11,7 +11,8 @@
 import PusherClient from 'pusher-js';
 import { 
   PusherEvent, 
-  EventHandlers, 
+  EventHandlers,
+  EventHandler,
   getEventChannel, 
   generateEventId, 
   generateEventVersion,
@@ -71,7 +72,9 @@ interface PusherClientConfig {
 
 // Default configuration
 const DEFAULT_CONFIG: PusherClientConfig = {
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'fallback-key',
+  key:
+    process.env.NEXT_PUBLIC_PUSHER_KEY ||
+    (process.env.NODE_ENV === 'production' ? '' : 'fallback-key'),
   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'us2',
   forceTLS: true,
   enabledTransports: ['ws', 'wss'],
@@ -89,7 +92,7 @@ const DEFAULT_CONFIG: PusherClientConfig = {
 export class CentralizedPusherClient {
   private client: PusherClient | null = null;
   private eventId: string | null = null;
-  private channel: any = null;
+  private channel: import('pusher-js').Channel | null = null;
   private handlers: EventHandlers = {};
   private connectionState: ConnectionState = 'initializing';
   private reconnectAttempts = 0;
@@ -133,8 +136,8 @@ export class CentralizedPusherClient {
       this.client = new PusherClient(this.config.key, {
         cluster: this.config.cluster,
         forceTLS: this.config.forceTLS,
-        enabledTransports: this.config.enabledTransports,
-        disabledTransports: this.config.disabledTransports,
+        enabledTransports: this.config.enabledTransports as ('ws' | 'wss' | 'xhr_streaming' | 'xhr_polling' | 'sockjs')[],
+        disabledTransports: this.config.disabledTransports as ('ws' | 'wss' | 'xhr_streaming' | 'xhr_polling' | 'sockjs')[],
         authEndpoint: '/api/pusher/auth',
         auth: {
           headers: {
@@ -204,7 +207,7 @@ export class CentralizedPusherClient {
     this.channel = this.client.subscribe(channelName);
 
     // Bind to the unified event handler
-    this.channel.bind('event', (data: any) => {
+    this.channel.bind('event', (data: unknown) => {
       this.handleEvent(data);
     });
 
@@ -212,7 +215,7 @@ export class CentralizedPusherClient {
   }
 
   // Handle incoming events
-  private handleEvent(data: any): void {
+  private handleEvent(data: unknown): void {
     try {
       // Validate event
       if (!isValidEvent(data)) {
@@ -223,7 +226,7 @@ export class CentralizedPusherClient {
       const event = data as PusherEvent;
 
       // Check rate limiting
-      const rateLimitResult = this.rateLimiter.checkRateLimit(event, undefined, this.eventId);
+      const rateLimitResult = this.rateLimiter.checkRateLimit(event, undefined, this.eventId ?? undefined);
       if (!rateLimitResult.allowed) {
         console.warn('⚠️ Rate limit exceeded, dropping event:', event.id, rateLimitResult.reason);
         return;
@@ -245,7 +248,7 @@ export class CentralizedPusherClient {
 
   // Process individual event
   private processEvent(event: PusherEvent): void {
-    const handler = this.handlers[event.action];
+    const handler = this.handlers[event.action] as EventHandler | undefined;
     if (handler) {
       try {
         handler(event);

@@ -1,30 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { triggerTokenExpired } from '@/lib/pusher';
-import { TokenExpiredEvent } from '@/lib/pusher';
+import { requireAuth } from '@/middleware/auth';
+import { triggerTokenExpired, type TokenExpiredEvent } from '@/lib/pusher';
 
 export async function POST(req: NextRequest) {
   try {
-    const { reason, message } = await req.json();
-    console.log('Received token expiration notification:', { reason, message });
+    const auth = await requireAuth(req);
+    if (!auth.authenticated || !auth.user) {
+      return auth.response!;
+    }
 
-    const eventData: TokenExpiredEvent = {
-      reason: reason || 'unknown',
-      message: message || 'Admin token has expired or is invalid.',
+    const body = await req.json().catch(() => ({}));
+    const reason =
+      body.reason === 'invalid' || body.reason === 'revoked' || body.reason === 'expired'
+        ? body.reason
+        : 'expired';
+    const message =
+      typeof body.message === 'string' && body.message.length <= 200
+        ? body.message
+        : 'Admin token has expired or is invalid.';
+
+    console.log('Received token expiration notification:', {
+      userId: auth.user.user_id,
+      reason,
+    });
+
+    const eventData: TokenExpiredEvent & { userId: string } = {
+      reason,
+      message,
       timestamp: Date.now(),
+      userId: auth.user.user_id,
     };
 
     await triggerTokenExpired(eventData);
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Token expiration event triggered successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Token expiration event triggered successfully',
     });
   } catch (error) {
     console.error('Error triggering token expired event:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Failed to trigger token expired event',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to trigger token expired event',
+      },
+      { status: 500 }
+    );
   }
 }

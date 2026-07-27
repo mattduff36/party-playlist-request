@@ -49,7 +49,7 @@ export default function SetupPartyModal({ isOpen, onConfirm, onClose }: SetupPar
               onClick={onConfirm}
               className="flex-1 bg-gradient-to-r from-accent to-accent-hover text-ink font-bold py-3 px-6 rounded-lg hover:shadow-lg hover:shadow-accent/30 transition-all duration-300 transform hover:scale-105"
             >
-              Yes, Let's Go!
+              Yes, Let&apos;s Go!
             </button>
             <button
               onClick={onClose}

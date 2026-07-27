@@ -3,7 +3,7 @@
  * Runtime mock data lives in src/lib/spotify-mock.ts (SPOTIFY_MOCK=true).
  */
 
-export {
+import {
   SPOTIFY_MOCK_PLAYBACK as playback,
   SPOTIFY_MOCK_QUEUE as queue,
   SPOTIFY_MOCK_DEVICES as devices,
@@ -11,7 +11,16 @@ export {
   getMockTrack,
 } from '@/lib/spotify-mock';
 
+export {
+  playback,
+  queue,
+  devices,
+  getMockSearchResults,
+  getMockTrack,
+};
+
 export const SPOTIFY_MOCK_RESPONSES = {
+  devices,
   playback: {
     is_playing: true,
     progress_ms: 45000,

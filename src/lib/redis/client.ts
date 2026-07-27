@@ -9,7 +9,7 @@ import { Redis } from '@upstash/redis';
 import { RedisConfig, DEFAULT_REDIS_CONFIG, REDIS_KEYS } from './config';
 
 export class RedisClient {
-  private client: Redis;
+  private client!: Redis;
   private config: RedisConfig;
   private isConnected: boolean = false;
   private connectionAttempts: number = 0;
@@ -92,7 +92,7 @@ export class RedisClient {
   /**
    * Set a key-value pair with TTL
    */
-  async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
+  async set(key: string, value: unknown, ttlSeconds?: number): Promise<boolean> {
     const result = await this.executeWithRetry(async () => {
       if (ttlSeconds) {
         return await this.client.setex(key, ttlSeconds, JSON.stringify(value));
@@ -107,7 +107,7 @@ export class RedisClient {
   /**
    * Get a value by key
    */
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     const result = await this.executeWithRetry(async () => {
       return await this.client.get(key);
     }, `GET ${key}`);
@@ -195,12 +195,12 @@ export class RedisClient {
   /**
    * Get multiple keys
    */
-  async mget<T = any>(keys: string[]): Promise<(T | null)[]> {
+  async mget<T = unknown>(keys: string[]): Promise<(T | null)[]> {
     const result = await this.executeWithRetry(async () => {
       return await this.client.mget(...keys);
     }, `MGET ${keys.join(', ')}`);
 
-    return (result || []).map((value: any) => {
+    return (result || []).map((value: unknown) => {
       if (value === null) return null;
       try {
         return JSON.parse(value as string) as T;
@@ -214,7 +214,7 @@ export class RedisClient {
   /**
    * Set multiple key-value pairs
    */
-  async mset(keyValuePairs: Record<string, any>): Promise<boolean> {
+  async mset(keyValuePairs: Record<string, unknown>): Promise<boolean> {
     const result = await this.executeWithRetry(async () => {
       const serializedPairs: Record<string, string> = {};
       for (const [key, value] of Object.entries(keyValuePairs)) {

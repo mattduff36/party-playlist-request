@@ -24,7 +24,7 @@ function canTransition(from: EventStatus, to: EventStatus): boolean {
 export async function GET(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -192,6 +192,33 @@ export async function POST(req: NextRequest) {
       currentEvent.status === 'offline' &&
       (status === 'standby' || status === 'live');
 
+    // PRD-08/09: Party Pass or beta entitlement gates activation (not history / offline).
+    if (startingNewEvent) {
+      const { assertCanActivatePaidEvent } = await import(
+        '@/lib/payments/entitlement'
+      );
+      const entitlement = await assertCanActivatePaidEvent({
+        userId,
+        isSuperAdmin: auth.user.role === 'superadmin',
+      });
+      if (!entitlement.allowed) {
+        const needsActivation = entitlement.reason === 'unactivated';
+        return NextResponse.json(
+          {
+            error: needsActivation
+              ? 'Activate your Party Pass before starting an event. Purchase alone does not start the 30-day window.'
+              : 'A Party Pass or beta entitlement is required to activate an event.',
+            code: needsActivation
+              ? 'PARTY_PASS_ACTIVATION_REQUIRED'
+              : 'ENTITLEMENT_REQUIRED',
+            reason: entitlement.reason,
+            source: entitlement.source,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Mint guest access code BEFORE flipping status so a failed mint does not leave Live without a code.
     // Previously, End only set events.status=offline and left user_events.active=true — Start then
     // resurrected the same 4-digit code via GET /api/events/current.
@@ -224,7 +251,7 @@ export async function POST(req: NextRequest) {
     // Starting a new DJ event (offline → standby/live): reset shared mood to DJ Tool
     if (startingNewEvent) {
       try {
-        const { updateEventSettings, getEventSettings } = await import('@/lib/db');
+        const { updateEventSettings, getEventSettings, getPool } = await import('@/lib/db');
         const { triggerEvent, getUserChannel } = await import('@/lib/pusher');
         const { DEFAULT_DISPLAY_MOOD } = await import('@/styles/theme');
         await updateEventSettings({ display_mood: DEFAULT_DISPLAY_MOOD }, userId);
@@ -234,6 +261,18 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now(),
           userId,
         });
+        const pool = getPool();
+        await pool.query(
+          `UPDATE events
+           SET started_at = COALESCE(started_at, NOW()),
+               lifecycle_phase = CASE
+                 WHEN lifecycle_phase IN ('ready', 'pre_event', 'draft') THEN 'live'
+                 ELSE lifecycle_phase
+               END,
+               updated_at = NOW()
+           WHERE id = $1 AND user_id = $2`,
+          [updatedEvent.id, userId]
+        );
         console.log(`🎨 Reset display_mood to ${DEFAULT_DISPLAY_MOOD} for new event start (${userId})`);
       } catch (moodResetError) {
         console.error('❌ Failed to reset display mood on event start:', moodResetError);
@@ -241,40 +280,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If status changed to offline, end guest-access events + clean up requests for THIS user
+    // End event: archive lifecycle (offline) — do NOT delete request history here.
+    // Destructive cleanup remains a separate confirmed admin action (cleanup-requests).
     if (status === 'offline') {
       try {
         const { endAllActiveEventsForUser } = await import('@/lib/event-service');
         await endAllActiveEventsForUser(userId);
       } catch (endEventsError) {
         console.error('❌ Failed to end user_events on offline:', endEventsError);
-        // Continue cleanup — status already updated; next start still mints a new code
+        // Continue — status already updated; next start still mints a new code
       }
 
       try {
-        const { sql } = await import('@/lib/db/neon-client');
-        // SECURITY: Delete only THIS user's requests (multi-tenant isolation)
-        const deleteResult = await sql`
-          DELETE FROM requests
-          WHERE user_id = ${userId}
-          RETURNING id
-        `;
-        
-        const deletedCount = deleteResult.length;
-        console.log(`🧹 [SECURITY] Event set to offline: Deleted ${deletedCount} requests for user ${userId} (multi-tenant isolation enforced)`);
-        
-        // Broadcast cleanup event via Pusher (user-specific channel)
-        try {
-          const { triggerRequestsCleanup } = await import('@/lib/pusher');
-          await triggerRequestsCleanup(userId);
-          console.log(`📡 Pusher cleanup event sent for user ${userId}`);
-        } catch (pusherError) {
-          console.error('❌ Failed to send Pusher cleanup event:', pusherError);
-        }
-      } catch (cleanupError) {
-        console.error('❌ Failed to cleanup requests on offline:', cleanupError);
-        console.error('Error details:', cleanupError);
-        // Don't fail the status change if cleanup fails
+        const { archiveEventOnEnd } = await import('@/lib/reliability/event-archive');
+        const archived = await archiveEventOnEnd(userId, updatedEvent.id);
+        console.log(
+          `📦 Archived event ${archived.eventId}: ${archived.archivedRequests} requests stamped`
+        );
+        const { getPool } = await import('@/lib/db');
+        await getPool().query(
+          `UPDATE events
+           SET lifecycle_phase = 'ended',
+               updated_at = NOW()
+           WHERE id = $1 AND user_id = $2`,
+          [updatedEvent.id, userId]
+        );
+      } catch (archiveError) {
+        console.error('❌ Failed to archive event requests on offline:', archiveError);
+      }
+
+      try {
+        const { emitSecurityAudit } = await import('@/lib/auth/security-audit');
+        emitSecurityAudit('event.end', {
+          correlationId: auth.correlationId,
+          userId,
+          eventId: updatedEvent.id,
+          meta: { status: 'offline' },
+        });
+      } catch {
+        // non-fatal
       }
     }
 

@@ -5,7 +5,7 @@ import { getRequest, updateRequest } from '@/lib/db';
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await updateRequest(id, {
       status: 'played',
       approved_at: new Date().toISOString()
-    });
+    }, userId);
 
     return NextResponse.json({
       success: true,

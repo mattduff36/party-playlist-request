@@ -11,7 +11,11 @@ import {
   Eye,
   Lock,
   Wand2,
-  Shield
+  Shield,
+  ClipboardCheck,
+  LifeBuoy,
+  History,
+  CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminData } from '@/contexts/AdminDataContext';
@@ -70,6 +74,9 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   const getActiveTab = () => {
     if (!pathname) return 'spotify';
     if (pathname.includes('/requests') || pathname.includes('/overview')) return 'requests';
+    if (pathname.includes('/wizard')) return 'wizard';
+    if (pathname.includes('/recovery')) return 'recovery';
+    if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/settings')) return 'settings';
     if (pathname.includes('/spotify')) return 'spotify';
     if (pathname.includes('/display')) return 'display';
@@ -78,7 +85,15 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   const activeTab = getActiveTab();
   const eventHydrated = Boolean(state && !state.isLoading);
-  const queueSidebarTabs = new Set(['requests', 'display', 'spotify', 'settings']);
+  const queueSidebarTabs = new Set([
+    'requests',
+    'display',
+    'spotify',
+    'settings',
+    'wizard',
+    'recovery',
+    'history',
+  ]);
   const showQueueSidebar =
     eventHydrated &&
     queueSidebarTabs.has(activeTab) &&
@@ -113,6 +128,30 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
       label: 'Settings', 
       icon: Settings, 
       href: `${baseRoute}/admin/settings`
+    },
+    {
+      id: 'wizard',
+      label: 'Ready',
+      icon: ClipboardCheck,
+      href: `${baseRoute}/admin/wizard`,
+    },
+    {
+      id: 'recovery',
+      label: 'Recovery',
+      icon: LifeBuoy,
+      href: `${baseRoute}/admin/recovery`,
+    },
+    {
+      id: 'history',
+      label: 'History',
+      icon: History,
+      href: `${baseRoute}/admin/history`,
+    },
+    {
+      id: 'party-pass',
+      label: 'Party Pass',
+      icon: CreditCard,
+      href: '/account/party-pass',
     },
   ];
 
@@ -250,23 +289,28 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
   // Handle session extension
   const handleExtendSession = async () => {
     try {
-      const response = await fetch('/api/auth/refresh-session', {
+      const { authenticatedFetch } = await import('@/lib/api/authenticated-fetch');
+      const response = await authenticatedFetch('/api/auth/refresh-session', {
         method: 'POST',
-        credentials: 'include'
       });
 
       if (response.ok) {
-        const data = await response.json();
         console.log('Session extended successfully');
-        
-        // Decode new token to get new expiry
-        const token = data.token;
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        
-        if (payload.exp) {
-          const expiryMs = payload.exp * 1000;
-          setTokenExpiry(expiryMs);
-          console.log('New token expires at:', new Date(expiryMs).toLocaleString());
+        // Token is HttpOnly — re-read expiry from cookie after refresh
+        const cookies = document.cookie.split(';');
+        const authCookie = cookies.find((c) => c.trim().startsWith('auth_token='));
+        if (authCookie) {
+          const token = authCookie.split('=')[1];
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (payload.exp) {
+              const expiryMs = payload.exp * 1000;
+              setTokenExpiry(expiryMs);
+              console.log('New token expires at:', new Date(expiryMs).toLocaleString());
+            }
+          } catch {
+            // ignore decode errors
+          }
         }
       } else {
         console.error('Failed to extend session');
@@ -284,9 +328,9 @@ export default function AdminLayout({ children, username }: AdminLayoutProps) {
 
   const performLogout = async () => {
     try {
-      // Call JWT logout endpoint
-      await fetch('/api/auth/logout', {
-        method: 'POST'
+      const { authenticatedFetch } = await import('@/lib/api/authenticated-fetch');
+      await authenticatedFetch('/api/auth/logout', {
+        method: 'POST',
       });
       
       // Redirect to login

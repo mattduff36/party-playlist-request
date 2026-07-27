@@ -1,244 +1,270 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createPusherClient, EVENTS, RequestApprovedEvent, RequestRejectedEvent, RequestSubmittedEvent, RequestDeletedEvent, getUserChannel, getAdminChannel } from '@/lib/pusher';
-import type { Channel } from 'pusher-js';
+import {
+  createPusherClient,
+  EVENTS,
+  RequestApprovedEvent,
+  RequestRejectedEvent,
+  RequestSubmittedEvent,
+  RequestDeletedEvent,
+  getUserChannel,
+  getAdminChannel,
+  type PlaybackUpdatePayload,
+  type StatsUpdatePayload,
+  type PageControlTogglePayload,
+  type MessageUpdatePayload,
+  type TokenExpiredPayload,
+  type AdminLoginPayload,
+  type AdminLogoutPayload,
+  type ForceLogoutPayload,
+  type RequestsCleanupPayload,
+  type SettingsUpdatePayload,
+} from '@/lib/pusher/client-shared';
+import {
+  getDisplayEventChannel,
+  getGuestEventChannel,
+} from '@/lib/pusher/channel-contract';
+import type { Channel, default as PusherClient } from 'pusher-js';
 
 interface UsePusherOptions {
   username?: string; // Optional username for public pages (display/request pages)
+  eventId?: string; // Preferred for guest/display realtime private channels
+  /** guest (default) or display — selects private-event-{id}-guest|display */
+  channelMode?: 'guest' | 'display';
   onRequestApproved?: (data: RequestApprovedEvent) => void;
   onRequestRejected?: (data: RequestRejectedEvent) => void;
   onRequestSubmitted?: (data: RequestSubmittedEvent) => void;
   onRequestDeleted?: (data: RequestDeletedEvent) => void;
-  onPlaybackUpdate?: (data: any) => void;
-  onStatsUpdate?: (data: any) => void;
-  onPageControlToggle?: (data: any) => void;
-  onMessageUpdate?: (data: any) => void;
-  onMessageCleared?: (data: any) => void;
-  onTokenExpired?: (data: any) => void;
-  onAdminLogin?: (data: any) => void;
-  onAdminLogout?: (data: any) => void;
-  onSettingsUpdate?: (data: any) => void;
-  onForceLogout?: (data: any) => void;
-  onRequestsCleanup?: (data: any) => void;
+  onPlaybackUpdate?: (data: PlaybackUpdatePayload) => void;
+  onStatsUpdate?: (data: StatsUpdatePayload) => void;
+  onPageControlToggle?: (data: PageControlTogglePayload) => void;
+  onMessageUpdate?: (data: MessageUpdatePayload) => void;
+  onMessageCleared?: (data: MessageUpdatePayload) => void;
+  onTokenExpired?: (data: TokenExpiredPayload) => void;
+  onAdminLogin?: (data: AdminLoginPayload) => void;
+  onAdminLogout?: (data: AdminLogoutPayload) => void;
+  onSettingsUpdate?: (data: SettingsUpdatePayload) => void;
+  onForceLogout?: (data: ForceLogoutPayload) => void;
+  onRequestsCleanup?: (data: RequestsCleanupPayload) => void;
 }
+
+type PusherScope =
+  | { mode: 'admin'; userId: string }
+  | { mode: 'guest'; eventId: string }
+  | { mode: 'display'; eventId: string };
 
 export const usePusher = (options: UsePusherOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<string>('initializing');
-  const [userId, setUserId] = useState<string | null>(null);
-  const pusherRef = useRef<any>(null);
+  const [scope, setScope] = useState<PusherScope | null>(null);
+  const pusherRef = useRef<PusherClient | null>(null);
   const userChannelRef = useRef<Channel | null>(null);
   const adminChannelRef = useRef<Channel | null>(null);
   const optionsRef = useRef(options);
 
-  // Update options ref when they change
   useEffect(() => {
     optionsRef.current = options;
-  }, [options.onRequestApproved, options.onRequestRejected, options.onRequestSubmitted, options.onRequestDeleted, options.onPlaybackUpdate, options.onStatsUpdate, options.onPageControlToggle, options.onMessageUpdate, options.onMessageCleared, options.onTokenExpired, options.onAdminLogin, options.onAdminLogout, options.onSettingsUpdate, options.onForceLogout, options.onRequestsCleanup, options.username]);
+  }, [
+    options.onRequestApproved,
+    options.onRequestRejected,
+    options.onRequestSubmitted,
+    options.onRequestDeleted,
+    options.onPlaybackUpdate,
+    options.onStatsUpdate,
+    options.onPageControlToggle,
+    options.onMessageUpdate,
+    options.onMessageCleared,
+    options.onTokenExpired,
+    options.onAdminLogin,
+    options.onAdminLogout,
+    options.onSettingsUpdate,
+    options.onForceLogout,
+    options.onRequestsCleanup,
+    options.username,
+    options.eventId,
+    options.channelMode,
+  ]);
 
-  // Fetch userId from session OR from username lookup for public pages
   useEffect(() => {
-    const fetchUserId = async () => {
+    const resolveScope = async () => {
       try {
-        // If username is provided (public pages like display), ALWAYS use username lookup
-        // This ensures multi-tenant isolation even when admin is logged in
-        if (options.username) {
-          console.log('🌐 usePusher: Public page detected, looking up userId for username:', options.username);
-          const lookupResponse = await fetch(`/api/users/lookup?username=${options.username}`);
-          if (lookupResponse.ok) {
-            const data = await lookupResponse.json();
-            console.log('🌐 usePusher: Got userId from username lookup:', data.userId);
-            setUserId(data.userId);
+        const channelMode = options.channelMode || 'guest';
+
+        // Public pages: event-scoped private guest or display channel
+        if (options.username || options.eventId) {
+          if (options.eventId) {
+            setScope({
+              mode: channelMode === 'display' ? 'display' : 'guest',
+              eventId: options.eventId,
+            });
             return;
           }
-          console.warn('⚠️ usePusher: Username lookup failed for:', options.username);
-        }
 
-        // For admin pages (no username), use authenticated session
-        const authResponse = await fetch('/api/auth/me');
-        if (authResponse.ok) {
-          const data = await authResponse.json();
-          console.log('🔐 usePusher: Got userId from session:', data.user.id);
-          setUserId(data.user.id);
+          if (channelMode === 'display') {
+            const displayResponse = await fetch('/api/events/display-session', {
+              credentials: 'include',
+            });
+            if (displayResponse.ok) {
+              const data = await displayResponse.json();
+              if (data.eventId) {
+                setScope({ mode: 'display', eventId: data.eventId });
+                return;
+              }
+            }
+            console.warn('⚠️ usePusher: Display session unavailable');
+            setScope(null);
+            return;
+          }
+
+          const guestResponse = await fetch('/api/events/guest-session', {
+            credentials: 'include',
+          });
+          if (guestResponse.ok) {
+            const data = await guestResponse.json();
+            if (data.eventId) {
+              setScope({ mode: 'guest', eventId: data.eventId });
+              return;
+            }
+          }
+          console.warn('⚠️ usePusher: Guest session unavailable for public page');
+          setScope(null);
           return;
         }
 
-        console.warn('⚠️ usePusher: Could not get userId from session or username');
+        const authResponse = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (authResponse.ok) {
+          const data = await authResponse.json();
+          setScope({ mode: 'admin', userId: data.user.id });
+          return;
+        }
+
+        console.warn('⚠️ usePusher: Could not resolve Pusher scope');
+        setScope(null);
       } catch (error) {
-        console.error('❌ usePusher: Failed to get userId:', error);
+        console.error('❌ usePusher: Failed to resolve scope:', error);
+        setScope(null);
       }
     };
-    fetchUserId();
-  }, [options.username]);
+    void resolveScope();
+  }, [options.username, options.eventId, options.channelMode]);
 
   useEffect(() => {
-    if (!userId) {
-      console.log('⏳ usePusher: Waiting for userId before setting up Pusher...');
+    if (!scope) {
+      console.log('⏳ usePusher: Waiting for scope before setting up Pusher...');
       return;
     }
 
-    console.log('🚀 usePusher: Setting up Pusher for userId:', userId);
-
-    // Create Pusher client
     const pusher = createPusherClient();
     pusherRef.current = pusher;
 
-    // Connection state listeners
     pusher.connection.bind('connecting', () => {
-      console.log('🔄 Pusher connecting...');
       setConnectionState('connecting');
       setIsConnected(false);
     });
 
     pusher.connection.bind('connected', () => {
-      console.log('✅ Pusher connected!');
       setConnectionState('connected');
       setIsConnected(true);
     });
 
     pusher.connection.bind('disconnected', () => {
-      console.log('❌ Pusher disconnected');
       setConnectionState('disconnected');
       setIsConnected(false);
     });
 
     pusher.connection.bind('failed', () => {
-      console.log('💥 Pusher connection failed');
       setConnectionState('failed');
       setIsConnected(false);
     });
 
-    // Subscribe to USER-SPECIFIC channel
-    const userChannel = getUserChannel(userId);
-    console.log(`📡 usePusher: Subscribing to user channel: ${userChannel}`);
-    const channel = pusher.subscribe(userChannel);
+    const primaryChannelName =
+      scope.mode === 'guest'
+        ? getGuestEventChannel(scope.eventId)
+        : scope.mode === 'display'
+          ? getDisplayEventChannel(scope.eventId)
+          : getUserChannel(scope.userId);
+
+    console.log(`📡 usePusher: Subscribing to ${primaryChannelName}`);
+    const channel = pusher.subscribe(primaryChannelName);
     userChannelRef.current = channel;
 
-    // Bind event listeners using stable references
-    channel.bind(EVENTS.REQUEST_APPROVED, (data: RequestApprovedEvent) => {
-      console.log('🎉 Pusher: Request approved!', data);
-      if (optionsRef.current.onRequestApproved) {
-        optionsRef.current.onRequestApproved(data);
-      }
-    });
+    const bindGuestSafe = () => {
+      channel.bind(EVENTS.REQUEST_APPROVED, (data: RequestApprovedEvent) => {
+        optionsRef.current.onRequestApproved?.(data);
+      });
+      channel.bind(EVENTS.REQUEST_REJECTED, (data: RequestRejectedEvent) => {
+        optionsRef.current.onRequestRejected?.(data);
+      });
+      channel.bind(EVENTS.REQUEST_SUBMITTED, (data: RequestSubmittedEvent) => {
+        optionsRef.current.onRequestSubmitted?.(data);
+      });
+      channel.bind(EVENTS.REQUEST_DELETED, (data: RequestDeletedEvent) => {
+        optionsRef.current.onRequestDeleted?.(data);
+      });
+      channel.bind(EVENTS.PLAYBACK_UPDATE, (data: PlaybackUpdatePayload) => {
+        optionsRef.current.onPlaybackUpdate?.(data);
+      });
+      channel.bind(EVENTS.PAGE_CONTROL_TOGGLE, (data: PageControlTogglePayload) => {
+        optionsRef.current.onPageControlToggle?.(data);
+      });
+      channel.bind('message-update', (data: MessageUpdatePayload) => {
+        optionsRef.current.onMessageUpdate?.(data);
+      });
+      channel.bind('message-cleared', (data: MessageUpdatePayload) => {
+        optionsRef.current.onMessageCleared?.(data);
+      });
+      channel.bind('settings-update', (data: SettingsUpdatePayload) => {
+        optionsRef.current.onSettingsUpdate?.(data);
+      });
+      channel.bind(EVENTS.STATE_UPDATE, (data: PageControlTogglePayload) => {
+        optionsRef.current.onPageControlToggle?.(data);
+      });
+      channel.bind(EVENTS.REQUESTS_CLEANUP, (data: RequestsCleanupPayload) => {
+        optionsRef.current.onRequestsCleanup?.(data);
+      });
+    };
 
-    channel.bind(EVENTS.REQUEST_REJECTED, (data: RequestRejectedEvent) => {
-      console.log('❌ Pusher: Request rejected', data);
-      if (optionsRef.current.onRequestRejected) {
-        optionsRef.current.onRequestRejected(data);
-      }
-    });
+    bindGuestSafe();
 
-    channel.bind(EVENTS.REQUEST_SUBMITTED, (data: RequestSubmittedEvent) => {
-      console.log('📝 Pusher: New request submitted!', data);
-      if (optionsRef.current.onRequestSubmitted) {
-        optionsRef.current.onRequestSubmitted(data);
-      }
-    });
+    let adminChannelName: string | null = null;
+    if (scope.mode === 'admin') {
+      adminChannelName = getAdminChannel(scope.userId);
+      const adminChan = pusher.subscribe(adminChannelName);
+      adminChannelRef.current = adminChan;
 
-    channel.bind(EVENTS.REQUEST_DELETED, (data: RequestDeletedEvent) => {
-      console.log('🗑️ Pusher: Request deleted!', data);
-      if (optionsRef.current.onRequestDeleted) {
-        optionsRef.current.onRequestDeleted(data);
-      }
-    });
+      adminChan.bind(EVENTS.STATS_UPDATE, (data: StatsUpdatePayload) => {
+        optionsRef.current.onStatsUpdate?.(data);
+      });
+      adminChan.bind(EVENTS.TOKEN_EXPIRED, (data: TokenExpiredPayload) => {
+        optionsRef.current.onTokenExpired?.(data);
+      });
+      adminChan.bind(EVENTS.ADMIN_LOGIN, (data: AdminLoginPayload) => {
+        optionsRef.current.onAdminLogin?.(data);
+      });
+      adminChan.bind(EVENTS.ADMIN_LOGOUT, (data: AdminLogoutPayload) => {
+        optionsRef.current.onAdminLogout?.(data);
+      });
+      adminChan.bind(EVENTS.FORCE_LOGOUT, (data: ForceLogoutPayload) => {
+        optionsRef.current.onForceLogout?.(data);
+      });
+      adminChan.bind(EVENTS.REQUESTS_CLEANUP, (data: RequestsCleanupPayload) => {
+        optionsRef.current.onRequestsCleanup?.(data);
+      });
+    }
 
-    channel.bind(EVENTS.PLAYBACK_UPDATE, (data: any) => {
-      console.log('🎵 Pusher: Playback update', data);
-      if (optionsRef.current.onPlaybackUpdate) {
-        optionsRef.current.onPlaybackUpdate(data);
-      }
-    });
-
-    channel.bind(EVENTS.PAGE_CONTROL_TOGGLE, (data: any) => {
-      console.log('🎛️ Pusher: Page control toggle', data);
-      if (optionsRef.current.onPageControlToggle) {
-        optionsRef.current.onPageControlToggle(data);
-      }
-    });
-
-    channel.bind('message-update', (data: any) => {
-      console.log('💬 Pusher: Message update', data);
-      if (optionsRef.current.onMessageUpdate) {
-        optionsRef.current.onMessageUpdate(data);
-      }
-    });
-
-    channel.bind('message-cleared', (data: any) => {
-      console.log('💬 Pusher: Message cleared', data);
-      if (optionsRef.current.onMessageCleared) {
-        optionsRef.current.onMessageCleared(data);
-      }
-    });
-
-    channel.bind('settings-update', (data: any) => {
-      console.log('⚙️ Pusher: Settings update', data);
-      if (optionsRef.current.onSettingsUpdate) {
-        optionsRef.current.onSettingsUpdate(data);
-      }
-    });
-
-    // Subscribe to ADMIN-SPECIFIC channel for stats
-    const adminChannel = getAdminChannel(userId);
-    console.log(`📡 usePusher: Subscribing to admin channel: ${adminChannel}`);
-    const adminChan = pusher.subscribe(adminChannel);
-    adminChannelRef.current = adminChan;
-
-    adminChan.bind(EVENTS.STATS_UPDATE, (data: any) => {
-      console.log('📊 Pusher: Stats update', data);
-      if (optionsRef.current.onStatsUpdate) {
-        optionsRef.current.onStatsUpdate(data);
-      }
-    });
-
-    adminChan.bind(EVENTS.TOKEN_EXPIRED, (data: any) => {
-      console.log('🔒 Pusher: Token expired', data);
-      if (optionsRef.current.onTokenExpired) {
-        optionsRef.current.onTokenExpired(data);
-      }
-    });
-
-    adminChan.bind(EVENTS.ADMIN_LOGIN, (data: any) => {
-      console.log('🔐 Pusher: Admin login', data);
-      if (optionsRef.current.onAdminLogin) {
-        optionsRef.current.onAdminLogin(data);
-      }
-    });
-
-    adminChan.bind(EVENTS.ADMIN_LOGOUT, (data: any) => {
-      console.log('🔐 Pusher: Admin logout', data);
-      if (optionsRef.current.onAdminLogout) {
-        optionsRef.current.onAdminLogout(data);
-      }
-    });
-
-    adminChan.bind(EVENTS.FORCE_LOGOUT, (data: any) => {
-      console.log('⚠️ Pusher: Force logout', data);
-      if (optionsRef.current.onForceLogout) {
-        optionsRef.current.onForceLogout(data);
-      }
-    });
-
-    adminChan.bind(EVENTS.REQUESTS_CLEANUP, (data: any) => {
-      console.log('🧹 Pusher: Requests cleanup', data);
-      if (optionsRef.current.onRequestsCleanup) {
-        optionsRef.current.onRequestsCleanup(data);
-      }
-    });
-
-    // Cleanup
     return () => {
-      console.log('🧹 Cleaning up Pusher connection for userId:', userId);
       if (userChannelRef.current) {
-        pusher.unsubscribe(userChannel);
+        pusher.unsubscribe(primaryChannelName);
       }
-      if (adminChannelRef.current) {
-        pusher.unsubscribe(adminChannel);
+      if (adminChannelRef.current && adminChannelName) {
+        pusher.unsubscribe(adminChannelName);
       }
       pusher.disconnect();
     };
-  }, [userId]); // Re-run when userId changes
+  }, [scope]);
 
   return {
     isConnected,

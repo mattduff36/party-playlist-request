@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDefaults, getPool, hashIP } from '@/lib/db';
+import { getPool, hashIP } from '@/lib/db';
 import {
   isSpotifySearchBusyError,
   SPOTIFY_SEARCH_BUSY_CODE,
   SPOTIFY_SEARCH_BUSY_MESSAGE
 } from '@/lib/spotify-search-errors';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getClientIp } from '@/lib/rate-limit';
 import {
   buildSearchCacheKey,
   getCachedSearch,
   setCachedSearch,
 } from '@/lib/search-cache';
 import { requireGuestAccess } from '@/lib/guest-access';
+import {
+  enforceGuestRateLimit,
+  ensureGuestDeviceCookie,
+  resolveGuestDeviceId,
+} from '@/lib/reliability';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,8 +25,7 @@ export async function GET(req: NextRequest) {
     const username = searchParams.get('username');
     const limit = parseInt(searchParams.get('limit') || '10', 10);
 
-    // Validate before DB init / guest auth so short queries stay 400 even if
-    // initializeDefaults is slow or failing under suite load.
+    // Validate before guest auth so short queries stay 400 under suite load.
     if (!query || query.trim().length < 2) {
       return NextResponse.json(
         { error: 'Search query must be at least 2 characters long' },
@@ -36,26 +40,28 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    await initializeDefaults();
-
     const access = await requireGuestAccess(req, username);
     if (!access.ok) {
       return access.response;
     }
 
     const clientIP = getClientIp(req);
-    const rateLimitCheck = checkRateLimit(
-      'guestSearch',
-      `${hashIP(clientIP)}:${username}`
-    );
+    const { deviceId, minted } = resolveGuestDeviceId(req);
+    const rateLimitCheck = await enforceGuestRateLimit({
+      bucket: 'guestSearch',
+      primaryKey: `${access.event.id}:${deviceId}`,
+      secondaryKey: hashIP(clientIP),
+      secondaryMaxMultiplier: 20,
+    });
     if (!rateLimitCheck.allowed) {
       const response = NextResponse.json(
-        { error: rateLimitCheck.message },
+        { error: rateLimitCheck.message, code: 'RATE_LIMITED' },
         { status: 429 }
       );
       if (rateLimitCheck.retryAfter) {
         response.headers.set('Retry-After', String(rateLimitCheck.retryAfter));
       }
+      if (minted) ensureGuestDeviceCookie(response, deviceId);
       return response;
     }
 
@@ -97,55 +103,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(payload);
     }
 
-    // Get user's Spotify auth tokens
-    const authResult = await pool.query(
-      'SELECT access_token, refresh_token, expires_at FROM spotify_auth WHERE user_id = $1',
-      [userId]
-    );
+    // Resolve access token via vault-aware Spotify service (never read plaintext columns raw)
+    const { spotifyService } = await import('@/lib/spotify');
+    let accessToken: string;
+    try {
+      accessToken = await spotifyService.getAccessToken(userId);
+    } catch (tokenError) {
+      console.error('Search failed to resolve Spotify access token (redacted)');
 
-    if (authResult.rows.length === 0) {
-      console.log(`⚠️ [search] User ${username} has not connected Spotify`);
-      return NextResponse.json(
-        { error: 'Spotify not connected. Please connect your Spotify account in the admin panel.' },
-        { status: 503 }
-      );
-    }
-
-    const auth = authResult.rows[0];
-
-    // Check if token is expired and refresh if needed
-    if (new Date(auth.expires_at) <= new Date()) {
-      console.log(`🔄 [search] Access token expired for ${username}, refreshing...`);
-      
-      // Import spotify service to refresh token
-      const { spotifyService } = await import('@/lib/spotify');
-      try {
-        await spotifyService.refreshAccessToken(userId);
-        
-        // Get updated token
-        const refreshedResult = await pool.query(
-          'SELECT access_token FROM spotify_auth WHERE user_id = $1',
-          [userId]
-        );
-        auth.access_token = refreshedResult.rows[0].access_token;
-      } catch (refreshError) {
-        console.error(`❌ [search] Failed to refresh token for ${username}:`, refreshError);
-
-        if (isSpotifySearchBusyError(refreshError)) {
-          return NextResponse.json(
-            {
-              code: SPOTIFY_SEARCH_BUSY_CODE,
-              error: SPOTIFY_SEARCH_BUSY_MESSAGE
-            },
-            { status: 429 }
-          );
-        }
-
+      if (isSpotifySearchBusyError(tokenError)) {
         return NextResponse.json(
-          { error: 'Spotify connection expired. Please reconnect in the admin panel.' },
-          { status: 503 }
+          {
+            code: SPOTIFY_SEARCH_BUSY_CODE,
+            error: SPOTIFY_SEARCH_BUSY_MESSAGE,
+          },
+          { status: 429 }
         );
       }
+
+      return NextResponse.json(
+        {
+          error:
+            'Spotify not connected. Please connect your Spotify account in the admin panel.',
+        },
+        { status: 503 }
+      );
     }
 
     // Search using user's Spotify tokens (Feb 2026: max limit is 10)
@@ -153,7 +135,7 @@ export async function GET(req: NextRequest) {
     
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'Authorization': `Bearer ${auth.access_token}`
+        'Authorization': `Bearer ${accessToken}`
       }
     });
 

@@ -1,25 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { getRequest, getSetting } from '@/lib/db';
+import { refuseIfCapabilityUnsupported } from '@/lib/playback/gate-capability';
 import { spotifyService } from '@/lib/spotify';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Authenticate and get user info
-    const auth = requireAuth(req);
+    const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.user) {
       return auth.response!;
     }
     
     const userId = auth.user.user_id;
     const { id } = await params;
+
+    const refused = await refuseIfCapabilityUnsupported(
+      userId,
+      'queueAdd',
+      'playback.play_again'
+    );
+    if (refused) return refused;
     
     console.log(`🔄 [admin/play-again] User ${auth.user.username} (${userId}) replaying request ${id}`);
     
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { play_next = false } = body;
     
-    // Verify ownership - user can only play their own requests again
     const request = await getRequest(id, userId);
 
     if (!request) {
@@ -29,12 +35,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, { status: 404 });
     }
 
-    // Allow re-adding any song to queue, regardless of status
     let queueSuccess = false;
-    let errors: string[] = [];
+    const errors: string[] = [];
 
-    // Add to Spotify queue (MULTI-TENANT!)
     try {
+      if (!request.track_uri) {
+        throw new Error('Request has no Spotify track URI (manual mode tracks cannot be re-queued)');
+      }
       const deviceSetting = await getSetting('target_device_id');
       await spotifyService.addToQueue(request.track_uri, deviceSetting || undefined, userId);
       queueSuccess = true;

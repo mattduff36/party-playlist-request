@@ -109,15 +109,16 @@ export class EventDeduplicationManager {
   }
 
   // Check if event is valid
-  private isValidEvent(event: any): event is PusherEvent {
+  private isValidEvent(event: unknown): event is PusherEvent {
+    if (!event || typeof event !== 'object') return false;
+    const e = event as Record<string, unknown>;
     return (
-      event &&
-      typeof event.id === 'string' &&
-      typeof event.timestamp === 'number' &&
-      typeof event.version === 'number' &&
-      typeof event.eventId === 'string' &&
-      typeof event.action === 'string' &&
-      event.data !== undefined
+      typeof e.id === 'string' &&
+      typeof e.timestamp === 'number' &&
+      typeof e.version === 'number' &&
+      typeof e.eventId === 'string' &&
+      typeof e.action === 'string' &&
+      e.data !== undefined
     );
   }
 

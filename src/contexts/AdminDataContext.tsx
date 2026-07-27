@@ -15,9 +15,13 @@ import {
   RequestRejectedEvent,
   RequestSubmittedEvent,
   RequestDeletedEvent,
-} from '@/lib/pusher';
+} from '@/lib/pusher/client-shared';
 import { formatArtists } from '@/lib/format-artists';
 import type { DisplayMood } from '@/styles/theme';
+import {
+  authenticatedFetch,
+  handleSessionRevokedResponse,
+} from '@/lib/api/authenticated-fetch';
 
 export interface Request {
   id: string;
@@ -266,7 +270,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       void refreshRequestsRef.current();
       void refreshStatsRef.current();
     },
-    onForceLogout: (data: any) => {
+    onForceLogout: (data) => {
       localStorage.removeItem('admin_token');
       alert(
         data.message ||
@@ -278,7 +282,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       void refreshRequestsRef.current();
       void refreshStatsRef.current();
     },
-    onStatsUpdate: (data: any) => {
+    onStatsUpdate: (data) => {
       setStats((prev) => {
         const next: Stats = {
           total_requests: data.total_requests ?? prev?.total_requests ?? 0,
@@ -301,7 +305,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         setSpotifyConnected(data.spotify_connected);
       }
     },
-    onPlaybackUpdate: (data: any) => {
+    onPlaybackUpdate: (data) => {
       if (confirmedDisconnectedRef.current) {
         return;
       }
@@ -331,15 +335,22 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             next.progress_ms = data.progress_ms;
           }
           if (data.current_track) {
+            const album = data.current_track.album;
+            const albumObj =
+              album && typeof album === 'object' ? album : null;
             next.track_name = data.current_track.name;
-            next.artist_name = formatArtists(data.current_track.artists ?? null);
+            next.artist_name = formatArtists(
+              (data.current_track.artists as string[] | Array<{ name?: string }> | null) ??
+                null
+            );
             next.album_name =
-              data.current_track.album?.name || data.current_track.album || '';
+              typeof album === 'string' ? album : albumObj?.name || '';
             next.duration_ms = data.current_track.duration_ms;
             next.image_url =
-              data.current_track.album?.images?.[1]?.url ||
-              data.current_track.album?.images?.[0]?.url ||
-              data.current_track.image_url;
+              albumObj?.images?.[1]?.url ||
+              albumObj?.images?.[0]?.url ||
+              data.current_track.image_url ||
+              undefined;
             if (data.is_playing !== undefined) {
               next.is_playing = Boolean(data.is_playing);
             }
@@ -348,13 +359,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             next.is_playing = Boolean(data.is_playing);
           }
           if (data.device?.name) {
-            next.device_name = data.device.name;
+            next.device_name = String(data.device.name);
           }
           if (typeof data.device?.volume_percent === 'number') {
             next.volume_percent = data.device.volume_percent;
           }
           if (Array.isArray(data.queue)) {
-            next.queue = data.queue;
+            next.queue = data.queue.map((track): QueueTrack => ({
+              id: track.id,
+              uri: track.uri,
+              name: track.name || '',
+              artists: track.artists as QueueTrack['artists'],
+              image_url: track.image_url,
+              album: track.album as QueueTrack['album'],
+              requester_nickname: track.requester_nickname,
+            }));
           } else if (prev?.queue) {
             next.queue = prev.queue;
           }
@@ -368,23 +387,26 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     onTokenExpired: () => {
       localStorage.removeItem('admin_token');
     },
-    onSettingsUpdate: (data: { settings?: EventSettings }) => {
+    onSettingsUpdate: (data) => {
       if (data.settings) {
+        const settings = data.settings as unknown as EventSettings;
         setEventSettings((prev) =>
-          JSON.stringify(prev) !== JSON.stringify(data.settings)
-            ? (data.settings as EventSettings)
-            : prev
+          JSON.stringify(prev) !== JSON.stringify(settings) ? settings : prev
         );
       }
     },
   });
 
   const handleTokenExpiration = useCallback(async (reason: string = 'expired') => {
+    // Revoked sessions redirect once — never start refresh/token-expired loops.
+    if (reason === 'session_revoked') {
+      localStorage.removeItem('admin_token');
+      return;
+    }
     localStorage.removeItem('admin_token');
     try {
-      await fetch('/api/admin/token-expired', {
+      await authenticatedFetch('/api/admin/token-expired', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reason,
           message: 'Admin token has expired. Please log in again.',
@@ -395,10 +417,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const handleUnauthorized = useCallback(
+    async (response: Response) => {
+      if (await handleSessionRevokedResponse(response)) {
+        await handleTokenExpiration('session_revoked');
+        return;
+      }
+      await handleTokenExpiration('expired');
+    },
+    [handleTokenExpiration]
+  );
+
   const refreshRequests = useCallback(async () => {
     const gen = ++requestsGenRef.current;
     try {
-      const response = await fetch('/api/admin/requests', {
+      const response = await authenticatedFetch('/api/admin/requests', {
         credentials: 'include',
       });
       if (gen !== requestsGenRef.current) return;
@@ -411,12 +444,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             : prev
         );
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch requests:', error);
     }
-  }, [handleTokenExpiration]);
+  }, [handleUnauthorized]);
 
   const patchPlaybackState = useCallback((patch: Partial<PlaybackState>) => {
     setPlaybackState((prev) => {
@@ -455,7 +488,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const refreshPlaybackState = useCallback(async () => {
     const gen = ++playbackGenRef.current;
     try {
-      const response = await fetch('/api/admin/queue/details', {
+      const response = await authenticatedFetch('/api/admin/queue/details', {
         credentials: 'include',
       });
       if (gen !== playbackGenRef.current) return;
@@ -571,16 +604,16 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           scheduleHydrateRetries();
         }
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch playback state:', error);
     }
-  }, [handleTokenExpiration, scheduleHydrateRetries, setSpotifyConnected]);
+  }, [handleUnauthorized, scheduleHydrateRetries, setSpotifyConnected]);
 
   const refreshEventSettings = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/event-settings', {
+      const response = await authenticatedFetch('/api/admin/event-settings', {
         credentials: 'include',
       });
       if (response.ok) {
@@ -589,17 +622,17 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           JSON.stringify(prev) !== JSON.stringify(data) ? data : prev
         );
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch event settings:', error);
     }
-  }, [handleTokenExpiration]);
+  }, [handleUnauthorized]);
 
   const refreshStats = useCallback(async () => {
     const gen = ++statsGenRef.current;
     try {
-      const response = await fetch('/api/admin/stats', {
+      const response = await authenticatedFetch('/api/admin/stats', {
         credentials: 'include',
       });
       if (gen !== statsGenRef.current) return;
@@ -619,12 +652,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           setSpotifyConnected(data.spotify_connected);
         }
       } else if (response.status === 401) {
-        await handleTokenExpiration('expired');
+        await handleUnauthorized(response);
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     }
-  }, [handleTokenExpiration, setSpotifyConnected]);
+  }, [handleUnauthorized, setSpotifyConnected]);
 
   refreshRequestsRef.current = refreshRequests;
   refreshStatsRef.current = refreshStats;
@@ -658,7 +691,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const handlePlaybackControl = useCallback(
     async (action: string) => {
       try {
-        const response = await fetch(`/api/admin/playback/${action}`, {
+        const response = await authenticatedFetch(`/api/admin/playback/${action}`, {
           method: 'POST',
           credentials: 'include',
         });
@@ -675,7 +708,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const updateEventSettings = useCallback(
     async (settings: Partial<EventSettings>) => {
       try {
-        const response = await fetch('/api/admin/event-settings', {
+        const response = await authenticatedFetch('/api/admin/event-settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -760,7 +793,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       if (adminInitGenRef.current !== initGen) return;
 
       // Fire-and-forget — must not keep the admin shell gated
-      void fetch('/api/admin/spotify-watcher', {
+      void authenticatedFetch('/api/admin/spotify-watcher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -796,7 +829,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     syncInFlightRef.current = true;
     lastSyncAttemptAtRef.current = Date.now();
     try {
-      await fetch('/api/admin/spotify-watcher', {
+      await authenticatedFetch('/api/admin/spotify-watcher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -870,7 +903,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         )
       );
       try {
-        const response = await fetch(`/api/admin/approve/${id}`, {
+        const response = await authenticatedFetch(`/api/admin/approve/${id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -902,7 +935,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         )
       );
       try {
-        const response = await fetch(`/api/admin/reject/${id}`, {
+        const response = await authenticatedFetch(`/api/admin/reject/${id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -928,7 +961,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       setRequests((prev) => prev.filter((r) => r.id !== id));
       try {
-        const response = await fetch(`/api/admin/delete/${id}`, {
+        const response = await authenticatedFetch(`/api/admin/delete/${id}`, {
           method: 'DELETE',
           credentials: 'include',
         });
@@ -949,7 +982,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const handlePlayAgain = useCallback(
     async (id: string, playNext?: boolean) => {
       try {
-        const response = await fetch(`/api/admin/play-again/${id}`, {
+        const response = await authenticatedFetch(`/api/admin/play-again/${id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -980,7 +1013,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           return { ...prev, queue: newQueue };
         });
 
-        const response = await fetch('/api/admin/queue/reorder', {
+        const response = await authenticatedFetch('/api/admin/queue/reorder', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

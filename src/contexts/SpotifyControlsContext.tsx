@@ -20,6 +20,7 @@ import { useParams } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { useAdminData } from '@/contexts/AdminDataContext';
+import { authenticatedFetch } from '@/lib/api/authenticated-fetch';
 
 export interface SpotifyDevice {
   id: string;
@@ -532,10 +533,8 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
         volumeDebounceRef.current = null;
         try {
           const deviceId = devices.find((d) => d.is_active)?.id;
-          const response = await fetch('/api/admin/playback/volume', {
+          const response = await authenticatedFetch('/api/admin/playback/volume', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({
               volume: clamped,
               ...(deviceId ? { device_id: deviceId } : {}),
@@ -597,10 +596,8 @@ export function SpotifyControlsProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch('/api/spotify/transfer-playback', {
+        const response = await authenticatedFetch('/api/spotify/transfer-playback', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({
             device_id: deviceId,
             play: wasPlaying,
