@@ -153,6 +153,18 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body.markReady === true) {
+    const currentPhase = String(event.lifecycle_phase || 'draft');
+    if (currentPhase === 'archived') {
+      return NextResponse.json(
+        {
+          error:
+            'Archived events cannot be marked Ready. Create or restore an event first.',
+          code: 'LIFECYCLE_ARCHIVED',
+        },
+        { status: 409 }
+      );
+    }
+
     const mode = await getPlaybackMode(userId);
     const settings = await getEventSettings(userId);
     const spotify = await spotifySnapshot(userId);
@@ -181,6 +193,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // Mark Ready is the final confirmation (and allows re-ready from ended).
     state = {
       ...state,
       markedReadyAt: new Date().toISOString(),
@@ -194,6 +207,16 @@ export async function PATCH(req: NextRequest) {
         },
       },
     };
+
+    const postMarkEvaluation = evaluateReadiness({
+      state,
+      playbackMode: mode,
+      spotifyConnected: spotify.connected,
+      hasActiveDevice: spotify.hasDevice,
+      eventTitle: settings.event_title || '',
+      allowWarningOverride,
+      overrideReason,
+    });
 
     const overridePayload =
       allowWarningOverride && overrideReason
@@ -211,7 +234,7 @@ export async function PATCH(req: NextRequest) {
       [
         event.id,
         JSON.stringify(state),
-        evaluation.score,
+        postMarkEvaluation.score,
         overridePayload ? JSON.stringify(overridePayload) : null,
         userId,
       ]
@@ -222,8 +245,9 @@ export async function PATCH(req: NextRequest) {
       userId,
       eventId: event.id,
       meta: {
-        score: evaluation.score,
+        score: postMarkEvaluation.score,
         override: Boolean(overridePayload),
+        previousPhase: currentPhase,
       },
     });
 
@@ -231,7 +255,8 @@ export async function PATCH(req: NextRequest) {
       success: true,
       lifecyclePhase: 'ready',
       state,
-      evaluation,
+      evaluation: postMarkEvaluation,
+      restartedFromEnded: currentPhase === 'ended',
     });
   }
 

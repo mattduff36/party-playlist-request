@@ -40,14 +40,15 @@ const ROOT = path.resolve(__dirname, '../..');
 describe('PRD-08: readiness wizard gates', () => {
   it('blocks Ready when required Spotify checks fail', () => {
     let state = emptyReadinessState();
-    for (const id of [
+    const completedIds = [
       'basics',
       'playback_mode',
       'moderation',
       'guest_access',
       'e2e_test',
       'ready_confirm',
-    ] as const) {
+    ] as const;
+    for (const id of completedIds) {
       state = mergeCheckUpdate(state, { id, completed: true });
     }
 
@@ -84,6 +85,48 @@ describe('PRD-08: readiness wizard gates', () => {
 
     expect(result.blockingFailures).toEqual([]);
     expect(result.canMarkReady).toBe(true);
+    expect(result.readyConfirmPending).toBe(false);
+  });
+
+  it('does not chicken-and-egg block on ready_confirm before Mark Ready', () => {
+    let state = emptyReadinessState();
+    for (const check of READINESS_CHECKS) {
+      if (
+        check.id === 'ready_confirm' ||
+        check.id === 'spotify_connect' ||
+        check.id === 'spotify_device'
+      ) {
+        continue;
+      }
+      state = mergeCheckUpdate(state, { id: check.id, completed: true });
+    }
+
+    const beforeConfirm = evaluateReadiness({
+      state,
+      playbackMode: 'manual',
+      spotifyConnected: false,
+      hasActiveDevice: false,
+      eventTitle: 'Party',
+      allowWarningOverride: true,
+      overrideReason: 'ok',
+    });
+
+    expect(beforeConfirm.blockingFailures).not.toContain('ready_confirm');
+    expect(beforeConfirm.canMarkReady).toBe(true);
+    expect(beforeConfirm.readyConfirmPending).toBe(true);
+
+    state = mergeCheckUpdate(state, { id: 'ready_confirm', completed: true });
+    state = { ...state, markedReadyAt: new Date().toISOString() };
+
+    const afterConfirm = evaluateReadiness({
+      state,
+      playbackMode: 'manual',
+      spotifyConnected: false,
+      hasActiveDevice: false,
+      eventTitle: 'Party',
+    });
+    expect(afterConfirm.readyConfirmPending).toBe(false);
+    expect(afterConfirm.canMarkReady).toBe(true);
   });
 
   it('requires override reason for warning-only failures', () => {
