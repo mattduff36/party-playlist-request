@@ -6,6 +6,10 @@
 
 import { randomUUID } from 'crypto';
 import { startupLog } from '@/lib/logging/startup';
+import {
+  formatGuestTrackAlbum,
+  formatGuestTrackArtists,
+} from '@/lib/spotify-search-track';
 
 interface SimulationConfig {
   environment: 'local' | 'production'; // Local or production environment
@@ -407,8 +411,8 @@ class PartySimulator {
       const requestBody: Record<string, unknown> = {
         track_uri: track.uri,
         trackName: track.name,
-        artistName: track.artists.map((a: { name: string }) => a.name).join(', '),
-        albumName: track.album?.name || '',
+        artistName: formatGuestTrackArtists(track.artists),
+        albumName: formatGuestTrackAlbum(track.album),
         requester_nickname: requesterName,
         user_session_id: sessionId,
         username: username // Required for multi-tenant support
@@ -440,7 +444,7 @@ class PartySimulator {
         timestamp: new Date().toISOString(),
         requester: requesterName,
         song: track.name,
-        artist: track.artists.map((a: { name: string }) => a.name).join(', '),
+        artist: formatGuestTrackArtists(track.artists),
         status: 'success'
       });
       

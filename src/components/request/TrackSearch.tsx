@@ -1,6 +1,10 @@
 'use client';
 
 import { PartyPopper, Search } from 'lucide-react';
+import {
+  formatGuestTrackAlbum,
+  formatGuestTrackArtists,
+} from '@/lib/spotify-search-track';
 import type { SearchFeedback, Track } from './types';
 
 interface TrackSearchProps {
@@ -100,7 +104,11 @@ export default function TrackSearch({
       {/* Search Results */}
       {results.length > 0 && canSearch && (
         <div className="space-y-2 flex-1 overflow-y-auto mt-3" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-          {results.map((track) => (
+          {results.map((track) => {
+            const albumLabel = formatGuestTrackAlbum(track.album);
+            const artistLabel = formatGuestTrackArtists(track.artists);
+
+            return (
             <button
               key={track.id}
               onClick={(e) => {
@@ -114,7 +122,7 @@ export default function TrackSearch({
                 {track.image && (
                   <img
                     src={track.image}
-                    alt={track.album}
+                    alt={albumLabel || track.name}
                     className="w-12 h-12 rounded object-cover flex-shrink-0"
                   />
                 )}
@@ -128,7 +136,8 @@ export default function TrackSearch({
                     )}
                   </h3>
                   <p className="text-[color:var(--mood-muted)] text-xs truncate">
-                    {track.artists.join(', ')} • {track.album}
+                    {artistLabel}
+                    {albumLabel ? ` • ${albumLabel}` : ''}
                   </p>
                   <p className="text-[color:var(--mood-muted)] text-xs">
                     {formatDuration(track.duration_ms)}
@@ -136,7 +145,8 @@ export default function TrackSearch({
                 </div>
               </div>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

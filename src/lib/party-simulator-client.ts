@@ -13,6 +13,10 @@ import {
   generateRequesterNames,
   parseSongQuery,
 } from '@/lib/party-simulator-shared';
+import {
+  formatGuestTrackAlbum,
+  formatGuestTrackArtists,
+} from '@/lib/spotify-search-track';
 
 export interface PartySimulatorClientListener {
   (stats: SimulationStats): void;
@@ -339,8 +343,8 @@ class ClientPartySimulator {
       const requestBody = {
         track_uri: track.uri,
         trackName: track.name,
-        artistName: track.artists.map((a: { name: string }) => a.name).join(', '),
-        albumName: track.album?.name || '',
+        artistName: formatGuestTrackArtists(track.artists),
+        albumName: formatGuestTrackAlbum(track.album),
         requester_nickname: requesterName,
         user_session_id: sessionId,
         username,
@@ -370,7 +374,7 @@ class ClientPartySimulator {
           timestamp: new Date().toISOString(),
           requester: requesterName,
           song: track.name,
-          artist: track.artists.map((a: { name: string }) => a.name).join(', '),
+          artist: formatGuestTrackArtists(track.artists),
           status: 'success',
         };
 

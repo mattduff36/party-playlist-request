@@ -8,6 +8,7 @@ import { reportActivity, reportApiError } from '@/lib/support/withApiLogging';
 import { getClientIp } from '@/lib/rate-limit';
 import { requireGuestAccess } from '@/lib/guest-access';
 import { getTrackAlbumImageUrl } from '@/lib/spotify-album-art';
+import { mapSpotifySearchTrack } from '@/lib/spotify-search-track';
 import {
   createIdempotentRequest,
   ensureGuestDeviceCookie,
@@ -20,6 +21,29 @@ import {
   getPlaybackMode,
   validateManualTrackInput,
 } from '@/lib/playback';
+
+function toGuestRequestTrackPayload(trackInfo: {
+  name?: string;
+  artists?: Array<{ name: string }> | string[];
+  album?: { name?: string } | string;
+  duration_ms?: number;
+}) {
+  const mapped = mapSpotifySearchTrack(trackInfo);
+  return {
+    name: mapped?.name || trackInfo.name || 'Unknown Track',
+    artists: mapped?.artists?.length
+      ? mapped.artists
+      : Array.isArray(trackInfo.artists)
+        ? trackInfo.artists
+            .map((artist) =>
+              typeof artist === 'string' ? artist : artist?.name || ''
+            )
+            .filter(Boolean)
+        : [],
+    album: mapped?.album || 'Unknown Album',
+    duration_ms: mapped?.duration_ms ?? trackInfo.duration_ms ?? 0,
+  };
+}
 
 export async function POST(req: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -457,12 +481,7 @@ export async function POST(req: NextRequest) {
           replayed: true,
           request: {
             id: newRequest.id,
-            track: {
-              name: trackInfo.name,
-              artists: trackInfo.artists,
-              album: trackInfo.album,
-              duration_ms: trackInfo.duration_ms,
-            },
+            track: toGuestRequestTrackPayload(trackInfo),
             status: 'pending',
           },
         },
@@ -684,12 +703,7 @@ export async function POST(req: NextRequest) {
       message: responseMessage,
       request: {
         id: newRequest.id,
-        track: {
-          name: trackInfo.name,
-          artists: trackInfo.artists,
-          album: trackInfo.album,
-          duration_ms: trackInfo.duration_ms
-        },
+        track: toGuestRequestTrackPayload(trackInfo),
         status: 'pending' // Always show as pending to users, regardless of auto-approval
       }
     }, { status: 201 });

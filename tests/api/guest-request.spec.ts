@@ -35,6 +35,11 @@ describe('Guest request and search APIs', () => {
     const data = await response.json();
     expect(Array.isArray(data.tracks)).toBe(true);
     expect(data.tracks.length).toBeGreaterThan(0);
+    const track = data.tracks[0];
+    expect(typeof track.album).toBe('string');
+    expect(Array.isArray(track.artists)).toBe(true);
+    expect(typeof track.artists[0]).toBe('string');
+    expect(typeof track.image === 'string' || track.image === undefined).toBe(true);
   });
 
   it('rejects request without track uri/url when authorized', async () => {

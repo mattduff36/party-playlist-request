@@ -17,6 +17,7 @@ import {
   ensureGuestDeviceCookie,
   resolveGuestDeviceId,
 } from '@/lib/reliability';
+import { mapSpotifySearchTracks } from '@/lib/spotify-search-track';
 
 export async function GET(req: NextRequest) {
   try {
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
     if (process.env.SPOTIFY_MOCK === 'true') {
       const { spotifyService } = await import('@/lib/spotify');
       const searchResult = await spotifyService.searchTracks(query.trim(), searchLimit, userId);
-      const tracks = searchResult?.tracks?.items || [];
+      const tracks = mapSpotifySearchTracks(searchResult?.tracks?.items || []);
       const payload = {
         tracks,
         query: query.trim(),
@@ -197,12 +198,12 @@ export async function GET(req: NextRequest) {
     }
 
     const searchResult = await searchResponse.json();
-    const tracks = searchResult?.tracks?.items || [];
+    const tracks = mapSpotifySearchTracks(searchResult?.tracks?.items || []);
 
     console.log(`✅ [search] Found ${tracks.length} tracks for ${username}`);
 
     const payload = {
-      tracks: tracks,
+      tracks,
       query: query.trim(),
       total: tracks.length
     };

@@ -18,6 +18,7 @@ import {
   ensureGuestDeviceCookie,
   resolveGuestDeviceId,
 } from '@/lib/reliability';
+import { mapSpotifySearchTracks } from '@/lib/spotify-search-track';
 
 export async function GET(req: NextRequest) {
   try {
@@ -97,12 +98,12 @@ export async function GET(req: NextRequest) {
       userId ?? undefined
     );
     
-    // Extract tracks from Spotify API response
-    const tracks = searchResult?.tracks?.items || [];
+    // Normalize Spotify objects → guest client shape (album/artists as strings)
+    const tracks = mapSpotifySearchTracks(searchResult?.tracks?.items || []);
     console.log(`🔍 [API /api/search] Found ${tracks.length} tracks`);
 
     const payload = {
-      tracks: tracks,
+      tracks,
       query: query.trim(),
       total: tracks.length
     };

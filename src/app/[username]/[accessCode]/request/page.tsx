@@ -31,6 +31,11 @@ import {
   type RequestNotification,
 } from '@/components/request';
 import { isValidAccessCodeFormat } from '@/lib/access-code';
+import {
+  formatGuestTrackAlbum,
+  formatGuestTrackArtists,
+  mapSpotifySearchTracks,
+} from '@/lib/spotify-search-track';
 
 const API_BASE = '/api';
 
@@ -366,7 +371,7 @@ export default function UserRequestPage() {
         withCredentials: true,
       });
       
-      setSearchResults(response.data.tracks);
+      setSearchResults(mapSpotifySearchTracks(response.data.tracks));
     } catch (error: unknown) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -477,8 +482,8 @@ export default function UserRequestPage() {
       } else if (track) {
         requestData.track_uri = track.uri;
         requestData.track_name = track.name;
-        requestData.artist_name = track.artists.join(', ');
-        requestData.album_name = track.album;
+        requestData.artist_name = formatGuestTrackArtists(track.artists);
+        requestData.album_name = formatGuestTrackAlbum(track.album) || undefined;
         requestData.duration_ms = track.duration_ms;
       } else if (url) {
         requestData.track_url = url;
