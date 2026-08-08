@@ -73,7 +73,7 @@
     "pusher-js": "^8.4.0",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react-dom": "19.2.8",
     "resend": "^6.1.2",
     "stripe": "^18.5.0",
     "uuid": "^13.0.0"
